@@ -17,11 +17,36 @@ class User extends Authenticatable
      *
      * @var list<string>
      */
-    protected $fillable = [
-        'name',
-        'email',
-        'password',
-    ];
+	protected $fillable = [
+		'name',
+		'email',
+		'password',
+		'phone',
+		'role',
+		'is_active',
+		'locale',
+		'timezone',
+	];
+	
+	public function isAdmin(): bool
+	{
+		return $this->role === 'admin';
+	}
+
+	public function isCourier(): bool
+	{
+		return $this->role === 'courier';
+	}
+
+	public function isClient(): bool
+	{
+		return $this->role === 'client';
+	}
+	
+	public function courier()
+	{
+		return $this->hasOne(Courier::class);
+	}
 
     /**
      * The attributes that should be hidden for serialization.
@@ -44,5 +69,5 @@ class User extends Authenticatable
             'email_verified_at' => 'datetime',
             'password' => 'hashed',
         ];
-    }
+    }	
 }
