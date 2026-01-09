@@ -7,9 +7,10 @@ use Filament\Http\Middleware\Authenticate;
 use Filament\Http\Middleware\AuthenticateSession;
 use Filament\Http\Middleware\DisableBladeIconComponents;
 use Filament\Http\Middleware\DispatchServingFilamentEvent;
-use Filament\Pages;
 use Filament\Panel;
 use Filament\PanelProvider;
+use Filament\Support\Assets\Css;
+use Filament\Support\Assets\Js;
 use Filament\Support\Colors\Color;
 use Filament\Widgets;
 use Illuminate\Cookie\Middleware\AddQueuedCookiesToResponse;
@@ -28,9 +29,24 @@ class AdminPanelProvider extends PanelProvider
             ->id('admin')
             ->path('admin')
             ->login()
+
             ->colors([
                 'primary' => Color::Amber,
             ])
+
+            // 🌍 Leaflet (используется в Dashboard → OrdersMap)
+            ->assets([
+                Css::make(
+                    'leaflet-css',
+                    'https://unpkg.com/leaflet@1.9.4/dist/leaflet.css'
+                ),
+                Js::make(
+                    'leaflet-js',
+                    'https://unpkg.com/leaflet@1.9.4/dist/leaflet.js'
+                ),
+            ])
+
+            // 📦 Filament Resources / Pages / Widgets
             ->discoverResources(
                 in: app_path('Filament/Resources'),
                 for: 'App\\Filament\\Resources'
@@ -40,7 +56,7 @@ class AdminPanelProvider extends PanelProvider
                 for: 'App\\Filament\\Pages'
             )
             ->pages([
-                Pages\Dashboard::class,
+                \App\Filament\Pages\Dashboard::class,
             ])
             ->discoverWidgets(
                 in: app_path('Filament/Widgets'),
@@ -50,6 +66,8 @@ class AdminPanelProvider extends PanelProvider
                 Widgets\AccountWidget::class,
                 Widgets\FilamentInfoWidget::class,
             ])
+
+            // 🔐 Middleware
             ->middleware([
                 EncryptCookies::class,
                 AddQueuedCookiesToResponse::class,
@@ -60,12 +78,12 @@ class AdminPanelProvider extends PanelProvider
                 SubstituteBindings::class,
                 DisableBladeIconComponents::class,
                 DispatchServingFilamentEvent::class,
-
-                // 🔐 доступ только для админов
-                AdminOnly::class,
             ])
+
+            // 🔐 Auth (ТОЛЬКО админы)
             ->authMiddleware([
                 Authenticate::class,
+                AdminOnly::class,
             ]);
     }
 }
