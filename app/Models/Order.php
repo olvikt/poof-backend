@@ -45,12 +45,12 @@ class Order extends Model
      * Человекочитаемые названия (удобно для Filament).
      */
     public const STATUS_LABELS = [
-        self::STATUS_NEW         => 'New',
-        self::STATUS_ACCEPTED    => 'Accepted',
-        self::STATUS_IN_PROGRESS => 'In progress',
-        self::STATUS_DONE        => 'Done',
-        self::STATUS_CANCELLED   => 'Cancelled',
-        self::STATUS_EXPIRED     => 'Expired',
+        self::STATUS_NEW         => 'Нове',
+        self::STATUS_ACCEPTED    => 'Прийняте',
+        self::STATUS_IN_PROGRESS => 'У процесі',
+        self::STATUS_DONE        => 'Виконано',
+        self::STATUS_CANCELLED   => 'Скасовано',
+        self::STATUS_EXPIRED     => 'Термін дії минув',
     ];
 
     /* =========================================================

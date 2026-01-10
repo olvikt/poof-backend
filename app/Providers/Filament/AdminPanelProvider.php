@@ -28,25 +28,37 @@ class AdminPanelProvider extends PanelProvider
             ->default()
             ->id('admin')
             ->path('admin')
+
+            // 🔐 Логин
             ->login()
 
+            // 🎨 Цвета панели
             ->colors([
                 'primary' => Color::Amber,
             ])
 
-            // 🌍 Leaflet (используется в Dashboard → OrdersMap)
-            ->assets([
-                Css::make(
-                    'leaflet-css',
-                    'https://unpkg.com/leaflet@1.9.4/dist/leaflet.css'
-                ),
-                Js::make(
-                    'leaflet-js',
-                    'https://unpkg.com/leaflet@1.9.4/dist/leaflet.js'
-                ),
-            ])
+            /**
+             * 🌍 ВНЕШНИЕ ASSETS (ТОЛЬКО Leaflet)
+             * НИКАКОГО VITE ЗДЕСЬ
+             */
+			->assets([
+				Css::make(
+					'leaflet-css',
+					'https://unpkg.com/leaflet@1.9.4/dist/leaflet.css'
+				),
+				Js::make(
+					'leaflet-js',
+					'https://unpkg.com/leaflet@1.9.4/dist/leaflet.js'
+				),
+				Js::make(
+					'orders-map',
+					asset('js/filament/orders-map.js')
+				),
+			])
 
-            // 📦 Filament Resources / Pages / Widgets
+            /**
+             * 📦 Filament: Pages / Resources / Widgets
+             */
             ->discoverResources(
                 in: app_path('Filament/Resources'),
                 for: 'App\\Filament\\Resources'
@@ -67,7 +79,9 @@ class AdminPanelProvider extends PanelProvider
                 Widgets\FilamentInfoWidget::class,
             ])
 
-            // 🔐 Middleware
+            /**
+             * 🧱 Middleware панели
+             */
             ->middleware([
                 EncryptCookies::class,
                 AddQueuedCookiesToResponse::class,
@@ -80,11 +94,12 @@ class AdminPanelProvider extends PanelProvider
                 DispatchServingFilamentEvent::class,
             ])
 
-            // 🔐 Auth (ТОЛЬКО админы)
+            /**
+             * 🔐 Доступ только для админов
+             */
             ->authMiddleware([
                 Authenticate::class,
                 AdminOnly::class,
             ]);
     }
 }
-

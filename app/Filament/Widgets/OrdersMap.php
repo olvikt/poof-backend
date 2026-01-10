@@ -12,7 +12,7 @@ class OrdersMap extends Widget
     protected static ?int $sort = 1;
 
     /**
-     * ✅ Filament v3: columnSpan ТОЛЬКО через public method
+     * Filament v3: columnSpan только через public method
      */
     public function getColumnSpan(): string|int|array
     {

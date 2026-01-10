@@ -23,9 +23,22 @@ class OrderResource extends Resource
 {
     protected static ?string $model = Order::class;
 
-    protected static ?string $navigationIcon = 'heroicon-o-shopping-bag';
+    protected static ?string $navigationIcon  = 'heroicon-o-shopping-bag';
     protected static ?string $navigationLabel = 'Orders';
-    protected static ?string $pluralLabel = 'Orders';
+    protected static ?string $pluralLabel     = 'Orders';
+
+    /* =========================================================
+     |  CREATE PERMISSIONS
+     | ========================================================= */
+
+    /**
+     * ❌ Админ НЕ создаёт заказы
+     * ✅ Только клиент
+     */
+    public static function canCreate(): bool
+    {
+        return auth()->user()?->role === 'client';
+    }
 
     /* =========================================================
      |  FORM
@@ -34,36 +47,64 @@ class OrderResource extends Resource
     public static function form(Form $form): Form
     {
         return $form->schema([
+
+            /* ---------------- ADDRESS ---------------- */
+
             TextInput::make('address')
                 ->label('Address')
                 ->required()
-                ->columnSpanFull(),
+                ->columnSpanFull()
+                ->disabled(fn ($record) =>
+                    $record && auth()->user()->role !== 'client'
+                ),
+
+            /* ---------------- COMMENT ---------------- */
 
             Textarea::make('comment')
                 ->label('Comment')
-                ->columnSpanFull(),
+                ->columnSpanFull()
+                ->disabled(fn ($record) =>
+                    $record && auth()->user()->role !== 'client'
+                ),
+
+            /* ---------------- STATUS ---------------- */
 
             Select::make('status')
                 ->label('Status')
                 ->options(Order::STATUS_LABELS)
-                ->required(),
+                ->required()
+                ->disabled(fn () =>
+                    auth()->user()->role === 'client'
+                ),
+
+            /* ---------------- COURIER ---------------- */
 
             Select::make('courier_id')
                 ->label('Courier')
                 ->relationship('courier', 'name')
                 ->searchable()
                 ->nullable()
-                ->disabled(fn ($record) =>
-                    $record && $record->status !== Order::STATUS_NEW
+                ->visible(fn () =>
+                    auth()->user()->role === 'admin'
                 ),
 
+            /* ---------------- PRICE ---------------- */
+
             TextInput::make('price')
-                ->numeric()
                 ->label('Price')
-                ->required(),
+                ->numeric()
+                ->required()
+                ->disabled(fn ($record) =>
+                    $record && auth()->user()->role !== 'client'
+                ),
+
+            /* ---------------- SCHEDULE ---------------- */
 
             DateTimePicker::make('scheduled_at')
-                ->label('Scheduled at'),
+                ->label('Scheduled at')
+                ->disabled(fn ($record) =>
+                    $record && auth()->user()->role !== 'client'
+                ),
         ]);
     }
 
@@ -75,6 +116,7 @@ class OrderResource extends Resource
     {
         return $table
             ->columns([
+
                 TextColumn::make('id')
                     ->label('ID')
                     ->sortable(),
@@ -99,7 +141,8 @@ class OrderResource extends Resource
                         'danger'  => Order::STATUS_CANCELLED,
                     ])
                     ->formatStateUsing(
-                        fn (string $state) => Order::STATUS_LABELS[$state] ?? $state
+                        fn (string $state) =>
+                            Order::STATUS_LABELS[$state] ?? $state
                     )
                     ->sortable(),
 
@@ -119,54 +162,71 @@ class OrderResource extends Resource
                     ->options(Order::STATUS_LABELS),
             ])
             ->actions([
-			Tables\Actions\EditAction::make(),
 
-			Tables\Actions\Action::make('start')
-				->label('Start')
-				->icon('heroicon-o-play')
-				->color('info')
-				->visible(fn (Order $record) => $record->canBeStarted())
-				->action(fn (Order $record) => $record->start())
-				->requiresConfirmation(),
+                /* ---------- EDIT ---------- */
 
-			Tables\Actions\Action::make('complete')
-				->label('Complete')
-				->icon('heroicon-o-check')
-				->color('success')
-				->visible(fn (Order $record) => $record->canBeCompleted())
-				->action(fn (Order $record) => $record->complete())
-				->requiresConfirmation(),
+                Tables\Actions\EditAction::make(),
 
-			Tables\Actions\Action::make('cancel')
-				->label('Cancel')
-				->icon('heroicon-o-x-mark')
-				->color('danger')
-				->visible(fn (Order $record) => $record->canBeCancelled())
-				->action(fn (Order $record) => $record->cancel())
-				->requiresConfirmation(),
-		])
+                /* ---------- START ---------- */
+
+                Tables\Actions\Action::make('start')
+                    ->label('Start')
+                    ->icon('heroicon-o-play')
+                    ->color('info')
+                    ->visible(fn (Order $record) =>
+                        $record->canBeStarted()
+                    )
+                    ->action(fn (Order $record) =>
+                        $record->start()
+                    )
+                    ->requiresConfirmation(),
+
+                /* ---------- COMPLETE ---------- */
+
+                Tables\Actions\Action::make('complete')
+                    ->label('Complete')
+                    ->icon('heroicon-o-check')
+                    ->color('success')
+                    ->visible(fn (Order $record) =>
+                        $record->canBeCompleted()
+                    )
+                    ->action(fn (Order $record) =>
+                        $record->complete()
+                    )
+                    ->requiresConfirmation(),
+
+                /* ---------- CANCEL ---------- */
+
+                Tables\Actions\Action::make('cancel')
+                    ->label('Cancel')
+                    ->icon('heroicon-o-x-mark')
+                    ->color('danger')
+                    ->visible(fn (Order $record) =>
+                        $record->canBeCancelled()
+                    )
+                    ->action(fn (Order $record) =>
+                        $record->cancel()
+                    )
+                    ->requiresConfirmation(),
+            ])
             ->defaultSort('created_at', 'desc');
     }
 
     /* =========================================================
-     |  VISIBILITY BY ROLE
+     |  DATA VISIBILITY BY ROLE
      | ========================================================= */
 
     public static function getEloquentQuery(): Builder
     {
         $user = auth()->user();
 
-        if ($user->role === 'admin') {
-            return parent::getEloquentQuery();
-        }
-
-        if ($user->role === 'courier') {
-            return parent::getEloquentQuery()
-                ->where('courier_id', $user->id);
-        }
-
-        return parent::getEloquentQuery()
-            ->where('client_id', $user->id);
+        return match ($user->role) {
+            'admin'   => parent::getEloquentQuery(),
+            'courier' => parent::getEloquentQuery()
+                ->where('courier_id', $user->id),
+            default   => parent::getEloquentQuery()
+                ->where('client_id', $user->id),
+        };
     }
 
     /* =========================================================
@@ -176,9 +236,8 @@ class OrderResource extends Resource
     public static function getPages(): array
     {
         return [
-            'index'  => Pages\ListOrders::route('/'),
-            'create' => Pages\CreateOrder::route('/create'),
-            'edit'   => Pages\EditOrder::route('/{record}/edit'),
+            'index' => Pages\ListOrders::route('/'),
+            'edit'  => Pages\EditOrder::route('/{record}/edit'),
         ];
     }
 }

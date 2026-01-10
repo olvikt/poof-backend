@@ -9,3 +9,18 @@
     --font-sans: 'Instrument Sans', ui-sans-serif, system-ui, sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji',
         'Segoe UI Symbol', 'Noto Color Emoji';
 }
+
+/* 🔥 Leaflet drag fix for Filament */
+/* 🔥 brute-force fix for Filament overlays */
+.filament-page,
+.filament-main-content,
+.filament-widgets,
+.filament-widgets > *,
+.filament-widgets > * > * {
+    pointer-events: auto !important;
+}
+
+.leaflet-container,
+.leaflet-container * {
+    pointer-events: auto !important;
+}
