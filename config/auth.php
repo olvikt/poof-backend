@@ -41,8 +41,13 @@ return [
         'provider' => 'users',
     ],
 
+    'admin' => [
+        'driver' => 'session',
+        'provider' => 'users',
+    ],
+
     'api' => [
-        'driver' => 'sanctum', // ← ВОТ ЭТО
+        'driver' => 'sanctum',
         'provider' => 'users',
     ],
 ],

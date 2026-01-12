@@ -82,24 +82,22 @@ class AdminPanelProvider extends PanelProvider
             /**
              * 🧱 Middleware панели
              */
-            ->middleware([
-                EncryptCookies::class,
-                AddQueuedCookiesToResponse::class,
-                StartSession::class,
-                AuthenticateSession::class,
-                ShareErrorsFromSession::class,
-                VerifyCsrfToken::class,
-                SubstituteBindings::class,
-                DisableBladeIconComponents::class,
-                DispatchServingFilamentEvent::class,
-            ])
+			->middleware([
+				EncryptCookies::class,
+				AddQueuedCookiesToResponse::class,
+				StartSession::class,
+				AuthenticateSession::class,
+				ShareErrorsFromSession::class,
+				VerifyCsrfToken::class,
+				SubstituteBindings::class,
+				DisableBladeIconComponents::class,
+				DispatchServingFilamentEvent::class,
 
-            /**
-             * 🔐 Доступ только для админов
-             */
-            ->authMiddleware([
-                Authenticate::class,
-                AdminOnly::class,
-            ]);
+				AdminOnly::class,
+			])
+
+			->authMiddleware([
+				Authenticate::class,
+			]);
     }
 }

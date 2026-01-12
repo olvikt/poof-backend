@@ -10,9 +10,17 @@ class AdminOnly
 {
     public function handle(Request $request, Closure $next): Response
     {
-        $user = auth()->user();
+        // 🔑 используем admin guard
+        $user = auth('admin')->user();
 
-        if (! $user || ! $user->isAdmin()) {
+        // ❗ ЕСЛИ НЕ ЗАЛОГИНЕН — НЕ МЕШАЕМ
+        // Filament сам отправит на /admin/login
+        if (! $user) {
+            return $next($request);
+        }
+
+        // ❌ залогинен, но не админ
+        if ($user->role !== 'admin') {
             abort(403);
         }
 

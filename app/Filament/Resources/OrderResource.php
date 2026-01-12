@@ -12,6 +12,9 @@ use Filament\Tables\Table;
 use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\Select;
+use Filament\Forms\Components\Toggle;
+use Filament\Forms\Components\DatePicker;
+use Filament\Forms\Components\TimePicker;
 use Filament\Forms\Components\DateTimePicker;
 
 use Filament\Tables\Columns\TextColumn;
@@ -45,68 +48,78 @@ class OrderResource extends Resource
      | ========================================================= */
 
     public static function form(Form $form): Form
-    {
-        return $form->schema([
+{
+    return $form->schema([
 
-            /* ---------------- ADDRESS ---------------- */
+        /* ================= ADDRESS ================= */
 
-            TextInput::make('address')
-                ->label('Address')
-                ->required()
-                ->columnSpanFull()
-                ->disabled(fn ($record) =>
-                    $record && auth()->user()->role !== 'client'
-                ),
+        TextInput::make('address_text')
+            ->label('Адреса')
+            ->required()
+            ->columnSpanFull(),
 
-            /* ---------------- COMMENT ---------------- */
+        /* ================= COMMENT ================= */
 
-            Textarea::make('comment')
-                ->label('Comment')
-                ->columnSpanFull()
-                ->disabled(fn ($record) =>
-                    $record && auth()->user()->role !== 'client'
-                ),
+        Textarea::make('comment')
+            ->label('Коментар')
+            ->columnSpanFull(),
 
-            /* ---------------- STATUS ---------------- */
+        /* ================= STATUS ================= */
 
-            Select::make('status')
-                ->label('Status')
-                ->options(Order::STATUS_LABELS)
-                ->required()
-                ->disabled(fn () =>
-                    auth()->user()->role === 'client'
-                ),
+        Select::make('status')
+            ->label('Статус')
+            ->options(Order::STATUS_LABELS)
+            ->required(),
 
-            /* ---------------- COURIER ---------------- */
+        /* ================= COURIER ================= */
 
-            Select::make('courier_id')
-                ->label('Courier')
-                ->relationship('courier', 'name')
-                ->searchable()
-                ->nullable()
-                ->visible(fn () =>
-                    auth()->user()->role === 'admin'
-                ),
+        Select::make('courier_id')
+            ->label('Курʼєр')
+            ->relationship('courier', 'name')
+            ->searchable()
+            ->nullable(),
 
-            /* ---------------- PRICE ---------------- */
+        /* ================= PRICE ================= */
 
-            TextInput::make('price')
-                ->label('Price')
-                ->numeric()
-                ->required()
-                ->disabled(fn ($record) =>
-                    $record && auth()->user()->role !== 'client'
-                ),
+        TextInput::make('price')
+            ->label('Ціна')
+            ->numeric()
+            ->required(),
 
-            /* ---------------- SCHEDULE ---------------- */
+        /* ================= SCHEDULE ================= */
 
-            DateTimePicker::make('scheduled_at')
-                ->label('Scheduled at')
-                ->disabled(fn ($record) =>
-                    $record && auth()->user()->role !== 'client'
-                ),
-        ]);
-    }
+        DatePicker::make('scheduled_date')
+            ->label('Дата виносу'),
+
+        TimePicker::make('scheduled_time_from')
+            ->label('Час з'),
+
+        TimePicker::make('scheduled_time_to')
+            ->label('Час до'),
+
+        /* ================= HANDOVER ================= */
+
+        Select::make('handover_type')
+            ->label('Спосіб передачі')
+            ->options([
+                'door' => 'Залишу за дверима',
+                'hand' => 'Передам у руки',
+            ])
+            ->required(),
+
+        /* ================= TRIAL ================= */
+
+        Toggle::make('is_trial')
+            ->label('Тестовий період')
+            ->disabled(),
+
+        TextInput::make('trial_days')
+            ->label('Кількість днів тесту')
+            ->numeric()
+            ->disabled(),
+
+    ]);
+}
 
     /* =========================================================
      |  TABLE
@@ -122,17 +135,17 @@ class OrderResource extends Resource
                     ->sortable(),
 
                 TextColumn::make('client.name')
-                    ->label('Client')
+                    ->label('Клієнт')
                     ->searchable()
                     ->sortable(),
 
                 TextColumn::make('courier.name')
-                    ->label('Courier')
+                    ->label('Курєр')
                     ->default('—')
                     ->sortable(),
 
                 BadgeColumn::make('status')
-                    ->label('Status')
+                    ->label('Статус')
                     ->colors([
                         'primary' => Order::STATUS_NEW,
                         'warning' => Order::STATUS_ACCEPTED,
@@ -147,18 +160,18 @@ class OrderResource extends Resource
                     ->sortable(),
 
                 TextColumn::make('price')
-                    ->label('Price')
+                    ->label('Ціна')
                     ->money('UAH')
                     ->sortable(),
 
                 TextColumn::make('created_at')
-                    ->label('Created')
+                    ->label('Додано')
                     ->dateTime('d.m.Y H:i')
                     ->sortable(),
             ])
             ->filters([
                 Tables\Filters\SelectFilter::make('status')
-                    ->label('Status')
+                    ->label('Статуc')
                     ->options(Order::STATUS_LABELS),
             ])
             ->actions([
@@ -170,7 +183,7 @@ class OrderResource extends Resource
                 /* ---------- START ---------- */
 
                 Tables\Actions\Action::make('start')
-                    ->label('Start')
+                    ->label('Распочати')
                     ->icon('heroicon-o-play')
                     ->color('info')
                     ->visible(fn (Order $record) =>
@@ -184,7 +197,7 @@ class OrderResource extends Resource
                 /* ---------- COMPLETE ---------- */
 
                 Tables\Actions\Action::make('complete')
-                    ->label('Complete')
+                    ->label('Завершено')
                     ->icon('heroicon-o-check')
                     ->color('success')
                     ->visible(fn (Order $record) =>
@@ -198,7 +211,7 @@ class OrderResource extends Resource
                 /* ---------- CANCEL ---------- */
 
                 Tables\Actions\Action::make('cancel')
-                    ->label('Cancel')
+                    ->label('Відміна')
                     ->icon('heroicon-o-x-mark')
                     ->color('danger')
                     ->visible(fn (Order $record) =>
