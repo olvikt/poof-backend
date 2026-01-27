@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Builder;
@@ -23,33 +25,32 @@ class Order extends Model
     /* =========================================================
      |  ORDER STATUSES
      | ========================================================= */
-    public const STATUS_NEW         = 'new';        // створено, без оплати
-    public const STATUS_SEARCHING  = 'searching';  // оплачен, шукаємо курʼєра
-    public const STATUS_ACCEPTED   = 'accepted';   // курʼєр прийняв
-    public const STATUS_IN_PROGRESS = 'in_progress';
-    public const STATUS_DONE        = 'done';
-    public const STATUS_CANCELLED  = 'cancelled';
+    public const STATUS_NEW          = 'new';        // створено, без оплати
+    public const STATUS_SEARCHING    = 'searching';  // оплачен, шукаємо курʼєра
+    public const STATUS_ACCEPTED     = 'accepted';   // курʼєр прийняв
+    public const STATUS_IN_PROGRESS  = 'in_progress';
+    public const STATUS_DONE         = 'done';
+    public const STATUS_CANCELLED    = 'cancelled';
 
     public const STATUS_LABELS = [
-        self::STATUS_NEW         => 'Створено',
-        self::STATUS_SEARCHING  => 'Шукаємо курʼєра',
-        self::STATUS_ACCEPTED   => 'Курʼєр знайдений',
-        self::STATUS_IN_PROGRESS => 'Виконується',
-        self::STATUS_DONE        => 'Виконано',
-        self::STATUS_CANCELLED  => 'Скасовано',
+        self::STATUS_NEW          => 'Створено',
+        self::STATUS_SEARCHING    => 'Шукаємо курʼєра',
+        self::STATUS_ACCEPTED     => 'Курʼєр знайдений',
+        self::STATUS_IN_PROGRESS  => 'Виконується',
+        self::STATUS_DONE         => 'Виконано',
+        self::STATUS_CANCELLED    => 'Скасовано',
     ];
-	
-	/* =========================================================
- |  PAYMENT DOMAIN LOGIC
- | ========================================================= */
 
-	public function markAsPaid(): void
-	{
-		$this->update([
-			'payment_status' => self::PAY_PAID,
-			'status' => self::STATUS_SEARCHING,
-		]);
-	}
+    /* =========================================================
+     |  PAYMENT DOMAIN LOGIC
+     | ========================================================= */
+    public function markAsPaid(): void
+    {
+        $this->update([
+            'payment_status' => self::PAY_PAID,
+            'status'         => self::STATUS_SEARCHING,
+        ]);
+    }
 
     /* =========================================================
      |  ORDER TYPES / OPTIONS
@@ -118,34 +119,33 @@ class Order extends Model
         return $this->belongsTo(User::class, 'courier_id');
     }
 
-  /* =========================================================
- |  SCOPES
- | ========================================================= */
+    /* =========================================================
+     |  SCOPES
+     | ========================================================= */
+    public function scopeAvailableForCourier(Builder $query): Builder
+    {
+        return $query
+            ->where('status', self::STATUS_SEARCHING)
+            ->where('payment_status', self::PAY_PAID)
+            ->whereNull('courier_id');
+    }
 
-public function scopeAvailableForCourier(Builder $query): Builder
-{
-    return $query
-        ->where('status', self::STATUS_SEARCHING)
-        ->where('payment_status', self::PAY_PAID)
-        ->whereNull('courier_id');
-}
+    public function scopeActiveForCourier(Builder $query): Builder
+    {
+        return $query->whereIn('status', [
+            self::STATUS_ACCEPTED,
+            self::STATUS_IN_PROGRESS,
+        ]);
+    }
 
-public function scopeActiveForCourier(Builder $query): Builder
-{
-    return $query->whereIn('status', [
-        self::STATUS_ACCEPTED,
-        self::STATUS_IN_PROGRESS,
-    ]);
-}
-
-public function scopeActiveForClient(Builder $query): Builder
-{
-    return $query->whereIn('status', [
-        self::STATUS_SEARCHING,
-        self::STATUS_ACCEPTED,
-        self::STATUS_IN_PROGRESS,
-    ]);
-}
+    public function scopeActiveForClient(Builder $query): Builder
+    {
+        return $query->whereIn('status', [
+            self::STATUS_SEARCHING,
+            self::STATUS_ACCEPTED,
+            self::STATUS_IN_PROGRESS,
+        ]);
+    }
 
     /* =========================================================
      |  HELPERS
@@ -159,16 +159,16 @@ public function scopeActiveForClient(Builder $query): Builder
     {
         return (bool) $this->is_trial;
     }
-	
-	public function isActive(): bool
-	{
-		return in_array($this->status, [
-			self::STATUS_NEW,
-			self::STATUS_SEARCHING,
-			self::STATUS_ACCEPTED,
-			self::STATUS_IN_PROGRESS,
-		], true);
-	}
+
+    public function isActive(): bool
+    {
+        return in_array($this->status, [
+            self::STATUS_NEW,
+            self::STATUS_SEARCHING,
+            self::STATUS_ACCEPTED,
+            self::STATUS_IN_PROGRESS,
+        ], true);
+    }
 
     /* =========================================================
      |  TIME SLOTS & PRICING
@@ -249,30 +249,29 @@ public function scopeActiveForClient(Builder $query): Builder
             self::STATUS_SEARCHING,
         ], true) && $this->update(['status' => self::STATUS_CANCELLED]);
     }
-	
-	/* =========================================================
- |  ADMIN / COURIER STATE HELPERS
- | ========================================================= */
 
-	public function canBeStarted(): bool
-	{
-		// Курьер может начать, если заказ принят
-		return $this->status === self::STATUS_ACCEPTED;
-	}
+    /* =========================================================
+     |  ADMIN / COURIER STATE HELPERS
+     | ========================================================= */
+    public function canBeStarted(): bool
+    {
+        // Курьер может начать, если заказ принят
+        return $this->status === self::STATUS_ACCEPTED;
+    }
 
-	public function canBeCompleted(): bool
-	{
-		// Завершить можно только в процессе
-		return $this->status === self::STATUS_IN_PROGRESS;
-	}
+    public function canBeCompleted(): bool
+    {
+        // Завершить можно только в процессе
+        return $this->status === self::STATUS_IN_PROGRESS;
+    }
 
-	public function canBeCancelled(): bool
-	{
-		// Отменить можно до выполнения
-		return in_array($this->status, [
-			self::STATUS_NEW,
-			self::STATUS_SEARCHING,
-			self::STATUS_ACCEPTED,
-		], true);
-	}
+    public function canBeCancelled(): bool
+    {
+        // Отменить можно до выполнения
+        return in_array($this->status, [
+            self::STATUS_NEW,
+            self::STATUS_SEARCHING,
+            self::STATUS_ACCEPTED,
+        ], true);
+    }
 }

@@ -1,20 +1,23 @@
-<!DOCTYPE html>
-<html lang="uk">
-<head>
-    <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1">
+<x-layouts.app title="Poof — Клієнт">
 
-    <title>Poof — клієнт</title>
-<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
-<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-    @livewireStyles
-</head>
-<body class="bg-gray-100 min-h-screen">
+<div x-data="{ moreOpen: false }" class="min-h-dvh bg-gray-800 text-white">
 
-    <main>
+    {{-- Header --}}
+    @include('partials.header')
+
+    {{-- Page content --}}
+    <main class="max-w-md mx-auto py-4 pb-32">
         {{ $slot }}
     </main>
 
-    @livewireScripts
-</body>
-</html>
+    {{-- Bottom navigation --}}
+    <div class="max-w-md mx-auto">
+        @include('partials.bottom-nav')
+    </div>
+
+    {{-- ✅ Fullscreen menu — ВНУТРИ x-data --}}
+    @include('partials.more-sheet')
+
+</div>
+
+</x-layouts.app>

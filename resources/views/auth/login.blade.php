@@ -1,27 +1,60 @@
-<!DOCTYPE html>
-<html lang="uk">
-<head>
-    <meta charset="UTF-8">
-    <title>Вхід</title>
-</head>
-<body style="max-width:400px;margin:60px auto;font-family:sans-serif">
+<x-layouts.app title="Вхід — Poof">
 
-<h2>Вхід</h2>
+    <div class="min-h-screen bg-gradient-to-b from-neutral-900 to-black text-white flex items-center justify-center px-4">
 
-@if($errors->any())
-    <div style="color:red">
-        {{ $errors->first() }}
+        <div class="w-full max-w-sm">
+
+            {{-- LOGO --}}
+            <div class="flex flex-col items-center mb-8">
+                <div class="w-20 h-20 rounded-full bg-yellow-400 flex items-center justify-center text-black text-3xl font-black mb-4">
+                    PooF
+                </div>
+                <h1 class="text-2xl font-extrabold">Poof</h1>
+                <p class="text-white/60 text-sm">Увійдіть у свій акаунт</p>
+            </div>
+
+            {{-- ERRORS --}}
+            @if ($errors->any())
+                <div class="mb-4 rounded-xl bg-red-500/10 border border-red-500/30 text-red-400 text-sm px-4 py-3">
+                    {{ $errors->first() }}
+                </div>
+            @endif
+
+            {{-- FORM --}}
+            <form method="POST" action="{{ route('login') }}" class="space-y-4">
+                @csrf
+
+                <input
+                    type="email"
+                    name="email"
+                    placeholder="Email"
+                    required
+                    autofocus
+                    class="w-full rounded-xl bg-white/5 border border-white/10 px-4 py-3 text-white placeholder-white/40 focus:outline-none focus:ring-2 focus:ring-yellow-400"
+                >
+
+                <input
+                    type="password"
+                    name="password"
+                    placeholder="Пароль"
+                    required
+                    class="w-full rounded-xl bg-white/5 border border-white/10 px-4 py-3 text-white placeholder-white/40 focus:outline-none focus:ring-2 focus:ring-yellow-400"
+                >
+
+                <button
+                    type="submit"
+                    class="w-full mt-2 bg-yellow-400 text-black font-bold py-3 rounded-xl active:scale-95 transition"
+                >
+                    Увійти
+                </button>
+            </form>
+
+            {{-- FOOTER --}}
+            <div class="mt-6 text-center text-sm text-white/40">
+                Poof — і вже чисто ✨
+            </div>
+
+        </div>
     </div>
-@endif
 
-<form method="POST" action="{{ route('login.post') }}">
-    @csrf
-
-    <input type="email" name="email" placeholder="Email" required>
-    <input type="password" name="password" placeholder="Пароль" required>
-
-    <button type="submit">Увійти</button>
-</form>
-
-</body>
-</html>
+</x-layouts.app>

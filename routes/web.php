@@ -7,8 +7,10 @@ use Illuminate\Http\Request;
 use App\Models\Order;
 
 // Client Livewire
+use App\Livewire\Client\Home;
 use App\Livewire\Client\OrderCreate;
 use App\Livewire\Client\OrdersList;
+use App\Livewire\Client\Profile;
 
 // Courier Livewire
 use App\Livewire\Courier\AvailableOrders;
@@ -55,8 +57,8 @@ Route::post('/login', function (Request $request) {
     // 🔀 Redirect by role
     return match (true) {
         $user->isAdmin()   => redirect('/admin'),
-        $user->isCourier() => redirect('/courier/orders'),
-        default            => redirect('/client/orders'),
+        $user->isCourier() => redirect()->route('courier.orders'),
+        default            => redirect()->route('client.home'),
     };
 
 })->name('login.post');
@@ -75,6 +77,7 @@ Route::post('/logout', function () {
 |--------------------------------------------------------------------------
 | Client area
 |--------------------------------------------------------------------------
+| - home (dashboard)
 | - create order
 | - my orders
 | - payments (temp/dev)
@@ -86,6 +89,10 @@ Route::middleware('auth:web')
     ->name('client.')
     ->group(function () {
 
+        // 🏠 Home / Start page
+        Route::get('/', Home::class)
+    ->name('home');
+
         // ➕ Create order
         Route::get('/order/create', OrderCreate::class)
             ->name('order.create');
@@ -93,6 +100,11 @@ Route::middleware('auth:web')
         // 📋 My orders
         Route::get('/orders', OrdersList::class)
             ->name('orders');
+			
+		// 👤 Profile
+		Route::get('/profile', \App\Livewire\Client\Profile::class)
+			->name('profile');
+	
 
         /*
         |--------------------------------------------------------------------------
@@ -126,7 +138,7 @@ Route::middleware('auth:web')
                 return redirect()->route('client.orders');
             }
 
-            // доменная логика
+            // доменна логіка
             $order->markAsPaid();
 
             return redirect()
@@ -152,7 +164,7 @@ Route::middleware('auth:web')
     ->name('courier.')
     ->group(function () {
 
-        // 📦 Available orders (status=searching, courier_id=null)
+        // 📦 Available orders
         Route::get('/orders', AvailableOrders::class)
             ->name('orders');
 
@@ -194,6 +206,8 @@ Route::middleware('auth:web')
                 ->with('success', 'Замовлення розпочато.');
 
         })->name('orders.start');
+		
+		
 
         // ✅ Complete order
         Route::post('/orders/{order}/complete', function (Order $order) {

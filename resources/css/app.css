@@ -1,26 +1,83 @@
-@import 'tailwindcss';
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
 
-@source '../../vendor/laravel/framework/src/Illuminate/Pagination/resources/views/*.blade.php';
-@source '../../storage/framework/views/*.php';
-@source '../**/*.blade.php';
-@source '../**/*.js';
-
-@theme {
-    --font-sans: 'Instrument Sans', ui-sans-serif, system-ui, sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji',
-        'Segoe UI Symbol', 'Noto Color Emoji';
+.poof-input {
+    background-color: #0b0b0b;
+    border: 1px solid #2a2a2a;
+    color: #f5f5f5;
+    border-radius: 12px;
+    padding: 12px 14px;
 }
 
-/* 🔥 Leaflet drag fix for Filament */
-/* 🔥 brute-force fix for Filament overlays */
-.filament-page,
-.filament-main-content,
-.filament-widgets,
-.filament-widgets > *,
-.filament-widgets > * > * {
-    pointer-events: auto !important;
+.poof-input::placeholder {
+    color: #8a8a8a;
 }
 
-.leaflet-container,
-.leaflet-container * {
-    pointer-events: auto !important;
+.poof-input:focus {
+    outline: none;
+    border-color: #facc15; /* yellow-400 */
+}
+
+
+.poof-date {
+    background-color: #0b0b0b;
+    border: 1px solid #2a2a2a;
+    color: #f5f5f5;
+    border-radius: 12px;
+    padding: 14px 16px;
+}
+
+.poof-date::-webkit-calendar-picker-indicator {
+    filter: invert(88%) sepia(79%) saturate(749%) hue-rotate(356deg);
+    cursor: pointer;
+    transform: scale(1.6);
+    opacity: 1;
+}
+
+.poof-date:focus {
+    outline: none;
+    border-color: #facc15;
+}
+
+.grid-cols-4 { grid-template-columns: repeat(4,minmax(0,1fr)) }
+.pb-28 { padding-bottom: 7rem }
+.pb-32 { padding-bottom: 8rem }
+.z-50 { z-index: 50 }
+
+/* Bottom navigation separation */
+.bottom-nav {
+    border-top: 1.5px solid rgba(0, 0, 0, 0.7);
+    box-shadow: 0 -4px 14px rgba(0, 0, 0, 0.45);
+}
+
+.bottom-2 {
+    bottom: .85rem;
+}
+
+/* Leaflet must stay BELOW UI */
+.leaflet-pane,
+.leaflet-control {
+    z-index: 10 !important;
+}
+
+.leaflet-top,
+.leaflet-bottom {
+    z-index: 20 !important;
+}
+/* hide horizontal scrollbar */
+.no-scrollbar {
+    scrollbar-width: none;        /* Firefox */
+    -ms-overflow-style: none;     /* IE / Edge */
+}
+.no-scrollbar::-webkit-scrollbar {
+    display: none;                /* Chrome / Safari */
+}
+
+.cropper-container,
+.cropper-canvas,
+.cropper-wrap-box,
+.cropper-drag-box {
+    width: 100% !important;
+    height: 100% !important;
 }

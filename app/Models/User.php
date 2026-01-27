@@ -8,6 +8,7 @@ use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 use Laravel\Sanctum\HasApiTokens;
+use Illuminate\Support\Facades\Storage;
 
 class User extends Authenticatable
 {
@@ -40,6 +41,7 @@ class User extends Authenticatable
         'is_active',
         'locale',
         'timezone',
+        'avatar', // ✅ ВАЖНО: совпадает с колонкой в БД
     ];
 
     /* =========================================================
@@ -48,17 +50,13 @@ class User extends Authenticatable
 
     public function isActive(): bool
     {
-        // Если поле is_active в базе гарантировано boolean и not null — достаточно:
         return (bool) $this->is_active;
-
-        // Если вдруг is_active может быть null и ты хочешь трактовать null как active,
-        // замени строку выше на:
-        // return (bool) ($this->is_active ?? true);
     }
 
     public function hasRole(string $role): bool
     {
-        return $this->role === $role;
+        return in_array($role, self::ROLES, true)
+            && $this->role === $role;
     }
 
     public function isAdmin(): bool
@@ -80,35 +78,65 @@ class User extends Authenticatable
      |  RELATIONS
      | ========================================================= */
 
+    /**
+     * Профиль курьера (если пользователь — courier)
+     */
     public function courierProfile(): HasOne
     {
         return $this->hasOne(Courier::class, 'user_id');
     }
 
-    public function clientProfile(): HasOne
+    /**
+     * Основной адрес пользователя (MVP / Bolt-style)
+     */
+    public function address(): HasOne
     {
-        return $this->hasOne(ClientProfile::class, 'user_id');
+        return $this->hasOne(ClientAddress::class, 'user_id')
+            ->where('is_default', true);
     }
-
+	
+	
+	/**
+     * Все адреса пользователя
+     */
     public function addresses(): HasMany
     {
         return $this->hasMany(ClientAddress::class, 'user_id');
     }
 
-    public function defaultAddress(): HasOne
-    {
-        return $this->hasOne(ClientAddress::class, 'user_id')
-            ->where('is_default', true);
-    }
-
+    /**
+     * Заказы клиента
+     */
     public function orders(): HasMany
     {
         return $this->hasMany(Order::class, 'client_id');
     }
 
+    /**
+     * Заказы, взятые курьером
+     */
     public function takenOrders(): HasMany
     {
         return $this->hasMany(Order::class, 'courier_id');
+    }
+
+    /* =========================================================
+     |  ACCESSORS
+     | ========================================================= */
+
+    /**
+     * URL аватара пользователя (с fallback)
+     */
+    public function getAvatarUrlAttribute(): string
+    {
+        if (
+            $this->avatar &&
+            Storage::disk('public')->exists($this->avatar)
+        ) {
+            return Storage::url($this->avatar);
+        }
+
+        return asset('img/avatars/default.png');
     }
 
     /* =========================================================
@@ -129,4 +157,5 @@ class User extends Authenticatable
         ];
     }
 }
+
 
