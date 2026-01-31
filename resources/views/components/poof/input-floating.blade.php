@@ -2,29 +2,32 @@
     'label',
     'model',
     'center' => false,
+    'live' => false,
 ])
 
-<div
-    x-data="{ filled: false }"
-    x-init="filled = $refs.input.value !== ''"
-    class="relative min-w-0"
->
+@php
+    $wireModelAttr = $live ? 'wire:model.live' : 'wire:model.defer';
+@endphp
+
+<div class="relative min-w-0">
+
     <input
-        x-ref="input"
-        wire:model.defer="{{ $model }}"
-        @input="filled = $event.target.value !== ''"
+        {{ $wireModelAttr }}="{{ $model }}"
+        placeholder=" "
         class="
+            peer
             poof-input
             w-full
-            {{ $center ? 'text-center' : '' }}
             text-sm
             pt-5
-            transition-all duration-200
             border
-        "
-        :class="filled
-            ? 'border-yellow-400 ring-1 ring-yellow-400/40'
-            : 'border-gray-700'
+            transition-all duration-200
+
+            {{ $center ? 'text-center' : '' }}
+
+            border-gray-700
+            focus:border-yellow-400
+            focus:ring-1 focus:ring-yellow-400/40
         "
     >
 
@@ -32,14 +35,26 @@
         class="
             pointer-events-none
             absolute left-3 px-1
+            bg-gray-950
+
             text-xs font-medium
             transition-all duration-200
-        "
-        :class="filled
-            ? '-top-2 text-[10px] text-yellow-400 bg-gray-950'
-            : 'top-1/2 -translate-y-1/2 text-gray-500 bg-transparent'
+
+            /* 🔑 ОСНОВА FLOATING */
+            top-1/2 -translate-y-1/2 text-gray-500
+
+            peer-focus:-top-2
+            peer-focus:translate-y-0
+            peer-focus:text-[10px]
+            peer-focus:text-yellow-400
+
+            peer-[&:not(:placeholder-shown)]:-top-2
+            peer-[&:not(:placeholder-shown)]:translate-y-0
+            peer-[&:not(:placeholder-shown)]:text-[10px]
+            peer-[&:not(:placeholder-shown)]:text-yellow-400
         "
     >
         {{ $label }}
     </label>
+
 </div>

@@ -25,22 +25,25 @@ class ProfileForm extends Component
         'email' => 'required|email',
     ];
 
-    public function save()
-    {
-        $this->validate();
+	public function save()
+	{
+		$this->validate();
 
-        auth()->user()->update([
-            'name'  => $this->name,
-            'phone' => $this->phone,
-            'email' => $this->email,
-        ]);
+		auth()->user()->update([
+			'name'  => $this->name,
+			'phone' => $this->phone,
+			'email' => $this->email,
+		]);
 
-        // закрываем sheet
-        $this->dispatch('sheet:close');
+		// 👇 ВАЖНО: обновляем модель пользователя в памяти
+		auth()->setUser(auth()->user()->fresh());
 
-        // (опционально) событие для UI
-        $this->dispatch('profile-saved');
-    }
+		// закрываем sheet
+		$this->dispatch('sheet:close');
+
+		// событие для обновления профиля
+		$this->dispatch('profile-saved');
+	}
 
     public function render()
     {

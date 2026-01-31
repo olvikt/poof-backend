@@ -1,60 +1,100 @@
-@props(['name', 'title' => ''])
+@props([
+    'name',
+    'title' => null,
+])
 
 <div
+    wire:ignore.self
     x-data="{
         open: false,
-        openFor(n) {
-            if (n === '{{ $name }}') {
-                this.open = true;
-                document.body.classList.add('overflow-hidden')
-            }
+        name: @js($name),
+
+        openSheet(e) {
+            if (!e?.detail || e.detail.name !== this.name) return
+            this.open = true
+
+            document.documentElement.classList.add(
+                'overflow-hidden',
+                'sheet-open'
+            )
         },
-        close() {
-            this.open = false;
-            document.body.classList.remove('overflow-hidden')
+
+        closeSheet(e) {
+            if (e?.detail?.name && e.detail.name !== this.name) return
+            this.open = false
+
+            document.documentElement.classList.remove(
+                'overflow-hidden',
+                'sheet-open'
+            )
         }
     }"
+    x-on:sheet:open.window="openSheet($event)"
+    x-on:sheet:close.window="closeSheet($event)"
+    x-on:keydown.escape.window="closeSheet()"
     x-cloak
-    x-show="open"
-    x-transition.opacity
-    @sheet:open.window="openFor($event.detail?.name)"
-    @sheet:close.window="close()"
-    @keydown.escape.window="close()"
-    class="fixed inset-0 z-[9999]" {{-- 🔥 КЛЮЧЕВО --}}
 >
-    {{-- Overlay --}}
+
+    {{-- Backdrop --}}
     <div
-        class="absolute inset-0 bg-black/70"
-        @click="close()"
+        x-show="open"
+        x-transition.opacity
+        class="fixed inset-0 bg-black/60 z-[60]"
+        x-on:click="closeSheet()"
     ></div>
 
     {{-- Sheet --}}
-    <div class="absolute inset-x-0 bottom-0">
-        <div class="mx-auto max-w-md rounded-t-3xl bg-gray-950 border border-gray-800">
-            {{-- Handle --}}
-            <div class="pt-3">
-                <div class="mx-auto w-12 h-1.5 bg-gray-700 rounded-full"></div>
-            </div>
+    <div
+        x-show="open"
+        x-transition
+        class="fixed inset-x-0 bottom-0 z-[61]"
+    >
+        <div class="mx-auto max-w-md">
+            <div
+                class="
+                    bg-neutral-900 border border-neutral-800
+                    rounded-t-3xl
+                    flex flex-col
+                    max-h-[calc(100vh-1rem)]
+                "
+            >
 
-            {{-- Header --}}
-            <div class="px-4 py-3 flex justify-between items-center">
-                <div class="text-white font-black">
-                    {{ $title }}
+                {{-- Header --}}
+                <div class="p-4 border-b border-neutral-800 shrink-0">
+                    <div class="flex items-center justify-between">
+                        <div class="font-bold text-white">
+                            {{ $title }}
+                        </div>
+
+                        <button
+                            type="button"
+                            class="text-gray-400 hover:text-white transition"
+                            x-on:click="closeSheet()"
+                        >
+                            ✕
+                        </button>
+                    </div>
                 </div>
 
-                <button
-                    type="button"
-                    class="text-white text-xl leading-none px-2 py-1"
-                    @click.stop="close()"
-                >
-                    ✕
-                </button>
-            </div>
+                {{-- Body (scrollable content) --}}
+                <div class="p-4 flex-1 overflow-y-auto">
+                    {{ $slot }}
+                </div>
 
-            {{-- Content --}}
-            <div class="px-4 pb-6">
-                {{ $slot }}
+                {{-- Actions (fixed, always visible) --}}
+                @isset($actions)
+                    <div
+                        class="
+                            p-4 border-t border-neutral-800 shrink-0
+                            pb-[calc(4.5rem+env(safe-area-inset-bottom))]
+                        "
+                    >
+                        {{ $actions }}
+                    </div>
+                @endisset
+
             </div>
         </div>
     </div>
+
 </div>

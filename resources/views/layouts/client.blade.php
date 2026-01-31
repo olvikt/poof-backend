@@ -15,8 +15,11 @@
         @include('partials.bottom-nav')
     </div>
 
-    {{-- ✅ Fullscreen menu — ВНУТРИ x-data --}}
+    {{-- More sheet --}}
     @include('partials.more-sheet')
+
+    {{-- 🔑 Sheets slot (ВАЖНО) --}}
+    {{ $sheets ?? '' }}
 
 </div>
 

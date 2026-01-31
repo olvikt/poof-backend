@@ -1,9 +1,9 @@
 @props([
-    'hint' => 'Натисніть на карту або введіть адресу вручну',
+    'hint' => null,
 ])
 
 <div>
-    <div class="flex items-center justify-between mb-2">
+    <div class="flex items-center justify-between mb-4">
         <span class="font-semibold">
             {{ $slot }}
         </span>
@@ -18,14 +18,23 @@
     </div>
 
     <div class="relative">
+        {{-- MAP --}}
         <div
             id="map"
             wire:ignore
-            class="h-[400px] w-full rounded-xl border border-neutral-700 overflow-hidden bg-neutral-800 z-0"
+            class="h-[400px] w-full rounded-xl
+                   border border-neutral-700
+                   overflow-hidden bg-neutral-800 z-0"
         ></div>
 
-        <p class="text-xs text-gray-400 mt-1">
-            {{ $hint }}
-        </p>
+        {{-- STATUS / HINT --}}
+        <div class="mt-2 text-xs text-gray-400 flex items-start gap-2">
+            <span>ℹ️</span>
+
+            <span>
+                {{-- если передан кастомный hint — используем его --}}
+                {{ $hint ?? 'Оберіть точку на мапі — вона потрібна для курʼєра та розрахунку маршруту.' }}
+            </span>
+        </div>
     </div>
 </div>

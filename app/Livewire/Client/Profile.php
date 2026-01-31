@@ -7,24 +7,20 @@ use Illuminate\Support\Facades\Auth;
 
 class Profile extends Component
 {
-    /**
-     * Слушаем события обновления профиля,
-     * чтобы карточки обновлялись без перезагрузки
+	/**
+     * События от форм (без перезагрузки страницы)
      */
     protected $listeners = [
-        'avatar-updated' => '$refresh',
         'avatar-saved'   => '$refresh',
-        'profile-updated'=> '$refresh',
-        'address-updated'=> '$refresh',
+        'profile-saved'  => '$refresh',
+        'address-saved'  => '$refresh',
     ];
 
-    public function render()
-    {
-        return view('livewire.client.profile', [
-            'user' => Auth::user(),
-        ])
-        // ✅ КЛЮЧЕВО: подключаем клиентский layout
-        // (header, bottom-nav, more-sheet, mobile-структура)
-        ->layout('layouts.client');
-    }
+	public function render()
+	{
+		return view('livewire.client.profile', [
+			'user' => auth()->user()->fresh(), // 🔥 ВАЖНО
+		])
+		->layout('layouts.client');
+	}
 }

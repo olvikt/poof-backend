@@ -5,13 +5,34 @@
         <div class="w-full max-w-sm">
 
             {{-- LOGO --}}
-            <div class="flex flex-col items-center mb-8">
-                <div class="w-20 h-20 rounded-full bg-yellow-400 flex items-center justify-center text-black text-3xl font-black mb-4">
-                    PooF
-                </div>
-                <h1 class="text-2xl font-extrabold">Poof</h1>
-                <p class="text-white/60 text-sm">Увійдіть у свій акаунт</p>
-            </div>
+           <div class="flex flex-col items-center mb-8">
+				<div
+					class="
+						w-20 h-20 mb-4
+						rounded-[22px]
+						bg-yellow-400
+						flex items-center justify-center
+						overflow-hidden
+						shadow-[0_0_30px_rgba(250,204,21,0.45)]
+						animate-[logo-pop_.6s_ease-out]
+					"
+				>
+					<img
+						src="/images/logo-poof.png"
+						alt="Poof logo"
+						class="w-12 h-12 object-contain"
+					>
+				</div>
+
+				<h1 class="text-2xl font-extrabold tracking-tight">
+					Poof
+				</h1>
+
+				<p class="text-white/60 text-sm mt-1">
+					Увійдіть у свій акаунт
+				</p>
+			</div>
+
 
             {{-- ERRORS --}}
             @if ($errors->any())

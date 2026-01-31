@@ -12,18 +12,58 @@
 			Місце забору
 		</x-poof.map>
 
-    {{-- ================= ADDRESS ================= --}}
-    <div class="mb-4">
-       <x-poof.section title="Адреса">
-			<x-poof.input-floating
-				label="Вулиця, будинок"
-				model="address_text"
-			/>
-			@error('address_text')
-				<div class="text-red-400 text-xs mt-1">{{ $message }}</div>
-			@enderror
-		</x-poof.section>
+		{{-- ================= ADDRESS ================= --}}
+<div class="mt-4 mb-4">
+    <x-poof.section title="Адреса">
+
+        <div class="flex items-center justify-between mb-2">
+            <span class="text-xs text-gray-400">
+                Вкажіть адресу забору
+            </span>
+
+            <button
+                type="button"
+                wire:click="$dispatch('sheet:open', { name: 'addressPicker' })"
+                class="text-xs text-yellow-400 font-semibold hover:opacity-80 transition"
+            >
+                Обрати збережену
+            </button>
+        </div>
+
+{{-- Street + House --}}
+<div class="flex gap-2">
+    {{-- Вулиця --}}
+    <div class="flex-1 min-w-0">
+        <x-poof.input-floating
+            label="Вулиця"
+            model="street"
+            live
+        />
     </div>
+
+    {{-- Будинок --}}
+    <div class="w-24 shrink-0">
+        <x-poof.input-floating
+            label="Дім"
+            model="house"
+            center
+            live
+        />
+    </div>
+</div>
+
+
+        @error('address_text')
+            <div class="text-red-400 text-xs mt-1">{{ $message }}</div>
+        @enderror
+
+        <p class="text-xs text-gray-500 mt-2">
+            Оберіть збережену адресу або натисніть на мапу, щоб поставити точку.
+        </p>
+
+    </x-poof.section>
+</div>
+
 
 
 	{{-- DETAILS --}}
@@ -164,18 +204,18 @@
         >
             <template x-for="(slot, idx) in slots" :key="idx">
                 <x-poof.time-slot
-    @click="select(idx)"
-    x-bind:disabled="!isAvailable(slot)"
-    x-bind:class="{
-        'bg-yellow-400 text-black shadow-lg scale-105': idx === i,
-        'bg-neutral-800 text-white border border-gray-700': idx !== i && isAvailable(slot),
-        'bg-neutral-800 text-gray-500 border border-gray-700 opacity-50': !isAvailable(slot)
-    }"
->
-    <div class="text-base font-bold">
-        <span x-text="slot.from"></span>–<span x-text="slot.to"></span>
-    </div>
-</x-poof.time-slot>
+					@click="select(idx)"
+					x-bind:disabled="!isAvailable(slot)"
+					x-bind:class="{
+						'bg-yellow-400 text-black shadow-lg scale-105': idx === i,
+						'bg-neutral-800 text-white border border-gray-700': idx !== i && isAvailable(slot),
+						'bg-neutral-800 text-gray-500 border border-gray-700 opacity-50': !isAvailable(slot)
+					}"
+				>
+					<div class="text-base font-bold">
+						<span x-text="slot.from"></span>–<span x-text="slot.to"></span>
+					</div>
+				</x-poof.time-slot>
             </template>
         </div>
     </div>
@@ -372,6 +412,56 @@
 		</x-poof.modal>
 
 </div>
+{{-- ================= ADDRESS PICKER SHEET ================= --}}
+<x-poof.ui.bottom-sheet name="addressPicker" title="Мої адреси">
+
+    <div class="space-y-3">
+        @forelse($addresses as $address)
+          <button
+			type="button"
+			wire:click="selectAddress({{ $address->id }})"
+			class="
+				w-full text-left p-4 rounded-xl
+				bg-neutral-800 hover:bg-neutral-700 transition
+				border
+				{{ $address->is_default ? 'border-yellow-400' : 'border-neutral-700' }}
+			"
+		>
+			<div class="flex items-center justify-between gap-2 mb-1">
+				<div class="flex items-center gap-2 min-w-0">
+					<span class="font-semibold text-white truncate">
+						{{ $address->label_title }}
+					</span>
+
+					@if($address->is_default)
+						<span class="text-xs text-yellow-400 shrink-0">• основна</span>
+					@endif
+				</div>
+
+				{{-- 📍 Статус точки --}}
+				@if($address->lat && $address->lng)
+					<span class="text-xs text-green-400 shrink-0">📍 ok</span>
+				@else
+					<span class="text-xs text-yellow-400 shrink-0">⚠ уточнити</span>
+				@endif
+			</div>
+
+			<p class="text-sm text-gray-300">
+				{{ $address->address_text ?? $address->full_address }}
+			</p>
+		</button>
+
+        @empty
+            <p class="text-sm text-gray-400 text-center">
+                Збережених адрес поки немає
+            </p>
+        @endforelse
+    </div>
+
+</x-poof.ui.bottom-sheet>
+
+
 @vite('resources/js/poof/order-create.js')
+
 </div>
 
