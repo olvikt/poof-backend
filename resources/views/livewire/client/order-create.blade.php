@@ -6,236 +6,230 @@
     <h1 class="text-xl font-extrabold mb-4">
         🧹 Оформити замовлення
     </h1>
-  <div class="mb-5">
-    {{-- ================= MAP ================= --}}  	
+    <div class="mb-5">
+       {{-- ================= MAP ================= --}}  	
 	    <x-poof.map>
 			Місце забору
 		</x-poof.map>
 
 		{{-- ================= ADDRESS ================= --}}
-<div class="mt-4 mb-4">
-    <x-poof.section title="Адреса">
+		<div class="mt-4 mb-4">
+			<x-poof.section title="Адреса">
+				<div class="flex items-center justify-between mb-2">
+					<span class="text-xs text-gray-400">
+						Вкажіть адресу забору
+					</span>
 
-        <div class="flex items-center justify-between mb-2">
-            <span class="text-xs text-gray-400">
-                Вкажіть адресу забору
-            </span>
+					<button
+						type="button"
+						wire:click="$dispatch('sheet:open', { name: 'addressPicker' })"
+						class="text-xs text-yellow-400 font-semibold hover:opacity-80 transition"
+					>
+						Обрати збережену
+					</button>
+				</div>
 
-            <button
-                type="button"
-                wire:click="$dispatch('sheet:open', { name: 'addressPicker' })"
-                class="text-xs text-yellow-400 font-semibold hover:opacity-80 transition"
-            >
-                Обрати збережену
-            </button>
-        </div>
+				{{-- Street + House --}}
+				<div class="flex gap-2">
+					{{-- Вулиця --}}
+					<div class="flex-1 min-w-0">
+						<x-poof.input-floating
+							label="Вулиця"
+							model="street"
+							live
+						/>
+					</div>
 
-{{-- Street + House --}}
-<div class="flex gap-2">
-    {{-- Вулиця --}}
-    <div class="flex-1 min-w-0">
-        <x-poof.input-floating
-            label="Вулиця"
-            model="street"
-            live
-        />
-    </div>
+					{{-- Будинок --}}
+					<div class="w-24 shrink-0">
+						<x-poof.input-floating
+							label="Дім"
+							model="house"
+							center
+							live
+						/>
+					</div>
+				</div>
 
-    {{-- Будинок --}}
-    <div class="w-24 shrink-0">
-        <x-poof.input-floating
-            label="Дім"
-            model="house"
-            center
-            live
-        />
-    </div>
-</div>
+				@error('address_text')
+					<div class="text-red-400 text-xs mt-1">{{ $message }}</div>
+				@enderror
 
+				<p class="text-xs text-gray-500 mt-2">
+					Оберіть збережену адресу або натисніть на мапу, щоб поставити точку.
+				</p>
+			</x-poof.section>
+		</div>
 
-        @error('address_text')
-            <div class="text-red-400 text-xs mt-1">{{ $message }}</div>
-        @enderror
+		{{-- DETAILS --}}
+		<div class="flex gap-2 mb-4">
+			<x-poof.input-floating label="Підʼїзд" model="entrance" center />
+			<x-poof.input-floating label="Поверх" model="floor" center />
+			<x-poof.input-floating label="Кв./офіс" model="apartment" center />
+			<x-poof.input-floating label="Домофон" model="intercom" center />
+		</div>
 
-        <p class="text-xs text-gray-500 mt-2">
-            Оберіть збережену адресу або натисніть на мапу, щоб поставити точку.
-        </p>
+		{{-- COMMENT --}}
+		<textarea
+			wire:model.defer="comment"
+			rows="3"
+			placeholder="Коментар (Домофон, охорона, примітки)"
+			class="w-full mb-4 poof-input resize-none"
+		></textarea>
 
-    </x-poof.section>
-</div>
+		{{-- ================= DATE ================= --}}
+		<div class="mb-6">
+			<label class="text-sm text-gray-400 mb-3 block">Дата</label>
 
+			<div
+				x-data="{
+					today: '{{ now()->toDateString() }}',
+					tomorrow: '{{ now()->addDay()->toDateString() }}',
+					selected: @js($scheduled_date),
 
+					setDate(date) {
+						this.selected = date
+						$wire.set('scheduled_date', date)
+					},
 
-	{{-- DETAILS --}}
-	<div class="flex gap-2 mb-4">
-		<x-poof.input-floating label="Підʼїзд" model="entrance" center />
-		<x-poof.input-floating label="Поверх" model="floor" center />
-		<x-poof.input-floating label="Кв./офіс" model="apartment" center />
-		<x-poof.input-floating label="Домофон" model="intercom" center />
-	</div>
+					isActive(date) {
+						return this.selected === date
+					},
 
-    {{-- COMMENT --}}
-	<textarea
-		wire:model.defer="comment"
-		rows="3"
-		placeholder="Коментар (Домофон, охорона, примітки)"
-		class="w-full mb-4 poof-input resize-none"
-	></textarea>
+					isCustom() {
+						return this.selected
+							&& this.selected !== this.today
+							&& this.selected !== this.tomorrow
+					},
 
-{{-- ================= DATE ================= --}}
-<div class="mb-6">
-    <label class="text-sm text-gray-400 mb-3 block">Дата</label>
+					openPicker() {
+						this.$refs.dateInput.showPicker?.()
+						this.$refs.dateInput.click()
+					},
 
-    <div
-        x-data="{
-            today: '{{ now()->toDateString() }}',
-            tomorrow: '{{ now()->addDay()->toDateString() }}',
-            selected: @js($scheduled_date),
+					onPicked(e) {
+						const val = e.target.value
+						if (!val) return
+						this.setDate(val)
+					}
+				}"
+				class="grid grid-cols-3 gap-3"
+			>
+				{{-- Сьогодні --}}
+				<button
+					type="button"
+					@click="setDate(today)"
+					:class="isActive(today)
+						? 'bg-gradient-to-b from-yellow-300 to-yellow-400 text-black shadow-lg'
+						: 'bg-neutral-800 text-gray-200 border border-gray-700 shadow-sm'"
+					class="py-2 rounded-2xl text-sm font-semibold transition-all duration-150 active:scale-95"
+				>
+					Сьогодні
+				</button>
 
-            setDate(date) {
-                this.selected = date
-                $wire.set('scheduled_date', date)
-            },
+				{{-- Завтра --}}
+				<button
+					type="button"
+					@click="setDate(tomorrow)"
+					:class="isActive(tomorrow)
+						? 'bg-gradient-to-b from-yellow-300 to-yellow-400 text-black shadow-lg'
+						: 'bg-neutral-800 text-gray-200 border border-gray-700 shadow-sm'"
+					class="py-2 rounded-2xl text-sm font-semibold transition-all duration-150 active:scale-95"
+				>
+					Завтра
+				</button>
 
-            isActive(date) {
-                return this.selected === date
-            },
+				{{-- Інша дата --}}
+				<button
+					type="button"
+					@click="openPicker()"
+					:class="isCustom()
+						? 'bg-gradient-to-b from-yellow-300 to-yellow-400 text-black shadow-lg'
+						: 'bg-neutral-800 text-gray-200 border border-gray-700 shadow-sm'"
+					class="py-2 rounded-2xl text-sm font-semibold transition-all duration-150 active:scale-95"
+				>
+					<template x-if="isCustom()">
+						<span x-text="selected.split('-').slice(1).reverse().join('.')"></span>
+					</template>
 
-            isCustom() {
-                return this.selected
-                    && this.selected !== this.today
-                    && this.selected !== this.tomorrow
-            },
+					<template x-if="!isCustom()">
+						<span>Інша дата</span>
+					</template>
+				</button>
 
-            openPicker() {
-                this.$refs.dateInput.showPicker?.()
-                this.$refs.dateInput.click()
-            },
-
-            onPicked(e) {
-                const val = e.target.value
-                if (!val) return
-                this.setDate(val)
-            }
-        }"
-        class="grid grid-cols-3 gap-3"
-    >
-        {{-- Сьогодні --}}
-        <button
-            type="button"
-            @click="setDate(today)"
-            :class="isActive(today)
-                ? 'bg-gradient-to-b from-yellow-300 to-yellow-400 text-black shadow-lg'
-                : 'bg-neutral-800 text-gray-200 border border-gray-700 shadow-sm'"
-            class="py-2 rounded-2xl text-sm font-semibold transition-all duration-150 active:scale-95"
-        >
-            Сьогодні
-        </button>
-
-        {{-- Завтра --}}
-        <button
-            type="button"
-            @click="setDate(tomorrow)"
-            :class="isActive(tomorrow)
-                ? 'bg-gradient-to-b from-yellow-300 to-yellow-400 text-black shadow-lg'
-                : 'bg-neutral-800 text-gray-200 border border-gray-700 shadow-sm'"
-            class="py-2 rounded-2xl text-sm font-semibold transition-all duration-150 active:scale-95"
-        >
-            Завтра
-        </button>
-
-        {{-- Інша дата --}}
-        <button
-            type="button"
-            @click="openPicker()"
-            :class="isCustom()
-                ? 'bg-gradient-to-b from-yellow-300 to-yellow-400 text-black shadow-lg'
-                : 'bg-neutral-800 text-gray-200 border border-gray-700 shadow-sm'"
-            class="py-2 rounded-2xl text-sm font-semibold transition-all duration-150 active:scale-95"
-        >
-            <template x-if="isCustom()">
-                <span x-text="selected.split('-').slice(1).reverse().join('.')"></span>
-            </template>
-
-            <template x-if="!isCustom()">
-                <span>Інша дата</span>
-            </template>
-        </button>
-
-        {{-- hidden native picker --}}
-        <input
-            x-ref="dateInput"
-            type="date"
-            class="hidden"
-            :min="today"
-            @change="onPicked($event)"
-        >
-    </div>
-</div>
-
+				{{-- hidden native picker --}}
+				<input
+					x-ref="dateInput"
+					type="date"
+					class="hidden"
+					:min="today"
+					@change="onPicked($event)"
+				>
+			</div>
+		</div>
 
 	
-{{-- Carousel --}}
-<div
-    class="mb-8"
-    x-ref="timeBlock"
-    x-data="poofTimeCarousel({
-        slots: {{ Js::from($timeSlots) }},
-        model: @entangle('timeSlot'),
-        scheduledDate: @entangle('scheduled_date'),
-        today: '{{ now()->toDateString() }}',
-        tomorrow: '{{ now()->addDay()->toDateString() }}'
-    })"
->
-    <label class="text-sm text-gray-400 mb-3 block">Час</label>
+		{{-- Carousel --}}
+		<div
+			class="mb-8"
+			x-ref="timeBlock"
+			x-data="poofTimeCarousel({
+				slots: {{ Js::from($timeSlots) }},
+				model: @entangle('timeSlot'),
+				scheduledDate: @entangle('scheduled_date'),
+				today: '{{ now()->toDateString() }}',
+				tomorrow: '{{ now()->addDay()->toDateString() }}'
+			})"
+		>
+			<label class="text-sm text-gray-400 mb-3 block">Час</label>
 
-    <div class="flex items-center justify-between mb-3">
-        <span class="text-sm text-gray-300">Обраний інтервал</span>
-        <span
-            class="text-sm font-bold text-yellow-400"
-            x-text="i !== null ? label() : '—'"
-        ></span>
-    </div>
+			<div class="flex items-center justify-between mb-3">
+				<span class="text-sm text-gray-300">Обраний інтервал</span>
+				<span
+					class="text-sm font-bold text-yellow-400"
+					x-text="i !== null ? label() : '—'"
+				></span>
+			</div>
 
-    <div class="relative">
-        <div
-            x-ref="track"
-            class="flex gap-3 overflow-x-auto no-scrollbar snap-x snap-mandatory pb-2"
-        >
-            <template x-for="(slot, idx) in slots" :key="idx">
-                <x-poof.time-slot
-					@click="select(idx)"
-					x-bind:disabled="!isAvailable(slot)"
-					x-bind:class="{
-						'bg-yellow-400 text-black shadow-lg scale-105': idx === i,
-						'bg-neutral-800 text-white border border-gray-700': idx !== i && isAvailable(slot),
-						'bg-neutral-800 text-gray-500 border border-gray-700 opacity-50': !isAvailable(slot)
-					}"
+			<div class="relative">
+				<div
+					x-ref="track"
+					class="flex gap-3 overflow-x-auto no-scrollbar snap-x snap-mandatory pb-2"
 				>
-					<div class="text-base font-bold">
-						<span x-text="slot.from"></span>–<span x-text="slot.to"></span>
-					</div>
-				</x-poof.time-slot>
-            </template>
-        </div>
-    </div>
+					<template x-for="(slot, idx) in slots" :key="idx">
+						<x-poof.time-slot
+							@click="select(idx)"
+							x-bind:disabled="!isAvailable(slot)"
+							x-bind:class="{
+								'bg-yellow-400 text-black shadow-lg scale-105': idx === i,
+								'bg-neutral-800 text-white border border-gray-700': idx !== i && isAvailable(slot),
+								'bg-neutral-800 text-gray-500 border border-gray-700 opacity-50': !isAvailable(slot)
+							}"
+						>
+							<div class="text-base font-bold">
+								<span x-text="slot.from"></span>–<span x-text="slot.to"></span>
+							</div>
+						</x-poof.time-slot>
+					</template>
+				</div>
+			</div>
 
-    {{-- No slots today --}}
-    <template x-if="noSlotsToday">
-        <div class="mt-4 text-center">
-            <p class="text-sm text-gray-400 mb-3">
-                На сьогодні вільних слотів немає
-            </p>
-            <button
-                type="button"
-                @click="pickTomorrow()"
-                class="px-4 py-2 rounded-xl bg-yellow-400 text-black font-semibold"
-            >
-                Запланувати на завтра
-            </button>
-        </div>
-    </template>
-</div>
+			{{-- No slots today --}}
+			<template x-if="noSlotsToday">
+				<div class="mt-4 text-center">
+					<p class="text-sm text-gray-400 mb-3">
+						На сьогодні вільних слотів немає
+					</p>
+					<button
+						type="button"
+						@click="pickTomorrow()"
+						class="px-4 py-2 rounded-xl bg-yellow-400 text-black font-semibold"
+					>
+						Запланувати на завтра
+					</button>
+				</div>
+			</template>
+		</div>
 
 
 	{{-- ================= DIVIDER ================= --}}
@@ -304,15 +298,12 @@
 
 	</div>
 
-
-	{{-- ================= TRIAL ================= --}}
-	
+	{{-- ================= TRIAL ================= --}}	
 		<x-poof.trial-block
 			:is-trial="$is_trial"
 			:trial-days="$trial_days"
 			:trial-used="$trial_used"
-		/>
-	
+		/>	
 
 	{{-- ================= DIVIDER ================= --}}
 	<div class="my-8">
@@ -412,56 +403,53 @@
 		</x-poof.modal>
 
 </div>
-{{-- ================= ADDRESS PICKER SHEET ================= --}}
-<x-poof.ui.bottom-sheet name="addressPicker" title="Мої адреси">
+		{{-- ================= ADDRESS PICKER SHEET ================= --}}
+		<x-poof.ui.bottom-sheet name="addressPicker" title="Мої адреси">
+			<div class="space-y-3">
+				@forelse($addresses as $address)
+				  <button
+					type="button"
+					wire:click="selectAddress({{ $address->id }})"
+					class="
+						w-full text-left p-4 rounded-xl
+						bg-neutral-800 hover:bg-neutral-700 transition
+						border
+						{{ $address->is_default ? 'border-yellow-400' : 'border-neutral-700' }}
+					"
+				>
+					<div class="flex items-center justify-between gap-2 mb-1">
+						<div class="flex items-center gap-2 min-w-0">
+							<span class="font-semibold text-white truncate">
+								{{ $address->label_title }}
+							</span>
 
-    <div class="space-y-3">
-        @forelse($addresses as $address)
-          <button
-			type="button"
-			wire:click="selectAddress({{ $address->id }})"
-			class="
-				w-full text-left p-4 rounded-xl
-				bg-neutral-800 hover:bg-neutral-700 transition
-				border
-				{{ $address->is_default ? 'border-yellow-400' : 'border-neutral-700' }}
-			"
-		>
-			<div class="flex items-center justify-between gap-2 mb-1">
-				<div class="flex items-center gap-2 min-w-0">
-					<span class="font-semibold text-white truncate">
-						{{ $address->label_title }}
-					</span>
+							@if($address->is_default)
+								<span class="text-xs text-yellow-400 shrink-0">• основна</span>
+							@endif
+						</div>
 
-					@if($address->is_default)
-						<span class="text-xs text-yellow-400 shrink-0">• основна</span>
-					@endif
-				</div>
+						{{-- 📍 Статус точки --}}
+						@if($address->lat && $address->lng)
+							<span class="text-xs text-green-400 shrink-0">📍 ok</span>
+						@else
+							<span class="text-xs text-yellow-400 shrink-0">⚠ уточнити</span>
+						@endif
+					</div>
 
-				{{-- 📍 Статус точки --}}
-				@if($address->lat && $address->lng)
-					<span class="text-xs text-green-400 shrink-0">📍 ok</span>
-				@else
-					<span class="text-xs text-yellow-400 shrink-0">⚠ уточнити</span>
-				@endif
+					<p class="text-sm text-gray-300">
+						{{ $address->address_text ?? $address->full_address }}
+					</p>
+				</button>
+
+				@empty
+					<p class="text-sm text-gray-400 text-center">
+						Збережених адрес поки немає
+					</p>
+				@endforelse
 			</div>
 
-			<p class="text-sm text-gray-300">
-				{{ $address->address_text ?? $address->full_address }}
-			</p>
-		</button>
-
-        @empty
-            <p class="text-sm text-gray-400 text-center">
-                Збережених адрес поки немає
-            </p>
-        @endforelse
-    </div>
-
-</x-poof.ui.bottom-sheet>
-
-
-@vite('resources/js/poof/order-create.js')
+		</x-poof.ui.bottom-sheet>
+      @vite('resources/js/poof/order-create.js')
 
 </div>
 

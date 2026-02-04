@@ -2,12 +2,13 @@
 
 namespace App\Livewire\Client;
 
-use App\Models\Order;
 use App\Models\ClientAddress;
+use App\Models\Order;
 use Carbon\Carbon;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Cache;
 use Livewire\Attributes\On;
 use Livewire\Component;
 
@@ -27,10 +28,10 @@ class OrderCreate extends Component
     /** ✅ выбранный сохранённый адрес (если null — ввод вручную) */
     public ?int $address_id = null;
 
-    /** UI подпись адреса */
+    /** UI подпись адреса (как показываем пользователю) */
     public string $address_text = '';
 
-    // 🆕 дом — отдельно
+    /** Разбивка адреса по полям */
     public ?string $street = null;
     public ?string $house  = null;
     public ?string $city   = null;
@@ -38,9 +39,20 @@ class OrderCreate extends Component
     /** Координаты — ИСТИНА для курьера */
     public ?float $lat = null;
     public ?float $lng = null;
-	
-	/** 🔑 координаты пришли из адресной книги */
+
+    /** 🔑 координаты пришли из адресной книги */
     public bool $coordsFromAddressBook = false;
+	
+	/**
+	 * Точность адреса:
+	 * none   — нет координат
+	 * approx — координаты из geocode
+	 * exact  — координаты подтверждены (address book / ручная точка)
+	 */
+	public string $address_precision = 'none';
+
+	/** debounce token для отложенного geocode */
+	protected ?string $geocodeToken = null;
 
     /** детали адреса */
     public ?string $entrance  = null;
@@ -53,9 +65,9 @@ class OrderCreate extends Component
 
     /**
      * 🔒 Guard: когда мы программно меняем street/house/city/address_text,
-     * не нужно, чтобы updated* хуки запускали геокодинг/перезапись и ломали синхронизацию.
+     * updated* хуки НЕ должны запускать геокодинг / сбивать синхронизацию.
      */
-    
+    public bool $suppressAddressHooks = false;
 
     /* =========================================================
      |  SCHEDULE
@@ -65,10 +77,10 @@ class OrderCreate extends Component
     public ?string $scheduled_time_from = null;
     public ?string $scheduled_time_to = null;
 
-    /** Slot slider index (0..6) */
+    /** Slot index (0..n-1) */
     public int $timeSlot = 0;
 
-    /** 7 slots, last is reserved (disabled) */
+    /** slots */
     public array $timeSlots = [
         ['from' => '08:00', 'to' => '10:00', 'enabled' => true],
         ['from' => '10:00', 'to' => '12:00', 'enabled' => true],
@@ -114,8 +126,6 @@ class OrderCreate extends Component
     public bool $showPaymentModal = false;
     public bool $showTrialBlockedModal = false;
     public ?int $createdOrderId = null;
-	
-	public bool $suppressAddressHooks = false;
 
     /* =========================================================
      |  VALIDATION
@@ -133,7 +143,7 @@ class OrderCreate extends Component
             'bags_count'          => ['required', 'integer', 'min:1', 'max:3'],
 
             // координаты валидируем как числа,
-            // а обязательность проверим отдельной "взрослой" проверкой
+            // а обязательность проверим отдельной проверкой validateCoordinatesOrFail()
             'lat'                 => ['nullable', 'numeric', 'between:-90,90'],
             'lng'                 => ['nullable', 'numeric', 'between:-180,180'],
 
@@ -141,6 +151,29 @@ class OrderCreate extends Component
 
             'is_trial'            => ['boolean'],
             'trial_days'          => ['nullable', 'integer', 'in:1,3'],
+        ];
+    }
+
+    protected function messages(): array
+    {
+        return [
+            'address_text.required' => 'Вкажіть адресу.',
+            'address_text.min'      => 'Адреса занадто коротка.',
+            'scheduled_date.required' => 'Оберіть дату.',
+            'scheduled_date.date'     => 'Некоректна дата.',
+            'scheduled_time_from.required' => 'Оберіть час.',
+            'bags_count.min' => 'Мінімум 1 пакет.',
+            'bags_count.max' => 'Максимум 3 пакети.',
+        ];
+    }
+
+    protected function validationAttributes(): array
+    {
+        return [
+            'address_text' => 'адреса',
+            'scheduled_date' => 'дата',
+            'scheduled_time_from' => 'час',
+            'bags_count' => 'кількість пакетів',
         ];
     }
 
@@ -155,11 +188,12 @@ class OrderCreate extends Component
         }
 
         $this->reloadAddresses();
-        $this->updateIsCustomDate();
         $this->trial_used = $this->userAlreadyUsedTrial();
 
-        $idx = $this->firstAvailableSlotIndex();
-        $this->applyTimeSlot($idx);
+        $this->updateIsCustomDate();
+
+        // ✅ выбираем ближайший доступный слот
+        $this->applyTimeSlot($this->firstAvailableSlotIndex());
 
         $this->recalculatePrice();
 
@@ -173,7 +207,8 @@ class OrderCreate extends Component
 
     public function reloadAddresses(): void
     {
-        $this->addresses = ClientAddress::where('user_id', auth()->id())
+        $this->addresses = ClientAddress::query()
+            ->where('user_id', auth()->id())
             ->orderByDesc('is_default')
             ->latest('id')
             ->get();
@@ -187,50 +222,60 @@ class OrderCreate extends Component
 
 	public function selectAddress(int $addressId): void
 	{
-		$address = ClientAddress::where('id', $addressId)
+		$address = ClientAddress::query()
+			->where('id', $addressId)
 			->where('user_id', auth()->id())
 			->firstOrFail();
 
-		// 🔒 ВАЖНО: заморозить хуки на время программного заполнения
 		$this->suppressAddressHooks = true;
 
-		$this->address_id = $address->id;
+		try {
+			$this->address_id = $address->id;
 
-		$this->street = $address->street;
-		$this->house  = $address->house;
-		$this->city   = $address->city;
+			$this->street = $address->street;
+			$this->house  = $address->house;
+			$this->city   = $address->city;
 
-		$this->address_text = trim(
-			collect([$address->street, $address->house])->filter()->implode(' ')
-		);
+			$this->syncAddressText();
 
-		$this->entrance  = $address->entrance;
-		$this->floor     = $address->floor;
-		$this->apartment = $address->apartment;
-		$this->intercom  = $address->intercom;
+			$this->entrance  = $address->entrance;
+			$this->floor     = $address->floor;
+			$this->apartment = $address->apartment;
+			$this->intercom  = $address->intercom;
 
-		// ✅ точные координаты из БД
-		$this->lat = $address->lat;
-		$this->lng = $address->lng;
+			// координаты из БД
+			$this->lat = $address->lat;
+			$this->lng = $address->lng;
 
-		// ✅ источник — адресная книга
-		$this->coordsFromAddressBook = true;
+			// источник — адресная книга
+			$this->coordsFromAddressBook = true;
 
-		// 🔓 разморозить хуки
-		$this->suppressAddressHooks = false;
+			// 🔑 точность адреса
+			$this->address_precision = ($this->lat !== null && $this->lng !== null)
+				? 'exact'
+				: 'none';
 
-		// ✅ двигаем маркер по точным координатам
-		$this->pushMarkerToMap();
+			// 🔒 сбрасываем возможный отложенный geocode
+			$this->geocodeToken = null;
+
+		} finally {
+			$this->suppressAddressHooks = false;
+		}
+
+		// двигаем маркер ТОЛЬКО если координаты есть
+		if ($this->address_precision === 'exact') {
+			$this->pushMarkerToMap();
+		}
 
 		$this->dispatch('sheet:close', name: 'addressPicker');
 	}
 
     protected function syncAddressText(): void
     {
-        // можно оставить только "улица дом", как у тебя
+        // отображаем только "улица дом" — быстро и читаемо
         $this->address_text = trim(
             collect([$this->street, $this->house])
-                ->filter()
+                ->filter(fn ($v) => filled($v))
                 ->implode(' ')
         );
     }
@@ -246,38 +291,45 @@ class OrderCreate extends Component
         }
 
         // пользователь начал править вручную — это уже не адрес из книги
-        $this->address_id = null;
+		$this->address_id = null;
+		$this->coordsFromAddressBook = false;
+		$this->address_precision = 'none';
 
-        // НЕ трогаем lat/lng здесь (координаты — истина)
+        // НЕ трогаем lat/lng тут — координаты “истина”
         $this->syncStreetFromAddressText();
     }
 
-	public function updatedStreet(): void
-	{
-		if ($this->suppressAddressHooks) {
-			return;
-		}
+    public function updatedStreet(): void
+    {
+        if ($this->suppressAddressHooks) {
+            return;
+        }
 
+        $this->coordsFromAddressBook = false;
+        $this->address_id = null;
+		$this->address_precision = 'none';
+		
+
+        $this->syncAddressText();
+        // геокодинг тут не запускаем — пусть дом/номер станет известен
+    }
+
+    public function updatedHouse(): void
+    {
+        // 1) программное изменение (selectAddress / reverseGeocode)
+        if ($this->suppressAddressHooks) {
+            return;
+        }
+
+        // 2) пользователь начал править адрес вручную
 		$this->coordsFromAddressBook = false;
 		$this->address_id = null;
+		$this->address_precision = 'none';
 
-		$this->syncAddressText();
-	}
-
-	public function updatedHouse(): void
-	{
-		// 1️⃣ программное изменение (selectAddress / reverseGeocode)
-		if ($this->suppressAddressHooks) {
-			return;
-		}
-
-		// 2️⃣ пользователь начал править адрес вручную
-		$this->coordsFromAddressBook = false;
-		$this->address_id = null;
-
-		// 3️⃣ теперь geocode РАЗРЕШЁН
-		$this->geocodeFromFields();
-	}
+        // 3) теперь geocode разрешён
+        $this->syncAddressText();
+        $this->scheduleGeocode();
+    }
 
     /* =========================================================
      |  MAP → LIVEWIRE
@@ -289,114 +341,169 @@ class OrderCreate extends Component
 		$this->lat = $lat;
 		$this->lng = $lng;
 
-		// пользователь двигает точку сам
+		$this->address_precision = 'exact';
 		$this->coordsFromAddressBook = false;
 		$this->address_id = null;
 
 		$this->reverseGeocodeFromPoint($lat, $lng);
 	}
 
-	/**
-	 * 🔑 Пуш маркера на карту (Livewire v3 event)
-	 */
-	protected function pushMarkerToMap(): void
-	{
-		if ($this->lat === null || $this->lng === null) {
-			return;
-		}
-
-		// Livewire v3 → Browser Event
-		$this->dispatch(
-			'map:set-marker',
-			lat: (float) $this->lat,
-			lng: (float) $this->lng,
-		);
-	}
     /**
-     * Точка -> адрес (reverse geocode)
+     * 🔑 Пуш маркера на карту (Livewire v3 event)
      */
-    protected function reverseGeocodeFromPoint(float $lat, float $lng): void
+    protected function pushMarkerToMap(): void
     {
-        try {
-            $response = Http::get(
-                'https://maps.googleapis.com/maps/api/geocode/json',
-                [
-                    'latlng'   => "{$lat},{$lng}",
-                    'key'      => config('geocoding.google.key'),
-                    'language' => 'uk',
-                ]
-            );
-
-            if (! $response->ok()) {
-                return;
-            }
-
-            $components = data_get($response->json(), 'results.0.address_components');
-            if (! is_array($components)) {
-                return;
-            }
-
-            $street = collect($components)->first(fn ($c) => in_array('route', $c['types'], true));
-            $house  = collect($components)->first(fn ($c) => in_array('street_number', $c['types'], true));
-            $city   = collect($components)->first(fn ($c) => in_array('locality', $c['types'], true));
-
-			$this->suppressAddressHooks = true;
-
-			try {
-				$this->street = $street['long_name'] ?? $this->street;
-				$this->house  = $house['long_name'] ?? $this->house;
-				$this->city   = $city['long_name'] ?? $this->city;
-
-				$this->syncAddressText();
-			} finally {
-				$this->suppressAddressHooks = false;
-			}
-
-        } catch (\Throwable $e) {
-            // silent fail
-        }
-    }
-
-    /**
-     * Адрес -> точка (geocode)
-     */
-    protected function geocodeFromFields(): void
-    {
-        if (! $this->street || ! $this->house) {
+        if ($this->lat === null || $this->lng === null) {
             return;
         }
 
-        $city = $this->city ?: 'Kyiv';
-        $query = trim("{$city}, {$this->street} {$this->house}");
-
-        try {
-            $response = Http::get(
-                'https://maps.googleapis.com/maps/api/geocode/json',
-                [
-                    'address'  => $query,
-                    'key'      => config('geocoding.google.key'),
-                    'language' => 'uk',
-                ]
-            );
-
-            if (! $response->ok()) {
-                return;
-            }
-
-            $location = data_get($response->json(), 'results.0.geometry.location');
-            if (! is_array($location) || ! isset($location['lat'], $location['lng'])) {
-                return;
-            }
-
-            $this->lat = (float) $location['lat'];
-            $this->lng = (float) $location['lng'];
-
-            $this->pushMarkerToMap();
-
-        } catch (\Throwable $e) {
-            // silent fail
-        }
+        $this->dispatch('map:set-marker', lat: (float) $this->lat, lng: (float) $this->lng);
     }
+
+    /* =========================================================
+     |  GEOCODING (GOOGLE)
+     | ========================================================= */
+
+	/**
+	 * Универсальный Google Geocode с кэшем
+	 */
+	protected function googleGeocodeCached(array $params, string $cacheKey): ?array
+	{
+		$cached = Cache::get($cacheKey);
+		if (is_array($cached)) {
+			return $cached;
+		}
+
+		try {
+			$response = Http::timeout(4)
+				->retry(1, 200)
+				->get('https://maps.googleapis.com/maps/api/geocode/json', $params + [
+					'key'      => config('geocoding.google.key'),
+					'language' => 'uk',
+				]);
+
+			if (! $response->ok()) {
+				return null;
+			}
+
+			$json = $response->json();
+
+			// ✅ кэшируем только валидные ответы
+			if (data_get($json, 'status') === 'OK' && is_array(data_get($json, 'results'))) {
+				Cache::put($cacheKey, $json, now()->addHours(24));
+			}
+
+			return $json;
+		} catch (\Throwable $e) {
+			return null;
+		}
+	}
+
+	/**
+	 * Планируем отложенный geocode (debounce)
+	 */
+	protected function scheduleGeocode(): void
+	{
+		$token = uniqid('geo_', true);
+		$this->geocodeToken = $token;
+
+		// ✅ это browser event, JS сделает задержку и потом вызовет geocode:debounced
+		$this->dispatch('geocode:schedule', token: $token);
+	}
+
+	/**
+	 * 🔑 Livewire v3 listener
+	 * Выполняется ТОЛЬКО если токен актуален
+	 */
+	#[On('geocode:debounced')]
+	public function runDebouncedGeocode(string $token): void
+	{
+		if ($this->geocodeToken !== $token) {
+			return;
+		}
+
+		$this->geocodeFromFields();
+	}
+
+	/**
+	 * Точка → адрес (reverse geocode)
+	 * Используется при ручном перемещении маркера
+	 */
+	protected function reverseGeocodeFromPoint(float $lat, float $lng): void
+	{
+		$cacheKey = 'reverse_geocode:' . md5($lat . ',' . $lng);
+
+		$json = $this->googleGeocodeCached(
+			['latlng' => "{$lat},{$lng}"],
+			$cacheKey
+		);
+
+		$components = data_get($json, 'results.0.address_components');
+		if (! is_array($components)) {
+			return;
+		}
+
+		$street = collect($components)->first(
+			fn ($c) => in_array('route', $c['types'] ?? [], true)
+		);
+		$house = collect($components)->first(
+			fn ($c) => in_array('street_number', $c['types'] ?? [], true)
+		);
+		$city = collect($components)->first(
+			fn ($c) => in_array('locality', $c['types'] ?? [], true)
+		);
+
+		$this->suppressAddressHooks = true;
+
+		try {
+			$this->street = $street['long_name'] ?? $this->street;
+			$this->house  = $house['long_name'] ?? $this->house;
+			$this->city   = $city['long_name'] ?? $this->city;
+
+			$this->syncAddressText();
+		} finally {
+			$this->suppressAddressHooks = false;
+		}
+	}
+
+	/**
+	 * Адрес → точка (geocode)
+	 * ⚠️ Используется ТОЛЬКО для приблизительного определения
+	 */
+	protected function geocodeFromFields(): void
+	{
+		if (! filled($this->street) || ! filled($this->house)) {
+			return;
+		}
+
+		// ❗ точные координаты никогда не перезаписываем
+		if ($this->address_precision === 'exact') {
+			return;
+		}
+
+		$city = filled($this->city) ? $this->city : 'Kyiv';
+
+		$cacheKeySource = "{$city}|{$this->street}|{$this->house}";
+		$addressQuery   = str_replace('|', ', ', $cacheKeySource);
+
+		$json = $this->googleGeocodeCached(
+			['address' => $addressQuery],
+			'geocode:' . md5($cacheKeySource)
+		);
+
+		$location = data_get($json, 'results.0.geometry.location');
+		if (! is_array($location) || ! isset($location['lat'], $location['lng'])) {
+			return;
+		}
+
+		$this->lat = (float) $location['lat'];
+		$this->lng = (float) $location['lng'];
+
+		// ⚠️ это приблизительная точка
+		$this->address_precision = 'approx';
+
+		$this->pushMarkerToMap();
+	}
 
     /* =========================================================
      |  ADDRESS HELPERS
@@ -404,17 +511,17 @@ class OrderCreate extends Component
 
     protected function syncStreetFromAddressText(): void
     {
-        if (! $this->address_text) {
+        if (! filled($this->address_text)) {
             return;
         }
 
         $parts = array_map('trim', explode(',', $this->address_text));
 
-        // MVP: первый сегмент — улица
+        // MVP: первый сегмент — улица/основная часть
         $this->street = $parts[0] ?? $this->street;
 
         // город — если нужно
-        if (! $this->city && isset($parts[1])) {
+        if (! filled($this->city) && isset($parts[1])) {
             $this->city = $parts[1];
         }
     }
@@ -438,21 +545,22 @@ class OrderCreate extends Component
                 continue;
             }
 
-            if ($isToday) {
-                $from = Carbon::createFromFormat('H:i', $slot['from'])->setDate(
-                    $now->year,
-                    $now->month,
-                    $now->day
-                );
+            if (! $isToday) {
+                return (int) $idx;
+            }
 
-                if ($from->greaterThan($now)) {
-                    return $idx;
-                }
-            } else {
-                return $idx;
+            $from = Carbon::createFromFormat('H:i', (string) $slot['from'])->setDate(
+                $now->year,
+                $now->month,
+                $now->day
+            );
+
+            if ($from->greaterThan($now)) {
+                return (int) $idx;
             }
         }
 
+        // если все “сегодняшние” прошли — оставим первый (UI сам может подсветить)
         return 0;
     }
 
@@ -466,16 +574,13 @@ class OrderCreate extends Component
         $today = now()->toDateString();
         $tomorrow = now()->addDay()->toDateString();
 
-        $this->isCustomDate = ! in_array(
-            $this->scheduled_date,
-            [$today, $tomorrow],
-            true
-        );
+        $this->isCustomDate = ! in_array($this->scheduled_date, [$today, $tomorrow], true);
     }
 
     public function applyTimeSlot(int $idx): void
     {
         $count = count($this->timeSlots);
+
         if ($count === 0) {
             $this->timeSlot = 0;
             $this->scheduled_time_from = null;
@@ -485,16 +590,30 @@ class OrderCreate extends Component
 
         $idx = max(0, min($idx, $count - 1));
 
+        // если слот выключен — ищем ближайший включенный вперёд, потом назад
         if (!($this->timeSlots[$idx]['enabled'] ?? true)) {
-            for ($j = $idx - 1; $j >= 0; $j--) {
+            $found = null;
+
+            for ($j = $idx; $j < $count; $j++) {
                 if (($this->timeSlots[$j]['enabled'] ?? true) === true) {
-                    $idx = $j;
+                    $found = $j;
                     break;
                 }
             }
+
+            if ($found === null) {
+                for ($j = $idx; $j >= 0; $j--) {
+                    if (($this->timeSlots[$j]['enabled'] ?? true) === true) {
+                        $found = $j;
+                        break;
+                    }
+                }
+            }
+
+            $idx = $found ?? 0;
         }
 
-        $this->timeSlot = $idx;
+        $this->timeSlot = (int) $idx;
         $this->scheduled_time_from = $this->timeSlots[$idx]['from'] ?? null;
         $this->scheduled_time_to   = $this->timeSlots[$idx]['to'] ?? null;
     }
@@ -503,12 +622,11 @@ class OrderCreate extends Component
     {
         $this->updateIsCustomDate();
 
-        $idx = $this->firstAvailableSlotIndex();
-        $this->applyTimeSlot($idx);
+        $this->applyTimeSlot($this->firstAvailableSlotIndex());
 
         $this->recalculatePrice();
 
-        // ⚠️ не трогаем map:init тут, чтобы не сбивать маркер/карту
+        // ⚠️ map:init тут не трогаем, чтобы не сбивать карту
     }
 
     public function selectTimeSlot(string $from, string $to): void
@@ -526,22 +644,17 @@ class OrderCreate extends Component
         }
     }
 
+    // ✅ computed accessor — просто отдаёт единую “правду”
     public function getIsCustomDateProperty(): bool
     {
-        if (! $this->scheduled_date) {
-            return false;
-        }
-
-        $today = now()->toDateString();
-        $tomorrow = now()->addDay()->toDateString();
-
-        return ! in_array($this->scheduled_date, [$today, $tomorrow], true);
+        return $this->isCustomDate;
     }
 
     #[On('set-scheduled-date')]
     public function setScheduledDate(string $date): void
     {
         $this->scheduled_date = $date;
+        $this->updatedScheduledDate();
     }
 
     #[On('set-time-slot')]
@@ -556,8 +669,9 @@ class OrderCreate extends Component
 
     public function selectBags(int $count): void
     {
-        $this->bags_count = max(1, min(3, $count));
+        $this->bags_count = max(1, min(3, (int) $count));
 
+        // Trial не совместим с количеством пакетов > 1 (по твоей логике)
         if ($this->is_trial) {
             $this->disableTrial();
             return;
@@ -574,8 +688,9 @@ class OrderCreate extends Component
         }
 
         $this->is_trial = true;
-        $this->trial_days = in_array($days, [1, 3], true) ? $days : 1;
+        $this->trial_days = in_array($days, [1, 3], true) ? (int) $days : 1;
 
+        // trial всегда = 1 пакет
         $this->bags_count = 1;
         $this->price = 0;
     }
@@ -603,29 +718,33 @@ class OrderCreate extends Component
     {
         $this->price = $this->is_trial
             ? 0
-            : Order::calcPriceByBags($this->bags_count);
+            : (int) Order::calcPriceByBags($this->bags_count);
     }
 
     /* =========================================================
      |  COORDS GUARD (CRITICAL)
      | ========================================================= */
 
-    protected function validateCoordinatesOrFail(): void
-    {
-        // ✅ корректная проверка на null (не через truthy)
-        if (is_null($this->lat) || is_null($this->lng)) {
-            $this->addError('address_text', 'Оберіть збережену адресу або вкажіть точку на мапі.');
-            return;
-        }
+	protected function validateCoordinatesOrFail(): void
+	{
+		if (is_null($this->lat) || is_null($this->lng)) {
+			$this->addError(
+				'address_text',
+				'Вкажіть адресу або точку на мапі.'
+			);
+			return;
+		}
 
-        // Если выбран address_id, но там пустые coords — значит адрес ещё не “подтверждён”
-        if ($this->address_id && (is_null($this->lat) || is_null($this->lng))) {
-            $this->addError('address_text', 'Ця адреса потребує уточнення. Відкрийте її в адресній книзі та збережіть з точкою.');
-            return;
-        }
+		if ($this->address_precision === 'approx') {
+			$this->addError(
+				'address_text',
+				'Будь ласка, уточніть точку на мапі.'
+			);
+			return;
+		}
 
-        $this->resetErrorBag('address_text');
-    }
+		$this->resetErrorBag('address_text');
+	}
 
     /* =========================================================
      |  SUBMIT (CREATE ORDER + POPUP)
@@ -702,8 +821,3 @@ class OrderCreate extends Component
         ])->layout('layouts.client');
     }
 }
-
-
-
-
-
