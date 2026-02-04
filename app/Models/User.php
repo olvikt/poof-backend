@@ -41,7 +41,7 @@ class User extends Authenticatable
         'is_active',
         'locale',
         'timezone',
-        'avatar', // ✅ ВАЖНО: совпадает с колонкой в БД
+        'avatar',
     ];
 
     /* =========================================================
@@ -87,21 +87,21 @@ class User extends Authenticatable
     }
 
     /**
-     * Основной адрес пользователя (MVP / Bolt-style)
-     */
-    public function address(): HasOne
-    {
-        return $this->hasOne(ClientAddress::class, 'user_id')
-            ->where('is_default', true);
-    }
-	
-	
-	/**
      * Все адреса пользователя
      */
     public function addresses(): HasMany
     {
         return $this->hasMany(ClientAddress::class, 'user_id');
+    }
+
+    /**
+     * Основной (default) адрес пользователя
+     */
+    public function defaultAddress(): HasOne
+    {
+        return $this->hasOne(ClientAddress::class, 'user_id')
+            ->where('is_default', true)
+            ->where('is_active', true);
     }
 
     /**
@@ -157,5 +157,4 @@ class User extends Authenticatable
         ];
     }
 }
-
 
