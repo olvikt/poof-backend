@@ -11,6 +11,11 @@ class AddressManager extends Component
     public Collection $addresses;
 
     public ?int $deleteId = null;
+	
+	public ?int $actionsId = null;
+	
+	public ?ClientAddress $actionsAddress = null;
+	
 
     protected $listeners = [
         'address-saved' => 'reloadAddresses',
@@ -50,6 +55,78 @@ class AddressManager extends Component
 
         $this->reloadAddresses();
     }
+	
+	/** ---------- Actions sheet ---------- */
+
+	public function openActions(int $id): void
+	{
+		$this->actionsId = $id;
+
+		$this->actionsAddress = ClientAddress::where('id', $id)
+			->where('user_id', auth()->id())
+			->first();
+
+		$this->dispatch('sheet:open', name: 'addressActions');
+	}
+
+	public function closeActions(): void
+	{
+		$this->actionsId = null;
+		$this->actionsAddress = null;
+
+		$this->dispatch('sheet:close', name: 'addressActions');
+	}
+
+	public function actionEdit(): void
+	{
+		if (! $this->actionsId) return;
+
+		$id = $this->actionsId;
+		$this->closeActions();
+
+		$this->edit($id);
+	}
+
+	public function actionSetDefault(): void
+	{
+		if (! $this->actionsId) return;
+
+		$id = $this->actionsId;
+
+		$this->setDefault($id);
+
+		$this->closeActions();
+	}
+
+	public function actionDelete(): void
+	{
+		if (! $this->actionsId) return;
+
+		$id = $this->actionsId;
+
+		$this->closeActions();
+
+		$this->confirmDelete($id);
+	}
+	
+	
+	public function orderFromAddress(): void
+	{
+		if (! $this->actionsId) {
+			return;
+		}
+
+		$addressId = $this->actionsId;
+
+		// закрываем меню действий
+		$this->closeActions();
+
+		// редирект на создание заказа с адресом
+		$this->redirect(
+			route('client.order.create', ['address_id' => $addressId]),
+			navigate: true
+		);
+	}
 
     /** ---------- Delete flow ---------- */
 

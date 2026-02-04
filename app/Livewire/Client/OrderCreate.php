@@ -181,25 +181,82 @@ class OrderCreate extends Component
      |  LIFECYCLE
      | ========================================================= */
 
-    public function mount(): void
-    {
-        if (! $this->scheduled_date) {
-            $this->scheduled_date = Carbon::today()->toDateString();
-        }
+	public function mount(): void
+	{
+		// =========================================
+		// ✅ Подхват адреса из адресной книги
+		// =========================================
+		$this->address_id = request()->integer('address_id');
 
-        $this->reloadAddresses();
-        $this->trial_used = $this->userAlreadyUsedTrial();
+		if ($this->address_id) {
+			$this->loadAddressFromBook($this->address_id);
+		}
 
-        $this->updateIsCustomDate();
+		// =========================================
+		// ⏱ Дата и время
+		// =========================================
+		if (! $this->scheduled_date) {
+			$this->scheduled_date = Carbon::today()->toDateString();
+		}
 
-        // ✅ выбираем ближайший доступный слот
-        $this->applyTimeSlot($this->firstAvailableSlotIndex());
+		$this->reloadAddresses();
+		$this->trial_used = $this->userAlreadyUsedTrial();
 
-        $this->recalculatePrice();
+		$this->updateIsCustomDate();
 
-        // ✅ карта инициализируется один раз на клиенте
-        $this->dispatch('map:init');
+		// ✅ выбираем ближайший доступный слот
+		$this->applyTimeSlot($this->firstAvailableSlotIndex());
+
+		// 💰 расчёт цены (уже с адресом, если он был)
+		$this->recalculatePrice();
+
+		// 🗺 карта инициализируется один раз на клиенте
+		$this->dispatch('map:init');
+	}
+	
+	
+	protected function loadAddressFromBook(int $addressId): void
+{
+    $address = \App\Models\ClientAddress::where('id', $addressId)
+        ->where('user_id', auth()->id())
+        ->first();
+
+    if (! $address) {
+        return;
     }
+
+    // 🔒 не запускаем updated-хуки
+    $this->suppressAddressHooks = true;
+
+    $this->coordsFromAddressBook = true;
+    $this->address_precision = 'exact';
+
+    // UI
+    $this->address_text = $address->address_text ?? $address->full_address;
+
+    // структура
+    $this->street = $address->street;
+    $this->house  = $address->house;
+    $this->city   = $address->city;
+
+    // координаты — истина
+    $this->lat = $address->lat;
+    $this->lng = $address->lng;
+
+    // детали
+    $this->entrance  = $address->entrance;
+    $this->floor     = $address->floor;
+    $this->apartment = $address->apartment;
+    $this->intercom  = $address->intercom;
+
+    $this->suppressAddressHooks = false;
+
+    // 🔔 синхронизация карты
+    if ($this->lat && $this->lng) {
+        $this->dispatch('map:set-marker', lat: $this->lat, lng: $this->lng);
+        $this->dispatch('map:set-marker-precision', precision: 'exact');
+    }
+}
 
     /* =========================================================
      |  ADDRESS ACTIONS (TOP-APP FLOW)
