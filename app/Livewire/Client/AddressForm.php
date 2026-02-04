@@ -5,7 +5,7 @@ namespace App\Livewire\Client;
 use Livewire\Component;
 use App\Models\ClientAddress;
 use App\Services\Geocoding\Geocoder;
-use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Validation\ValidationException;
 
 class AddressForm extends Component
@@ -16,21 +16,24 @@ class AddressForm extends Component
 
     public ?int $addressId = null;
 
+    /** apartment | house */
+    public string $building_type = 'apartment';
+
     public string $label = 'home';
     public ?string $title = null;
 
-    // UI / UX
+    // UI
     public ?string $search = null;
     public array $suggestions = [];
 
-    // Координаты (ИСТИНА)
+    // Координаты — ИСТИНА
     public ?float $lat = null;
     public ?float $lng = null;
 
     // Google meta
     public ?string $place_id = null;
 
-    // Детали
+    // Детали (для apartment)
     public ?string $entrance = null;
     public ?string $intercom = null;
     public ?string $floor = null;
@@ -40,6 +43,13 @@ class AddressForm extends Component
     public ?string $city = null;
     public ?string $street = null;
     public ?string $house = null;
+	
+	 // -----------------------------
+    // INTERNAL FLAGS (НЕ UI)
+    // -----------------------------
+    protected bool $houseTouchedManually = false;
+    protected bool $updatingHouseFromMap = false;
+	
 
     /* =========================================================
      | EVENTS
@@ -54,16 +64,26 @@ class AddressForm extends Component
      | OPEN / LOAD
      |=========================================================*/
 
-    public function open(?int $addressId = null): void
-    {
-        $this->addressId = $addressId;
+public function open(?int $addressId = null): void
+{
+    $this->addressId = $addressId;
 
-        $addressId
-            ? $this->loadAddress($addressId)
-            : $this->resetForm();
-
-        $this->dispatch('sheet:open', name: 'editAddress');
+    if ($addressId) {
+        $this->loadAddress($addressId);
+    } else {
+        $this->resetForm();
     }
+
+    // открываем sheet
+    $this->dispatch('sheet:open', name: 'editAddress');
+
+    // 🔒 СТРАХОВКА:
+    // если координаты уже есть — повторно синхронизируем маркер
+    // (карта к этому моменту уже смонтируется)
+    if ($this->lat !== null && $this->lng !== null) {
+        $this->dispatch('map:set-marker', lat: $this->lat, lng: $this->lng);
+    }
+}
 
     protected function loadAddress(int $id): void
     {
@@ -71,35 +91,112 @@ class AddressForm extends Component
             ->findOrFail($id);
 
         $this->fill([
-            'label'     => $address->label,
-            'title'     => $address->title,
+            'label'         => $address->label,
+            'title'         => $address->title,
+            'building_type' => $address->building_type ?? 'apartment',
 
-            'search'    => $address->address_text,
+            'search'        => $address->address_text,
 
-            'lat'       => $address->lat,
-            'lng'       => $address->lng,
-            'place_id'  => $address->place_id,
+            'lat'           => $address->lat,
+            'lng'           => $address->lng,
+            'place_id'      => $address->place_id,
 
-            'entrance'  => $address->entrance,
-            'intercom'  => $address->intercom,
-            'floor'     => $address->floor,
-            'apartment' => $address->apartment,
+            'entrance'      => $address->entrance,
+            'intercom'      => $address->intercom,
+            'floor'         => $address->floor,
+            'apartment'     => $address->apartment,
 
-            'city'      => $address->city,
-            'street'    => $address->street,
-            'house'     => $address->house,
+            'city'          => $address->city,
+            'street'        => $address->street,
+            'house'         => $address->house,
         ]);
 
         $this->suggestions = [];
 
-        if ($this->lat && $this->lng) {
-            $this->dispatch('map:set-point', lat: $this->lat, lng: $this->lng);
+        // 👉 координаты передаём в JS,
+        // map.js сам поставит маркер, когда карта будет готова
+		 if ($this->lat && $this->lng) {
+			$this->dispatch('map:set-marker', lat: $this->lat, lng: $this->lng);
+		}
+    }
+
+
+    /* =========================================================
+     | AUTOCOMPLETE
+     |=========================================================*/
+public function updatedHouse(): void
+{
+    // ---------------------------------------------------------
+    // 1) Если дом меняется ИЗ КАРТЫ — игнорируем
+    //    (programmatic update не считаем ручным вводом)
+    // ---------------------------------------------------------
+    if ($this->updatingHouseFromMap) {
+        return;
+    }
+
+    // ---------------------------------------------------------
+    // 2) Пользователь реально трогал поле "Дом"
+    // ---------------------------------------------------------
+    $this->houseTouchedManually = true;
+
+    $house = trim((string) $this->house);
+    if ($house === '') {
+        return;
+    }
+
+    // ---------------------------------------------------------
+    // 3) Собираем улицу / город
+    // ---------------------------------------------------------
+    $street = trim((string) $this->street);
+    $city   = trim((string) $this->city);
+
+    // fallback из search
+    if ($street === '' && $this->search) {
+        $parts = array_map('trim', explode(',', $this->search));
+        $street = $parts[0] ?? '';
+        if ($city === '' && isset($parts[1])) {
+            $city = $parts[1];
         }
     }
 
-    /* =========================================================
-     | AUTOCOMPLETE (UX only)
-     |=========================================================*/
+    if ($street === '') {
+        return;
+    }
+
+    // ---------------------------------------------------------
+    // 4) Forward-geocode: улица + дом (+ город)
+    // ---------------------------------------------------------
+    $query = $street . ', ' . $house;
+    if ($city !== '') {
+        $query .= ', ' . $city;
+    }
+
+    try {
+        /** @var \App\Services\Geocoding\Geocoder $geocoder */
+        $geocoder = app(\App\Services\Geocoding\Geocoder::class);
+
+        // Используем тот метод, который у тебя есть
+        // geocode / forward / search / place
+        $point = $geocoder->geocode($query);
+
+        if (!empty($point->lat) && !empty($point->lng)) {
+
+            $this->lat = (float) $point->lat;
+            $this->lng = (float) $point->lng;
+
+            // -------------------------------------------------
+            // 5) Двигаем маркер БЕЗ reverse
+            // -------------------------------------------------
+            $this->dispatch(
+                'map:set-marker',
+                lat: $this->lat,
+                lng: $this->lng
+            );
+        }
+    } catch (\Throwable $e) {
+        // молча — UX важнее
+    }
+} 
 
     public function updatedSearch(Geocoder $geocoder): void
     {
@@ -121,228 +218,271 @@ class AddressForm extends Component
     {
         $point = $geocoder->place($placeId);
 
-        // UX
         $this->place_id = $placeId;
         $this->search   = $point->address;
 
-        // Временная точка (улица / район)
+        // координаты — приблизительные
         $this->lat = $point->lat;
         $this->lng = $point->lng;
 
         $this->suggestions = [];
 
-        $this->dispatch('map:set-point', lat: $this->lat, lng: $this->lng);
+        /**
+         * 🧠 Авто-определение типа здания
+         */
+        $components = $point->components ?? [];
+        $hasPremise = false;
+        $hasSubPremise = false;
+
+        foreach ($components as $c) {
+            if (in_array('premise', $c['types'] ?? [], true)) {
+                $hasPremise = true;
+            }
+            if (in_array('subpremise', $c['types'] ?? [], true)) {
+                $hasSubPremise = true;
+            }
+        }
+
+        $this->building_type = (! $hasPremise && ! $hasSubPremise)
+            ? 'house'
+            : 'apartment';
+
+        // карта
+        $this->dispatch('map:set-marker', lat: $this->lat, lng: $this->lng);
     }
 
     /* =========================================================
      | MAP → FORM
      |=========================================================*/
 
-    public function setCoords(
-        float $lat,
-        float $lng,
-        ?bool $reverse = true,
-        ?string $source = null,
-        Geocoder $geocoder = null
-    ): void {
-        $this->lat = $lat;
-        $this->lng = $lng;
-        $this->place_id = null;
-        $this->suggestions = [];
+public function setCoords(float $lat, float $lng, ?string $source = null): void
+{
+    $this->lat = $lat;
+    $this->lng = $lng;
 
-        if ($reverse && $geocoder) {
-            try {
-                $point = $geocoder->reverse($lat, $lng);
-                $this->search = $point->address ?? $this->search;
-            } catch (\Throwable $e) {}
-        }
+    $this->place_id = null;
+    $this->suggestions = [];
+
+    // reverse только если источник — карта
+    if ($source !== 'map') {
+        return;
     }
-	
-	
-	/* =========================================================
-	 | VALIDATION
-	 |=========================================================*/
 
-	protected function rules(): array
-	{
-		return [
-			// тип адреса
-			'label' => 'required|string|in:home,work,other',
-			'title' => 'nullable|string|max:50',
+    try {
+        /** @var \App\Services\Geocoding\Geocoder $geocoder */
+        $geocoder = app(\App\Services\Geocoding\Geocoder::class);
 
-			// UI строка
-			'search' => 'nullable|string|max:255',
+        $point = $geocoder->reverse($lat, $lng);
 
-			// координаты = истина
-			'lat' => 'nullable|numeric|between:-90,90',
-			'lng' => 'nullable|numeric|between:-180,180',
+        // 1) строка адреса
+        if (!empty($point->address)) {
+            $this->search = $point->address;
+        }
 
-			// адрес
-			'city'   => 'nullable|string|min:2|max:80',
-			'street' => 'nullable|string|min:2|max:120',
-			'house'  => 'nullable|string|max:20',
+        // 2) компоненты
+        $components = $point->components ?? [];
 
-			// детали
-			'entrance'  => 'nullable|string|max:10',
-			'intercom'  => 'nullable|string|max:10',
-			'floor'     => 'nullable|string|max:10',
-			'apartment' => 'nullable|string|max:10',
-		];
-	}
+        $street = null;
+        $house  = null;
+        $city   = null;
 
-    /* =========================================================
-     | SAVE (КЛЮЧЕВОЕ МЕСТО)
-     |=========================================================*/
+        foreach ($components as $c) {
+            $types = $c['types'] ?? [];
+            $name  = $c['long_name'] ?? ($c['name'] ?? null);
 
-	public function save(): void
-	{
-		$this->validate();
+            if (!$name) continue;
 
-		/**
-		 * 1️⃣ Координаты обязательны
-		 * (либо из Google, либо пользователь указал сам)
-		 */
-		if ($this->lat === null || $this->lng === null) {
-			throw ValidationException::withMessages([
-				'search' => 'Уточніть точку на мапі.',
-			]);
-		}
+            if (in_array('route', $types, true)) {
+                $street = $street ?? $name;
+            }
 
-		/**
-		 * 2️⃣ Восстановление street / city из search (fallback)
-		 */
-		if (! $this->street && $this->search) {
-			$parts = array_map('trim', explode(',', $this->search));
-			$this->street = $parts[0] ?? null;
+            if (
+                in_array('street_number', $types, true) ||
+                in_array('house_number', $types, true)
+            ) {
+                $house = $house ?? $name;
+            }
 
-			if (! $this->city && isset($parts[1])) {
-				$this->city = $parts[1];
-			}
-		}
+            if (
+                in_array('locality', $types, true) ||
+                in_array('postal_town', $types, true)
+            ) {
+                $city = $city ?? $name;
+            }
+        }
 
-		/**
-		 * 3️⃣ Улица и дом обязательны
-		 */
-		if (! $this->street || ! $this->house) {
-			throw ValidationException::withMessages([
-				'search' => 'Вкажіть вулицю та номер будинку.',
-			]);
-		}
+        if ($street) $this->street = $street;
+        if ($city)   $this->city   = $city;
 
-		/**
-		 * 4️⃣ Попытка УЛУЧШИТЬ координаты по дому
-		 * (НЕ затираем существующие, если Google не дал лучше)
-		 */
-		$originalLat = $this->lat;
-		$originalLng = $this->lng;
+        // -------------------------------------------------
+        // 3) АВТОЗАПОЛНЕНИЕ ДОМА (ПРАВИЛЬНО)
+        // -------------------------------------------------
+        if (! $this->houseTouchedManually) {
 
-		$this->geocodeStreetHouseHard();
+            // 🔇 тихий режим (чтобы updatedHouse не сработал)
+            $this->updatingHouseFromMap = true;
 
-		// если геокодинг не дал нового результата — возвращаем старый
-		if ($this->lat === null || $this->lng === null) {
-			$this->lat = $originalLat;
-			$this->lng = $originalLng;
-		}
+            if ($house) {
+                $this->house = $house;
+            } elseif ($this->search) {
+                // fallback из строки адреса
+                if (preg_match(
+                    '/,\s*([0-9]+[0-9A-Za-zА-Яа-яІЇЄієї\-\/]*)\b/u',
+                    $this->search,
+                    $m
+                )) {
+                    $this->house = $m[1];
+                }
+            }
 
-		/**
-		 * 5️⃣ Формируем данные
-		 */
-		$data = [
-			// тип адреса
-			'label'   => $this->label,
-			'title'   => $this->title,
+            $this->updatingHouseFromMap = false;
+        }
 
-			// UI (подпись)
-			'address_text' => $this->search,
-
-			// адрес
-			'city'   => $this->city,
-			'street' => $this->street,
-			'house'  => $this->house,
-
-			// ИСТИНА
-			'lat' => $this->lat,
-			'lng' => $this->lng,
-
-			// геокодинг-мета
-			'place_id'         => null,
-			'geocode_source'   => 'street_house',
-			'geocode_accuracy' => 'approximate', // честно
-			'geocoded_at'      => now(),
-
-			// детали
-			'entrance'  => $this->entrance,
-			'intercom'  => $this->intercom,
-			'floor'     => $this->floor,
-			'apartment' => $this->apartment,
-		];
-
-		/**
-		 * 6️⃣ Save / Update
-		 */
-		if ($this->addressId) {
-			ClientAddress::where('id', $this->addressId)
-				->where('user_id', auth()->id())
-				->firstOrFail()
-				->update($data);
-		} else {
-			ClientAddress::create($data + [
-				'user_id' => auth()->id(),
-			]);
-		}
-
-		/**
-		 * 7️⃣ UI events
-		 */
-		$this->dispatch('address-saved')
-			->to('client.address-manager');
-
-		$this->dispatch('sheet:close', name: 'editAddress');
-
-		$this->resetForm();
-	}
+    } catch (\Throwable $e) {
+        // тихо
+    }
+}
 
     /* =========================================================
-     | HARD ROOFTOP GEOCODE (без сюрпризов)
+     | VALIDATION
      |=========================================================*/
 
-    protected function geocodeStreetHouseHard(): void
+    protected function rules(): array
     {
-        $query = trim("{$this->city}, {$this->street} {$this->house}");
+        return [
+            'label'         => 'required|in:home,work,other',
+            'title'         => 'nullable|string|max:50',
+            'building_type' => 'required|in:apartment,house',
 
-        try {
-            $response = Http::get(
-                'https://maps.googleapis.com/maps/api/geocode/json',
-                [
-                    'address'  => $query,
-                    'key'      => config('geocoding.google.key'),
-                    'language' => 'uk',
-                ]
-            );
+            'search' => 'nullable|string|max:255',
 
-            if (! $response->ok()) {
-                return;
+            'lat' => 'nullable|numeric|between:-90,90',
+            'lng' => 'nullable|numeric|between:-180,180',
+
+            'city'   => 'nullable|string|min:2|max:80',
+            'street' => 'nullable|string|min:2|max:120',
+            'house'  => 'nullable|string|max:20',
+
+            'entrance'  => 'nullable|string|max:10',
+            'intercom'  => 'nullable|string|max:10',
+            'floor'     => 'nullable|string|max:10',
+            'apartment' => 'nullable|string|max:10',
+        ];
+    }
+
+    /* =========================================================
+     | SAVE
+     |=========================================================*/
+
+public function save(): void
+{
+	$this->addError('search', 'SAVE CALLED'); // временно
+    try {
+        // 1) Базовые правила
+        $this->validate();
+
+        $isEdit = (bool) $this->addressId;
+
+        // 2) Координаты обязательны всегда
+        if ($this->lat === null || $this->lng === null) {
+            throw ValidationException::withMessages([
+                'search' => 'Уточніть точку на мапі.',
+            ]);
+        }
+
+        // 3) Fallback: street/city из search
+        if (! $this->street && $this->search) {
+            $parts = array_map('trim', explode(',', $this->search));
+            $this->street = $parts[0] ?? null;
+
+            // не перетираем city, если уже задан
+            if (! $this->city && isset($parts[1])) {
+                $this->city = $parts[1];
             }
+        }
 
-            $result = $response->json('results.0');
-            if (! $result) {
-                return;
-            }
-
-            $type = $result['geometry']['location_type'] ?? null;
-
-			// ❌ только если совсем мусор
-			if ($type === 'APPROXIMATE') {
-				return;
+        // 4) Строгие требования — только при создании
+        if (! $isEdit) {
+			if (! $this->street || ! $this->house) {
+				throw ValidationException::withMessages([
+					'house' => 'Вкажіть номер будинку.',
+				]);
 			}
 
-            $this->lat = (float) $result['geometry']['location']['lat'];
-            $this->lng = (float) $result['geometry']['location']['lng'];
-
-        } catch (\Throwable $e) {
-            // silent fail
+            if ($this->building_type === 'apartment') {
+                if (! $this->entrance || ! $this->floor) {
+                    throw ValidationException::withMessages([
+                        'search' => 'Вкажіть підʼїзд та поверх.',
+                    ]);
+                }
+            }
         }
+
+        $data = [
+            'label'         => $this->label,
+            'title'         => $this->title,
+            'building_type' => $this->building_type,
+
+            'address_text' => $this->search,
+
+            'city'   => $this->city,
+            'street' => $this->street,
+            'house'  => $this->house,
+
+            'lat' => $this->lat,
+            'lng' => $this->lng,
+
+            'entrance'  => $this->building_type === 'apartment' ? $this->entrance : null,
+            'intercom'  => $this->building_type === 'apartment' ? $this->intercom : null,
+            'floor'     => $this->building_type === 'apartment' ? $this->floor : null,
+            'apartment' => $this->building_type === 'apartment' ? $this->apartment : null,
+
+            'geocode_source'   => 'manual',
+            'geocode_accuracy' => 'exact',
+            'geocoded_at'      => now(),
+        ];
+
+        // 5) Save
+        if ($isEdit) {
+            ClientAddress::where('id', $this->addressId)
+                ->where('user_id', auth()->id())
+                ->firstOrFail()
+                ->update($data);
+        } else {
+            ClientAddress::create($data + [
+                'user_id' => auth()->id(),
+            ]);
+        }
+
+        // 6) ВАЖНО: Дублируем события “широко”, чтобы точно долетели
+        // - одно для UI/JS/всех слушателей
+        $this->dispatch('address-saved');
+
+        // - одно конкретно в AddressManager (если у тебя компонент так называется)
+        $this->dispatch('address-saved')->to('client.address-manager');
+
+        // 7) Закрытие sheet: тоже делаем максимально совместимо
+        $this->dispatch('sheet:close', name: 'editAddress');
+        $this->dispatch('sheet:close'); // на случай если твой sheet закрывается без параметров
+
+    } catch (ValidationException $e) {
+        // покажет ошибки в форме (как обычно)
+        throw $e;
+
+    } catch (\Throwable $e) {
+        report($e);
+
+        // чтобы не “молчало”
+        $this->addError('search', 'Сталася помилка при збереженні. Перевірте поля та спробуйте ще раз.');
+
+        // лог для отладки (быстро поймешь, где упало)
+        Log::error('AddressForm save failed', [
+            'addressId' => $this->addressId,
+            'user_id' => auth()->id(),
+            'message' => $e->getMessage(),
+        ]);
     }
+}
 
     /* =========================================================
      | HELPERS
@@ -354,6 +494,7 @@ class AddressForm extends Component
             'addressId',
             'label',
             'title',
+            'building_type',
             'search',
             'suggestions',
             'lat',
@@ -369,6 +510,7 @@ class AddressForm extends Component
         ]);
 
         $this->label = 'home';
+        $this->building_type = 'apartment';
         $this->suggestions = [];
     }
 
@@ -377,5 +519,3 @@ class AddressForm extends Component
         return view('livewire.client.address-form');
     }
 }
-
-

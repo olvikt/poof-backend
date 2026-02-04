@@ -19,13 +19,16 @@
 
     <div class="relative">
         {{-- MAP --}}
-        <div
-            id="map"
-            wire:ignore
-            class="h-[400px] w-full rounded-xl
-                   border border-neutral-700
-                   overflow-hidden bg-neutral-800 z-0"
-        ></div>
+        
+		
+		<div
+    id="map"
+    wire:ignore
+    class="map-container w-full rounded-xl
+           border border-neutral-700
+           overflow-hidden bg-neutral-800 z-0"
+    style="height: min(50vh, 420px);"
+></div>
 
         {{-- STATUS / HINT --}}
         <div class="mt-2 text-xs text-gray-400 flex items-start gap-2">

@@ -4,16 +4,18 @@
  *
  * ✔ Livewire v3
  * ✔ Идемпотентная инициализация
- * ✔ ЕДИНЫЙ КАНАЛ синхронизации: JS читает Livewire state
- * ✔ Address book ↔ map ↔ form
+ * ✔ ЕДИНЫЙ КАНАЛ: PHP → JS → Map
+ * ✔ Поддержка нескольких контейнеров (mapId)
+ * ✔ Bottom-sheet friendly (ResizeObserver + invalidateSize)
+ * ✔ Брендированный маркер POOF (SVG/IMG)
  */
 
 export default function initMap() {
   // ------------------------------------------------------------
-  // Global namespace
+  // Namespace
   // ------------------------------------------------------------
-  window.POOF = window.POOF || {};
-  const POOF = window.POOF;
+  window.POOF = window.POOF || {}
+  const POOF = window.POOF
 
   // ------------------------------------------------------------
   // Shared singleton state
@@ -26,194 +28,376 @@ export default function initMap() {
     handlersBound: false,
     geoBtnBoundEl: null,
 
-    pendingPoint: null, // если coords пришли до init
+    pendingPoint: null,
     lastLat: null,
     lastLng: null,
-  };
 
-  const state = POOF.map;
+    // marker icon cache (создаём только когда Leaflet доступен)
+    icons: null,
+
+    // last precision for restoring after remount
+    markerPrecision: 'approx',
+
+    // map container observer
+    resizeObserver: null,
+  }
+
+  const state = POOF.map
 
   // ------------------------------------------------------------
   // Helpers
   // ------------------------------------------------------------
-  function hasLivewire() {
-    return !!window.Livewire?.dispatch;
+  function leafletReady() {
+    return !!window.L
   }
 
+  function hasLivewire() {
+    return !!window.Livewire?.dispatch
+  }
+
+  // Единственный канал Map -> Livewire
   function sendLocation(lat, lng) {
-    if (!hasLivewire()) return;
+    if (!hasLivewire()) return
 
     // OrderCreate
-    Livewire.dispatch('set-location', { lat, lng });
+    window.Livewire.dispatch('set-location', { lat, lng })
 
-    // AddressForm (если используется)
+    // AddressForm
     try {
-      Livewire.dispatch('address:set-coords', { lat, lng });
+      window.Livewire.dispatch('address:set-coords', {
+        lat,
+        lng,
+        source: 'map',
+      })
     } catch (_) {}
   }
 
-  // ------------------------------------------------------------
-  // CORE: единственный метод работы с маркером
-  // ------------------------------------------------------------
-  function setMarker(lat, lng, { emit = false, zoom = 18 } = {}) {
-    if (!window.L) return;
-
-    // если карта ещё не готова — откладываем
-    if (!state.instance) {
-      state.pendingPoint = { lat, lng };
-      return;
-    }
-
-    // защита от лишних одинаковых обновлений
-    if (state.lastLat === lat && state.lastLng === lng) return;
-    state.lastLat = lat;
-    state.lastLng = lng;
-
-    const ll = L.latLng(lat, lng);
-
-    if (!state.marker) {
-      state.marker = L.marker(ll, { draggable: true }).addTo(state.instance);
-
-      state.marker.on('dragend', (e) => {
-        const p = e.target.getLatLng();
-        setMarker(p.lat, p.lng, { emit: true, zoom: state.instance.getZoom() || zoom });
-      });
-    } else {
-      state.marker.setLatLng(ll);
-    }
-
-    state.instance.setView(ll, zoom, { animate: false });
-
-    if (emit) {
-      sendLocation(lat, lng);
-    }
+  function toNumber(v) {
+    const n = Number(v)
+    return Number.isFinite(n) ? n : null
   }
+
+  // ------------------------------------------------------------
+  // ResizeObserver — критично для bottom-sheet + Leaflet
+  // ------------------------------------------------------------
+  function observeMapResize(el, map) {
+    if (!window.ResizeObserver || !el || !map) return
+
+    // если уже наблюдаем другой элемент — отключаем
+    if (state.resizeObserver && state.el && state.el !== el) {
+      try {
+        state.resizeObserver.disconnect()
+      } catch (_) {}
+      state.resizeObserver = null
+    }
+
+    // если уже наблюдаем этот же элемент — не дублируем
+    if (state.resizeObserver && state.el === el) return
+
+    const ro = new ResizeObserver(() => {
+      try {
+        map.invalidateSize(false)
+      } catch (_) {}
+    })
+
+    ro.observe(el)
+    state.resizeObserver = ro
+  }
+
+  function stopObserveResize() {
+    if (!state.resizeObserver) return
+    try {
+      state.resizeObserver.disconnect()
+    } catch (_) {}
+    state.resizeObserver = null
+  }
+
+  // ------------------------------------------------------------
+  // Marker icons (lazy)
+  // ------------------------------------------------------------
+  function ensureIcons() {
+    if (state.icons) return state.icons
+    if (!leafletReady()) return null
+
+    const LOGO_SRC = '/images/logo-poof.svg'
+
+    const createPoofMarkerIcon = (precision = 'approx') =>
+      window.L.divIcon({
+        className: '',
+        html: `
+          <div class="poof-marker ${precision === 'exact' ? 'exact' : ''}">
+            <img src="${LOGO_SRC}" alt="POOF" />
+          </div>
+        `,
+        iconSize: [42, 42],
+        iconAnchor: [21, 21],
+      })
+
+    state.icons = {
+      approx: createPoofMarkerIcon('approx'),
+      exact: createPoofMarkerIcon('exact'),
+    }
+
+    return state.icons
+  }
+
+  function getMarkerIcon() {
+    const icons = ensureIcons()
+    if (!icons) return null
+    return state.markerPrecision === 'exact' ? icons.exact : icons.approx
+  }
+
+  // ------------------------------------------------------------
+  // CORE: единая точка работы с маркером
+  // ------------------------------------------------------------
+function setMarker(lat, lng, { emit = false, zoom = null, source = 'user' } = {}) {
+  if (!leafletReady()) return
+
+  const latN = Number(lat)
+  const lngN = Number(lng)
+  if (!Number.isFinite(latN) || !Number.isFinite(lngN)) return
+
+  // карта ещё не готова
+  if (!state.instance) {
+    state.pendingPoint = { lat: latN, lng: lngN }
+    return
+  }
+
+  const ll = window.L.latLng(latN, lngN)
+
+  const samePoint = state.lastLat === latN && state.lastLng === lngN
+  state.lastLat = latN
+  state.lastLng = lngN
+
+  // marker
+  if (!state.marker) {
+    const icon = getMarkerIcon()
+
+    state.marker = window.L.marker(ll, {
+      draggable: true,
+      icon: icon || undefined,
+    }).addTo(state.instance)
+
+    state.marker.on('dragend', (e) => {
+      const p = e.target.getLatLng()
+      setMarker(p.lat, p.lng, {
+        emit: true,
+        zoom: state.instance?.getZoom() || 18,
+        source: 'user',
+      })
+    })
+  } else {
+    state.marker.setLatLng(ll)
+  }
+
+  // ✅ КАМЕРА: используем flyTo (самый стабильный фокус)
+  const targetZoom = zoom ?? state.instance.getZoom() ?? 16
+
+  if (source === 'user') {
+    // Даже если точка та же — всё равно фокусируем
+    state.instance.flyTo(ll, targetZoom, { animate: true, duration: 0.6 })
+  } else {
+    // sync из PHP — без анимаций
+    state.instance.setView(ll, targetZoom, { animate: false })
+  }
+
+  if (emit) sendLocation(latN, lngN)
+}
 
   // ------------------------------------------------------------
   // Geo button
   // ------------------------------------------------------------
   function bindGeoButton() {
-    const btn = document.getElementById('use-location-btn');
-    if (!btn || state.geoBtnBoundEl === btn) return;
+    const btn = document.getElementById('use-location-btn')
+    if (!btn || state.geoBtnBoundEl === btn) return
 
-    state.geoBtnBoundEl = btn;
+    state.geoBtnBoundEl = btn
 
     btn.addEventListener('click', () => {
       if (!navigator.geolocation) {
-        alert('Геолокація не підтримується');
-        return;
+        alert('Геолокація не підтримується')
+        return
       }
 
       navigator.geolocation.getCurrentPosition(
         (pos) => {
-          setMarker(
-            pos.coords.latitude,
-            pos.coords.longitude,
-            { emit: true, zoom: 18 }
-          );
+          setMarker(pos.coords.latitude, pos.coords.longitude, {
+            emit: true,
+            zoom: 18,
+            source: 'user',
+          })
         },
         () => alert('Не вдалося отримати локацію'),
         { enableHighAccuracy: true, timeout: 12000, maximumAge: 0 }
-      );
-    });
+      )
+    })
   }
 
   // ------------------------------------------------------------
-  // Global handlers (ONE TIME)
+  // Global one-time handlers
   // ------------------------------------------------------------
-function bindGlobalHandlersOnce() {
-  if (state.handlersBound) return;
-  state.handlersBound = true;
+  function bindGlobalHandlersOnce() {
+    if (state.handlersBound) return
+    state.handlersBound = true
 
-  // ✅ PHP → JS (ЕДИНЫЙ КАНАЛ)
-  window.addEventListener('map:set-marker', (e) => {
-    const { lat, lng } = e.detail || {};
-    if (lat == null || lng == null) return;
+    // PHP → JS: синхронизация координат
+    window.addEventListener('map:set-marker', (e) => {
+      const { lat, lng } = e.detail || {}
+      if (lat == null || lng == null) return
 
-    setMarker(lat, lng, { emit: false, zoom: 18 });
-  });
+      setMarker(lat, lng, { emit: false, source: 'sync' })
+    })
 
-  // ре-маунт карты
-  window.addEventListener('map:init', mount);
-}
+    // PHP → JS: смена точности маркера (approx / exact)
+    window.addEventListener('map:set-marker-precision', (e) => {
+      const precision = e.detail?.precision
+      if (!precision) return
+
+      state.markerPrecision = precision === 'exact' ? 'exact' : 'approx'
+
+      if (state.marker) {
+        const icons = ensureIcons()
+        if (icons) {
+          state.marker.setIcon(state.markerPrecision === 'exact' ? icons.exact : icons.approx)
+        }
+      }
+    })
+
+    // UI → JS: sheet реально открылся
+    window.addEventListener('poof:sheet-opened', (e) => {
+      if (e.detail?.name !== 'editAddress') return
+
+      const map = state.instance
+      if (!map) return
+
+      // 2 invalidateSize — best practice
+      requestAnimationFrame(() => {
+        try {
+          map.invalidateSize(false)
+        } catch (_) {}
+
+        setTimeout(() => {
+          try {
+            map.invalidateSize(true)
+            map.panTo(map.getCenter(), { animate: false })
+          } catch (_) {}
+        }, 100)
+      })
+    })
+  }
 
   // ------------------------------------------------------------
-  // Mount map
+  // Mount / Remount
   // ------------------------------------------------------------
-  function mount() {
-    const el = document.getElementById('map');
-    if (!el || !window.L) return;
+  function mount(mapId = 'map-address') {
+    const el = document.getElementById(mapId)
+    if (!el) return
 
-    const changed = state.el && state.el !== el;
+    // Leaflet ещё не подгрузился — выходим
+    if (!leafletReady()) return
+
+    const domChanged = state.el && state.el !== el
 
     // карта уже есть и DOM тот же
-    if (state.instance && !changed) {
-      state.instance.invalidateSize();
-      bindGeoButton();
-      return;
-    }
-
-    // DOM сменился — убиваем карту
-    if (state.instance && changed) {
+    if (state.instance && !domChanged) {
       try {
-        state.instance.off();
-        state.instance.remove();
+        state.instance.invalidateSize()
       } catch (_) {}
-      state.instance = null;
-      state.marker = null;
+
+      // на всякий — следим за resize
+      observeMapResize(el, state.instance)
+      bindGeoButton()
+      return
     }
 
-    state.el = el;
+    // DOM сменился — уничтожаем карту
+    if (state.instance && domChanged) {
+      try {
+        state.instance.off()
+        state.instance.remove()
+      } catch (_) {}
+
+      stopObserveResize()
+
+      state.instance = null
+      state.marker = null
+      state.lastLat = null
+      state.lastLng = null
+    }
+
+    state.el = el
 
     // создаём карту
-    state.instance = L.map(el, {
+    state.instance = window.L.map(el, {
       zoomControl: true,
       attributionControl: true,
-    }).setView([50.4501, 30.5234], 16);
+    }).setView([50.4501, 30.5234], 16)
 
-    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    // наблюдаем размеры (bottom-sheet safe)
+    observeMapResize(el, state.instance)
+
+    window.L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
       attribution: '© OpenStreetMap',
-    }).addTo(state.instance);
+    }).addTo(state.instance)
 
     // клик по карте
     state.instance.on('click', (e) => {
-      setMarker(e.latlng.lat, e.latlng.lng, { emit: true, zoom: 18 });
-    });
+      setMarker(e.latlng.lat, e.latlng.lng, {
+        emit: true,
+        zoom: 18,
+        source: 'user',
+      })
+    })
 
     // применяем отложенную точку
     if (state.pendingPoint) {
-      const { lat, lng } = state.pendingPoint;
-      state.pendingPoint = null;
-      setMarker(lat, lng, { emit: false, zoom: 18 });
+      const { lat, lng } = state.pendingPoint
+      state.pendingPoint = null
+      setMarker(lat, lng, { emit: false, zoom: 18, source: 'sync' })
     }
 
+    // post-mount fix
     setTimeout(() => {
       try {
-        state.instance.invalidateSize();
+        state.instance?.invalidateSize()
       } catch (_) {}
-      document.getElementById('map-skeleton')?.remove();
-    }, 250);
+      document.getElementById('map-skeleton')?.remove()
+    }, 250)
 
-    bindGeoButton();
+    bindGeoButton()
   }
 
   // ------------------------------------------------------------
   // Public API
   // ------------------------------------------------------------
-  POOF.initMap = mount;
+  POOF.initMap = mount
 
-  // ❗Оставляем старое поведение (emit:true) чтобы ничего не сломать
-  POOF.setMarker = (lat, lng) => setMarker(lat, lng, { emit: true, zoom: 18 });
+  // старое поведение (emit:true)
+  POOF.setMarker = (lat, lng) => setMarker(lat, lng, { emit: true, zoom: 18, source: 'user' })
 
-  // ✅ Новый метод: поставить маркер ТИХО (без отправки обратно в Livewire)
-  POOF.setMarkerSilent = (lat, lng, zoom = 18) =>
-    setMarker(lat, lng, { emit: false, zoom });
+  // тихо
+  POOF.setMarkerSilent = (lat, lng, zoom = 18) => setMarker(lat, lng, { emit: false, zoom, source: 'sync' })
+
+  // точность
+  POOF.setMarkerPrecision = (precision) => {
+    state.markerPrecision = precision === 'exact' ? 'exact' : 'approx'
+    if (!state.marker) return
+    const icons = ensureIcons()
+    if (!icons) return
+    state.marker.setIcon(state.markerPrecision === 'exact' ? icons.exact : icons.approx)
+  }
 
   // ------------------------------------------------------------
   // Bootstrap
   // ------------------------------------------------------------
-  bindGlobalHandlersOnce();
-  mount();
+  bindGlobalHandlersOnce()
 
-  document.addEventListener('livewire:navigated', mount);
+  // Пытаемся смонтировать оба типа контейнеров (если есть)
+  mount('map')
+  mount('map-address')
+
+  document.addEventListener('livewire:navigated', () => {
+    mount('map')
+    mount('map-address')
+  })
 }
