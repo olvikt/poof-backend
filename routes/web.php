@@ -63,24 +63,27 @@ Route::post('/login', function (Request $request) {
 
 })->name('login.post');
 
-// 🚪 Logout
-Route::post('/logout', function () {
-    Auth::logout();
 
-    request()->session()->invalidate();
-    request()->session()->regenerateToken();
+// 🚪 Logout (POST — остаётся как есть)
+
+Route::get('/logout', function () {
+
+    // если сессия жива
+    if (Auth::check()) {
+        Auth::logout();
+    }
+
+    // никаких invalidate() и regenerateToken()
 
     return redirect('/login');
-})->name('logout');
+
+})->withoutMiddleware([\App\Http\Middleware\VerifyCsrfToken::class])
+  ->name('logout');
+
 
 /*
 |--------------------------------------------------------------------------
 | Client area
-|--------------------------------------------------------------------------
-| - home (dashboard)
-| - create order
-| - my orders
-| - payments (temp/dev)
 |--------------------------------------------------------------------------
 */
 
@@ -89,9 +92,9 @@ Route::middleware('auth:web')
     ->name('client.')
     ->group(function () {
 
-        // 🏠 Home / Start page
+        // 🏠 Home
         Route::get('/', Home::class)
-    ->name('home');
+            ->name('home');
 
         // ➕ Create order
         Route::get('/order/create', OrderCreate::class)
@@ -100,11 +103,10 @@ Route::middleware('auth:web')
         // 📋 My orders
         Route::get('/orders', OrdersList::class)
             ->name('orders');
-			
-		// 👤 Profile
-		Route::get('/profile', \App\Livewire\Client\Profile::class)
-			->name('profile');
-	
+
+        // 👤 Profile
+        Route::get('/profile', Profile::class)
+            ->name('profile');
 
         /*
         |--------------------------------------------------------------------------
@@ -112,7 +114,6 @@ Route::middleware('auth:web')
         |--------------------------------------------------------------------------
         */
 
-        // 🧾 Payment page (stub)
         Route::get('/payments/pay/{order}', function (Order $order) {
 
             abort_if($order->client_id !== auth()->id(), 403);
@@ -129,7 +130,7 @@ Route::middleware('auth:web')
 
         })->name('payments.pay');
 
-        // ✅ DEV: simulate successful payment
+
         Route::post('/payments/dev-pay/{order}', function (Order $order) {
 
             abort_if($order->client_id !== auth()->id(), 403);
@@ -138,7 +139,6 @@ Route::middleware('auth:web')
                 return redirect()->route('client.orders');
             }
 
-            // доменна логіка
             $order->markAsPaid();
 
             return redirect()
@@ -152,11 +152,6 @@ Route::middleware('auth:web')
 |--------------------------------------------------------------------------
 | Courier area
 |--------------------------------------------------------------------------
-| - available orders
-| - accept order
-| - my orders
-| - start / complete
-|--------------------------------------------------------------------------
 */
 
 Route::middleware('auth:web')
@@ -168,11 +163,11 @@ Route::middleware('auth:web')
         Route::get('/orders', AvailableOrders::class)
             ->name('orders');
 
-        // 🚴‍♂️ My active courier orders
+        // 🚴‍♂️ My active orders
         Route::get('/my-orders', MyOrders::class)
             ->name('my-orders');
 
-        // ✅ Accept order
+        // ✅ Accept
         Route::post('/orders/{order}/accept', function (Order $order) {
 
             abort_if(! auth()->user()?->isCourier(), 403);
@@ -189,7 +184,8 @@ Route::middleware('auth:web')
 
         })->name('orders.accept');
 
-        // ▶️ Start order
+
+        // ▶️ Start
         Route::post('/orders/{order}/start', function (Order $order) {
 
             abort_if(! auth()->user()?->isCourier(), 403);
@@ -206,10 +202,9 @@ Route::middleware('auth:web')
                 ->with('success', 'Замовлення розпочато.');
 
         })->name('orders.start');
-		
-		
 
-        // ✅ Complete order
+
+        // ✅ Complete
         Route::post('/orders/{order}/complete', function (Order $order) {
 
             abort_if(! auth()->user()?->isCourier(), 403);

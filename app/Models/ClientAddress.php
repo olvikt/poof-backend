@@ -66,6 +66,14 @@ class ClientAddress extends Model
     {
         return $this->belongsTo(User::class);
     }
+	
+	/**
+	 * Заказы, оформленные с этого адреса
+	 */
+	public function orders()
+	{
+		return $this->hasMany(Order::class, 'address_id');
+	}
 
     /* =========================================================
      |  SCOPES

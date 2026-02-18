@@ -8,6 +8,7 @@ use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class Order extends Model
 {
@@ -44,13 +45,16 @@ class Order extends Model
     /* =========================================================
      |  PAYMENT DOMAIN LOGIC
      | ========================================================= */
-    public function markAsPaid(): void
-    {
-        $this->update([
-            'payment_status' => self::PAY_PAID,
-            'status'         => self::STATUS_SEARCHING,
-        ]);
-    }
+public function markAsPaid(): void
+{
+    $this->update([
+        'payment_status' => self::PAY_PAID,
+        'status'         => self::STATUS_SEARCHING,
+    ]);
+
+    // 🚀 ТОЛЬКО событие
+    event(new \App\Events\OrderCreated($this));
+}
 
     /* =========================================================
      |  ORDER TYPES / OPTIONS
@@ -60,6 +64,11 @@ class Order extends Model
 
     public const HANDOVER_DOOR = 'door';
     public const HANDOVER_HAND = 'hand';
+
+    public const HANDOVER_LABELS = [
+        self::HANDOVER_DOOR => 'Забрати біля дверей',
+        self::HANDOVER_HAND => 'Передача в руки',
+    ];
 
     /* =========================================================
      |  MASS ASSIGNMENT
@@ -91,6 +100,11 @@ class Order extends Model
         'promo_code',
         'is_trial',
         'trial_days',
+
+        // FSM timestamps (если колонок нет — добавь миграцию или убери отсюда)
+        'accepted_at',
+        'started_at',
+        'completed_at',
     ];
 
     /* =========================================================
@@ -104,6 +118,11 @@ class Order extends Model
         'price'          => 'int',
         'is_trial'       => 'bool',
         'trial_days'     => 'int',
+
+        // FSM timestamps
+        'accepted_at'  => 'datetime',
+        'started_at'   => 'datetime',
+        'completed_at' => 'datetime',
     ];
 
     /* =========================================================
@@ -118,7 +137,11 @@ class Order extends Model
     {
         return $this->belongsTo(User::class, 'courier_id');
     }
-
+	
+	public function offers(): HasMany
+	{
+		return $this->hasMany(\App\Models\OrderOffer::class, 'order_id');
+	}
     /* =========================================================
      |  SCOPES
      | ========================================================= */
@@ -201,15 +224,76 @@ class Order extends Model
     }
 
     /* =========================================================
-     |  COURIER DOMAIN LOGIC
+     |  COURIER DOMAIN LOGIC (STRICT)
      | ========================================================= */
+
     public function canBeAccepted(): bool
     {
         return $this->status === self::STATUS_SEARCHING
-            && $this->courier_id === null;
+            && $this->courier_id === null
+            && $this->payment_status === self::PAY_PAID;
     }
 
-    public function acceptBy(User $courier): bool
+    public function canBeStartedBy(User $courier): bool
+    {
+        return $this->status === self::STATUS_ACCEPTED
+            && (int) $this->courier_id === (int) $courier->id;
+    }
+
+    public function canBeCompletedBy(User $courier): bool
+    {
+        return $this->status === self::STATUS_IN_PROGRESS
+            && (int) $this->courier_id === (int) $courier->id;
+    }
+
+    /**
+     * Прийняти замовлення курʼєром (атомарно)
+     */
+public function acceptBy(User $courier): bool
+{
+    return (bool) DB::transaction(function () use ($courier) {
+
+        $order = self::query()
+            ->whereKey($this->getKey())
+            ->lockForUpdate()
+            ->first();
+
+        if (! $order || ! $order->canBeAccepted()) {
+            return false;
+        }
+
+        if (method_exists($courier, 'canAcceptOrders') && ! $courier->canAcceptOrders()) {
+            return false;
+        }
+
+        // 1️⃣ Назначаем заказ
+        $order->update([
+            'status'      => self::STATUS_ACCEPTED,
+            'courier_id'  => $courier->id,
+            'accepted_at' => now(),
+        ]);
+
+        // 2️⃣ Курьер становится busy
+        if (method_exists($courier, 'markBusy')) {
+            $courier->markBusy();
+        }
+
+        // 🔥 3️⃣ ВАЖНО: убиваем все остальные pending этого курьера
+        \App\Models\OrderOffer::where('courier_id', $courier->id)
+            ->where('status', \App\Models\OrderOffer::STATUS_PENDING)
+            ->where('order_id', '!=', $order->id)
+            ->update([
+                'status' => \App\Models\OrderOffer::STATUS_EXPIRED,
+            ]);
+
+        return true;
+    });
+}
+
+    /**
+     * Почати виконання (курʼєр-safe)
+     */
+    public function startBy(User $courier): bool
     {
         return (bool) DB::transaction(function () use ($courier) {
             $order = self::query()
@@ -217,29 +301,73 @@ class Order extends Model
                 ->lockForUpdate()
                 ->first();
 
-            if (! $order || ! $order->canBeAccepted()) {
+            if (! $order || ! $order->canBeStartedBy($courier)) {
                 return false;
             }
 
             $order->update([
-                'status'     => self::STATUS_ACCEPTED,
-                'courier_id' => $courier->id,
+                'status'     => self::STATUS_IN_PROGRESS,
+                'started_at' => now(),
             ]);
 
             return true;
         });
     }
 
+    /**
+     * Завершити виконання (курʼєр-safe)
+     */
+    public function completeBy(User $courier): bool
+    {
+        return (bool) DB::transaction(function () use ($courier) {
+            $order = self::query()
+                ->whereKey($this->getKey())
+                ->lockForUpdate()
+                ->first();
+
+            if (! $order || ! $order->canBeCompletedBy($courier)) {
+                return false;
+            }
+
+            $order->update([
+                'status'       => self::STATUS_DONE,
+                'completed_at' => now(),
+            ]);			
+			
+
+            if (method_exists($courier, 'markFree')) {
+                $courier->markFree();
+            }
+			
+			$courier->update([
+				'last_completed_at' => now(),
+			]);
+
+            return true;
+        });
+    }
+
+    /**
+     * Backward compatible: старые вызовы (без курьера) — НЕ рекомендуются.
+     * Оставлено, чтобы не ломать старые маршруты/формы.
+     */
     public function start(): bool
     {
+        // Безопасно разрешаем только если заказ уже принят (но не защищает от чужого курьера)
         return $this->status === self::STATUS_ACCEPTED
-            && $this->update(['status' => self::STATUS_IN_PROGRESS]);
+            && $this->update([
+                'status'     => self::STATUS_IN_PROGRESS,
+                'started_at' => $this->started_at ?? now(),
+            ]);
     }
 
     public function complete(): bool
     {
         return $this->status === self::STATUS_IN_PROGRESS
-            && $this->update(['status' => self::STATUS_DONE]);
+            && $this->update([
+                'status'       => self::STATUS_DONE,
+                'completed_at' => $this->completed_at ?? now(),
+            ]);
     }
 
     public function cancel(): bool
@@ -251,23 +379,20 @@ class Order extends Model
     }
 
     /* =========================================================
-     |  ADMIN / COURIER STATE HELPERS
+     |  UI HELPERS (old API preserved)
      | ========================================================= */
     public function canBeStarted(): bool
     {
-        // Курьер может начать, если заказ принят
         return $this->status === self::STATUS_ACCEPTED;
     }
 
     public function canBeCompleted(): bool
     {
-        // Завершить можно только в процессе
         return $this->status === self::STATUS_IN_PROGRESS;
     }
 
     public function canBeCancelled(): bool
     {
-        // Отменить можно до выполнения
         return in_array($this->status, [
             self::STATUS_NEW,
             self::STATUS_SEARCHING,

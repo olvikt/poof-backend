@@ -184,12 +184,30 @@ class OrderCreate extends Component
 	public function mount(): void
 	{
 		// =========================================
-		// ✅ Подхват адреса из адресной книги
+		// 🔁 Повтор заказа (СТАРЫЕ и НОВЫЕ)
 		// =========================================
-		$this->address_id = request()->integer('address_id');
+		$repeatId = request()->integer('repeat');
 
-		if ($this->address_id) {
-			$this->loadAddressFromBook($this->address_id);
+		if ($repeatId) {
+			$order = \App\Models\Order::query()
+				->where('id', $repeatId)
+				->where('client_id', auth()->id())
+				->first();
+
+			if ($order) {
+				$this->hydrateFromOrder($order);
+			}
+		}
+
+		// =========================================
+		// ✅ Адрес из адресной книги (если НЕ repeat)
+		// =========================================
+		if (! $repeatId) {
+			$this->address_id = request()->integer('address_id');
+
+			if ($this->address_id) {
+				$this->loadAddressFromBook($this->address_id);
+			}
 		}
 
 		// =========================================
@@ -213,50 +231,166 @@ class OrderCreate extends Component
 		// 🗺 карта инициализируется один раз на клиенте
 		$this->dispatch('map:init');
 	}
+
 	
-	
+			
 	protected function loadAddressFromBook(int $addressId): void
-{
-    $address = \App\Models\ClientAddress::where('id', $addressId)
-        ->where('user_id', auth()->id())
-        ->first();
+	{
+		$address = \App\Models\ClientAddress::where('id', $addressId)
+			->where('user_id', auth()->id())
+			->first();
 
-    if (! $address) {
-        return;
-    }
+		if (! $address) {
+			return;
+		}
 
-    // 🔒 не запускаем updated-хуки
-    $this->suppressAddressHooks = true;
+		$this->suppressAddressHooks = true;
 
-    $this->coordsFromAddressBook = true;
-    $this->address_precision = 'exact';
+		$this->coordsFromAddressBook = true;
+		$this->address_precision = 'exact';
 
-    // UI
-    $this->address_text = $address->address_text ?? $address->full_address;
+		// UI
+		$this->address_text = $address->address_text ?? $address->full_address;
 
-    // структура
-    $this->street = $address->street;
-    $this->house  = $address->house;
-    $this->city   = $address->city;
+		// структура
+		$this->street = $address->street;
+		$this->house  = $address->house;
+		$this->city   = $address->city;
 
-    // координаты — истина
-    $this->lat = $address->lat;
-    $this->lng = $address->lng;
+		// координаты — истина
+		$this->lat = $address->lat;
+		$this->lng = $address->lng;
 
-    // детали
-    $this->entrance  = $address->entrance;
-    $this->floor     = $address->floor;
-    $this->apartment = $address->apartment;
-    $this->intercom  = $address->intercom;
+		// детали
+		$this->entrance  = $address->entrance;
+		$this->floor     = $address->floor;
+		$this->apartment = $address->apartment;
+		$this->intercom  = $address->intercom;
 
-    $this->suppressAddressHooks = false;
+		$this->suppressAddressHooks = false;
 
-    // 🔔 синхронизация карты
-    if ($this->lat && $this->lng) {
-        $this->dispatch('map:set-marker', lat: $this->lat, lng: $this->lng);
-        $this->dispatch('map:set-marker-precision', precision: 'exact');
-    }
-}
+		// 🔔 карта
+		if ($this->lat && $this->lng) {
+			$this->dispatch('map:set-marker', lat: $this->lat, lng: $this->lng);
+			$this->dispatch('map:set-marker-precision', precision: 'exact');
+		}
+	}
+
+	protected function hydrateFromOrder(\App\Models\Order $order): void
+	{
+		$this->suppressAddressHooks = true;
+
+		try {
+			// ✅ Новый заказ (есть address_id)
+			if ($order->address_id) {
+				$this->loadAddressFromBook($order->address_id);
+				return;
+			}
+
+			// 🧓 Старый заказ (address_id = null)
+			$this->address_id   = null;
+			$this->address_text = $order->address_text ?? '';
+
+			$this->street = null;
+			$this->house  = null;
+			$this->city   = null;
+
+			$this->entrance  = $order->entrance;
+			$this->floor     = $order->floor;
+			$this->apartment = $order->apartment;
+			$this->intercom  = $order->intercom;
+
+			$this->lat = $order->lat;
+			$this->lng = $order->lng;
+
+			$this->coordsFromAddressBook = true; // 🔑 доверяем координатам из истории
+			$this->address_precision = ($this->lat && $this->lng)
+				? 'exact'
+				: 'none';
+
+		} finally {
+			$this->suppressAddressHooks = false;
+		}
+
+		// 🔁 ВОССТАНОВЛЕНИЕ СТРУКТУРЫ АДРЕСА ИЗ КООРДИНАТ
+		if (! $order->address_id && $this->lat && $this->lng) {
+			$this->hydrateAddressFromCoords($this->lat, $this->lng);
+		}
+
+		// 🔔 карта
+		if ($this->lat && $this->lng) {
+			$this->dispatch('map:set-marker', lat: $this->lat, lng: $this->lng);
+			$this->dispatch('map:set-marker-precision', precision: 'approx');
+		}
+	}
+	
+	
+	protected function hydrateAddressFromCoords(float $lat, float $lng): void
+	{
+		try {
+			$geocoder = app(\App\Services\Geocoding\Geocoder::class);
+			$point = $geocoder->reverse($lat, $lng);
+
+			if (! $point) return;
+
+			$this->suppressAddressHooks = true;
+
+			// 1️⃣ UI строка
+			if (! empty($point->address)) {
+				$this->address_text = $point->address;
+			}
+
+			// 2️⃣ components (если есть)
+			foreach ($point->components ?? [] as $c) {
+				$types = $c['types'] ?? [];
+				$name  = $c['long_name'] ?? $c['name'] ?? null;
+				if (! $name) continue;
+
+				if (in_array('route', $types, true)) {
+					$this->street ??= $name;
+				}
+
+				if (
+					in_array('street_number', $types, true) ||
+					in_array('house_number', $types, true)
+				) {
+					$this->house ??= $name;
+				}
+
+				if (
+					in_array('locality', $types, true) ||
+					in_array('city', $types, true)
+				) {
+					$this->city ??= $name;
+				}
+			}
+
+			// 🔥 3️⃣ FALLBACK: парсим из address_text
+			if ((! $this->street || ! $this->house) && $this->address_text) {
+
+				// примеры:
+				// "Khreshchatyk Street 13"
+				// "вулиця Хрещатик, 13"
+				// "Хрещатик 13, Київ"
+
+				if (preg_match(
+					'/^(.*?)[,\s]+(\d+[A-Za-zА-Яа-яІЇЄієї\-\/]*)/u',
+					$this->address_text,
+					$m
+				)) {
+					$this->street ??= trim($m[1]);
+					$this->house  ??= trim($m[2]);
+				}
+			}
+
+			$this->address_precision = 'approx';
+
+		} catch (\Throwable $e) {
+			// тихо
+		} finally {
+			$this->suppressAddressHooks = false;
+		}
+	}
 
     /* =========================================================
      |  ADDRESS ACTIONS (TOP-APP FLOW)
@@ -792,7 +926,13 @@ class OrderCreate extends Component
 			return;
 		}
 
-		if ($this->address_precision === 'approx') {
+		// 🔒 Требуем уточнение ТОЛЬКО если:
+		// - координаты не из адресной книги
+		// - и адрес не подтверждён
+		if (
+			$this->address_precision === 'approx'
+			&& ! $this->coordsFromAddressBook
+		) {
 			$this->addError(
 				'address_text',
 				'Будь ласка, уточніть точку на мапі.'
@@ -829,7 +969,10 @@ class OrderCreate extends Component
             'status'              => Order::STATUS_NEW,
             'payment_status'      => $this->is_trial ? Order::PAY_PAID : Order::PAY_PENDING,
 
-            'address_text'        => $this->address_text,
+            // 🔗 связь с адресной книгой (если выбран)
+            'address_id'          => $this->address_id,
+			
+			'address_text'        => $this->address_text,
             'lat'                 => $this->lat,
             'lng'                 => $this->lng,
 

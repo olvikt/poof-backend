@@ -1,4 +1,7 @@
-	<div class="px-4 pt-6">
+<div class="shadow-[0_0_0_1px_rgba(74,222,128,0.25)]
+            min-h-screen bg-gray-950 text-white
+            px-4 pt-4 pb-28 rounded-xl">
+	<div class="pt-6">
 		<x-poof.profile.header :user="$user" />
 		<x-poof.profile.info-card :user="$user" />
 		{{-- 🏠 Address Manager --}}
@@ -24,4 +27,5 @@
 			<livewire:client.avatar-form />
 		</x-poof.ui.bottom-sheet>
 	</x-slot:sheets>
+	</div>
 

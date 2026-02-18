@@ -18,69 +18,69 @@
         </div>
 
         {{-- Addresses --}}
-@forelse ($addresses as $address)
-    <div
-        wire:key="address-{{ $address->id }}"
-        class="p-4 mb-3 rounded-xl border transition
-            {{ $address->is_default
-                ? 'border-yellow-400 bg-yellow-400/10'
-                : 'border-neutral-700 bg-neutral-800 hover:border-neutral-600' }}"
-    >
-        {{-- Card content --}}
-        <div class="flex items-start gap-3">
+		@forelse ($addresses as $address)
+			<div
+				wire:key="address-{{ $address->id }}"
+				class="p-4 mb-3 rounded-xl border transition
+					{{ $address->is_default
+						? 'border-yellow-400 bg-yellow-400/10'
+						: 'border-neutral-700 bg-neutral-800 hover:border-neutral-600' }}"
+			>
+				{{-- Card content --}}
+				<div class="flex items-start gap-3">
 
-            {{-- Info (tap = edit) --}}
-            <button
-                type="button"
-                wire:click="edit({{ $address->id }})"
-                class="min-w-0 flex-1 text-left"
-            >
-                <div class="flex items-center gap-2 min-w-0">
-                    <span class="font-semibold text-white truncate">
-                        {{ $address->label_title ?? 'Адреса' }}
-                    </span>
+					{{-- Info (tap = edit) --}}
+					<button
+						type="button"
+						wire:click="edit({{ $address->id }})"
+						class="min-w-0 flex-1 text-left"
+					>
+						<div class="flex items-center gap-2 min-w-0">
+							<span class="font-semibold text-white truncate">
+								{{ $address->label_title ?? 'Адреса' }}
+							</span>
 
-                    @if ($address->is_default)
-                        <span class="text-xs text-yellow-400 shrink-0">
-                            • основна
-                        </span>
-                    @endif
+							@if ($address->is_default)
+								<span class="text-xs text-yellow-400 shrink-0">
+									• основна
+								</span>
+							@endif
 
-                    @if (! $address->is_verified)
-                        <span class="text-xs text-yellow-400 shrink-0">
-                            • потребує уточнення
-                        </span>
-                    @endif
-                </div>
+							@if (! $address->is_verified)
+								<span class="text-xs text-yellow-400 shrink-0">
+									• потребує уточнення
+								</span>
+							@endif
+						</div>
 
-                <p class="text-sm text-gray-300 mt-1 line-clamp-2">
-                    {{ $address->address_text ?? $address->full_address }}
-                </p>
-            </button>
+						<p class="text-sm text-gray-300 mt-1 line-clamp-2">
+							{{ $address->address_text ?? $address->full_address }}
+						</p>
+					</button>
 
-            {{-- Menu (⋮) --}}
-            <button
-    type="button"
-    wire:click.stop="openActions({{ $address->id }})"
-    class="shrink-0 w-9 h-9 rounded-xl
-           bg-neutral-900/40 hover:bg-neutral-900/60
-           border border-neutral-700
-           flex items-center justify-center
-           text-gray-300 hover:text-white
-           transition"
-    aria-label="Дії з адресою"
-    title="Дії"
->
-    <span class="text-lg leading-none">⋮</span>
-</button>
+					{{-- Menu (⋮) --}}
+					<button
+			type="button"
+			wire:click.stop="openActions({{ $address->id }})"
+			class="shrink-0 w-9 h-9 rounded-xl
+				   bg-neutral-900/40 hover:bg-neutral-900/60
+				   border border-neutral-700
+				   flex items-center justify-center
+				   text-gray-300 hover:text-white
+				   transition"
+			aria-label="Дії з адресою"
+			title="Дії"
+		>
+			<span class="text-lg leading-none">⋮</span>
+		</button>
 
-        </div>
-    </div>
-@empty
-    <p class="text-sm text-gray-400">
-        Адреси ще не додані
-    </p>
-@endforelse
+				</div>
+			</div>
+		@empty
+			<p class="text-sm text-gray-400">
+				Адреси ще не додані
+			</p>
+		@endforelse
 
     </x-poof.ui.card>
 
@@ -159,6 +159,18 @@
 		>
 			🚚 Замовити з цього адреса
 		</button>
+		
+		@if ($actionsAddress && $actionsAddress->orders_count > 0)
+		<button
+			type="button"
+			wire:click="repeatLastOrder"
+			class="w-full bg-neutral-800 hover:bg-neutral-700
+				   text-gray-100 font-semibold py-3 rounded-2xl
+				   active:scale-95 transition text-left px-4"
+		>
+				🔁 Замовити знову
+		</button>
+		@endif
 
         <button
             type="button"

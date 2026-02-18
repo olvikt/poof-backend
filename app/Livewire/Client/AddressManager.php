@@ -26,15 +26,17 @@ class AddressManager extends Component
         $this->reloadAddresses();
     }
 
-    public function reloadAddresses(): void
-    {
-        $userId = auth()->id();
+public function reloadAddresses(): void
+{
+    $userId = auth()->id();
 
-        $this->addresses = ClientAddress::where('user_id', $userId)
-            ->orderByDesc('is_default')
-            ->orderByDesc('updated_at')
-            ->get();
-    }
+    $this->addresses = ClientAddress::where('user_id', $userId)
+        ->withCount('orders')
+        ->withMax('orders', 'created_at')
+        ->orderByDesc('is_default')
+        ->orderByDesc('orders_max_created_at')
+        ->get();
+}
 
     public function create(): void
     {
@@ -62,7 +64,8 @@ class AddressManager extends Component
 	{
 		$this->actionsId = $id;
 
-		$this->actionsAddress = ClientAddress::where('id', $id)
+		$this->actionsAddress = ClientAddress::withCount('orders')
+			->where('id', $id)
 			->where('user_id', auth()->id())
 			->first();
 
@@ -112,21 +115,48 @@ class AddressManager extends Component
 	
 	public function orderFromAddress(): void
 	{
-		if (! $this->actionsId) {
+		if (! $this->actionsAddress) {
 			return;
 		}
 
-		$addressId = $this->actionsId;
+		// закрываем actions sheet
+		$this->dispatch('sheet:close', name: 'addressActions');
 
-		// закрываем меню действий
-		$this->closeActions();
-
-		// редирект на создание заказа с адресом
-		$this->redirect(
-			route('client.order.create', ['address_id' => $addressId]),
-			navigate: true
+		// редирект на создание заказа с выбранным адресом
+		$this->redirectRoute(
+			'client.order.create',
+			['address_id' => $this->actionsAddress->id]
 		);
 	}
+	
+	/**
+	 * 🔁 Повтор последнего заказа с этого адреса
+	 */
+	public function repeatLastOrder(): void
+	{
+		if (! $this->actionsAddress) {
+			return;
+		}
+
+		$lastOrder = $this->actionsAddress
+			->orders()
+			->latest('created_at')
+			->first();
+
+		if (! $lastOrder) {
+			return;
+		}
+
+		// закрываем sheet действий
+		$this->dispatch('sheet:close', name: 'addressActions');
+
+		// редирект с флагом повторного заказа
+		$this->redirectRoute('client.order.create', [
+			'address_id' => $this->actionsAddress->id,
+			'repeat'     => $lastOrder->id,
+		]);
+	}
+	
 
     /** ---------- Delete flow ---------- */
 

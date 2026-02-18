@@ -10,7 +10,6 @@ class AppServiceProvider extends ServiceProvider
 {
     public function register(): void
     {
-        // 🔑 Binding геокодера (backend only, безопасно)
         $this->app->bind(
             GeocoderInterface::class,
             GooglePlacesProvider::class
@@ -19,6 +18,7 @@ class AppServiceProvider extends ServiceProvider
 
     public function boot(): void
     {
-        // ❗ Только безопасные вещи
+        // ❌ НИЧЕГО НЕ РЕГИСТРИРУЕМ ВРУЧНУЮ
+        // Все консольные задачи — через routes/console.php
     }
 }

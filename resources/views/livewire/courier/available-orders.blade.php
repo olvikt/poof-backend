@@ -1,36 +1,88 @@
-<div style="max-width:700px;margin:0 auto;padding:20px">
-    <h2>Доступні замовлення</h2>
+<div class="relative flex-1 rounded-2xl">
 
-    @if($orders->isEmpty())
-        <p>Наразі немає доступних замовлень</p>
-    @else
-        @foreach($orders as $order)
-            <div style="border:1px solid #ccc;padding:12px;margin-bottom:12px;border-radius:8px">
-                <strong>Замовлення #{{ $order->id }}</strong>
+    {{-- MAP WRAPPER --}}
+<div class="relative h-[calc(100dvh-160px)] w-full rounded-2xl">
+    <div wire:ignore id="map" class="absolute inset-0"></div>
+</div>
+{{-- STATUS BOTTOM PANEL --}}
+<div class="absolute bottom-4 left-3 right-3 z-30 space-y-3">
 
-                <div style="margin-top:6px">📍 {{ $order->address_text }}</div>
+    {{-- Если курьер онлайн --}}
+    @if($online)
 
-                <div>
-                    📅 {{ optional($order->scheduled_date)->format('d.m.Y') ?? '—' }}
+        {{-- 1️⃣ Есть активный заказ --}}
+        @if($activeOrder)
+
+            <div class="bg-yellow-400 text-black rounded-3xl p-5 shadow-2xl">
+
+                <div class="flex items-center justify-between">
+
+                    <div>
+                        <div class="text-sm font-semibold opacity-80">
+                            Активне замовлення
+                        </div>
+
+                        <div class="text-lg font-extrabold">
+                            #{{ $activeOrder->id }}
+                        </div>
+
+                        <div class="text-xs mt-1 opacity-70">
+                            Завершіть його, щоб отримати нове
+                        </div>
+                    </div>
+
+                    <a
+                        href="{{ route('courier.my-orders') }}"
+                        class="bg-black text-white px-4 py-2 rounded-xl text-sm font-bold"
+                    >
+                        Перейти →
+                    </a>
+
                 </div>
 
-                <div>
-                    ⏰ {{ $order->scheduled_time_from ?? '—' }} – {{ $order->scheduled_time_to ?? '—' }}
-                </div>
-
-                <div style="margin-top:6px">
-                    💰 {{ $order->price }} ₴
-                </div>
-
-                <form method="POST"
-                      action="{{ route('courier.orders.accept', $order) }}"
-                      style="margin-top:10px">
-                    @csrf
-                    <button style="padding:8px 12px;background:#FFD400;border:none;border-radius:6px;font-weight:600">
-                        🚴‍♂️ Прийняти замовлення
-                    </button>
-                </form>
             </div>
-        @endforeach
+
+        {{-- 2️⃣ Онлайн и нет заказов --}}
+        @else
+
+            <div class="bg-gray-900/95 backdrop-blur border border-gray-700 rounded-3xl p-5 shadow-2xl">
+
+                <div class="flex items-center gap-3">
+
+                    <div class="animate-spin h-5 w-5 border-2 border-yellow-400 border-t-transparent rounded-full"></div>
+
+                    <div>
+                        <div class="font-semibold text-white">
+                            Пошук замовлень...
+                        </div>
+
+                        <div class="text-xs text-gray-400 mt-1">
+                            Очікуйте, ми шукаємо клієнтів поруч
+                        </div>
+                    </div>
+
+                </div>
+
+            </div>
+
+        @endif
+
     @endif
+
+</div>
+
+    {{-- OFFLINE OVERLAY --}}
+    @if(! $online)
+        <div class="absolute inset-0 z-20 flex items-center justify-center
+                    bg-black/70 backdrop-blur transition-opacity duration-300 rounded-2xl">
+            <div class="bg-gray-900 border border-gray-700 rounded-2xl p-6 text-center shadow-xl">
+                <div class="text-3xl mb-2">🛑</div>
+                <div class="font-semibold text-white">Ви не на лінії</div>
+                <div class="text-sm text-gray-400 mt-1">
+                    Увімкніть статус для отримання замовлень
+                </div>
+            </div>
+        </div>
+    @endif
+
 </div>

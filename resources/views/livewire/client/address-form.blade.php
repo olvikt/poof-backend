@@ -1,7 +1,7 @@
-<form wire:submit.prevent="save" class="space-y-5">    
+<form wire:submit.prevent="save" class="space-y-5">
 
     {{-- =========================================================
-     | Тип адреси (Дім / Робота / Інше)
+     | Тип адреси
      ========================================================= --}}
     <div class="flex gap-2">
         @foreach (['home' => 'Дім', 'work' => 'Робота', 'other' => 'Інше'] as $key => $text)
@@ -34,16 +34,16 @@
         @enderror
     </div>
 
-    {{-- 🗺 КАРТА ДЛЯ УТОЧНЕННЯ ТОЧКИ --}}
-    <div class="mt-4">	
-		<x-poof.map>
-			Уточніть точку адреси
-		</x-poof.map>
-        {{-- UX-підказка --}}
+    {{-- =========================================================
+     | MAP
+     ========================================================= --}}
+    <div>
+        <x-poof.map>
+            Уточніть точку адреси
+        </x-poof.map>
+
         @if($lat && $lng)
-            <p class="mt-2 text-xs text-green-400">
-                ✔ Точка підтверджена
-            </p>
+            <p class="mt-2 text-xs text-green-400">✔ Точка підтверджена</p>
         @else
             <p class="mt-2 text-xs text-yellow-400">
                 ⚠ Будь ласка, уточніть точку на мапі
@@ -51,14 +51,11 @@
         @endif
     </div>
 
-
     {{-- =========================================================
-     | Тип будівлі (КЛЮЧЕВОЕ)
+     | Тип будівлі
      ========================================================= --}}
     <div>
-        <label class="text-xs text-gray-400 mb-2 block">
-            Тип будівлі
-        </label>
+        <label class="text-xs text-gray-400 mb-2 block">Тип будівлі</label>
 
         <div class="flex gap-2">
             <button
@@ -83,13 +80,8 @@
                 🏠 Приватний будинок
             </button>
         </div>
-
-        @if($building_type === 'house')
-            <p class="mt-2 text-xs text-gray-500">
-                Для приватного будинку підʼїзд, поверх і квартира не потрібні
-            </p>
-        @endif
     </div>
+
     {{-- =========================================================
      | Адреса + будинок
      ========================================================= --}}
@@ -97,20 +89,24 @@
         <label class="text-xs text-gray-400">Адреса</label>
 
         <div class="flex gap-2">
-            {{-- Вулиця / район --}}
+            {{-- Адреса --}}
             <div class="relative flex-1">
-                <input type="text"
+                <input
+                    type="text"
                     wire:model.live="search"
                     wire:keydown.enter.prevent
-                    placeholder="Вулиця, район…" class="poof-input w-full">
+                    placeholder="Вулиця, район…"
+                    class="poof-input w-full"
+                >
 
-                {{-- Suggestions --}}
                 @if (!empty($suggestions))
-                    <div class="absolute z-50 mt-1 w-full rounded-xl bg-neutral-900 border border-neutral-700 shadow-xl overflow-hidden">
+                    <div class="absolute z-50 mt-1 w-full rounded-xl bg-neutral-900 border border-neutral-700 shadow-xl">
                         @foreach ($suggestions as $item)
-                            <button type="button"
+                            <button
+                                type="button"
                                 wire:click="selectPlace('{{ $item['place_id'] }}')"
-                                class="block w-full text-left px-4 py-2 text-sm            hover:bg-neutral-800 transition">
+                                class="block w-full text-left px-4 py-2 text-sm hover:bg-neutral-800"
+                            >
                                 {{ $item['label'] }}
                             </button>
                         @endforeach
@@ -119,72 +115,48 @@
             </div>
 
             {{-- Будинок --}}
-            <div class="w-20 shrink-0">
-                <input type="text"
-					wire:model.live.debounce.700ms="house"
-					placeholder="Буд." class="poof-input w-full text-center px-2 py-2 text-sm">
+            <div class="w-20">
+                <input
+                    type="text"
+                    wire:model.live.debounce.700ms="house"
+                    placeholder="Буд."
+                    class="poof-input w-full text-center"
+                >
             </div>
-			@error('house')
-			  <p class="mt-1 text-xs text-red-400">{{ $message }}</p>
-			@enderror
         </div>
-		
-		@error('house')
-		  <p class="mt-1 text-xs text-red-400">{{ $message }}</p>
-		@enderror
-
-        <p class="mt-1 text-xs text-gray-500">
-            Якщо номер будинку не зʼявився — введіть його вручну
-        </p>
 
         @error('search')
+            <p class="mt-1 text-xs text-red-400">{{ $message }}</p>
+        @enderror
+
+        @error('house')
             <p class="mt-1 text-xs text-red-400">{{ $message }}</p>
         @enderror
     </div>
 
     {{-- =========================================================
-     | Додаткові поля (ТОЛЬКО ДЛЯ КВАРТИРИ)
+     | Додаткові поля (КВАРТИРА)
      ========================================================= --}}
     @if($building_type === 'apartment')
         <div class="grid grid-cols-4 gap-3">
-            <div>
-                <label class="text-xs text-gray-400">Підʼїзд</label>
-                <input type="text" wire:model.defer="entrance" class="poof-input w-full">
-            </div>
-            <div>
-                <label class="text-xs text-gray-400">Домофон</label>
-                <input type="text" wire:model.defer="intercom" class="poof-input w-full">
-            </div>
-            <div>
-                <label class="text-xs text-gray-400">Поверх</label>
-                <input type="text" wire:model.defer="floor" class="poof-input w-full">
-            </div>
-            <div>
-                <label class="text-xs text-gray-400">Квартира</label>
-                <input type="text" wire:model.defer="apartment" class="poof-input w-full">
-            </div>
-			@error('entrance')
-			  <p class="mt-1 text-xs text-red-400">{{ $message }}</p>
-			@enderror
-			@error('floor')
-			  <p class="mt-1 text-xs text-red-400">{{ $message }}</p>
-			@enderror
+            <input wire:model.defer="entrance" placeholder="Підʼїзд" class="poof-input">
+            <input wire:model.defer="intercom" placeholder="Домофон" class="poof-input">
+            <input wire:model.defer="floor" placeholder="Поверх" class="poof-input">
+            <input wire:model.defer="apartment" placeholder="Квартира" class="poof-input">
         </div>
     @endif
 
     {{-- =========================================================
-     | Save
+     | SAVE
      ========================================================= --}}
-	<div class="space-y-5">    
-		<button type="button"
-			wire:click="save"
-			wire:loading.attr="disabled"
-			wire:target="save"
-			class="w-full bg-yellow-400 text-black font-bold py-3 rounded-2xl
-				   active:scale-95 transition disabled:opacity-70">
-			<span wire:loading.remove wire:target="save">Зберегти</span>
-			<span wire:loading wire:target="save">Збереження…</span>
-		</button>
-	</div>
+    <button
+        type="submit"
+        wire:loading.attr="disabled"
+        class="w-full bg-yellow-400 text-black font-bold py-3 rounded-2xl
+               active:scale-95 transition disabled:opacity-70"
+    >
+        <span wire:loading.remove>Зберегти</span>
+        <span wire:loading>Збереження…</span>
+    </button>
 
 </form>

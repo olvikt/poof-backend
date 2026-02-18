@@ -347,28 +347,41 @@ public function setCoords(float $lat, float $lng, ?string $source = null): void
      | VALIDATION
      |=========================================================*/
 
-    protected function rules(): array
-    {
-        return [
-            'label'         => 'required|in:home,work,other',
-            'title'         => 'nullable|string|max:50',
-            'building_type' => 'required|in:apartment,house',
+protected function rules(): array
+{
+    $isEdit = (bool) $this->addressId;
 
-            'search' => 'nullable|string|max:255',
+    return [
+        'label'         => 'required|in:home,work,other',
+        'title'         => 'nullable|string|max:50',
+        'building_type' => 'required|in:apartment,house',
 
-            'lat' => 'nullable|numeric|between:-90,90',
-            'lng' => 'nullable|numeric|between:-180,180',
+        'search' => 'nullable|string|max:255',
 
-            'city'   => 'nullable|string|min:2|max:80',
-            'street' => 'nullable|string|min:2|max:120',
-            'house'  => 'nullable|string|max:20',
+        'lat' => 'required|numeric|between:-90,90',
+        'lng' => 'required|numeric|between:-180,180',
 
-            'entrance'  => 'nullable|string|max:10',
-            'intercom'  => 'nullable|string|max:10',
-            'floor'     => 'nullable|string|max:10',
-            'apartment' => 'nullable|string|max:10',
-        ];
-    }
+        'city'   => 'nullable|string|max:80',
+        'street' => $isEdit
+            ? 'nullable|string|max:120'
+            : 'required|string|min:2|max:120',
+
+        'house' => $isEdit
+            ? 'nullable|string|max:20'
+            : 'required|string|max:20',
+
+        'entrance' => $this->building_type === 'apartment'
+            ? ($isEdit ? 'nullable|string|max:10' : 'required|string|max:10')
+            : 'nullable',
+
+        'floor' => $this->building_type === 'apartment'
+            ? ($isEdit ? 'nullable|string|max:10' : 'required|string|max:10')
+            : 'nullable',
+
+        'intercom'  => 'nullable|string|max:10',
+        'apartment' => 'nullable|string|max:10',
+    ];
+}
 
     /* =========================================================
      | SAVE
@@ -376,6 +389,7 @@ public function setCoords(float $lat, float $lng, ?string $source = null): void
 
 public function save(): void
 {
+	
 	$this->addError('search', 'SAVE CALLED'); // временно
     try {
         // 1) Базовые правила
@@ -401,22 +415,7 @@ public function save(): void
             }
         }
 
-        // 4) Строгие требования — только при создании
-        if (! $isEdit) {
-			if (! $this->street || ! $this->house) {
-				throw ValidationException::withMessages([
-					'house' => 'Вкажіть номер будинку.',
-				]);
-			}
 
-            if ($this->building_type === 'apartment') {
-                if (! $this->entrance || ! $this->floor) {
-                    throw ValidationException::withMessages([
-                        'search' => 'Вкажіть підʼїзд та поверх.',
-                    ]);
-                }
-            }
-        }
 
         $data = [
             'label'         => $this->label,
@@ -452,16 +451,16 @@ public function save(): void
             ClientAddress::create($data + [
                 'user_id' => auth()->id(),
             ]);
-        }
+        }		
 
         // 6) ВАЖНО: Дублируем события “широко”, чтобы точно долетели
         // - одно для UI/JS/всех слушателей
-        $this->dispatch('address-saved');
+        $this->dispatch('address-saved');		
 
         // - одно конкретно в AddressManager (если у тебя компонент так называется)
         $this->dispatch('address-saved')->to('client.address-manager');
-
-        // 7) Закрытие sheet: тоже делаем максимально совместимо
+		
+		// 7) Закрытие sheet: тоже делаем максимально совместимо
         $this->dispatch('sheet:close', name: 'editAddress');
         $this->dispatch('sheet:close'); // на случай если твой sheet закрывается без параметров
 
