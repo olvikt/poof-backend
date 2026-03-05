@@ -1,192 +1,154 @@
-export default function initCarousel() {
-  Alpine.data('poofTimeCarousel', (props = {}) => ({
-    /* ================== PROPS ================== */
-    slots: props.slots,
-    model: props.model,
-    scheduledDate: props.scheduledDate,
-    today: props.today,
-    tomorrow: props.tomorrow,
+const createPoofTimeCarousel = (props) => ({
+  /* ================== PROPS ================== */
+  slots: props.slots,
+  model: props.model,
+  scheduledDate: props.scheduledDate,
+  today: props.today,
+  tomorrow: props.tomorrow,
 
-    /* ================== STATE ================== */
-    i: 0,
-    noSlotsToday: false,
+  /* ================== STATE ================== */
+  i: 0,
+  noSlotsToday: false,
 
-    // Landing slider mode
-    current: 0,
-    total: 0,
+  /* ================== INIT ================== */
+  init() {
+    this.i = Number(this.model ?? 0);
 
+    this.$watch('scheduledDate', () => {
+      this.recompute(true);
+    });
 
-    /* ================== INIT ================== */
-    init() {
-      if (!this.slots) {
-        this.$nextTick(() => {
-          const slider = this.$refs.slider;
-          this.total = slider ? slider.children.length : 0;
-          this.update();
-        });
+    this.$nextTick(() => {
+      this.recompute(true);
+    });
+  },
 
-        return;
-      }
+  /* ================== TIME HELPERS ================== */
+  now() {
+    return new Date();
+  },
 
-      this.i = Number(this.model ?? 0);
+  isToday() {
+    return this.scheduledDate === this.today;
+  },
 
-      this.$watch('scheduledDate', () => {
-        this.recompute(true);
-      });
+  parseTime(hhmm) {
+    const [h, m] = hhmm.split(':').map(Number);
+    const d = new Date();
+    d.setHours(h, m, 0, 0);
+    return d;
+  },
 
-      this.$nextTick(() => {
-        this.recompute(true);
-      });
-    },
+  /**
+   * 🔥 СЛОТ СЧИТАЕТСЯ ПРОШЕДШИМ,
+   * если его НАЧАЛО <= текущего времени
+   */
+  isPast(slot) {
+    if (!this.isToday()) return false;
+    return this.parseTime(slot.from) <= this.now();
+  },
 
-    /* ================== TIME HELPERS ================== */
-    now() {
-      return new Date();
-    },
+  isAvailable(slot) {
+    return slot.enabled !== false && !this.isPast(slot);
+  },
 
-    isToday() {
-      return this.scheduledDate === this.today;
-    },
+  /* ================== LABEL ================== */
+  label() {
+    const slot = this.slots[this.i];
+    return slot ? `${slot.from}–${slot.to}` : '';
+  },
 
-    parseTime(hhmm) {
-      const [h, m] = hhmm.split(':').map(Number);
-      const d = new Date();
-      d.setHours(h, m, 0, 0);
-      return d;
-    },
+  /* ================== CORE ================== */
+  firstAvailableIndex() {
+    for (let idx = 0; idx < this.slots.length; idx++) {
+      if (this.isAvailable(this.slots[idx])) return idx;
+    }
+    return null;
+  },
 
-    /**
-     * 🔥 СЛОТ СЧИТАЕТСЯ ПРОШЕДШИМ,
-     * если его НАЧАЛО <= текущего времени
-     */
-    isPast(slot) {
-      if (!this.isToday()) return false;
-      return this.parseTime(slot.from) <= this.now();
-    },
+  recompute(scroll = false) {
+    const first = this.firstAvailableIndex();
 
-    isAvailable(slot) {
-      return slot.enabled !== false && !this.isPast(slot);
-    },
+    this.noSlotsToday = this.isToday() && first === null;
 
-    /* ================== LABEL ================== */
-    label() {
-      const slot = this.slots[this.i];
-      return slot ? `${slot.from}–${slot.to}` : '';
-    },
+    // 🔥 если все слоты сегодня прошли — ничего не выбираем
+    if (this.noSlotsToday) {
+      this.i = null;
+      return;
+    }
 
-    /* ================== CORE ================== */
-    firstAvailableIndex() {
-      for (let idx = 0; idx < this.slots.length; idx++) {
-        if (this.isAvailable(this.slots[idx])) return idx;
-      }
-      return null;
-    },
-
-    recompute(scroll = false) {
-      const first = this.firstAvailableIndex();
-
-      this.noSlotsToday = this.isToday() && first === null;
-
-      // 🔥 если все слоты сегодня прошли — ничего не выбираем
-      if (this.noSlotsToday) {
-        this.i = null;
-        return;
-      }
-
-      if (this.i === null || !this.isAvailable(this.slots[this.i])) {
-        this.i = first ?? 0;
-        this.sync();
-      }
-
-      if (scroll) {
-        this.$nextTick(() => {
-          this.scrollToIndex(this.i);
-        });
-      }
-    },
-
-    /* ================== ACTIONS ================== */
-    select(idx) {
-      if (!this.isAvailable(this.slots[idx])) return;
-
-      this.i = idx;
+    if (this.i === null || !this.isAvailable(this.slots[this.i])) {
+      this.i = first ?? 0;
       this.sync();
-      this.scrollToIndex(idx);
-    },
+    }
 
-    /**
-     * 🔥 КНОПКА "НА ЗАВТРА"
-     */
-    pickTomorrow() {
-      this.setDate(this.tomorrow);
-    },
-
-    setDate(date) {
-      this.scheduledDate = date;
-
-      // 🔥 общаемся с Livewire безопасно
-      Livewire.dispatch('set-scheduled-date', { date });
-    },
-
-    scrollToIndex(idx) {
-      if (idx === null) return;
-
-      const track = this.$refs.track;
-      if (!track) return;
-
-      const el = track.children[idx];
-      if (!el) return;
-
-      el.scrollIntoView({
-        behavior: 'smooth',
-        inline: 'center',
-        block: 'nearest',
+    if (scroll) {
+      this.$nextTick(() => {
+        this.scrollToIndex(this.i);
       });
-    },
+    }
+  },
 
-    // Landing slider helpers
-    update() {
-      const slider = this.$refs.slider;
-      if (!slider) return;
+  /* ================== ACTIONS ================== */
+  select(idx) {
+    if (!this.isAvailable(this.slots[idx])) return;
 
-      const width = slider.clientWidth || 1;
-      this.current = Math.round(slider.scrollLeft / width);
-    },
+    this.i = idx;
+    this.sync();
+    this.scrollToIndex(idx);
+  },
 
-    next() {
-      if (this.total <= 1) return;
+  /**
+   * 🔥 КНОПКА "НА ЗАВТРА"
+   */
+  pickTomorrow() {
+    this.setDate(this.tomorrow);
+  },
 
-      this.current = (this.current + 1) % this.total;
-      this.scrollToCurrent();
-    },
+  setDate(date) {
+    this.scheduledDate = date;
 
-    prev() {
-      if (this.total <= 1) return;
+    // 🔥 общаемся с Livewire безопасно
+    Livewire.dispatch('set-scheduled-date', { date });
+  },
 
-      this.current = (this.current - 1 + this.total) % this.total;
-      this.scrollToCurrent();
-    },
+  scrollToIndex(idx) {
+    if (idx === null) return;
 
-    scrollToCurrent() {
-      const slider = this.$refs.slider;
-      if (!slider) return;
+    const track = this.$refs.track;
+    if (!track) return;
 
-      slider.scrollTo({
-        left: this.current * slider.clientWidth,
-        behavior: 'smooth',
-      });
-    },
+    const el = track.children[idx];
+    if (!el) return;
 
+    el.scrollIntoView({
+      behavior: 'smooth',
+      inline: 'center',
+      block: 'nearest',
+    });
+  },
 
-    /* ================== LIVEWIRE ================== */
-    sync() {
-      if (this.i === null) return;
+  /* ================== LIVEWIRE ================== */
+  sync() {
+    if (this.i === null) return;
 
-      this.model = this.i;
+    this.model = this.i;
 
-      Livewire.dispatch('set-time-slot', {
-        index: this.i,
-      });
-    },
-  }));
+    Livewire.dispatch('set-time-slot', {
+      index: this.i,
+    });
+  },
+});
+
+const registerPoofTimeCarousel = () => {
+  if (!window.Alpine) return;
+
+  window.Alpine.data('poofTimeCarousel', createPoofTimeCarousel);
+};
+
+export default function initCarousel() {
+  window.poofTimeCarousel = createPoofTimeCarousel;
+
+  registerPoofTimeCarousel();
+  document.addEventListener('alpine:init', registerPoofTimeCarousel, { once: true });
 }

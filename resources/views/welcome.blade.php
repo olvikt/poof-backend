@@ -31,7 +31,7 @@
 
 		<main class="px-4 pb-12 pt-5 space-y-8">
 			 <!-- SLIDER -->
-			<section x-data="poofTimeCarousel()" x-init="init()" class="mt-3 relative rounded-3xl overflow-hidden shadow-xl">
+			<section x-data="slider()" x-init="init()" class="mt-3 relative rounded-3xl overflow-hidden shadow-xl">
 
 				<div  x-ref="slider" class="flex overflow-x-auto scroll-smooth snap-x snap-mandatory scroll-smooth"
 					@scroll.debounce.50ms="update()">
@@ -260,5 +260,39 @@
 
 		</main>
 	</div>
+<script>
+	window.slider = function () {
+		return {
+			current: 0,
+			total: 0,
+			init() {
+				this.total = this.$refs.slider?.children?.length ?? 0;
+			},
+			update() {
+				const slider = this.$refs.slider;
+				if (!slider) return;
+				const width = slider.clientWidth || 1;
+				this.current = Math.round(slider.scrollLeft / width);
+			},
+			next() {
+				const slider = this.$refs.slider;
+				if (!slider || this.total === 0) return;
+				const width = slider.clientWidth;
+				const nextIndex = Math.min(this.current + 1, this.total - 1);
+				slider.scrollTo({ left: nextIndex * width, behavior: 'smooth' });
+				this.current = nextIndex;
+			},
+			prev() {
+				const slider = this.$refs.slider;
+				if (!slider || this.total === 0) return;
+				const width = slider.clientWidth;
+				const prevIndex = Math.max(this.current - 1, 0);
+				slider.scrollTo({ left: prevIndex * width, behavior: 'smooth' });
+				this.current = prevIndex;
+			},
+		};
+	};
+</script>
+
 </body>
 </html>
