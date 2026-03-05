@@ -1,4 +1,7 @@
 import './bootstrap'
+import Alpine from 'alpinejs'
+
+window.Alpine = Alpine
 
 // CSS
 import '../css/app.css'
@@ -20,3 +23,5 @@ import './poof/order-create'
 bottomSheet()
 poofTimeCarousel()
 initMap()
+
+Alpine.start()
