@@ -1,15 +1,48 @@
-name: Deploy to production
+name: Build and Deploy
 
 on:
   push:
-    branches:
-      - main
+    branches: [ main ]
 
 jobs:
-  deploy:
+
+  build:
     runs-on: ubuntu-latest
 
     steps:
+
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Install npm deps
+        run: npm ci
+
+      - name: Build frontend
+        run: npm run build
+
+      - name: Upload build
+        uses: actions/upload-artifact@v4
+        with:
+          name: build
+          path: public/build
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+
+    steps:
+
+      - name: Download build
+        uses: actions/download-artifact@v4
+        with:
+          name: build
+          path: build
+
       - name: Setup SSH
         run: |
           mkdir -p ~/.ssh
@@ -17,6 +50,10 @@ jobs:
           chmod 600 ~/.ssh/id_ed25519
           ssh-keyscan -H api.poof.com.ua >> ~/.ssh/known_hosts
 
-      - name: Deploy
+      - name: Upload build to server
+        run: |
+          rsync -avz build/ root@api.poof.com.ua:/var/www/poof/public/build/
+
+      - name: Deploy backend
         run: |
           ssh root@api.poof.com.ua "cd /var/www/poof && bash scripts/deploy.sh"

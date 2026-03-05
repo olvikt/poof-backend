@@ -8,12 +8,22 @@ SUPERVISORCTL_BIN="${SUPERVISORCTL_BIN:-supervisorctl}"
 
 cd "$APP_DIR"
 
-echo "[deploy] app dir: $APP_DIR"
+echo "[deploy] pulling code"
 
+git reset --hard origin/main
+git clean -fd
 git pull --ff-only
+
+echo "[deploy] installing PHP dependencies"
 "$COMPOSER_BIN" install --no-dev --optimize-autoloader
+
+echo "[deploy] running migrations"
 "$PHP_BIN" artisan migrate --force
+
+echo "[deploy] optimizing Laravel"
 "$PHP_BIN" artisan optimize
-"$SUPERVISORCTL_BIN" restart poof-worker:*
+
+echo "[deploy] restarting workers"
+"$SUPERVISORCTL_BIN" restart poof-worker:* || true
 
 echo "[deploy] done"
