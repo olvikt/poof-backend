@@ -31,7 +31,7 @@
 
 		<main class="px-4 pb-12 pt-5 space-y-8">
 			 <!-- SLIDER -->
-			<section x-data="slider()" x-init="init()" class="mt-3 relative rounded-3xl overflow-hidden shadow-xl">
+			<section x-data="poofTimeCarousel()" x-init="init()" class="mt-3 relative rounded-3xl overflow-hidden shadow-xl">
 
 				<div  x-ref="slider" class="flex overflow-x-auto scroll-smooth snap-x snap-mandatory scroll-smooth"
 					@scroll.debounce.50ms="update()">
