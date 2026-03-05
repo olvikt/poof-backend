@@ -1,5 +1,5 @@
 export default function initCarousel() {
-  Alpine.data('poofTimeCarousel', (props) => ({
+  Alpine.data('poofTimeCarousel', (props = {}) => ({
     /* ================== PROPS ================== */
     slots: props.slots,
     model: props.model,
@@ -11,8 +11,23 @@ export default function initCarousel() {
     i: 0,
     noSlotsToday: false,
 
+    // Landing slider mode
+    current: 0,
+    total: 0,
+
+
     /* ================== INIT ================== */
     init() {
+      if (!this.slots) {
+        this.$nextTick(() => {
+          const slider = this.$refs.slider;
+          this.total = slider ? slider.children.length : 0;
+          this.update();
+        });
+
+        return;
+      }
+
       this.i = Number(this.model ?? 0);
 
       this.$watch('scheduledDate', () => {
@@ -128,6 +143,40 @@ export default function initCarousel() {
         block: 'nearest',
       });
     },
+
+    // Landing slider helpers
+    update() {
+      const slider = this.$refs.slider;
+      if (!slider) return;
+
+      const width = slider.clientWidth || 1;
+      this.current = Math.round(slider.scrollLeft / width);
+    },
+
+    next() {
+      if (this.total <= 1) return;
+
+      this.current = (this.current + 1) % this.total;
+      this.scrollToCurrent();
+    },
+
+    prev() {
+      if (this.total <= 1) return;
+
+      this.current = (this.current - 1 + this.total) % this.total;
+      this.scrollToCurrent();
+    },
+
+    scrollToCurrent() {
+      const slider = this.$refs.slider;
+      if (!slider) return;
+
+      slider.scrollTo({
+        left: this.current * slider.clientWidth,
+        behavior: 'smooth',
+      });
+    },
+
 
     /* ================== LIVEWIRE ================== */
     sync() {
