@@ -1,4 +1,4 @@
-const CACHE_VERSION = "poof-v7"
+const CACHE_VERSION = "poof-v8"
 const STATIC_CACHE = `static-${CACHE_VERSION}`
 
 const STATIC_ASSETS = [
@@ -12,7 +12,7 @@ self.addEventListener("install", event => {
 
     event.waitUntil(
         caches.open(STATIC_CACHE).then(cache => {
-            return cache.addAll(STATIC_ASSETS)
+            return Promise.allSettled(STATIC_ASSETS.map(url => cache.add(url)))
         })
     )
 
@@ -41,6 +41,11 @@ self.addEventListener("fetch", event => {
     }
 
     const url = new URL(event.request.url)
+
+    // never cache API calls
+    if (url.pathname.startsWith("/api/")) {
+        return
+    }
 
     // never cache Vite build assets
     if (url.pathname.startsWith("/build/")) {
