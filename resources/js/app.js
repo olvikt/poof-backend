@@ -1,6 +1,9 @@
 import './bootstrap'
 import Alpine from 'alpinejs'
+import collapse from './alpine-collapse'
 import poofTimeCarousel from './poof/carousel'
+
+Alpine.plugin(collapse)
 
 window.Alpine = Alpine
 

@@ -2,8 +2,9 @@
 <html lang="{{ str_replace('_', '-', app()->getLocale()) }}">
 <head>
     <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover">
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
     <meta name="theme-color" content="#000000">
+    <meta name="mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black">
     <title>POOF — швидкий винос сміття</title>
@@ -11,6 +12,7 @@
     <link rel="preconnect" href="https://fonts.bunny.net">
     <link href="https://fonts.bunny.net/css?family=instrument-sans:400,500,600,700,800" rel="stylesheet" />
     @if (file_exists(public_path('build/manifest.json')) || file_exists(public_path('hot')))
+        <link rel="preload" as="style" href="{{ Vite::asset('resources/css/app.css') }}">
         @vite(['resources/css/app.css', 'resources/js/app.js'])
     @endif
 </head>
@@ -22,7 +24,7 @@
 		<header class="sticky top-0 z-30 border-b border-zinc-800/90 bg-zinc-900/95 backdrop-blur px-4 py-3">
 			<div class="flex items-center justify-between">
 				<div class="flex items-center gap-2">
-					<img src="{{ asset('images/logo-poof.png') }}" class="h-8 w-8 rounded-md" alt="POOF logo" loading="eager" />
+					<img src="{{ asset('images/logo-poof.png') }}" class="h-8 w-8 rounded-md" alt="POOF logo" loading="lazy" decoding="async" />
 					<span class="text-sm font-extrabold tracking-wide">POOF</span>
 				</div>
 				<a href="{{ route('login') }}"
@@ -38,12 +40,12 @@
 
 				<div  x-ref="slider" class="flex overflow-x-auto scroll-smooth snap-x snap-mandatory scroll-smooth"
 					@scroll.debounce.50ms="update()">
-					<img src="{{ asset('assets/images/poof3.webp') }}" class="min-w-full h-56 object-cover snap-center" loading="lazy" alt="POOF hero slide">
-					<img src="{{ asset('assets/images/poof2.webp') }}" class="min-w-full h-56 object-cover snap-center" loading="lazy" alt="POOF service slide">
+					<img src="{{ asset('assets/images/poof3.webp') }}" class="min-w-full h-56 object-cover snap-center" loading="eager" fetchpriority="high" decoding="async" alt="POOF hero slide">
+					<img src="{{ asset('assets/images/poof2.webp') }}" class="min-w-full h-56 object-cover snap-center" loading="lazy" decoding="async" alt="POOF service slide">
 
-					<img src="{{ asset('assets/images/poof3.webp') }}" class="min-w-full h-56 object-cover snap-center" loading="lazy" alt="POOF hero slide">
+					<img src="{{ asset('assets/images/poof3.webp') }}" class="min-w-full h-56 object-cover snap-center" loading="lazy" decoding="async" alt="POOF hero slide">
 
-					<img src="{{ asset('assets/images/poof2.webp') }}" class="min-w-full h-56 object-cover snap-center" loading="lazy" alt="POOF service slide">
+					<img src="{{ asset('assets/images/poof2.webp') }}" class="min-w-full h-56 object-cover snap-center" loading="lazy" decoding="async" alt="POOF service slide">
 
 				</div>
 
