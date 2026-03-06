@@ -35,12 +35,12 @@
 
 				<div  x-ref="slider" class="flex overflow-x-auto scroll-smooth snap-x snap-mandatory scroll-smooth"
 					@scroll.debounce.50ms="update()">
-					<img src="https://poof.com.ua/assets/images/poof3.webp" class="min-w-full h-56 object-cover snap-center">
-					<img src="https://poof.com.ua/assets/images/poof2.webp" class="min-w-full h-56 object-cover snap-center">
+					<img src="{{ asset('assets/images/poof3.webp') }}" class="min-w-full h-56 object-cover snap-center">
+					<img src="{{ asset('assets/images/poof2.webp') }}" class="min-w-full h-56 object-cover snap-center">
 
-					<img src="https://poof.com.ua/assets/images/poof3.webp" class="min-w-full h-56 object-cover snap-center">
+					<img src="{{ asset('assets/images/poof3.webp') }}" class="min-w-full h-56 object-cover snap-center">
 
-					<img src="https://poof.com.ua/assets/images/poof2.webp" class="min-w-full h-56 object-cover snap-center">
+					<img src="{{ asset('assets/images/poof2.webp') }}" class="min-w-full h-56 object-cover snap-center">
 
 				</div>
 
