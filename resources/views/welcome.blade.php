@@ -10,15 +10,19 @@
     <title>POOF — швидкий винос сміття</title>
     <link rel="manifest" href="/manifest.json">
     <link rel="preconnect" href="https://fonts.bunny.net">
+    <link rel="preconnect" href="https://fonts.bunny.net" crossorigin>
     <link rel="preload"
           as="image"
           href="{{ asset('assets/images/poof3.webp') }}"
           fetchpriority="high">
     <link rel="preload"
-          href="https://fonts.bunny.net/css?family=instrument-sans:400,500,600,700,800"
-          as="style">
-    <link href="https://fonts.bunny.net/css?family=instrument-sans:400,500,600,700,800&display=swap"
-          rel="stylesheet">
+          href="https://fonts.bunny.net/css?family=instrument-sans:400,500,600,700,800&display=swap"
+          as="style"
+          onload="this.onload=null;this.rel='stylesheet'">
+    <noscript>
+        <link href="https://fonts.bunny.net/css?family=instrument-sans:400,500,600,700,800&display=swap"
+              rel="stylesheet">
+    </noscript>
     @vite(['resources/css/app.css','resources/js/app.js'])
 </head>
 
