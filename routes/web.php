@@ -24,6 +24,14 @@ use App\Livewire\Courier\MyOrders;
 
 Route::get('/', fn () => view('welcome'));
 
+Route::get('/health', function () {
+    return response()->json([
+        'status' => 'ok',
+        'app' => 'poof-backend',
+        'version' => config('app_version.version'),
+    ]);
+});
+
 /*
 |--------------------------------------------------------------------------
 | Auth
