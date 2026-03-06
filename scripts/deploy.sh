@@ -29,6 +29,12 @@ test -f public/build/manifest.json
 echo "[deploy] running migrations"
 "$PHP_BIN" artisan migrate --force
 
+echo "[deploy] clearing Laravel config cache"
+"$PHP_BIN" artisan config:clear
+
+echo "[deploy] clearing Laravel optimized caches"
+"$PHP_BIN" artisan optimize:clear
+
 echo "[deploy] optimizing Laravel caches"
 "$PHP_BIN" artisan optimize
 

@@ -5,8 +5,6 @@ namespace App\Mail;
 use App\Models\User;
 use Illuminate\Bus\Queueable;
 use Illuminate\Mail\Mailable;
-use Illuminate\Mail\Mailables\Content;
-use Illuminate\Mail\Mailables\Envelope;
 use Illuminate\Queue\SerializesModels;
 
 class WelcomeToPoof extends Mailable
@@ -17,25 +15,11 @@ class WelcomeToPoof extends Mailable
     {
     }
 
-    public function envelope(): Envelope
+    public function build(): self
     {
-        return new Envelope(
-            subject: 'Ласкаво просимо до POOF 🚀',
-        );
-    }
-
-    public function content(): Content
-    {
-        return new Content(
-            view: 'emails.welcome-to-poof',
-            with: [
+        return $this->subject('Ласкаво просимо до POOF 🚀')
+            ->view('emails.welcome-poof', [
                 'user' => $this->user,
-            ],
-        );
-    }
-
-    public function attachments(): array
-    {
-        return [];
+            ]);
     }
 }
