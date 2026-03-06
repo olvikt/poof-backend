@@ -14,6 +14,7 @@ class Courier extends Model
         'completed_orders',
         'city',
         'transport',
+        'transport_type',
         'is_verified',
     ];
 
