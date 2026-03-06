@@ -3,13 +3,12 @@
 namespace App\Mail;
 
 use App\Models\User;
-use Illuminate\Bus\Queueable;
 use Illuminate\Mail\Mailable;
 use Illuminate\Queue\SerializesModels;
 
-class WelcomeToPoof extends Mailable
+class WelcomeMail extends Mailable
 {
-    use Queueable, SerializesModels;
+    use SerializesModels;
 
     public function __construct(public User $user)
     {
@@ -18,8 +17,6 @@ class WelcomeToPoof extends Mailable
     public function build(): self
     {
         return $this->subject('Ласкаво просимо до POOF 🚀')
-            ->view('emails.welcome-poof', [
-                'user' => $this->user,
-            ]);
+            ->view('emails.welcome');
     }
 }

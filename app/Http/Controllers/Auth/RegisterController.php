@@ -3,7 +3,7 @@
 namespace App\Http\Controllers\Auth;
 
 use App\Http\Controllers\Controller;
-use App\Mail\WelcomeToPoof;
+use App\Mail\WelcomeMail;
 use App\Models\Courier;
 use App\Models\User;
 use Illuminate\Http\JsonResponse;
@@ -62,8 +62,8 @@ class RegisterController extends Controller
         ]);
 
         try {
-            Mail::to($user->email)->queue(new WelcomeToPoof($user));
-            Log::info('Registration email sent to '.$user->email);
+            Mail::to($user->email)->send(new WelcomeMail($user));
+            Log::info('Welcome email sent to: '.$user->email);
         } catch (\Exception $e) {
             Log::error('Mail send error: '.$e->getMessage());
         }
