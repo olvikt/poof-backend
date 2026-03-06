@@ -1,6 +1,7 @@
 <?php
 
 use Illuminate\Support\Facades\Route;
+use App\Http\Controllers\Auth\RegisterController;
 
 // CLIENT
 use App\Http\Controllers\Api\Client\ClientProfileController;
@@ -9,6 +10,10 @@ use App\Http\Controllers\Api\OrderController;
 
 // COURIER
 use App\Http\Controllers\Api\CourierOrderController;
+
+
+Route::post('/register', [RegisterController::class, 'register'])
+    ->middleware('throttle:10,1');
 
 Route::middleware('auth:sanctum')->group(function () {
 

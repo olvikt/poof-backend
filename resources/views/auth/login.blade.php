@@ -46,9 +46,10 @@
                 @csrf
 
                 <input
-                    type="email"
-                    name="email"
-                    placeholder="Email"
+                    type="text"
+                    name="login"
+                    value="{{ old('login') }}"
+                    placeholder="Email або телефон"
                     required
                     autofocus
                     class="w-full rounded-xl bg-white/5 border border-white/10 px-4 py-3 text-white placeholder-white/40 focus:outline-none focus:ring-2 focus:ring-yellow-400"
@@ -71,7 +72,12 @@
             </form>
 
             {{-- FOOTER --}}
-            <div class="mt-6 text-center text-sm text-white/40">
+            <div class="mt-6 text-center text-sm text-white/60">
+                Немає акаунта?
+                <a href="{{ route('register') }}" class="font-semibold text-yellow-400">Зареєструватися</a>
+            </div>
+
+            <div class="mt-2 text-center text-sm text-white/40">
                 Poof — і вже чисто ✨
             </div>
 

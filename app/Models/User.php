@@ -59,6 +59,7 @@ class User extends Authenticatable
         'password',
         'phone',
         'role',
+        'is_verified',
         'is_active',
         'locale',
         'timezone',
@@ -326,8 +327,10 @@ class User extends Authenticatable
     {
         return [
             'email_verified_at' => 'datetime',
+            'phone_verified_at' => 'datetime',
             'password'          => 'hashed',
             'is_active'         => 'boolean',
+            'is_verified'       => 'boolean',
 
             // courier runtime
             'is_online'    => 'boolean',

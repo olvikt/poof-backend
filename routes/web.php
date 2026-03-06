@@ -3,6 +3,7 @@
 use Illuminate\Support\Facades\Route;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Http\Request;
+use App\Http\Controllers\Auth\RegisterController;
 
 use App\Models\Order;
 
@@ -36,17 +37,33 @@ Route::get('/', fn () => view('welcome'));
 Route::get('/login', fn () => view('auth.login'))
     ->name('login');
 
+Route::get('/register', [RegisterController::class, 'show'])
+    ->middleware('guest')
+    ->name('register');
+
+Route::get('/courier/register', fn () => redirect()->route('register', ['role' => 'courier']))
+    ->middleware('guest')
+    ->name('courier.register');
+
+Route::post('/register', [RegisterController::class, 'register'])
+    ->middleware(['guest', 'throttle:10,1'])
+    ->name('register.store');
+
 // 🔐 Login submit
 Route::post('/login', function (Request $request) {
 
     $credentials = $request->validate([
-        'email'    => ['required', 'email'],
+        'login'    => ['required', 'string', 'max:255'],
         'password' => ['required'],
     ]);
 
-    if (! Auth::attempt($credentials)) {
+    $identifier = filter_var($credentials['login'], FILTER_VALIDATE_EMAIL)
+        ? 'email'
+        : 'phone';
+
+    if (! Auth::attempt([$identifier => $credentials['login'], 'password' => $credentials['password']])) {
         return back()->withErrors([
-            'email' => 'Невірний email або пароль',
+            'login' => 'Невірний email/телефон або пароль',
         ]);
     }
 
@@ -148,6 +165,10 @@ Route::middleware('auth:web')
         })->name('payments.dev-pay');
     });
 
+Route::middleware('auth:web')
+    ->get('/dashboard', fn () => redirect()->route('client.home'))
+    ->name('dashboard');
+
 /*
 |--------------------------------------------------------------------------
 | Courier area
@@ -158,6 +179,9 @@ Route::middleware('auth:web')
     ->prefix('courier')
     ->name('courier.')
     ->group(function () {
+
+        Route::get('/', fn () => redirect()->route('courier.orders'))
+            ->name('home');
 
         // 📦 Available orders
         Route::get('/orders', AvailableOrders::class)
