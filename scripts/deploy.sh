@@ -17,11 +17,17 @@ git pull --ff-only
 echo "[deploy] installing PHP dependencies"
 "$COMPOSER_BIN" install --no-dev --optimize-autoloader
 
+echo "[deploy] installing JS dependencies"
+npm install
+
+echo "[deploy] building frontend assets"
+npm run build
+
 echo "[deploy] running migrations"
 "$PHP_BIN" artisan migrate --force
 
-echo "[deploy] optimizing Laravel"
-"$PHP_BIN" artisan optimize
+echo "[deploy] clearing Laravel optimizations"
+"$PHP_BIN" artisan optimize:clear
 
 echo "[deploy] restarting workers"
 "$SUPERVISORCTL_BIN" restart poof-worker:* || true
