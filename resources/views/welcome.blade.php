@@ -10,7 +10,15 @@
     <title>POOF — швидкий винос сміття</title>
     <link rel="manifest" href="/manifest.json">
     <link rel="preconnect" href="https://fonts.bunny.net">
-    <link href="https://fonts.bunny.net/css?family=instrument-sans:400,500,600,700,800" rel="stylesheet" />
+    <link rel="preload"
+          as="image"
+          href="{{ asset('assets/images/poof3.webp') }}"
+          fetchpriority="high">
+    <link rel="preload"
+          href="https://fonts.bunny.net/css?family=instrument-sans:400,500,600,700,800"
+          as="style">
+    <link href="https://fonts.bunny.net/css?family=instrument-sans:400,500,600,700,800&display=swap"
+          rel="stylesheet">
     @if (file_exists(public_path('build/manifest.json')) || file_exists(public_path('hot')))
         <link rel="preload" as="style" href="{{ Vite::asset('resources/css/app.css') }}">
         @vite(['resources/css/app.css', 'resources/js/app.js'])
@@ -40,7 +48,14 @@
 
 				<div  x-ref="slider" class="flex overflow-x-auto scroll-smooth snap-x snap-mandatory scroll-smooth"
 					@scroll.debounce.50ms="update()">
-					<img src="{{ asset('assets/images/poof3.webp') }}" class="min-w-full h-56 object-cover snap-center" loading="eager" fetchpriority="high" decoding="async" alt="POOF hero slide">
+					<img
+					 src="{{ asset('assets/images/poof3.webp') }}"
+					 alt="POOF courier"
+					 class="min-w-full h-56 object-cover snap-center"
+					 loading="eager"
+					 fetchpriority="high"
+					 decoding="async"
+					>
 					<img src="{{ asset('assets/images/poof2.webp') }}" class="min-w-full h-56 object-cover snap-center" loading="lazy" decoding="async" alt="POOF service slide">
 
 					<img src="{{ asset('assets/images/poof3.webp') }}" class="min-w-full h-56 object-cover snap-center" loading="lazy" decoding="async" alt="POOF hero slide">
