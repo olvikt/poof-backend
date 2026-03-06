@@ -153,7 +153,7 @@
 				<!-- CONTENT -->
 				<div 
 					x-show="open"
-					x-collapse
+					x-transition
 					class="px-5 pb-5"
 				>
 					<ul class="space-y-4 text-sm text-zinc-300">
@@ -191,7 +191,7 @@
 				<!-- CONTENT -->
 				<div 
 					x-show="open"
-					x-collapse
+					x-transition
 					class="px-5 pb-5 space-y-4"
 				>
 
