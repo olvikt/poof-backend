@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Auth;
 
 use App\Http\Controllers\Controller;
+use App\Mail\WelcomeToPoof;
 use App\Models\Courier;
 use App\Models\User;
 use Illuminate\Http\JsonResponse;
@@ -10,6 +11,8 @@ use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Mail;
+use Illuminate\Validation\ValidationException;
 use Illuminate\Validation\Rule;
 use Illuminate\View\View;
 
@@ -30,27 +33,43 @@ class RegisterController extends Controller
 
     public function register(Request $request): RedirectResponse|JsonResponse
     {
+        $normalizedPhone = preg_replace('/\D/', '', (string) $request->input('phone'));
+        $request->merge(['phone' => $normalizedPhone]);
+
         $validated = $request->validate([
             'name' => ['required', 'string', 'max:255'],
-            'email' => ['required', 'email', 'max:255', Rule::unique('users', 'email')],
-            'phone' => ['required', 'string', 'max:30', Rule::unique('users', 'phone')],
+            'email' => ['required', 'email', 'unique:users,email'],
+            'country_code' => ['required', Rule::in(['+380'])],
+            'phone' => ['required', 'digits:9'],
             'password' => ['required', 'string', 'min:8', 'confirmed'],
-            'role' => ['required', Rule::in([User::ROLE_CLIENT, User::ROLE_COURIER])],
-            'transport_type' => ['nullable', 'required_if:role,courier', Rule::in(['walk', 'bike', 'scooter', 'car'])],
-            'city' => ['nullable', 'required_if:role,courier', 'string', 'max:255'],
+            'role' => ['required', 'in:client,courier'],
+            'transport_type' => ['required_if:role,courier', Rule::in(['walk', 'bike', 'scooter', 'car'])],
+            'city' => ['required_if:role,courier', 'string', 'max:255'],
             'terms_agreed' => ['required_if:role,courier', 'accepted'],
+        ], [], [
+            'phone' => 'phone',
         ]);
+
+        $fullPhone = $validated['country_code'].$validated['phone'];
+
+        if (User::where('phone', $fullPhone)->exists()) {
+            throw ValidationException::withMessages([
+                'phone' => 'The phone has already been taken.',
+            ]);
+        }
 
         $user = User::create([
             'name' => $validated['name'],
             'email' => $validated['email'],
-            'phone' => $validated['phone'],
+            'phone' => $fullPhone,
             'password' => Hash::make($validated['password']),
             'role' => $validated['role'],
             'is_verified' => false,
         ]);
 
-        if ($request->role === User::ROLE_COURIER) {
+        Mail::to($user->email)->send(new WelcomeToPoof($user));
+
+        if ($validated['role'] === User::ROLE_COURIER) {
             Courier::create([
                 'user_id' => $user->id,
                 'transport' => $validated['transport_type'],

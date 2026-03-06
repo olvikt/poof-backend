@@ -1,7 +1,7 @@
 <x-layouts.app title="Реєстрація — Poof">
     <div class="min-h-screen bg-gradient-to-b from-neutral-900 to-black text-white px-4 py-8 sm:py-12">
         <div class="mx-auto w-full max-w-md" x-data="{
-            role: '{{ $defaultRole }}',
+            role: '{{ old('role', $defaultRole) }}',
             transportType: '{{ old('transport_type') }}',
             city: '{{ old('city') }}',
             termsAgreed: {{ old('terms_agreed') ? 'true' : 'false' }},
@@ -40,16 +40,16 @@
                     <button
                         type="button"
                         @click="onRoleChange('client')"
-                        :class="role === 'client' ? 'bg-yellow-400 text-black' : 'text-white/70'"
-                        class="rounded-lg px-4 py-3 text-sm font-semibold transition"
+                        :class="role === 'client' ? 'bg-yellow-400 text-black' : ''"
+                        class="rounded-lg px-4 py-3 text-sm font-semibold text-white/70 transition"
                     >
                         Клієнт
                     </button>
                     <button
                         type="button"
                         @click="onRoleChange('courier')"
-                        :class="role === 'courier' ? 'bg-yellow-400 text-black' : 'text-white/70'"
-                        class="rounded-lg px-4 py-3 text-sm font-semibold transition"
+                        :class="role === 'courier' ? 'bg-yellow-400 text-black' : ''"
+                        class="rounded-lg px-4 py-3 text-sm font-semibold text-white/70 transition"
                     >
                         Курʼєр
                     </button>
@@ -75,14 +75,23 @@
                     class="w-full rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-white placeholder-white/40 focus:outline-none focus:ring-2 focus:ring-yellow-400"
                 >
 
-                <input
-                    type="tel"
-                    name="phone"
-                    value="{{ old('phone') }}"
-                    placeholder="Телефон"
-                    required
-                    class="w-full rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-white placeholder-white/40 focus:outline-none focus:ring-2 focus:ring-yellow-400"
-                >
+                <div class="flex gap-2">
+                    <select
+                        name="country_code"
+                        class="w-28 rounded-xl border border-white/10 bg-white/5 px-3 py-3 text-white focus:outline-none focus:ring-2 focus:ring-yellow-400"
+                    >
+                        <option value="+380" @selected(old('country_code', '+380') === '+380') class="text-black">🇺🇦 +380</option>
+                    </select>
+
+                    <input
+                        type="tel"
+                        name="phone"
+                        value="{{ old('phone') }}"
+                        placeholder="99 111 11 11"
+                        required
+                        class="w-full rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-white placeholder-white/40 focus:outline-none focus:ring-2 focus:ring-yellow-400"
+                    >
+                </div>
 
                 <input
                     type="password"
@@ -100,7 +109,7 @@
                     class="w-full rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-white placeholder-white/40 focus:outline-none focus:ring-2 focus:ring-yellow-400"
                 >
 
-                <div x-show="role === 'courier'" x-cloak class="space-y-4 rounded-xl border border-white/10 bg-black/30 p-4">
+                <div x-show="role === 'courier'" x-transition x-cloak class="space-y-4 rounded-xl border border-white/10 bg-black/30 p-4">
                     <select
                         name="transport_type"
                         x-model="transportType"
@@ -133,6 +142,11 @@
                 >
                     Зареєструватися
                 </button>
+
+                <div class="text-center mt-6">
+                    <span class="text-gray-400">Вже є акаунт?</span>
+                    <a href="{{ route('login') }}" class="text-yellow-400 hover:underline">Увійти</a>
+                </div>
             </form>
         </div>
     </div>
