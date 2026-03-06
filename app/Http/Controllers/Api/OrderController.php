@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Http\Requests\StoreOrderRequest;
+use App\Jobs\DispatchOrderJob;
 use App\Models\Order;
 use App\Models\ClientAddress;
 
@@ -45,6 +46,8 @@ class OrderController extends Controller
 
             'comment'         => $request->comment,
         ]);
+
+        DispatchOrderJob::dispatch($order);
 
         return response()->json([
             'success' => true,

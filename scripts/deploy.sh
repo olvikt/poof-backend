@@ -23,13 +23,19 @@ npm ci
 echo "[deploy] building frontend assets"
 npm run build
 
+echo "[deploy] verifying frontend build artifacts"
+test -f public/build/manifest.json
+
 echo "[deploy] running migrations"
 "$PHP_BIN" artisan migrate --force
 
-echo "[deploy] clearing Laravel optimizations"
-"$PHP_BIN" artisan optimize:clear
+echo "[deploy] optimizing Laravel caches"
+"$PHP_BIN" artisan optimize
 
 echo "[deploy] restarting workers"
 "$SUPERVISORCTL_BIN" restart poof-worker:* || true
+
+echo "[deploy] running health check"
+curl -f http://localhost/health || true
 
 echo "[deploy] done"
