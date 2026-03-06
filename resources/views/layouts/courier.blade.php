@@ -112,10 +112,15 @@
                         Скасувати
                     </button>
 
-<a href="{{ route('logout') }}"
-   class="flex-1 py-3 rounded-xl bg-red-500 text-black font-bold text-center hover:bg-red-600 transition">
-    Вийти
-</a>
+<form method="POST" action="{{ route('logout') }}" class="flex-1">
+    @csrf
+    <button
+        type="submit"
+        class="w-full py-3 rounded-xl bg-red-500 text-black font-bold text-center hover:bg-red-600 transition"
+    >
+        Вийти
+    </button>
+</form>
 
                 </div>
 
