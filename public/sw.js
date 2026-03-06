@@ -1,4 +1,4 @@
-const CACHE_VERSION = "poof-v6"
+const CACHE_VERSION = "poof-v7"
 const STATIC_CACHE = `static-${CACHE_VERSION}`
 
 const STATIC_ASSETS = [
@@ -36,6 +36,10 @@ self.addEventListener("activate", event => {
 
 self.addEventListener("fetch", event => {
 
+    if (event.request.method !== "GET") {
+        return
+    }
+
     const url = new URL(event.request.url)
 
     // never cache Vite build assets
@@ -43,8 +47,12 @@ self.addEventListener("fetch", event => {
         return
     }
 
-    // cache images
-    if (event.request.destination === "image") {
+    const isSameOrigin = url.origin === self.location.origin
+    const isImageOrIcon = event.request.destination === "image"
+        && (url.pathname.startsWith("/images/") || url.pathname.startsWith("/icons/"))
+
+    // cache only local images/icons
+    if (isSameOrigin && isImageOrIcon) {
 
         event.respondWith(
             caches.match(event.request).then(cached => {
