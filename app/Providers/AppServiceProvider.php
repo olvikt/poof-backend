@@ -2,6 +2,7 @@
 
 namespace App\Providers;
 
+use Illuminate\Support\Facades\URL;
 use Illuminate\Support\ServiceProvider;
 use App\Services\Geocoding\Contracts\GeocoderInterface;
 use App\Services\Geocoding\Providers\GooglePlacesProvider;
@@ -18,7 +19,8 @@ class AppServiceProvider extends ServiceProvider
 
     public function boot(): void
     {
-        // ❌ НИЧЕГО НЕ РЕГИСТРИРУЕМ ВРУЧНУЮ
-        // Все консольные задачи — через routes/console.php
+        if ($this->app->environment('production')) {
+            URL::forceScheme('https');
+        }
     }
 }
