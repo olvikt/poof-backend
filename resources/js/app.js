@@ -1,7 +1,10 @@
 import './bootstrap'
 import Alpine from 'alpinejs'
+import poofTimeCarousel from './poof/carousel'
 
 window.Alpine = Alpine
+
+Alpine.data('poofTimeCarousel', poofTimeCarousel)
 
 Alpine.start()
 
@@ -10,7 +13,6 @@ import '../css/app.css'
 
 // UI
 import bottomSheet from './poof/bottom-sheet'
-import poofTimeCarousel from './poof/carousel'
 
 // 🗺 MAP
 import initMap from './poof/map'
@@ -23,5 +25,4 @@ import './poof/order-create'
  * ============================================================ */
 
 bottomSheet()
-poofTimeCarousel()
 initMap()

@@ -1,4 +1,4 @@
-const createPoofTimeCarousel = (props) => ({
+export default (props = {}) => ({
   /* ================== PROPS ================== */
   slots: props.slots,
   model: props.model,
@@ -139,16 +139,3 @@ const createPoofTimeCarousel = (props) => ({
     });
   },
 });
-
-const registerPoofTimeCarousel = () => {
-  if (!window.Alpine) return;
-
-  window.Alpine.data('poofTimeCarousel', createPoofTimeCarousel);
-};
-
-export default function initCarousel() {
-  window.poofTimeCarousel = createPoofTimeCarousel;
-
-  registerPoofTimeCarousel();
-  document.addEventListener('alpine:init', registerPoofTimeCarousel, { once: true });
-}
