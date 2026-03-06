@@ -36,8 +36,8 @@ class RegisterController extends Controller
             'phone' => ['required', 'string', 'max:30', Rule::unique('users', 'phone')],
             'password' => ['required', 'string', 'min:8', 'confirmed'],
             'role' => ['required', Rule::in([User::ROLE_CLIENT, User::ROLE_COURIER])],
-            'transport_type' => ['required_if:role,courier', Rule::in(['walk', 'bike', 'scooter', 'car'])],
-            'city' => ['required_if:role,courier', 'string', 'max:255'],
+            'transport_type' => ['nullable', 'required_if:role,courier', Rule::in(['walk', 'bike', 'scooter', 'car'])],
+            'city' => ['nullable', 'required_if:role,courier', 'string', 'max:255'],
             'terms_agreed' => ['required_if:role,courier', 'accepted'],
         ]);
 
@@ -50,7 +50,7 @@ class RegisterController extends Controller
             'is_verified' => false,
         ]);
 
-        if ($user->role === User::ROLE_COURIER) {
+        if ($request->role === User::ROLE_COURIER) {
             Courier::create([
                 'user_id' => $user->id,
                 'transport' => $validated['transport_type'],
