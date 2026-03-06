@@ -12,8 +12,6 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Mail;
-use Illuminate\Validation\ValidationException;
-use Illuminate\Validation\Rule;
 use Illuminate\View\View;
 
 class RegisterController extends Controller
@@ -34,34 +32,29 @@ class RegisterController extends Controller
     public function register(Request $request): RedirectResponse|JsonResponse
     {
         $normalizedPhone = preg_replace('/\D/', '', (string) $request->input('phone'));
-        $request->merge(['phone' => $normalizedPhone]);
+        $request->merge(['phone' => (string) $request->input('country_code', '').$normalizedPhone]);
 
-        $validated = $request->validate([
-            'name' => ['required', 'string', 'max:255'],
-            'email' => ['required', 'email', 'unique:users,email'],
-            'country_code' => ['required', Rule::in(['+380'])],
-            'phone' => ['required', 'digits:9'],
-            'password' => ['required', 'string', 'min:8', 'confirmed'],
-            'role' => ['required', 'in:client,courier'],
-            'transport_type' => ['required_if:role,courier', Rule::in(['walk', 'bike', 'scooter', 'car'])],
-            'city' => ['required_if:role,courier', 'string', 'max:255'],
-            'terms_agreed' => ['required_if:role,courier', 'accepted'],
-        ], [], [
-            'phone' => 'phone',
-        ]);
+        $rules = [
+            'name' => 'required|string|max:255',
+            'email' => 'required|email|unique:users,email',
+            'phone' => 'required|string|unique:users,phone',
+            'password' => 'required|min:8|confirmed',
+            'role' => 'required|in:client,courier',
+            'terms_agreed' => 'accepted',
+        ];
 
-        $fullPhone = $validated['country_code'].$validated['phone'];
-
-        if (User::where('phone', $fullPhone)->exists()) {
-            throw ValidationException::withMessages([
-                'phone' => 'The phone has already been taken.',
-            ]);
+        if ($request->role === 'courier') {
+            $rules['transport_type'] = 'required|string';
+            $rules['city'] = 'required|string';
         }
 
+        $validated = $request->validate($rules, [], [
+            'phone' => 'phone',
+        ]);
         $user = User::create([
             'name' => $validated['name'],
             'email' => $validated['email'],
-            'phone' => $fullPhone,
+            'phone' => $validated['phone'],
             'password' => Hash::make($validated['password']),
             'role' => $validated['role'],
             'is_verified' => false,
@@ -69,13 +62,11 @@ class RegisterController extends Controller
 
         Mail::to($user->email)->send(new WelcomeToPoof($user));
 
-        if ($validated['role'] === User::ROLE_COURIER) {
+        if ($request->role === 'courier') {
             Courier::create([
                 'user_id' => $user->id,
-                'transport' => $validated['transport_type'],
-                'transport_type' => $validated['transport_type'],
-                'city' => $validated['city'],
-                'status' => 'offline',
+                'transport_type' => $request->transport_type,
+                'city' => $request->city,
             ]);
         }
 

@@ -1,20 +1,6 @@
 <x-layouts.app title="Реєстрація — Poof">
     <div class="min-h-screen bg-gradient-to-b from-neutral-900 to-black text-white px-4 py-8 sm:py-12">
-        <div class="mx-auto w-full max-w-md" x-data="{
-            role: '{{ old('role', $defaultRole) }}',
-            transportType: '{{ old('transport_type') }}',
-            city: '{{ old('city') }}',
-            termsAgreed: {{ old('terms_agreed') ? 'true' : 'false' }},
-            onRoleChange(nextRole) {
-                this.role = nextRole;
-
-                if (this.role === 'client') {
-                    this.transportType = '';
-                    this.city = '';
-                    this.termsAgreed = false;
-                }
-            },
-        }">
+        <div class="mx-auto w-full max-w-md">
             <div class="mb-8 text-center">
                 <div class="mx-auto mb-4 flex h-20 w-20 items-center justify-center overflow-hidden rounded-[22px] bg-yellow-400 shadow-[0_0_30px_rgba(250,204,21,0.45)]">
                     <img src="/images/logo-poof.png" alt="Poof logo" class="h-12 w-12 object-contain">
@@ -33,13 +19,13 @@
                 </div>
             @endif
 
-            <form method="POST" action="{{ route('register.store') }}" class="space-y-4 rounded-2xl border border-white/10 bg-white/5 p-4 sm:p-5">
+            <form method="POST" action="{{ route('register.store') }}" class="space-y-4 rounded-2xl border border-white/10 bg-white/5 p-4 sm:p-5" x-data="{ role: '{{ old('role', $defaultRole) }}', transport_type: '{{ old('transport_type') }}', city: '{{ old('city') }}' }" x-effect="if(role === 'client'){ transport_type = ''; city = '' }">
                 @csrf
 
                 <div class="grid grid-cols-2 gap-2 rounded-xl bg-white/5 p-1">
                     <button
                         type="button"
-                        @click="onRoleChange('client')"
+                        @click="role = 'client'"
                         :class="role === 'client' ? 'bg-yellow-400 text-black' : ''"
                         class="rounded-lg px-4 py-3 text-sm font-semibold text-white/70 transition"
                     >
@@ -47,7 +33,7 @@
                     </button>
                     <button
                         type="button"
-                        @click="onRoleChange('courier')"
+                        @click="role = 'courier'"
                         :class="role === 'courier' ? 'bg-yellow-400 text-black' : ''"
                         class="rounded-lg px-4 py-3 text-sm font-semibold text-white/70 transition"
                     >
@@ -112,7 +98,7 @@
                 <div x-show="role === 'courier'" x-transition x-cloak class="space-y-4 rounded-xl border border-white/10 bg-black/30 p-4">
                     <select
                         name="transport_type"
-                        x-model="transportType"
+                        x-model="transport_type"
                         class="w-full rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-white focus:outline-none focus:ring-2 focus:ring-yellow-400"
                     >
                         <option value="" class="text-black">Тип транспорту</option>
@@ -129,10 +115,20 @@
                         placeholder="Місто"
                         class="w-full rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-white placeholder-white/40 focus:outline-none focus:ring-2 focus:ring-yellow-400"
                     >
+                </div>
 
-                    <label class="flex items-start gap-3 text-sm text-white/80">
-                        <input type="checkbox" name="terms_agreed" value="1" x-model="termsAgreed" @checked(old('terms_agreed')) class="mt-1 h-4 w-4 rounded border-white/20 text-yellow-400 focus:ring-yellow-400">
-                        <span>Підтверджую, що погоджуюсь з умовами та правилами платформи POOF</span>
+                <div class="mt-4 flex items-start gap-3">
+                    <input
+                        type="checkbox"
+                        name="terms_agreed"
+                        value="1"
+                        @checked(old('terms_agreed'))
+                        required
+                        class="mt-1 h-4 w-4 rounded border-white/20 text-yellow-400 focus:ring-yellow-400"
+                    >
+
+                    <label class="text-sm text-gray-300">
+                        Підтверджую, що погоджуюсь з умовами та правилами платформи POOF
                     </label>
                 </div>
 
