@@ -19,10 +19,7 @@
           as="style">
     <link href="https://fonts.bunny.net/css?family=instrument-sans:400,500,600,700,800&display=swap"
           rel="stylesheet">
-    @if (file_exists(public_path('build/manifest.json')) || file_exists(public_path('hot')))
-        <link rel="preload" as="style" href="{{ Vite::asset('resources/css/app.css') }}">
-        @vite(['resources/css/app.css', 'resources/js/app.js'])
-    @endif
+    @vite(['resources/css/app.css','resources/js/app.js'])
 </head>
 
 <body class="bg-zinc-950 text-white font-sans">
