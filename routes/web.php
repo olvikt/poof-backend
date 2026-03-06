@@ -81,21 +81,17 @@ Route::post('/login', function (Request $request) {
 })->name('login.post');
 
 
-// 🚪 Logout (POST — остаётся как есть)
+// 🚪 Logout
+Route::post('/logout', function (Request $request) {
 
-Route::get('/logout', function () {
+    Auth::logout();
 
-    // если сессия жива
-    if (Auth::check()) {
-        Auth::logout();
-    }
-
-    // никаких invalidate() и regenerateToken()
+    $request->session()->invalidate();
+    $request->session()->regenerateToken();
 
     return redirect('/login');
 
-})->withoutMiddleware([\App\Http\Middleware\VerifyCsrfToken::class])
-  ->name('logout');
+})->name('logout');
 
 
 /*
