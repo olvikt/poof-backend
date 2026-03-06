@@ -11,6 +11,7 @@ use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\View\View;
 
@@ -60,7 +61,12 @@ class RegisterController extends Controller
             'is_verified' => false,
         ]);
 
-        Mail::to($user->email)->send(new WelcomeToPoof($user));
+        try {
+            Mail::to($user->email)->queue(new WelcomeToPoof($user));
+            Log::info('Registration email sent to '.$user->email);
+        } catch (\Exception $e) {
+            Log::error('Mail send error: '.$e->getMessage());
+        }
 
         if ($request->role === 'courier') {
             Courier::create([
