@@ -1,4 +1,4 @@
-const CACHE_VERSION = "poof-v9"
+const CACHE_VERSION = "poof-v10"
 const STATIC_CACHE = `static-${CACHE_VERSION}`
 
 const STATIC_ASSETS = [
@@ -61,25 +61,25 @@ self.addEventListener("fetch", event => {
     if (isSameOrigin && isCacheableAsset) {
 
         event.respondWith(
-            caches.match(event.request).then(cached => {
+            caches.match(event.request).then(cachedResponse => {
 
-                if (cached) return cached
+                const networkFetch = fetch(event.request).then(networkResponse => {
 
-                return fetch(event.request).then(response => {
-
-                    if (!response || response.status !== 200) {
-                        return response
+                    if (!networkResponse || networkResponse.status !== 200) {
+                        return networkResponse
                     }
 
-                    const clone = response.clone()
+                    const clone = networkResponse.clone()
 
                     caches.open(STATIC_CACHE).then(cache => {
                         cache.put(event.request, clone)
                     })
 
-                    return response
+                    return networkResponse
 
-                })
+                }).catch(() => cachedResponse)
+
+                return cachedResponse || networkFetch
 
             })
         )
