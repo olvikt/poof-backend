@@ -18,7 +18,7 @@ echo "[deploy] installing PHP dependencies"
 "$COMPOSER_BIN" install --no-dev --optimize-autoloader
 
 echo "[deploy] installing JS dependencies"
-npm install
+npm ci
 
 echo "[deploy] building frontend assets"
 npm run build
