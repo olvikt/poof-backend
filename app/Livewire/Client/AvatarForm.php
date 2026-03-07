@@ -9,37 +9,30 @@ class AvatarForm extends Component
 {
     use WithFileUploads;
 
-    public $photo;
-
-    protected $rules = [
-        'photo' => 'required|image|max:4096',
-    ];
+    public $avatar;
 
     public function save()
     {
-        if (! $this->photo) {
+        if (! $this->avatar) {
             return;
         }
 
-        $this->validate();
+        $this->validate([
+            'avatar' => 'image|max:2048',
+        ]);
 
-        // сохраняем файл
-        $path = $this->photo->storePublicly('avatars', 'public');
+        $path = $this->avatar->store('avatars', 'public');
 
-        // обновляем пользователя
-        auth()->user()->forceFill([
+        auth()->user()->update([
             'avatar' => $path,
-        ])->save();
+        ]);
 
-        // получаем НОВЫЙ url
-        $avatarUrl = auth()->user()->avatar_url;
+        $avatarUrl = auth()->user()->fresh()->avatar_url;
 
-        // 🔥 В Livewire v3 это УЖЕ browser events
         $this->dispatch('avatar-saved', avatarUrl: $avatarUrl);
         $this->dispatch('sheet:close');
 
-        // чистим состояние
-        $this->reset('photo');
+        $this->reset('avatar');
     }
 
     public function render()
@@ -47,6 +40,3 @@ class AvatarForm extends Component
         return view('livewire.client.avatar-form');
     }
 }
-
-
-

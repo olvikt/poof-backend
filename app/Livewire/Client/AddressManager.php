@@ -20,7 +20,13 @@ class AddressManager extends Component
 
     protected $listeners = [
         'address-saved' => 'reloadAddresses',
+        'address:open' => 'openCreate',
     ];
+
+    public function openCreate(): void
+    {
+        $this->create();
+    }
 
     public function mount(): void
     {

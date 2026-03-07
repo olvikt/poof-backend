@@ -3,11 +3,10 @@
     wire:key="avatar-form"
     wire:submit.prevent="save"
 >
-    {{-- PREVIEW --}}
     <div class="flex justify-center">
-        @if ($photo)
+        @if ($avatar)
             <img
-                src="{{ $photo->temporaryUrl() }}"
+                src="{{ $avatar->temporaryUrl() }}"
                 class="w-32 h-32 rounded-full object-cover bg-gray-800"
             >
         @else
@@ -18,10 +17,9 @@
         @endif
     </div>
 
-    {{-- FILE INPUT (ТОЛЬКО Livewire) --}}
     <input
         type="file"
-        wire:model="photo"
+        wire:model="avatar"
         accept="image/*"
         id="avatarInput"
         class="hidden"
@@ -36,23 +34,22 @@
         Обрати фото
     </label>
 
-    @error('photo')
+    @error('avatar')
         <p class="text-sm text-red-400">{{ $message }}</p>
     @enderror
 
-    {{-- SAVE --}}
     <button
         type="submit"
         wire:loading.attr="disabled"
-        wire:target="save,photo"
+        wire:target="save,avatar"
         class="w-full bg-yellow-400 text-black font-bold py-3 rounded-xl
                active:scale-95 transition"
     >
-        <span wire:loading.remove wire:target="save,photo">
+        <span wire:loading.remove wire:target="save,avatar">
             Зберегти
         </span>
 
-        <span wire:loading wire:target="save,photo">
+        <span wire:loading wire:target="save,avatar">
             Збереження…
         </span>
     </button>
