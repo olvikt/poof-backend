@@ -46,6 +46,7 @@
                 <input
                     type="text"
                     name="name"
+                    autocomplete="name"
                     value="{{ old('name') }}"
                     placeholder="Ім’я"
                     required
@@ -55,6 +56,7 @@
                 <input
                     type="email"
                     name="email"
+                    autocomplete="email"
                     value="{{ old('email') }}"
                     placeholder="Email"
                     required
@@ -72,6 +74,7 @@
                     <input
                         type="tel"
                         name="phone"
+                        autocomplete="tel"
                         value="{{ old('phone') }}"
                         placeholder="99 111 11 11"
                         required

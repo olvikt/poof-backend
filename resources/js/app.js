@@ -1,12 +1,12 @@
 import './bootstrap'
-import Alpine from 'alpinejs'
+import { Livewire, Alpine } from '../../vendor/livewire/livewire/dist/livewire.esm'
 import poofTimeCarousel from './poof/carousel'
 
 window.Alpine = Alpine
 
 Alpine.data('poofTimeCarousel', poofTimeCarousel)
 
-Alpine.start()
+Livewire.start()
 
 // CSS
 import '../css/app.css'
