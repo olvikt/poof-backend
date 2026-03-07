@@ -82,6 +82,7 @@
                 <input
                     type="password"
                     name="password"
+                    autocomplete="new-password"
                     placeholder="Пароль"
                     required
                     class="w-full rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-white placeholder-white/40 focus:outline-none focus:ring-2 focus:ring-yellow-400"
@@ -90,6 +91,7 @@
                 <input
                     type="password"
                     name="password_confirmation"
+                    autocomplete="new-password"
                     placeholder="Підтвердження пароля"
                     required
                     class="w-full rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-white placeholder-white/40 focus:outline-none focus:ring-2 focus:ring-yellow-400"
