@@ -20,7 +20,7 @@
 		<x-poof.ui.bottom-sheet name="editProfile" title="Редагувати профіль">
 			<livewire:client.profile-form />
 		</x-poof.ui.bottom-sheet>
-		<x-poof.ui.bottom-sheet name="editAddress" title="Адреса">
+		<x-poof.ui.bottom-sheet name="addressForm" title="Адреса">
 			<livewire:client.address-form wire:key="address-form" />
 		</x-poof.ui.bottom-sheet>
 		<x-poof.ui.bottom-sheet name="editAvatar" title="Аватар">

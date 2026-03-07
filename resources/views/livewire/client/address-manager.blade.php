@@ -9,7 +9,7 @@
             </h2>
 
             <button
-                wire:click="create"
+                onclick="window.Livewire.dispatch('address:open')"
                 type="button"
                 class="text-yellow-400 text-sm font-semibold hover:opacity-80 transition"
             >

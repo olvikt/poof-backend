@@ -75,7 +75,7 @@ public function open(?int $addressId = null): void
     }
 
     // открываем sheet
-    $this->dispatch('sheet:open', name: 'editAddress');
+    $this->dispatch('sheet:open', name: 'addressForm');
 
     // 🔒 СТРАХОВКА:
     // если координаты уже есть — повторно синхронизируем маркер
@@ -461,7 +461,7 @@ public function save(): void
         $this->dispatch('address-saved')->to('client.address-manager');
 		
 		// 7) Закрытие sheet: тоже делаем максимально совместимо
-        $this->dispatch('sheet:close', name: 'editAddress');
+        $this->dispatch('sheet:close', name: 'addressForm');
         $this->dispatch('sheet:close'); // на случай если твой sheet закрывается без параметров
 
     } catch (ValidationException $e) {
