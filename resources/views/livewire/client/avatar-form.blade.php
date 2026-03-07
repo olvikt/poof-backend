@@ -1,22 +1,22 @@
-<div
+<form
     class="space-y-5"
     wire:key="avatar-form"
+    wire:submit.prevent="save"
 >
-
     {{-- PREVIEW --}}
-	<div class="flex justify-center">
-		@if ($photo)
-			<img
-				src="{{ $photo->temporaryUrl() }}"
-				class="w-32 h-32 rounded-full object-cover bg-gray-800"
-			>
-		@else
-			<img
-				src="{{ auth()->user()->avatar_url }}"
-				class="w-32 h-32 rounded-full object-cover bg-gray-800"
-			>
-		@endif
-	</div>
+    <div class="flex justify-center">
+        @if ($photo)
+            <img
+                src="{{ $photo->temporaryUrl() }}"
+                class="w-32 h-32 rounded-full object-cover bg-gray-800"
+            >
+        @else
+            <img
+                src="{{ auth()->user()->avatar_url }}"
+                class="w-32 h-32 rounded-full object-cover bg-gray-800"
+            >
+        @endif
+    </div>
 
     {{-- FILE INPUT (ТОЛЬКО Livewire) --}}
     <input
@@ -36,22 +36,24 @@
         Обрати фото
     </label>
 
+    @error('photo')
+        <p class="text-sm text-red-400">{{ $message }}</p>
+    @enderror
+
     {{-- SAVE --}}
-<button
-    type="button"
-    wire:click="save"
-    wire:loading.attr="disabled"
-    wire:target="save"
-    class="w-full bg-yellow-400 text-black font-bold py-3 rounded-xl
-           active:scale-95 transition"
->
-    <span wire:loading.remove wire:target="save">
-        Зберегти
-    </span>
+    <button
+        type="submit"
+        wire:loading.attr="disabled"
+        wire:target="save,photo"
+        class="w-full bg-yellow-400 text-black font-bold py-3 rounded-xl
+               active:scale-95 transition"
+    >
+        <span wire:loading.remove wire:target="save,photo">
+            Зберегти
+        </span>
 
-    <span wire:loading wire:target="save">
-        Збереження…
-    </span>
-</button>
-
-</div>
+        <span wire:loading wire:target="save,photo">
+            Збереження…
+        </span>
+    </button>
+</form>

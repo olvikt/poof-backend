@@ -6,7 +6,7 @@
 
         <button
             class="text-yellow-400 text-sm font-semibold"
-            onclick="window.dispatchEvent(new CustomEvent('sheet:open',{detail:{name:'editProfile'}}))"
+            onclick="window.dispatchEvent(new CustomEvent('sheet:open',{detail:{name:'editProfile'}})); if (window.Livewire) { window.Livewire.dispatch('profile:open'); }"
         >
             Редагувати
         </button>
