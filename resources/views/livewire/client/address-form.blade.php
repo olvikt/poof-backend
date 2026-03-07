@@ -33,9 +33,10 @@
         async fetchPhoton(query) {
             const requestId = ++this.photonRequestId;
             this.photonAbortController = new AbortController();
+            const { lat, lon } = this.getPhotonBiasCoordinates();
 
             try {
-                const response = await fetch(`https://photon.komoot.io/api/?q=${encodeURIComponent(query)}&limit=5&lang=uk&location_bias=48.45,34.98`, {
+                const response = await fetch(`https://photon.komoot.io/api/?q=${encodeURIComponent(query)}&limit=5&lang=uk&lat=${lat}&lon=${lon}`, {
                     signal: this.photonAbortController.signal,
                 });
 
@@ -93,6 +94,26 @@
                     this.$wire.call('setPhotonSuggestions', [], 'Адресу не знайдено');
                 }
             }
+        },
+        getPhotonBiasCoordinates() {
+            const fallback = { lat: 48.45, lon: 34.98 };
+            const mapCenter = window.POOF?.map?.instance?.getCenter?.();
+
+            if (mapCenter && Number.isFinite(mapCenter.lat) && Number.isFinite(mapCenter.lng)) {
+                return {
+                    lat: mapCenter.lat,
+                    lon: mapCenter.lng,
+                };
+            }
+
+            if (Number.isFinite(this.lat) && Number.isFinite(this.lng)) {
+                return {
+                    lat: this.lat,
+                    lon: this.lng,
+                };
+            }
+
+            return fallback;
         }
     }">
 
