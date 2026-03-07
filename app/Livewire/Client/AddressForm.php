@@ -324,8 +324,10 @@ public function setCoords(float $lat, float $lng, ?string $source = null): void
         }
 
         $address = $result['address'] ?? [];
-        $street = $address['road'] ?? $address['pedestrian'] ?? $address['street'] ?? null;
-        $house  = $address['house_number'] ?? null;
+        $street = $this->normalizeStreet(
+            $address['road'] ?? $address['pedestrian'] ?? $address['street'] ?? null
+        );
+        $house  = $this->normalizeHouse($address['house_number'] ?? null);
         $city   = $address['city'] ?? $address['town'] ?? $address['village'] ?? null;
         $region = $address['state'] ?? $address['region'] ?? null;
 
@@ -350,7 +352,7 @@ public function setCoords(float $lat, float $lng, ?string $source = null): void
                     $this->search,
                     $m
                 )) {
-                    $this->house = $m[1];
+                    $this->house = $this->normalizeHouse($m[1]);
                 }
             }
 
@@ -380,11 +382,11 @@ protected function rules(): array
         'lat' => 'required|numeric|between:-90,90',
         'lng' => 'required|numeric|between:-180,180',
 
-        'city'   => 'nullable|string|max:80',
+        'city'   => 'required|string|max:80',
         'region' => 'nullable|string|max:120',
         'street' => 'required|string|min:2|max:120',
 
-        'house' => 'nullable|string|max:20',
+        'house' => 'required|string|max:20',
 
         'entrance' => $this->building_type === 'apartment'
             ? ($isEdit ? 'nullable|string|max:10' : 'required|string|max:10')
@@ -422,7 +424,7 @@ public function save(): void
         // 3) Fallback: street/city из search
         if (! $this->street && $this->search) {
             $parts = array_map('trim', explode(',', $this->search));
-            $this->street = $parts[0] ?? null;
+            $this->street = $this->normalizeStreet($parts[0] ?? null);
 
             // не перетираем city, если уже задан
             if (! $this->city && isset($parts[1])) {
@@ -528,6 +530,23 @@ public function save(): void
         $this->label = 'home';
         $this->building_type = 'apartment';
         $this->suggestions = [];
+    }
+
+    protected function normalizeStreet(?string $street): ?string
+    {
+        $street = trim((string) $street);
+        if ($street === '') {
+            return null;
+        }
+
+        return preg_replace('/^\s*\d+[\dA-Za-zА-Яа-яІЇЄієї\-\/]*\s*,\s*/u', '', $street) ?: null;
+    }
+
+    protected function normalizeHouse(?string $house): ?string
+    {
+        $house = trim((string) $house);
+
+        return $house !== '' ? $house : null;
     }
 
     public function render()
