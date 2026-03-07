@@ -659,6 +659,22 @@ async function buildRoute(fromLat, fromLng, toLat, toLng) {
   if (state.handlersBound) return
   state.handlersBound = true
 
+  // PHP/Browser → JS: set location from autocomplete or sync
+  window.addEventListener('map:set-location', (e) => {
+    const lat = e.detail?.lat
+    const lng = e.detail?.lng
+    const source = e.detail?.source ?? 'sync'
+    const zoom = Number.isFinite(Number(e.detail?.zoom)) ? Number(e.detail.zoom) : 18
+
+    if (lat == null || lng == null) return
+
+    setMarker(lat, lng, {
+      emit: false,
+      zoom,
+      source: source === 'autocomplete' ? 'autocomplete' : 'sync',
+    })
+  })
+
   // PHP → JS: marker set
   window.addEventListener('map:set-marker', (e) => {
     const lat = e.detail?.lat

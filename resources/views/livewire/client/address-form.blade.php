@@ -1,10 +1,99 @@
 <form wire:submit.prevent="save" class="space-y-5"
     x-data="{
+        search: $wire.entangle('search').live,
         lat: $wire.entangle('lat'),
         lng: $wire.entangle('lng'),
         street: $wire.entangle('street'),
         house: $wire.entangle('house'),
-        city: $wire.entangle('city')
+        city: $wire.entangle('city'),
+        photonDebounceTimer: null,
+        photonAbortController: null,
+        photonRequestId: 0,
+        init() {
+            this.$watch('search', (value) => {
+                const query = String(value ?? '').trim();
+
+                if (this.photonDebounceTimer) {
+                    clearTimeout(this.photonDebounceTimer);
+                }
+
+                if (this.photonAbortController) {
+                    this.photonAbortController.abort();
+                    this.photonAbortController = null;
+                }
+
+                if (query.length < 3) {
+                    this.$wire.call('setPhotonSuggestions', [], null);
+                    return;
+                }
+
+                this.photonDebounceTimer = setTimeout(() => this.fetchPhoton(query), 300);
+            });
+        },
+        async fetchPhoton(query) {
+            const requestId = ++this.photonRequestId;
+            this.photonAbortController = new AbortController();
+
+            try {
+                const response = await fetch(`https://photon.komoot.io/api/?q=${encodeURIComponent(query)}&limit=5&lang=uk`, {
+                    signal: this.photonAbortController.signal,
+                });
+
+                if (!response.ok) {
+                    if (requestId === this.photonRequestId) {
+                        this.$wire.call('setPhotonSuggestions', [], 'Адресу не знайдено');
+                    }
+                    return;
+                }
+
+                const payload = await response.json();
+                const features = Array.isArray(payload?.features) ? payload.features : [];
+
+                const items = features
+                    .map((feature) => {
+                        const properties = feature?.properties ?? {};
+                        const coordinates = feature?.geometry?.coordinates;
+
+                        if (!Array.isArray(coordinates) || coordinates.length < 2) {
+                            return null;
+                        }
+
+                        const name = String(properties?.name ?? '').trim();
+                        const city = String(properties?.city ?? '').trim();
+                        const region = String(properties?.state ?? '').trim();
+
+                        if (!name) {
+                            return null;
+                        }
+
+                        return {
+                            street: name,
+                            city: city || null,
+                            region: region || null,
+                            lat: Number(coordinates[1]),
+                            lng: Number(coordinates[0]),
+                            line1: name,
+                            line2: city ? `${city}${region ? `, ${region}` : ''}` : region,
+                            label: [name, city].filter(Boolean).join(', '),
+                        };
+                    })
+                    .filter((item) => item && Number.isFinite(item.lat) && Number.isFinite(item.lng));
+
+                if (requestId !== this.photonRequestId) {
+                    return;
+                }
+
+                this.$wire.call('setPhotonSuggestions', items, items.length ? null : 'Адресу не знайдено');
+            } catch (error) {
+                if (error?.name === 'AbortError') {
+                    return;
+                }
+
+                if (requestId === this.photonRequestId) {
+                    this.$wire.call('setPhotonSuggestions', [], 'Адресу не знайдено');
+                }
+            }
+        }
     }">
 
     <div class="flex gap-2">
@@ -90,7 +179,7 @@
             <div class="relative flex-1">
                 <input
                     type="text"
-                    wire:model.live.debounce.300ms="search"
+                    x-model="search"
                     wire:keydown.arrow-down.prevent="moveSuggestionDown"
                     wire:keydown.arrow-up.prevent="moveSuggestionUp"
                     wire:keydown.enter.prevent="selectActiveSuggestion"
