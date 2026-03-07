@@ -460,6 +460,28 @@ async function buildRoute(fromLat, fromLng, toLat, toLng) {
     })
   }
 
+
+  function tryLocateUserForAddressModal() {
+    if (!navigator.geolocation) return
+    if (state.lastLat !== null && state.lastLng !== null) return
+
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        const lat = pos.coords?.latitude
+        const lng = pos.coords?.longitude
+        if (!isValidLatLng(lat, lng)) return
+
+        setMarker(lat, lng, {
+          emit: true,
+          zoom: 17,
+          source: 'user',
+        })
+      },
+      () => {},
+      { enableHighAccuracy: true, timeout: 10000, maximumAge: 60000 }
+    )
+  }
+
   // ------------------------------------------------------------
   // Mount / Remount
   // ------------------------------------------------------------
@@ -705,6 +727,15 @@ window.addEventListener('build-route', (e) => {
         payload.toLng
     )
 })
+
+  window.addEventListener('poof:sheet-opened', (e) => {
+    if (e.detail?.name !== 'addressForm') return
+    setTimeout(() => {
+      mountAny()
+      try { state.instance?.invalidateSize(true) } catch (_) {}
+      tryLocateUserForAddressModal()
+    }, 0)
+  })
 
   // -------------------------------
   // FORCE MAP INIT

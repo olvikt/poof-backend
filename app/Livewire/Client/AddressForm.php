@@ -4,7 +4,7 @@ namespace App\Livewire\Client;
 
 use Livewire\Component;
 use App\Models\ClientAddress;
-use App\Services\Geocoding\Geocoder;
+use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Validation\ValidationException;
 
@@ -41,6 +41,7 @@ class AddressForm extends Component
 
     // Адрес
     public ?string $city = null;
+    public ?string $region = null;
     public ?string $street = null;
     public ?string $house = null;
 	
@@ -107,6 +108,7 @@ public function open(?int $addressId = null): void
             'apartment'     => $address->apartment,
 
             'city'          => $address->city,
+            'region'        => $address->region,
             'street'        => $address->street,
             'house'         => $address->house,
         ]);
@@ -172,33 +174,34 @@ public function updatedHouse(): void
     }
 
     try {
-        /** @var \App\Services\Geocoding\Geocoder $geocoder */
-        $geocoder = app(\App\Services\Geocoding\Geocoder::class);
+        $response = Http::timeout(8)
+            ->acceptJson()
+            ->get('https://photon.komoot.io/api/', [
+                'q' => $query,
+                'limit' => 1,
+                'lang' => 'uk',
+            ]);
 
-        // Используем тот метод, который у тебя есть
-        // geocode / forward / search / place
-        $point = $geocoder->geocode($query);
-
-        if (!empty($point->lat) && !empty($point->lng)) {
-
-            $this->lat = (float) $point->lat;
-            $this->lng = (float) $point->lng;
-
-            // -------------------------------------------------
-            // 5) Двигаем маркер БЕЗ reverse
-            // -------------------------------------------------
-            $this->dispatch(
-                'map:set-marker',
-                lat: $this->lat,
-                lng: $this->lng
-            );
+        $feature = $response->json('features.0');
+        if (!is_array($feature)) {
+            return;
         }
+
+        $coordinates = $feature['geometry']['coordinates'] ?? null;
+        if (!is_array($coordinates) || count($coordinates) < 2) {
+            return;
+        }
+
+        $this->lat = (float) $coordinates[1];
+        $this->lng = (float) $coordinates[0];
+
+        $this->dispatch('map:set-marker', lat: $this->lat, lng: $this->lng);
     } catch (\Throwable $e) {
         // молча — UX важнее
     }
 } 
 
-    public function updatedSearch(Geocoder $geocoder): void
+    public function updatedSearch(): void
     {
         $q = trim((string) $this->search);
         $this->suggestions = [];
@@ -208,47 +211,76 @@ public function updatedHouse(): void
         }
 
         try {
-            $this->suggestions = $geocoder->autocomplete($q);
+            $response = Http::timeout(8)
+                ->acceptJson()
+                ->get('https://photon.komoot.io/api/', [
+                    'q' => $q,
+                    'limit' => 5,
+                    'lang' => 'uk',
+                ]);
+
+            $this->suggestions = collect($response->json('features', []))
+                ->map(function (array $feature): ?array {
+                    $properties = $feature['properties'] ?? [];
+                    $coordinates = $feature['geometry']['coordinates'] ?? null;
+
+                    if (!is_array($coordinates) || count($coordinates) < 2) {
+                        return null;
+                    }
+
+                    $street = trim((string) ($properties['street'] ?? $properties['name'] ?? ''));
+                    $house = trim((string) ($properties['housenumber'] ?? ''));
+                    $city = trim((string) ($properties['city'] ?? $properties['district'] ?? ''));
+                    $region = trim((string) ($properties['state'] ?? ''));
+                    $country = trim((string) ($properties['country'] ?? ''));
+
+                    $line1 = trim($street . ' ' . $house);
+                    $line2 = implode(', ', array_filter([$city, $country]));
+
+                    return [
+                        'lat' => (float) $coordinates[1],
+                        'lng' => (float) $coordinates[0],
+                        'street' => $street ?: null,
+                        'house' => $house ?: null,
+                        'city' => $city ?: null,
+                        'region' => $region ?: null,
+                        'country' => $country ?: null,
+                        'line1' => $line1 !== '' ? $line1 : ($properties['name'] ?? null),
+                        'line2' => $line2,
+                        'label' => trim(implode(', ', array_filter([$line1, $city, $country]))),
+                    ];
+                })
+                ->filter()
+                ->values()
+                ->all();
         } catch (\Throwable $e) {
             $this->suggestions = [];
         }
     }
 
-    public function selectPlace(string $placeId, Geocoder $geocoder): void
+    public function selectSuggestion(int $index): void
     {
-        $point = $geocoder->place($placeId);
+        $item = $this->suggestions[$index] ?? null;
+        if (!is_array($item)) {
+            return;
+        }
 
-        $this->place_id = $placeId;
-        $this->search   = $point->address;
+        $this->place_id = null;
+        $this->search = $item['label'] ?? $item['line1'] ?? null;
 
-        // координаты — приблизительные
-        $this->lat = $point->lat;
-        $this->lng = $point->lng;
+        $this->lat = isset($item['lat']) ? (float) $item['lat'] : null;
+        $this->lng = isset($item['lng']) ? (float) $item['lng'] : null;
+
+        $this->street = $item['street'] ?? $this->street;
+        $this->house = $item['house'] ?? $this->house;
+        $this->city = $item['city'] ?? $this->city;
+        $this->region = $item['region'] ?? $this->region;
 
         $this->suggestions = [];
 
-        /**
-         * 🧠 Авто-определение типа здания
-         */
-        $components = $point->components ?? [];
-        $hasPremise = false;
-        $hasSubPremise = false;
-
-        foreach ($components as $c) {
-            if (in_array('premise', $c['types'] ?? [], true)) {
-                $hasPremise = true;
-            }
-            if (in_array('subpremise', $c['types'] ?? [], true)) {
-                $hasSubPremise = true;
-            }
+        if ($this->lat !== null && $this->lng !== null) {
+            $this->dispatch('map:set-marker', lat: $this->lat, lng: $this->lng);
         }
-
-        $this->building_type = (! $hasPremise && ! $hasSubPremise)
-            ? 'house'
-            : 'apartment';
-
-        // карта
-        $this->dispatch('map:set-marker', lat: $this->lat, lng: $this->lng);
     }
 
     /* =========================================================
@@ -269,50 +301,37 @@ public function setCoords(float $lat, float $lng, ?string $source = null): void
     }
 
     try {
-        /** @var \App\Services\Geocoding\Geocoder $geocoder */
-        $geocoder = app(\App\Services\Geocoding\Geocoder::class);
+        $result = Http::timeout(10)
+            ->acceptJson()
+            ->withHeaders([
+                'User-Agent' => config('app.name', 'Poof') . '/1.0',
+            ])
+            ->get('https://nominatim.openstreetmap.org/reverse', [
+                'format' => 'json',
+                'lat' => $lat,
+                'lon' => $lng,
+                'addressdetails' => 1,
+            ])
+            ->json();
 
-        $point = $geocoder->reverse($lat, $lng);
+        if (!is_array($result)) {
+            return;
+        }
 
         // 1) строка адреса
-        if (!empty($point->address)) {
-            $this->search = $point->address;
+        if (!empty($result['display_name'])) {
+            $this->search = (string) $result['display_name'];
         }
 
-        // 2) компоненты
-        $components = $point->components ?? [];
-
-        $street = null;
-        $house  = null;
-        $city   = null;
-
-        foreach ($components as $c) {
-            $types = $c['types'] ?? [];
-            $name  = $c['long_name'] ?? ($c['name'] ?? null);
-
-            if (!$name) continue;
-
-            if (in_array('route', $types, true)) {
-                $street = $street ?? $name;
-            }
-
-            if (
-                in_array('street_number', $types, true) ||
-                in_array('house_number', $types, true)
-            ) {
-                $house = $house ?? $name;
-            }
-
-            if (
-                in_array('locality', $types, true) ||
-                in_array('postal_town', $types, true)
-            ) {
-                $city = $city ?? $name;
-            }
-        }
+        $address = $result['address'] ?? [];
+        $street = $address['road'] ?? $address['pedestrian'] ?? $address['street'] ?? null;
+        $house  = $address['house_number'] ?? null;
+        $city   = $address['city'] ?? $address['town'] ?? $address['village'] ?? null;
+        $region = $address['state'] ?? $address['region'] ?? null;
 
         if ($street) $this->street = $street;
         if ($city)   $this->city   = $city;
+        if ($region) $this->region = $region;
 
         // -------------------------------------------------
         // 3) АВТОЗАПОЛНЕНИЕ ДОМА (ПРАВИЛЬНО)
@@ -362,13 +381,10 @@ protected function rules(): array
         'lng' => 'required|numeric|between:-180,180',
 
         'city'   => 'nullable|string|max:80',
-        'street' => $isEdit
-            ? 'nullable|string|max:120'
-            : 'required|string|min:2|max:120',
+        'region' => 'nullable|string|max:120',
+        'street' => 'required|string|min:2|max:120',
 
-        'house' => $isEdit
-            ? 'nullable|string|max:20'
-            : 'required|string|max:20',
+        'house' => 'nullable|string|max:20',
 
         'entrance' => $this->building_type === 'apartment'
             ? ($isEdit ? 'nullable|string|max:10' : 'required|string|max:10')
@@ -390,7 +406,6 @@ protected function rules(): array
 public function save(): void
 {
 	
-	$this->addError('search', 'SAVE CALLED'); // временно
     try {
         // 1) Базовые правила
         $this->validate();
@@ -425,6 +440,7 @@ public function save(): void
             'address_text' => $this->search,
 
             'city'   => $this->city,
+            'region' => $this->region,
             'street' => $this->street,
             'house'  => $this->house,
 
@@ -504,6 +520,7 @@ public function save(): void
             'floor',
             'apartment',
             'city',
+            'region',
             'street',
             'house',
         ]);
