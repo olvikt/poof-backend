@@ -90,20 +90,22 @@
             <div class="relative flex-1">
                 <input
                     type="text"
-                    wire:model.live.debounce.350ms="search"
-                    wire:keydown.enter.prevent
+                    wire:model.live.debounce.300ms="search"
+                    wire:keydown.arrow-down.prevent="moveSuggestionDown"
+                    wire:keydown.arrow-up.prevent="moveSuggestionUp"
+                    wire:keydown.enter.prevent="selectActiveSuggestion"
                     placeholder="Вулиця, район…"
                     class="poof-input w-full"
                     autocomplete="off"
                 >
 
                 @if (!empty($suggestions))
-                    <div class="absolute z-50 mt-1 w-full rounded-xl bg-neutral-900 border border-neutral-700 shadow-xl">
+                    <div class="absolute z-50 mt-1 w-full overflow-hidden rounded-xl bg-neutral-900 border border-neutral-700 shadow-xl">
                         @foreach ($suggestions as $item)
                             <button
                                 type="button"
                                 wire:click="selectSuggestion({{ $loop->index }})"
-                                class="block w-full text-left px-4 py-2 text-sm hover:bg-neutral-800"
+                                class="block w-full text-left px-4 py-2 text-sm transition {{ $activeSuggestionIndex === $loop->index ? 'bg-neutral-800' : 'hover:bg-neutral-800' }}"
                             >
                                 <div class="font-medium text-gray-100">{{ $item['line1'] ?? $item['label'] }}</div>
                                 @if(!empty($item['line2']))
@@ -111,6 +113,10 @@
                                 @endif
                             </button>
                         @endforeach
+                    </div>
+                @elseif (!empty($suggestionsMessage))
+                    <div class="absolute z-50 mt-1 w-full rounded-xl bg-neutral-900 border border-neutral-700 shadow-xl px-4 py-3 text-sm text-gray-300">
+                        {{ $suggestionsMessage }}
                     </div>
                 @endif
             </div>
