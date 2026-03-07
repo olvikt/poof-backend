@@ -4,6 +4,7 @@ use Illuminate\Support\Facades\Route;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Http\Request;
 use App\Http\Controllers\Auth\RegisterController;
+use App\Http\Controllers\ProfileController;
 
 use App\Models\Order;
 
@@ -164,6 +165,18 @@ Route::middleware('auth:web')
 Route::middleware('auth:web')
     ->get('/dashboard', fn () => redirect()->route('client.home'))
     ->name('dashboard');
+
+
+Route::middleware('auth')->group(function () {
+    Route::post('/profile/address', [ProfileController::class, 'storeAddress'])
+        ->name('profile.address.store');
+
+    Route::post('/profile/avatar', [ProfileController::class, 'updateAvatar'])
+        ->name('profile.avatar.update');
+
+    Route::post('/profile/update', [ProfileController::class, 'update'])
+        ->name('profile.update');
+});
 
 /*
 |--------------------------------------------------------------------------

@@ -10,13 +10,26 @@ class ProfileForm extends Component
     public ?string $phone = null;
     public string $email = '';
 
-    public function mount()
+    protected $listeners = [
+        "profile:open" => "loadUser",
+    ];
+
+    public function mount(): void
+    {
+        $this->loadUser();
+    }
+
+    public function loadUser(): void
     {
         $user = auth()->user();
 
-        $this->name  = $user->name;
+        if (! $user) {
+            return;
+        }
+
+        $this->name = (string) $user->name;
         $this->phone = $user->phone;
-        $this->email = $user->email;
+        $this->email = (string) $user->email;
     }
 
     protected $rules = [

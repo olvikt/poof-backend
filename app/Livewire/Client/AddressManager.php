@@ -5,6 +5,7 @@ namespace App\Livewire\Client;
 use Livewire\Component;
 use App\Models\ClientAddress;
 use Illuminate\Support\Collection;
+use App\Livewire\Client\AddressForm;
 
 class AddressManager extends Component
 {
@@ -40,12 +41,14 @@ public function reloadAddresses(): void
 
     public function create(): void
     {
-        $this->dispatch('address:open', addressId: null);
+        $this->dispatch('address:open', addressId: null)
+            ->to(AddressForm::class);
     }
 
     public function edit(int $id): void
     {
-        $this->dispatch('address:open', addressId: $id);
+        $this->dispatch('address:open', addressId: $id)
+            ->to(AddressForm::class);
     }
 
     public function setDefault(int $id): void
