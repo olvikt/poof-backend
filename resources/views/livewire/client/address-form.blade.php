@@ -35,7 +35,7 @@
             this.photonAbortController = new AbortController();
 
             try {
-                const response = await fetch(`https://photon.komoot.io/api/?q=${encodeURIComponent(query)}&limit=5&lang=uk`, {
+                const response = await fetch(`https://photon.komoot.io/api/?q=${encodeURIComponent(query)}&limit=5&lang=uk&lat=48.45&lon=34.98`, {
                     signal: this.photonAbortController.signal,
                 });
 
