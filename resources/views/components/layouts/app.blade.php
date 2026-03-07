@@ -8,14 +8,14 @@
 
     {{-- Tailwind / Vite --}}
     @vite(['resources/css/app.css', 'resources/js/app.js'])
-	
+
+    {{-- Livewire styles --}}
+    @livewireStyles
+
 	<link
 		rel="stylesheet"
 		href="https://unpkg.com/cropperjs@1.6.2/dist/cropper.min.css"
 	/>
-
-    {{-- Livewire styles --}}
-    @livewireStyles
 
     {{-- ✅ Leaflet (ОДИН РАЗ НА ВСЁ ПРИЛОЖЕНИЕ) --}}
 	{{-- Leaflet --}}
@@ -45,7 +45,7 @@
     {{ $slot }}
 
     {{-- Livewire scripts --}}
-    @livewireScriptConfig
+    @livewireScripts
 
     @stack('scripts')
 </body>
