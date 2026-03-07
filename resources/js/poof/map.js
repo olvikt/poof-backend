@@ -242,7 +242,7 @@ export default function initMap() {
 
     const targetZoom = zoom ?? state.instance.getZoom() ?? 16
 
-    if (source === 'user') {
+    if (source === 'user' || source === 'autocomplete') {
       state.instance.flyTo(ll, targetZoom, { animate: true, duration: 0.6 })
     } else {
       state.instance.setView(ll, targetZoom, { animate: false })
@@ -663,8 +663,16 @@ async function buildRoute(fromLat, fromLng, toLat, toLng) {
   window.addEventListener('map:set-marker', (e) => {
     const lat = e.detail?.lat
     const lng = e.detail?.lng
+    const source = e.detail?.source ?? 'sync'
+    const zoom = Number.isFinite(Number(e.detail?.zoom)) ? Number(e.detail.zoom) : 18
+
     if (lat == null || lng == null) return
-    setMarker(lat, lng, { emit: false, zoom: 18, source: 'sync' })
+
+    setMarker(lat, lng, {
+      emit: false,
+      zoom,
+      source: source === 'autocomplete' ? 'autocomplete' : 'sync',
+    })
   })
 
   window.addEventListener('map:set-marker-precision', (e) => {

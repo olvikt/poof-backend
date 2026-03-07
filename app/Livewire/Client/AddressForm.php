@@ -26,6 +26,8 @@ class AddressForm extends Component
     // UI
     public ?string $search = null;
     public array $suggestions = [];
+    public int $activeSuggestionIndex = -1;
+    public ?string $suggestionsMessage = null;
 
     // Координаты — ИСТИНА
     public ?float $lat = null;
@@ -117,6 +119,8 @@ public function open(?int $addressId = null): void
         ]);
 
         $this->suggestions = [];
+        $this->activeSuggestionIndex = -1;
+        $this->suggestionsMessage = null;
 
         // 👉 координаты передаём в JS,
         // map.js сам поставит маркер, когда карта будет готова
@@ -212,6 +216,8 @@ public function updatedHouse(): void
     {
         $q = trim((string) $this->search);
         $this->suggestions = [];
+        $this->activeSuggestionIndex = -1;
+        $this->suggestionsMessage = null;
 
         if (mb_strlen($q) < 3) {
             return;
@@ -264,8 +270,52 @@ public function updatedHouse(): void
                 ->filter()
                 ->values()
                 ->all();
+
+            if (empty($this->suggestions)) {
+                $this->suggestionsMessage = 'Адресу не знайдено';
+            }
         } catch (\Throwable $e) {
             $this->suggestions = [];
+            $this->suggestionsMessage = 'Адресу не знайдено';
+        }
+    }
+
+    public function moveSuggestionDown(): void
+    {
+        $count = count($this->suggestions);
+
+        if ($count === 0) {
+            $this->activeSuggestionIndex = -1;
+
+            return;
+        }
+
+        $this->activeSuggestionIndex = ($this->activeSuggestionIndex + 1) % $count;
+    }
+
+    public function moveSuggestionUp(): void
+    {
+        $count = count($this->suggestions);
+
+        if ($count === 0) {
+            $this->activeSuggestionIndex = -1;
+
+            return;
+        }
+
+        if ($this->activeSuggestionIndex <= 0) {
+            $this->activeSuggestionIndex = $count - 1;
+
+            return;
+        }
+
+        $this->activeSuggestionIndex--;
+    }
+
+    public function selectActiveSuggestion(): void
+    {
+        if ($this->activeSuggestionIndex >= 0) {
+            $this->selectSuggestion($this->activeSuggestionIndex);
         }
     }
 
@@ -288,9 +338,11 @@ public function updatedHouse(): void
         $this->region = $item['region'] ?? $this->region;
 
         $this->suggestions = [];
+        $this->activeSuggestionIndex = -1;
+        $this->suggestionsMessage = null;
 
         if ($this->lat !== null && $this->lng !== null) {
-            $this->dispatch('map:set-marker', lat: $this->lat, lng: $this->lng);
+            $this->dispatch('map:set-marker', lat: $this->lat, lng: $this->lng, source: 'autocomplete', zoom: 17);
         }
     }
 
@@ -305,6 +357,8 @@ public function updatedHouse(): void
 
     $this->place_id = null;
     $this->suggestions = [];
+    $this->activeSuggestionIndex = -1;
+    $this->suggestionsMessage = null;
 
     // reverse только если источник — карта
     if ($source !== 'map') {
@@ -571,6 +625,8 @@ public function save(): void
             'building_type',
             'search',
             'suggestions',
+            'activeSuggestionIndex',
+            'suggestionsMessage',
             'lat',
             'lng',
             'place_id',
@@ -587,6 +643,8 @@ public function save(): void
         $this->label = 'home';
         $this->building_type = 'apartment';
         $this->suggestions = [];
+        $this->activeSuggestionIndex = -1;
+        $this->suggestionsMessage = null;
     }
 
     protected function normalizeStreet(?string $street): ?string
