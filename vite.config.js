@@ -15,6 +15,7 @@ export default defineConfig({
     build: {
         target: 'esnext',
         rollupOptions: {
+            external: ['/vendor/livewire/livewire/dist/livewire.esm'],
             output: {
                 manualChunks: {
                     vendor: ['axios'],

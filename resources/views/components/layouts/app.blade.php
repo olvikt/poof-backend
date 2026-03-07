@@ -45,7 +45,7 @@
     {{ $slot }}
 
     {{-- Livewire scripts --}}
-    @livewireScripts
+    @livewireScriptConfig
 
     @stack('scripts')
 </body>
