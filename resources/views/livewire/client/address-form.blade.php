@@ -1,9 +1,12 @@
 <form wire:submit.prevent="save" class="space-y-5"
-    x-data="{ lat: $wire.entangle('lat'), lng: $wire.entangle('lng'), street: $wire.entangle('street') }">
+    x-data="{
+        lat: $wire.entangle('lat'),
+        lng: $wire.entangle('lng'),
+        street: $wire.entangle('street'),
+        house: $wire.entangle('house'),
+        city: $wire.entangle('city')
+    }">
 
-    {{-- =========================================================
-     | Тип адреси
-     ========================================================= --}}
     <div class="flex gap-2">
         @foreach (['home' => 'Дім', 'work' => 'Робота', 'other' => 'Інше'] as $key => $text)
             <button
@@ -19,9 +22,6 @@
         @endforeach
     </div>
 
-    {{-- =========================================================
-     | Назва
-     ========================================================= --}}
     <div>
         <label class="text-xs text-gray-400">Назва (опційно)</label>
         <input
@@ -35,9 +35,6 @@
         @enderror
     </div>
 
-    {{-- =========================================================
-     | MAP
-     ========================================================= --}}
     <div>
         <x-poof.map>
             Уточніть точку адреси
@@ -46,15 +43,18 @@
         @if($lat && $lng)
             <p class="mt-2 text-xs text-green-400">✔ Точка підтверджена</p>
         @else
-            <p class="mt-2 text-xs text-yellow-400">
-                ⚠ Будь ласка, уточніть точку на мапі
-            </p>
+            <p class="mt-2 text-xs text-yellow-400">⚠ Будь ласка, уточніть точку на мапі</p>
         @endif
+
+        @error('lat')
+            <p class="mt-1 text-xs text-red-400">{{ $message }}</p>
+        @enderror
+
+        @error('lng')
+            <p class="mt-1 text-xs text-red-400">{{ $message }}</p>
+        @enderror
     </div>
 
-    {{-- =========================================================
-     | Тип будівлі
-     ========================================================= --}}
     <div>
         <label class="text-xs text-gray-400 mb-2 block">Тип будівлі</label>
 
@@ -83,21 +83,18 @@
         </div>
     </div>
 
-    {{-- =========================================================
-     | Адреса + будинок
-     ========================================================= --}}
     <div class="relative">
         <label class="text-xs text-gray-400">Адреса</label>
 
         <div class="flex gap-2">
-            {{-- Адреса --}}
             <div class="relative flex-1">
                 <input
                     type="text"
-                    wire:model.live.debounce.300ms="search"
+                    wire:model.live.debounce.350ms="search"
                     wire:keydown.enter.prevent
                     placeholder="Вулиця, район…"
                     class="poof-input w-full"
+                    autocomplete="off"
                 >
 
                 @if (!empty($suggestions))
@@ -118,7 +115,6 @@
                 @endif
             </div>
 
-            {{-- Будинок --}}
             <div class="w-20">
                 <input
                     type="text"
@@ -133,6 +129,10 @@
             <p class="mt-1 text-xs text-red-400">{{ $message }}</p>
         @enderror
 
+        @error('street')
+            <p class="mt-1 text-xs text-red-400">{{ $message }}</p>
+        @enderror
+
         @error('house')
             <p class="mt-1 text-xs text-red-400">{{ $message }}</p>
         @enderror
@@ -142,32 +142,52 @@
         <div>
             <label class="text-xs text-gray-400">Місто</label>
             <input type="text" wire:model.live.debounce.300ms="city" placeholder="Місто" class="poof-input w-full">
+            @error('city')
+                <p class="mt-1 text-xs text-red-400">{{ $message }}</p>
+            @enderror
         </div>
         <div>
             <label class="text-xs text-gray-400">Область</label>
             <input type="text" wire:model.live.debounce.300ms="region" placeholder="Область" class="poof-input w-full">
+            @error('region')
+                <p class="mt-1 text-xs text-red-400">{{ $message }}</p>
+            @enderror
         </div>
     </div>
 
-    {{-- =========================================================
-     | Додаткові поля (КВАРТИРА)
-     ========================================================= --}}
     @if($building_type === 'apartment')
         <div class="grid grid-cols-4 gap-3">
-            <input wire:model.defer="entrance" placeholder="Підʼїзд" class="poof-input">
-            <input wire:model.defer="intercom" placeholder="Домофон" class="poof-input">
-            <input wire:model.defer="floor" placeholder="Поверх" class="poof-input">
-            <input wire:model.defer="apartment" placeholder="Квартира" class="poof-input">
+            <div>
+                <input wire:model.defer="entrance" placeholder="Підʼїзд" class="poof-input">
+                @error('entrance')
+                    <p class="mt-1 text-xs text-red-400">{{ $message }}</p>
+                @enderror
+            </div>
+            <div>
+                <input wire:model.defer="intercom" placeholder="Домофон" class="poof-input">
+                @error('intercom')
+                    <p class="mt-1 text-xs text-red-400">{{ $message }}</p>
+                @enderror
+            </div>
+            <div>
+                <input wire:model.defer="floor" placeholder="Поверх" class="poof-input">
+                @error('floor')
+                    <p class="mt-1 text-xs text-red-400">{{ $message }}</p>
+                @enderror
+            </div>
+            <div>
+                <input wire:model.defer="apartment" placeholder="Квартира" class="poof-input">
+                @error('apartment')
+                    <p class="mt-1 text-xs text-red-400">{{ $message }}</p>
+                @enderror
+            </div>
         </div>
     @endif
 
-    {{-- =========================================================
-     | SAVE
-     ========================================================= --}}
     <button
         type="submit"
         wire:loading.attr="disabled"
-        x-bind:disabled="!lat || !lng || !street || !String(street).trim()"
+        x-bind:disabled="!lat || !lng || !street || !house || !city || !String(street).trim() || !String(house).trim() || !String(city).trim()"
         class="w-full bg-yellow-400 text-black font-bold py-3 rounded-2xl
                active:scale-95 transition disabled:opacity-70"
     >

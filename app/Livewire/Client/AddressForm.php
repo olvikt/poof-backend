@@ -6,6 +6,7 @@ use Livewire\Component;
 use App\Models\ClientAddress;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\Validation\ValidationException;
 
 class AddressForm extends Component
@@ -50,6 +51,8 @@ class AddressForm extends Component
     // -----------------------------
     protected bool $houseTouchedManually = false;
     protected bool $updatingHouseFromMap = false;
+
+    protected ?array $addressColumns = null;
 	
 
     /* =========================================================
@@ -182,6 +185,10 @@ public function updatedHouse(): void
                 'lang' => 'uk',
             ]);
 
+        if (! $response->successful()) {
+            return;
+        }
+
         $feature = $response->json('features.0');
         if (!is_array($feature)) {
             return;
@@ -218,6 +225,10 @@ public function updatedHouse(): void
                     'limit' => 5,
                     'lang' => 'uk',
                 ]);
+
+            if (! $response->successful()) {
+                return;
+            }
 
             $this->suggestions = collect($response->json('features', []))
                 ->map(function (array $feature): ?array {
@@ -287,7 +298,7 @@ public function updatedHouse(): void
      | MAP → FORM
      |=========================================================*/
 
-public function setCoords(float $lat, float $lng, ?string $source = null): void
+    public function setCoords(float $lat, float $lng, ?string $source = null): void
 {
     $this->lat = $lat;
     $this->lng = $lng;
@@ -300,7 +311,7 @@ public function setCoords(float $lat, float $lng, ?string $source = null): void
         return;
     }
 
-    try {
+        try {
         $result = Http::timeout(10)
             ->acceptJson()
             ->withHeaders([
@@ -311,19 +322,19 @@ public function setCoords(float $lat, float $lng, ?string $source = null): void
                 'lat' => $lat,
                 'lon' => $lng,
                 'addressdetails' => 1,
-            ])
-            ->json();
+            ]);
 
-        if (!is_array($result)) {
+        if (! $result->successful()) {
             return;
         }
 
-        // 1) строка адреса
-        if (!empty($result['display_name'])) {
-            $this->search = (string) $result['display_name'];
+        $payload = $result->json();
+
+        if (!is_array($payload)) {
+            return;
         }
 
-        $address = $result['address'] ?? [];
+        $address = $payload['address'] ?? [];
         $street = $this->normalizeStreet(
             $address['road'] ?? $address['pedestrian'] ?? $address['street'] ?? null
         );
@@ -331,9 +342,21 @@ public function setCoords(float $lat, float $lng, ?string $source = null): void
         $city   = $address['city'] ?? $address['town'] ?? $address['village'] ?? null;
         $region = $address['state'] ?? $address['region'] ?? null;
 
-        if ($street) $this->street = $street;
-        if ($city)   $this->city   = $city;
-        if ($region) $this->region = $region;
+        if ($street) {
+            $this->street = $street;
+        }
+
+        if ($city) {
+            $this->city = trim((string) $city);
+        }
+
+        if ($region) {
+            $this->region = trim((string) $region);
+        }
+
+        $line1 = trim(implode(' ', array_filter([$street, $house])));
+        $line2 = trim(implode(', ', array_filter([$this->city, $this->region])));
+        $this->search = trim(implode(', ', array_filter([$line1, $line2])));
 
         // -------------------------------------------------
         // 3) АВТОЗАПОЛНЕНИЕ ДОМА (ПРАВИЛЬНО)
@@ -345,11 +368,13 @@ public function setCoords(float $lat, float $lng, ?string $source = null): void
 
             if ($house) {
                 $this->house = $house;
-            } elseif ($this->search) {
+            }
+
+            if (! $this->house && ! empty($payload['display_name'])) {
                 // fallback из строки адреса
                 if (preg_match(
                     '/,\s*([0-9]+[0-9A-Za-zА-Яа-яІЇЄієї\-\/]*)\b/u',
-                    $this->search,
+                    (string) $payload['display_name'],
                     $m
                 )) {
                     $this->house = $this->normalizeHouse($m[1]);
@@ -370,8 +395,6 @@ public function setCoords(float $lat, float $lng, ?string $source = null): void
 
 protected function rules(): array
 {
-    $isEdit = (bool) $this->addressId;
-
     return [
         'label'         => 'required|in:home,work,other',
         'title'         => 'nullable|string|max:50',
@@ -388,13 +411,9 @@ protected function rules(): array
 
         'house' => 'required|string|max:20',
 
-        'entrance' => $this->building_type === 'apartment'
-            ? ($isEdit ? 'nullable|string|max:10' : 'required|string|max:10')
-            : 'nullable',
+        'entrance' => 'nullable|string|max:10',
 
-        'floor' => $this->building_type === 'apartment'
-            ? ($isEdit ? 'nullable|string|max:10' : 'required|string|max:10')
-            : 'nullable',
+        'floor' => 'nullable|string|max:10',
 
         'intercom'  => 'nullable|string|max:10',
         'apartment' => 'nullable|string|max:10',
@@ -407,21 +426,11 @@ protected function rules(): array
 
 public function save(): void
 {
-	
-    try {
-        // 1) Базовые правила
-        $this->validate();
 
+    try {
         $isEdit = (bool) $this->addressId;
 
-        // 2) Координаты обязательны всегда
-        if ($this->lat === null || $this->lng === null) {
-            throw ValidationException::withMessages([
-                'search' => 'Уточніть точку на мапі.',
-            ]);
-        }
-
-        // 3) Fallback: street/city из search
+        // 1) Fallback: street/city из search
         if (! $this->street && $this->search) {
             $parts = array_map('trim', explode(',', $this->search));
             $this->street = $this->normalizeStreet($parts[0] ?? null);
@@ -432,9 +441,17 @@ public function save(): void
             }
         }
 
+        // 2) Базовые правила
+        $this->validate();
 
+        // 3) Координаты обязательны всегда
+        if ($this->lat === null || $this->lng === null) {
+            throw ValidationException::withMessages([
+                'search' => 'Уточніть точку на мапі.',
+            ]);
+        }
 
-        $data = [
+        $payload = [
             'label'         => $this->label,
             'title'         => $this->title,
             'building_type' => $this->building_type,
@@ -458,6 +475,8 @@ public function save(): void
             'geocode_accuracy' => 'exact',
             'geocoded_at'      => now(),
         ];
+
+        $data = $this->filterPersistedPayload($payload);
 
         // 5) Save
         if ($isEdit) {
@@ -483,6 +502,12 @@ public function save(): void
         $this->dispatch('sheet:close'); // на случай если твой sheet закрывается без параметров
 
     } catch (ValidationException $e) {
+        Log::error('Address save failed', [
+            'user_id' => auth()->id(),
+            'payload' => $this->payloadForLogs(),
+            'errors' => $e->errors(),
+        ]);
+
         // покажет ошибки в форме (как обычно)
         throw $e;
 
@@ -493,13 +518,45 @@ public function save(): void
         $this->addError('search', 'Сталася помилка при збереженні. Перевірте поля та спробуйте ще раз.');
 
         // лог для отладки (быстро поймешь, где упало)
-        Log::error('AddressForm save failed', [
-            'addressId' => $this->addressId,
+        Log::error('Address save exception', [
             'user_id' => auth()->id(),
+            'payload' => $this->payloadForLogs(),
+            'errors' => $this->getErrorBag()->toArray(),
             'message' => $e->getMessage(),
+            'trace' => $e->getTraceAsString(),
         ]);
     }
 }
+
+    protected function payloadForLogs(): array
+    {
+        return [
+            'addressId' => $this->addressId,
+            'label' => $this->label,
+            'title' => $this->title,
+            'building_type' => $this->building_type,
+            'search' => $this->search,
+            'city' => $this->city,
+            'region' => $this->region,
+            'street' => $this->street,
+            'house' => $this->house,
+            'lat' => $this->lat,
+            'lng' => $this->lng,
+            'entrance' => $this->entrance,
+            'intercom' => $this->intercom,
+            'floor' => $this->floor,
+            'apartment' => $this->apartment,
+        ];
+    }
+
+    protected function filterPersistedPayload(array $payload): array
+    {
+        $columns = $this->addressColumns ??= Schema::getColumnListing('client_addresses');
+
+        return collect($payload)
+            ->only($columns)
+            ->all();
+    }
 
     /* =========================================================
      | HELPERS
