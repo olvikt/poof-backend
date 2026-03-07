@@ -4,6 +4,7 @@
         <input
             type="text"
             wire:model.defer="name"
+            autocomplete="name"
             class="poof-input w-full"
         >
     </div>
@@ -13,6 +14,7 @@
         <input
             type="text"
             wire:model.defer="phone"
+            autocomplete="tel"
             class="poof-input w-full"
         >
     </div>
@@ -22,6 +24,7 @@
         <input
             type="email"
             wire:model.defer="email"
+            autocomplete="email"
             class="poof-input w-full"
         >
     </div>

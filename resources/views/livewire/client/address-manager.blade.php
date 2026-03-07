@@ -11,7 +11,7 @@
             <button
                 onclick="window.Livewire.dispatch('address:open')"
                 type="button"
-                class="text-yellow-400 text-sm font-semibold hover:opacity-80 transition"
+                class="rounded-xl bg-yellow-400 px-3 py-1.5 text-black text-sm font-semibold hover:bg-yellow-300 transition"
             >
                 + Додати
             </button>
