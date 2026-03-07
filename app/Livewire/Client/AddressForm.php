@@ -214,70 +214,46 @@ public function updatedHouse(): void
 
     public function updatedSearch(): void
     {
-        $q = trim((string) $this->search);
-        $this->suggestions = [];
-        $this->activeSuggestionIndex = -1;
-        $this->suggestionsMessage = null;
-
-        if (mb_strlen($q) < 3) {
-            return;
-        }
-
-        try {
-            $response = Http::timeout(8)
-                ->acceptJson()
-                ->get('https://photon.komoot.io/api/', [
-                    'q' => $q,
-                    'limit' => 5,
-                    'lang' => 'uk',
-                ]);
-
-            if (! $response->successful()) {
-                return;
-            }
-
-            $this->suggestions = collect($response->json('features', []))
-                ->map(function (array $feature): ?array {
-                    $properties = $feature['properties'] ?? [];
-                    $coordinates = $feature['geometry']['coordinates'] ?? null;
-
-                    if (!is_array($coordinates) || count($coordinates) < 2) {
-                        return null;
-                    }
-
-                    $street = trim((string) ($properties['street'] ?? $properties['name'] ?? ''));
-                    $house = trim((string) ($properties['housenumber'] ?? ''));
-                    $city = trim((string) ($properties['city'] ?? $properties['district'] ?? ''));
-                    $region = trim((string) ($properties['state'] ?? ''));
-                    $country = trim((string) ($properties['country'] ?? ''));
-
-                    $line1 = trim($street . ' ' . $house);
-                    $line2 = implode(', ', array_filter([$city, $country]));
-
-                    return [
-                        'lat' => (float) $coordinates[1],
-                        'lng' => (float) $coordinates[0],
-                        'street' => $street ?: null,
-                        'house' => $house ?: null,
-                        'city' => $city ?: null,
-                        'region' => $region ?: null,
-                        'country' => $country ?: null,
-                        'line1' => $line1 !== '' ? $line1 : ($properties['name'] ?? null),
-                        'line2' => $line2,
-                        'label' => trim(implode(', ', array_filter([$line1, $city, $country]))),
-                    ];
-                })
-                ->filter()
-                ->values()
-                ->all();
-
-            if (empty($this->suggestions)) {
-                $this->suggestionsMessage = 'Адресу не знайдено';
-            }
-        } catch (\Throwable $e) {
+        if (mb_strlen(trim((string) $this->search)) < 3) {
             $this->suggestions = [];
-            $this->suggestionsMessage = 'Адресу не знайдено';
+            $this->activeSuggestionIndex = -1;
+            $this->suggestionsMessage = null;
         }
+    }
+
+    public function setPhotonSuggestions(array $items, ?string $message = null): void
+    {
+        $this->suggestions = collect($items)
+            ->map(function ($item): ?array {
+                if (!is_array($item)) {
+                    return null;
+                }
+
+                $lat = isset($item['lat']) ? (float) $item['lat'] : null;
+                $lng = isset($item['lng']) ? (float) $item['lng'] : null;
+
+                if ($lat === null || $lng === null) {
+                    return null;
+                }
+
+                return [
+                    'lat' => $lat,
+                    'lng' => $lng,
+                    'street' => isset($item['street']) ? trim((string) $item['street']) : null,
+                    'house' => isset($item['house']) ? trim((string) $item['house']) : null,
+                    'city' => isset($item['city']) ? trim((string) $item['city']) : null,
+                    'region' => isset($item['region']) ? trim((string) $item['region']) : null,
+                    'line1' => isset($item['line1']) ? trim((string) $item['line1']) : null,
+                    'line2' => isset($item['line2']) ? trim((string) $item['line2']) : null,
+                    'label' => isset($item['label']) ? trim((string) $item['label']) : null,
+                ];
+            })
+            ->filter()
+            ->values()
+            ->all();
+
+        $this->activeSuggestionIndex = -1;
+        $this->suggestionsMessage = $message;
     }
 
     public function moveSuggestionDown(): void
@@ -342,7 +318,7 @@ public function updatedHouse(): void
         $this->suggestionsMessage = null;
 
         if ($this->lat !== null && $this->lng !== null) {
-            $this->dispatch('map:set-marker', lat: $this->lat, lng: $this->lng, source: 'autocomplete', zoom: 17);
+            $this->dispatch('map:set-location', lat: $this->lat, lng: $this->lng, source: 'autocomplete', zoom: 17);
         }
     }
 
