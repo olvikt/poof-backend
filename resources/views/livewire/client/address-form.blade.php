@@ -60,26 +60,51 @@
                             return null;
                         }
 
-                        const name = String(properties?.name ?? '').trim();
-                        const city = String(properties?.city ?? '').trim();
-                        const region = String(properties?.state ?? '').trim();
+                        const street =
+                            properties?.street ??
+                            properties?.name ??
+                            '';
+
+                        const name = String(street).trim();
+
+                        const city = String(
+                            properties?.city ??
+                            properties?.county ??
+                            properties?.district ??
+                            ''
+                        ).trim();
+
+                        const region = String(
+                            properties?.state ??
+                            properties?.region ??
+                            ''
+                        ).trim();
 
                         if (!name) {
                             return null;
                         }
 
+                        const lon = Number(coordinates[0]);
+                        const lat = Number(coordinates[1]);
+
+                        if (!Number.isFinite(lat) || !Number.isFinite(lon)) {
+                            return null;
+                        }
+
                         return {
+                            name,
                             street: name,
                             city: city || null,
                             region: region || null,
-                            lat: Number(coordinates[1]),
-                            lng: Number(coordinates[0]),
+                            lat,
+                            lon,
+                            lng: lon,
                             line1: name,
                             line2: city ? `${city}${region ? `, ${region}` : ''}` : region,
                             label: [name, city].filter(Boolean).join(', '),
                         };
                     })
-                    .filter((item) => item && Number.isFinite(item.lat) && Number.isFinite(item.lng));
+                    .filter(Boolean);
 
                 if (requestId !== this.photonRequestId) {
                     return;
