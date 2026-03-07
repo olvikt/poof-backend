@@ -34,9 +34,10 @@
             const requestId = ++this.photonRequestId;
             this.photonAbortController = new AbortController();
             const { lat, lon } = this.getPhotonBiasCoordinates();
+            const url = `https://photon.komoot.io/api/?q=${encodeURIComponent(query)}&limit=5&lang=uk&lat=${lat.toFixed(6)}&lon=${lon.toFixed(6)}&countrycode=ua`;
 
             try {
-                const response = await fetch(`https://photon.komoot.io/api/?q=${encodeURIComponent(query)}&limit=5&lang=uk&lat=${lat}&lon=${lon}`, {
+                const response = await fetch(url, {
                     signal: this.photonAbortController.signal,
                 });
 
@@ -96,20 +97,23 @@
             }
         },
         getPhotonBiasCoordinates() {
-            const fallback = { lat: 48.45, lon: 34.98 };
+            const fallback = {
+                lat: 48.450000,
+                lon: 34.980000,
+            };
             const mapCenter = window.POOF?.map?.instance?.getCenter?.();
 
             if (mapCenter && Number.isFinite(mapCenter.lat) && Number.isFinite(mapCenter.lng)) {
                 return {
-                    lat: mapCenter.lat,
-                    lon: mapCenter.lng,
+                    lat: Number(mapCenter.lat.toFixed(6)),
+                    lon: Number(mapCenter.lng.toFixed(6)),
                 };
             }
 
             if (Number.isFinite(this.lat) && Number.isFinite(this.lng)) {
                 return {
-                    lat: this.lat,
-                    lon: this.lng,
+                    lat: Number(this.lat.toFixed(6)),
+                    lon: Number(this.lng.toFixed(6)),
                 };
             }
 
