@@ -21,8 +21,10 @@ class ClientAddress extends Model
 
         // опциональные поля адреса
         'city',
+        'region',
         'street',
         'house',
+        'building_type',
 
         // отображение (НЕ источник истины)
         'address_text',
@@ -167,5 +169,4 @@ class ClientAddress extends Model
         });
     }
 }
-
 

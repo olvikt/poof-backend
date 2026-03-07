@@ -1,4 +1,5 @@
-<form wire:submit.prevent="save" class="space-y-5">
+<form wire:submit.prevent="save" class="space-y-5"
+    x-data="{ lat: $wire.entangle('lat'), lng: $wire.entangle('lng'), street: $wire.entangle('street') }">
 
     {{-- =========================================================
      | Тип адреси
@@ -93,7 +94,7 @@
             <div class="relative flex-1">
                 <input
                     type="text"
-                    wire:model.live="search"
+                    wire:model.live.debounce.300ms="search"
                     wire:keydown.enter.prevent
                     placeholder="Вулиця, район…"
                     class="poof-input w-full"
@@ -104,10 +105,13 @@
                         @foreach ($suggestions as $item)
                             <button
                                 type="button"
-                                wire:click="selectPlace('{{ $item['place_id'] }}')"
+                                wire:click="selectSuggestion({{ $loop->index }})"
                                 class="block w-full text-left px-4 py-2 text-sm hover:bg-neutral-800"
                             >
-                                {{ $item['label'] }}
+                                <div class="font-medium text-gray-100">{{ $item['line1'] ?? $item['label'] }}</div>
+                                @if(!empty($item['line2']))
+                                    <div class="text-xs text-gray-400">{{ $item['line2'] }}</div>
+                                @endif
                             </button>
                         @endforeach
                     </div>
@@ -118,7 +122,7 @@
             <div class="w-20">
                 <input
                     type="text"
-                    wire:model.live.debounce.700ms="house"
+                    wire:model.live.debounce.300ms="house"
                     placeholder="Буд."
                     class="poof-input w-full text-center"
                 >
@@ -132,6 +136,17 @@
         @error('house')
             <p class="mt-1 text-xs text-red-400">{{ $message }}</p>
         @enderror
+    </div>
+
+    <div class="grid grid-cols-2 gap-3">
+        <div>
+            <label class="text-xs text-gray-400">Місто</label>
+            <input type="text" wire:model.live.debounce.300ms="city" placeholder="Місто" class="poof-input w-full">
+        </div>
+        <div>
+            <label class="text-xs text-gray-400">Область</label>
+            <input type="text" wire:model.live.debounce.300ms="region" placeholder="Область" class="poof-input w-full">
+        </div>
     </div>
 
     {{-- =========================================================
@@ -152,6 +167,7 @@
     <button
         type="submit"
         wire:loading.attr="disabled"
+        x-bind:disabled="!lat || !lng || !street || !String(street).trim()"
         class="w-full bg-yellow-400 text-black font-bold py-3 rounded-2xl
                active:scale-95 transition disabled:opacity-70"
     >
