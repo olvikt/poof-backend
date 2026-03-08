@@ -14,13 +14,22 @@ class GeocodeController extends Controller
     public function search(Request $request): JsonResponse
     {
         $query = trim((string) $request->query('q', ''));
+        $lat = $this->normalizedCoordinate($request->query('lat'), -90, 90);
+        $lng = $this->normalizedCoordinate($request->query('lng'), -180, 180);
+
+        if ($query === '' && $lat !== null && $lng !== null) {
+            try {
+                $suggestions = $this->fetchReverseSuggestions($lat, $lng);
+            } catch (\Throwable) {
+                $suggestions = [];
+            }
+
+            return response()->json(is_array($suggestions) ? $suggestions : []);
+        }
 
         if (mb_strlen($query) < 2) {
             return response()->json([]);
         }
-
-        $lat = $this->normalizedCoordinate($request->query('lat'), -90, 90);
-        $lng = $this->normalizedCoordinate($request->query('lng'), -180, 180);
 
         try {
             $suggestions = $this->fetchPhotonSuggestions($query, $lat, $lng);
@@ -29,6 +38,62 @@ class GeocodeController extends Controller
         }
 
         return response()->json(is_array($suggestions) ? $suggestions : []);
+    }
+
+
+    private function fetchReverseSuggestions(float $lat, float $lng): array
+    {
+        try {
+            $response = Http::timeout(5)
+                ->retry(2, 100)
+                ->acceptJson()
+                ->withHeaders([
+                    'User-Agent' => config('app.name', 'Poof') . '/1.0',
+                ])
+                ->get('https://nominatim.openstreetmap.org/reverse', [
+                    'format' => 'json',
+                    'lat' => $lat,
+                    'lon' => $lng,
+                    'addressdetails' => 1,
+                ]);
+        } catch (ConnectionException|RequestException|\Throwable) {
+            return [];
+        }
+
+        if (! $response->successful()) {
+            return [];
+        }
+
+        $payload = $response->json();
+
+        if (! is_array($payload)) {
+            return [];
+        }
+
+        $address = is_array($payload['address'] ?? null) ? $payload['address'] : [];
+
+        $street = $this->nullableString(
+            $address['road'] ?? $address['pedestrian'] ?? $address['street'] ?? null
+        );
+
+        $city = $this->nullableString(
+            $address['city'] ?? $address['town'] ?? $address['village'] ?? $address['county'] ?? null
+        );
+
+        $house = $this->nullableString($address['house_number'] ?? null);
+
+        $label = trim(implode(' ', array_filter([$street, $house])));
+        if ($label === '') {
+            $label = $this->nullableString($payload['display_name'] ?? null) ?? 'Unknown location';
+        }
+
+        return [[
+            'label' => $label,
+            'street' => $street,
+            'city' => $city,
+            'lat' => round($lat, 6),
+            'lng' => round($lng, 6),
+        ]];
     }
 
     private function fetchPhotonSuggestions(string $query, ?float $lat, ?float $lng): array

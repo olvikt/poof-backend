@@ -564,12 +564,35 @@ async function buildRoute(fromLat, fromLng, toLat, toLng) {
 
     state.tiles.addTo(state.instance)
 
-    state.instance.on('click', (e) => {
-      setMarker(e.latlng.lat, e.latlng.lng, {
+    state.instance.on('click', async (e) => {
+      const lat = e.latlng.lat
+      const lng = e.latlng.lng
+
+      setMarker(lat, lng, {
         emit: true,
         zoom: 18,
         source: 'user',
       })
+
+      try {
+        const response = await fetch(`/api/geocode?lat=${lat}&lng=${lng}`)
+
+        if (!response.ok) {
+          return
+        }
+
+        const data = await response.json()
+
+        if (!Array.isArray(data) || data.length === 0) {
+          return
+        }
+
+        window.dispatchEvent(
+          new CustomEvent('address:reverse-geocoded', {
+            detail: { item: data[0] },
+          })
+        )
+      } catch (_) {}
     })
 
     // применяем pendingPoint (если события пришли раньше)

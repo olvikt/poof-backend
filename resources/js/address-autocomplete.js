@@ -23,6 +23,27 @@ export default function addressAutocomplete() {
       this.suggestions = this.$wire.entangle('suggestions', true)
       this.suggestionsMessage = this.$wire.entangle('suggestionsMessage', true)
 
+
+      window.addEventListener('address:reverse-geocoded', (event) => {
+        const item = event.detail?.item
+
+        if (!item || typeof item !== 'object') {
+          return
+        }
+
+        this.search = item.label ?? ''
+        this.street = item.street ?? ''
+        this.city = item.city ?? ''
+
+        this.lat = item.lat
+        this.lng = item.lng
+
+        this.$wire.set('search', this.search)
+        this.$wire.set('street', this.street)
+        this.$wire.set('city', this.city)
+        this.$wire.set('lat', this.lat ?? null)
+        this.$wire.set('lng', this.lng ?? null)
+      })
       this.$watch('search', (value) => {
         const query = String(value ?? '').trim()
 
@@ -136,8 +157,8 @@ export default function addressAutocomplete() {
       this.street = item.street ?? ''
       this.city = item.city ?? ''
 
-      this.lat = item.lat ?? null
-      this.lng = item.lng ?? null
+      this.lat = item.lat
+      this.lng = item.lng
 
       this.suggestions = []
       this.suggestionsMessage = null
