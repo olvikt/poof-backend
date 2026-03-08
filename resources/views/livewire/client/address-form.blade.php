@@ -1,14 +1,5 @@
 <form wire:submit.prevent="save" class="space-y-5"
-    x-data="addressAutocomplete(
-        @entangle('search').live,
-        @entangle('lat'),
-        @entangle('lng'),
-        @entangle('street'),
-        @entangle('house'),
-        @entangle('city'),
-        @entangle('suggestions').live,
-        @entangle('suggestionsMessage').live
-    )"
+    x-data="addressAutocomplete()"
     x-init="init()">
 
     <div class="flex gap-2">

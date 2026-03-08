@@ -252,7 +252,7 @@ public function updatedHouse(): void
             ->all();
 
         $this->activeSuggestionIndex = -1;
-        $this->suggestionsMessage = $message;
+        $this->suggestionsMessage = is_string($message) && trim($message) !== '' ? trim($message) : null;
     }
 
     public function moveSuggestionDown(): void
