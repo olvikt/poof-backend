@@ -7,7 +7,6 @@ use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Http\Client\RequestException;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Http;
 
 class GeocodeController extends Controller
@@ -23,18 +22,8 @@ class GeocodeController extends Controller
         $lat = $this->normalizedCoordinate($request->query('lat'), -90, 90);
         $lng = $this->normalizedCoordinate($request->query('lng'), -180, 180);
 
-        $cacheKey = 'geocode_' . md5(mb_strtolower($query));
-
         try {
-            $suggestions = Cache::get($cacheKey);
-
-            if (! is_array($suggestions) || empty($suggestions)) {
-                $suggestions = $this->fetchPhotonSuggestions($query, $lat, $lng);
-
-                if (! empty($suggestions)) {
-                    Cache::put($cacheKey, $suggestions, 600);
-                }
-            }
+            $suggestions = $this->fetchPhotonSuggestions($query, $lat, $lng);
         } catch (\Throwable) {
             $suggestions = [];
         }
@@ -70,54 +59,57 @@ class GeocodeController extends Controller
         }
 
         $data = $response->json() ?? [];
-        $features = $data['features'] ?? [];
 
-        if (! is_array($features)) {
-            return [];
-        }
-
-        $results = collect($features)
+        $results = collect($data['features'] ?? [])
             ->map(function ($feature) {
+                $geometry = $feature['geometry'] ?? [];
+                $coords = $geometry['coordinates'] ?? null;
 
-                $coords = $feature['geometry']['coordinates'] ?? null;
-
-                if (! $coords || ! is_array($coords) || count($coords) < 2) {
+                if (! is_array($coords) || count($coords) < 2) {
                     return null;
                 }
 
                 $lng = (float) $coords[0];
                 $lat = (float) $coords[1];
 
+                if (! is_finite($lat) || ! is_finite($lng)) {
+                    return null;
+                }
+
                 $props = $feature['properties'] ?? [];
 
-                $name = $props['name'] ?? '';
-                $street = $props['street'] ?? $name;
+                $name = $props['name'] ?? null;
+                $street = $props['street'] ?? null;
+                $housenumber = $props['housenumber'] ?? null;
 
                 $city =
                     $props['city'] ??
                     $props['county'] ??
                     $props['state'] ??
-                    '';
+                    null;
 
-                $label = trim(
-                    ($props['street'] ?? $name) .
-                    ' ' .
-                    ($props['housenumber'] ?? '')
-                );
+                $labelParts = array_filter([
+                    $street ?: $name,
+                    $housenumber,
+                ]);
+
+                $label = implode(' ', $labelParts);
 
                 if (! $label) {
-                    $label = $name;
+                    $label = $name ?? $city ?? 'Unknown location';
                 }
 
                 return [
                     'label' => $label,
-                    'street' => $street,
+                    'street' => $street ?? $name,
                     'city' => $city,
                     'lat' => $lat,
                     'lng' => $lng,
                 ];
             })
-            ->filter(fn ($item) => $item !== null)
+            ->filter()
+            ->unique('label')
+            ->take(5)
             ->values()
             ->all();
 
