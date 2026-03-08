@@ -45,6 +45,11 @@ export default function addressAutocomplete() {
         this.$wire.set('lng', this.lng ?? null)
       })
       this.$watch('search', (value) => {
+        if (typeof value === 'object' && value !== null) {
+          this.search = value.label ?? value.name ?? value.street ?? ''
+          return
+        }
+
         const query = String(value ?? '').trim()
 
         if (this.debounceTimer) {
