@@ -62,17 +62,27 @@ class GeocodeController extends Controller
 
         $results = collect($data['features'] ?? [])
             ->map(function ($feature) {
-                $geometry = $feature['geometry'] ?? [];
+
+                if (!is_array($feature)) {
+                    return null;
+                }
+
+                $geometry = $feature['geometry'] ?? null;
+
+                if (!is_array($geometry)) {
+                    return null;
+                }
+
                 $coords = $geometry['coordinates'] ?? null;
 
-                if (! is_array($coords) || count($coords) < 2) {
+                if (!is_array($coords) || count($coords) < 2) {
                     return null;
                 }
 
                 $lng = (float) $coords[0];
                 $lat = (float) $coords[1];
 
-                if (! is_finite($lat) || ! is_finite($lng)) {
+                if (!$lat || !$lng) {
                     return null;
                 }
 
@@ -88,14 +98,14 @@ class GeocodeController extends Controller
                     $props['state'] ??
                     null;
 
-                $labelParts = array_filter([
-                    $street ?: $name,
-                    $housenumber,
-                ]);
+                $label = trim(
+                    implode(' ', array_filter([
+                        $street ?: $name,
+                        $housenumber
+                    ]))
+                );
 
-                $label = implode(' ', $labelParts);
-
-                if (! $label) {
+                if (!$label) {
                     $label = $name ?? $city ?? 'Unknown location';
                 }
 
@@ -104,7 +114,7 @@ class GeocodeController extends Controller
                     'street' => $street ?? $name,
                     'city' => $city,
                     'lat' => $lat,
-                    'lng' => $lng,
+                    'lng' => $lng
                 ];
             })
             ->filter()
