@@ -50,62 +50,41 @@ class GeocodeController extends Controller
                 return [];
             }
 
-            $features = $response->json('features');
-            if (! is_array($features)) {
+            $data = $response->json();
+
+            if (! isset($data['features']) || ! is_array($data['features'])) {
                 return [];
             }
 
-            return collect($features)
-                ->map(fn ($feature) => $this->normalizeFeature($feature))
+            return collect($data['features'])
+                ->take(5)
+                ->map(function ($feature) {
+                    $p = $feature['properties'] ?? [];
+                    $coords = $feature['geometry']['coordinates'] ?? [null, null];
+
+                    $street = $p['street'] ?? $p['name'] ?? null;
+                    $house = $p['housenumber'] ?? null;
+                    $city = $p['city'] ?? $p['district'] ?? $p['county'] ?? null;
+
+                    if (! $street && ! $city) {
+                        return null;
+                    }
+
+                    return [
+                        'label' => trim($street . ' ' . $house . ', ' . $city),
+                        'street' => $street,
+                        'house' => $house,
+                        'city' => $city,
+                        'lat' => $coords[1] ?? null,
+                        'lng' => $coords[0] ?? null,
+                    ];
+                })
                 ->filter()
                 ->values()
-                ->take(5)
                 ->all();
         });
 
         return response()->json($suggestions);
-    }
-
-    private function normalizeFeature(mixed $feature): ?array
-    {
-        if (! is_array($feature)) {
-            return null;
-        }
-
-        $properties = is_array($feature['properties'] ?? null) ? $feature['properties'] : [];
-        $coordinates = is_array($feature['geometry']['coordinates'] ?? null) ? $feature['geometry']['coordinates'] : [];
-
-        $lng = isset($coordinates[0]) ? (float) $coordinates[0] : null;
-        $lat = isset($coordinates[1]) ? (float) $coordinates[1] : null;
-
-        if ($lat === null || $lng === null) {
-            return null;
-        }
-
-        $street = $this->filledValue($properties['street'] ?? $properties['name'] ?? null);
-        $house = $this->filledValue($properties['housenumber'] ?? null);
-        $city = $this->filledValue($properties['city'] ?? $properties['county'] ?? $properties['district'] ?? null);
-        $region = $this->filledValue($properties['state'] ?? $properties['region'] ?? null);
-
-        $line1 = trim(implode(' ', array_filter([$street, $house])));
-        $line2 = trim(implode(', ', array_filter([$city, $region])));
-        $label = trim(implode(', ', array_filter([$line1, $city])));
-
-        if ($line1 === '' && $label === '') {
-            return null;
-        }
-
-        return [
-            'label' => $label !== '' ? $label : $line1,
-            'street' => $street,
-            'house' => $house,
-            'city' => $city,
-            'region' => $region,
-            'line1' => $line1 !== '' ? $line1 : null,
-            'line2' => $line2 !== '' ? $line2 : null,
-            'lat' => $lat,
-            'lng' => $lng,
-        ];
     }
 
     private function normalizedCoordinate(mixed $value, float $min, float $max): ?float
@@ -121,12 +100,5 @@ class GeocodeController extends Controller
         }
 
         return round($coordinate, 6);
-    }
-
-    private function filledValue(mixed $value): ?string
-    {
-        $normalized = trim((string) $value);
-
-        return $normalized !== '' ? $normalized : null;
     }
 }

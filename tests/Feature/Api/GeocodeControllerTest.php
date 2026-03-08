@@ -50,8 +50,6 @@ class GeocodeControllerTest extends TestCase
                     'street' => 'Мандриківська',
                     'house' => '23',
                     'city' => 'Дніпро',
-                    'line1' => 'Мандриківська 23',
-                    'line2' => 'Дніпро, Дніпропетровська область',
                     'lat' => 48.4572,
                     'lng' => 35.0308,
                 ],
