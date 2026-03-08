@@ -26,9 +26,15 @@ class GeocodeController extends Controller
         $cacheKey = 'geocode_' . md5(mb_strtolower($query));
 
         try {
-            $suggestions = Cache::remember($cacheKey, 3600, function () use ($query, $lat, $lng): array {
-                return $this->fetchPhotonSuggestions($query, $lat, $lng);
-            });
+            $suggestions = Cache::get($cacheKey);
+
+            if (! is_array($suggestions) || empty($suggestions)) {
+                $suggestions = $this->fetchPhotonSuggestions($query, $lat, $lng);
+
+                if (! empty($suggestions)) {
+                    Cache::put($cacheKey, $suggestions, 600);
+                }
+            }
         } catch (\Throwable) {
             $suggestions = [];
         }
@@ -63,13 +69,14 @@ class GeocodeController extends Controller
             return [];
         }
 
-        $data = $response->json();
+        $data = $response->json() ?? [];
+        $features = $data['features'] ?? [];
 
-        if (! is_array($data)) {
+        if (! is_array($features)) {
             return [];
         }
 
-        $results = collect($data['features'] ?? [])
+        $results = collect($features)
             ->map(function ($feature) {
 
                 $coords = $feature['geometry']['coordinates'] ?? null;
@@ -77,6 +84,9 @@ class GeocodeController extends Controller
                 if (! $coords || ! is_array($coords) || count($coords) < 2) {
                     return null;
                 }
+
+                $lng = (float) $coords[0];
+                $lat = (float) $coords[1];
 
                 $props = $feature['properties'] ?? [];
 
@@ -103,8 +113,8 @@ class GeocodeController extends Controller
                     'label' => $label,
                     'street' => $street,
                     'city' => $city,
-                    'lat' => (float) $coords[1],
-                    'lng' => (float) $coords[0],
+                    'lat' => $lat,
+                    'lng' => $lng,
                 ];
             })
             ->filter(fn ($item) => $item !== null)

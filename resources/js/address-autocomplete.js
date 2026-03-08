@@ -107,11 +107,12 @@ export default function addressAutocomplete() {
       const name = String(item.name ?? '').trim()
       const street = String(item.street ?? '').trim()
       const city = String(item.city ?? '').trim()
+      const house = String(item.housenumber ?? item.house ?? '').trim()
       const line1 = String(item.line1 ?? '').trim()
       const line2 = String(item.line2 ?? '').trim()
 
-      const labelParts = [name, street, city].filter(Boolean)
-      const label = labelParts.join(', ') || String(item.label ?? '').trim() || line1 || city
+      const streetLabel = [street, house].filter(Boolean).join(' ').trim()
+      const label = streetLabel || street || name || String(item.label ?? '').trim() || line1 || city
 
       return {
         ...item,
@@ -130,9 +131,8 @@ export default function addressAutocomplete() {
         return
       }
 
-      const label = String(item.label ?? '').trim()
+      this.search = item.label ?? ''
 
-      this.search = label
       this.street = item.street ?? ''
       this.city = item.city ?? ''
 
@@ -142,7 +142,7 @@ export default function addressAutocomplete() {
       this.suggestions = []
       this.suggestionsMessage = null
 
-      this.$wire.set('search', label)
+      this.$wire.set('search', this.search)
       this.$wire.set('street', this.street)
       this.$wire.set('city', this.city)
       this.$wire.set('lat', this.lat)
