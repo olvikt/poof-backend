@@ -101,7 +101,7 @@ public function open(?int $addressId = null): void
             'title'         => $address->title,
             'building_type' => $address->building_type ?? 'apartment',
 
-            'search'        => $address->address_text,
+            'search'        => $this->normalizeSearch($address->address_text),
 
             'lat'           => $address->lat,
             'lng'           => $address->lng,
@@ -211,8 +211,14 @@ public function updatedHouse(): void
     }
 } 
 
-    public function updatedSearch(): void
+    public function updatedSearch($value = null): void
     {
+        $normalizedValue = $this->normalizeSearch($value ?? $this->search);
+
+        if ($this->search !== $normalizedValue) {
+            $this->search = $normalizedValue;
+        }
+
         if (mb_strlen(trim((string) $this->search)) < 3) {
             $this->suggestions = [];
             $this->activeSuggestionIndex = -1;
@@ -302,7 +308,7 @@ public function updatedHouse(): void
         }
 
         $this->place_id = null;
-        $this->search = $item['label'] ?? $item['line1'] ?? null;
+        $this->search = $this->normalizeSearch($item['label'] ?? $item['line1'] ?? null);
 
         $this->lat = isset($item['lat']) ? (float) $item['lat'] : null;
         $this->lng = isset($item['lng']) ? (float) $item['lng'] : null;
@@ -386,7 +392,7 @@ public function updatedHouse(): void
 
         $line1 = trim(implode(' ', array_filter([$street, $house])));
         $line2 = trim(implode(', ', array_filter([$this->city, $this->region])));
-        $this->search = trim(implode(', ', array_filter([$line1, $line2])));
+        $this->search = $this->normalizeSearch($payload['label'] ?? trim(implode(', ', array_filter([$line1, $line2]))));
 
         // -------------------------------------------------
         // 3) АВТОЗАПОЛНЕНИЕ ДОМА (ПРАВИЛЬНО)
@@ -638,6 +644,19 @@ public function save(): void
         $house = trim((string) $house);
 
         return $house !== '' ? $house : null;
+    }
+
+    protected function normalizeSearch($value): string
+    {
+        if (is_array($value)) {
+            return trim((string) ($value['label'] ?? $value['name'] ?? ''));
+        }
+
+        if (is_object($value)) {
+            return trim((string) ($value->label ?? $value->name ?? ''));
+        }
+
+        return trim((string) $value);
     }
 
     public function render()
