@@ -56,22 +56,19 @@ class GeocodeController extends Controller
                 return [];
             }
 
-            return collect($data['features'])
+            $results = collect($data['features'])
                 ->take(5)
                 ->map(function ($feature) {
+
                     $p = $feature['properties'] ?? [];
                     $coords = $feature['geometry']['coordinates'] ?? [null, null];
 
-                    $street = $p['street'] ?? $p['name'] ?? null;
+                    $street = $p['street'] ?? $p['name'] ?? $p['district'] ?? $p['locality'] ?? null;
                     $house = $p['housenumber'] ?? null;
-                    $city = $p['city'] ?? $p['district'] ?? $p['county'] ?? null;
-
-                    if (! $street && ! $city) {
-                        return null;
-                    }
+                    $city = $p['city'] ?? $p['county'] ?? $p['state'] ?? null;
 
                     return [
-                        'label' => trim($street . ' ' . $house . ', ' . $city),
+                        'label' => trim(($street ?? '') . ' ' . ($house ?? '') . ', ' . ($city ?? '')),
                         'street' => $street,
                         'house' => $house,
                         'city' => $city,
@@ -79,9 +76,9 @@ class GeocodeController extends Controller
                         'lng' => $coords[0] ?? null,
                     ];
                 })
-                ->filter()
-                ->values()
-                ->all();
+                ->values();
+
+            return $results->all();
         });
 
         return response()->json($suggestions);
