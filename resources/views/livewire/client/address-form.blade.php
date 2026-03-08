@@ -89,7 +89,7 @@
                 <input
                     type="text"
                     x-model="search"
-                    @input.debounce.300ms="fetchSuggestions"
+                    @input.debounce.300ms="fetchSuggestions($event.target.value)"
                     wire:keydown.arrow-down.prevent="moveSuggestionDown"
                     wire:keydown.arrow-up.prevent="moveSuggestionUp"
                     wire:keydown.enter.prevent="selectActiveSuggestion"
@@ -117,7 +117,7 @@
                         </template>
                     </ul>
 
-                    <div x-show="!isLoadingSuggestions && !suggestions.length && Boolean(suggestionsMessage)" class="px-4 py-3 text-sm text-gray-300" x-text="suggestionsMessage"></div>
+                    <div x-show="!isLoadingSuggestions && !suggestions.length && Boolean(suggestionsMessage)" class="px-4 py-3 text-sm text-gray-300" x-text="typeof suggestionsMessage === 'string' ? suggestionsMessage : ''"></div>
                 </div>
             </div>
 

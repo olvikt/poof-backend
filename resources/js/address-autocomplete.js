@@ -62,14 +62,17 @@ export default function addressAutocomplete() {
     },
 
     async fetchSuggestions(query = this.search) {
-      const normalizedQuery = String(query ?? '').trim()
+      const normalizedQuery =
+        typeof query === 'string'
+          ? query.trim()
+          : String(query ?? '').trim()
 
       if (this.abortController) {
         this.abortController.abort()
         this.abortController = null
       }
 
-      if (normalizedQuery.length < 3) {
+      if (!normalizedQuery || normalizedQuery.length < 3) {
         this.isLoadingSuggestions = false
         this.$wire.call('setPhotonSuggestions', [], null)
         return
@@ -78,6 +81,8 @@ export default function addressAutocomplete() {
       const currentRequestId = ++this.requestId
       this.abortController = new AbortController()
       this.isLoadingSuggestions = true
+
+      console.debug('Geocode query:', normalizedQuery)
 
       const { lat, lng } = this.getBiasCoordinates()
       const params = new URLSearchParams({ q: normalizedQuery })

@@ -226,39 +226,43 @@ public function updatedHouse(): void
         }
     }
 
-    public function setPhotonSuggestions(array $items, ?string $message = null): void
+    public function setPhotonSuggestions($items, $message = null): void
     {
-        $this->suggestions = collect($items)
-            ->map(function ($item): ?array {
-                if (!is_array($item)) {
-                    return null;
-                }
+        $this->suggestions = is_array($items)
+            ? collect($items)
+                ->map(function ($item): ?array {
+                    if (!is_array($item)) {
+                        return null;
+                    }
 
-                $lat = isset($item['lat']) ? (float) $item['lat'] : null;
-                $lng = isset($item['lng']) ? (float) $item['lng'] : null;
+                    $lat = isset($item['lat']) ? (float) $item['lat'] : null;
+                    $lng = isset($item['lng']) ? (float) $item['lng'] : null;
 
-                if ($lat === null || $lng === null) {
-                    return null;
-                }
+                    if ($lat === null || $lng === null) {
+                        return null;
+                    }
 
-                return [
-                    'lat' => $lat,
-                    'lng' => $lng,
-                    'street' => isset($item['street']) ? trim((string) $item['street']) : null,
-                    'house' => isset($item['house']) ? trim((string) $item['house']) : null,
-                    'city' => isset($item['city']) ? trim((string) $item['city']) : null,
-                    'region' => isset($item['region']) ? trim((string) $item['region']) : null,
-                    'line1' => isset($item['line1']) ? trim((string) $item['line1']) : null,
-                    'line2' => isset($item['line2']) ? trim((string) $item['line2']) : null,
-                    'label' => isset($item['label']) ? trim((string) $item['label']) : null,
-                ];
-            })
-            ->filter()
-            ->values()
-            ->all();
+                    return [
+                        'lat' => $lat,
+                        'lng' => $lng,
+                        'street' => isset($item['street']) ? trim((string) $item['street']) : null,
+                        'house' => isset($item['house']) ? trim((string) $item['house']) : null,
+                        'city' => isset($item['city']) ? trim((string) $item['city']) : null,
+                        'region' => isset($item['region']) ? trim((string) $item['region']) : null,
+                        'line1' => isset($item['line1']) ? trim((string) $item['line1']) : null,
+                        'line2' => isset($item['line2']) ? trim((string) $item['line2']) : null,
+                        'label' => isset($item['label']) ? trim((string) $item['label']) : null,
+                    ];
+                })
+                ->filter()
+                ->values()
+                ->all()
+            : [];
 
         $this->activeSuggestionIndex = -1;
-        $this->suggestionsMessage = is_string($message) && trim($message) !== '' ? trim($message) : null;
+        $this->suggestionsMessage = is_string($message) || is_null($message)
+            ? (is_string($message) && trim($message) !== '' ? trim($message) : null)
+            : null;
     }
 
     public function moveSuggestionDown(): void
