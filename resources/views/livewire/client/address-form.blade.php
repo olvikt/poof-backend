@@ -1,115 +1,15 @@
 <form wire:submit.prevent="save" class="space-y-5"
-    x-data="{
-        search: $wire.entangle('search').live,
-        lat: $wire.entangle('lat'),
-        lng: $wire.entangle('lng'),
-        street: $wire.entangle('street'),
-        house: $wire.entangle('house'),
-        city: $wire.entangle('city'),
-        debounceTimer: null,
-        abortController: null,
-        requestId: 0,
-        isLoadingSuggestions: false,
-        init() {
-            this.$watch('search', (value) => {
-                const query = String(value ?? '').trim();
-
-                if (this.debounceTimer) {
-                    clearTimeout(this.debounceTimer);
-                }
-
-                if (this.abortController) {
-                    this.abortController.abort();
-                    this.abortController = null;
-                }
-
-                if (query.length < 3) {
-                    this.isLoadingSuggestions = false;
-                    this.$wire.call('setPhotonSuggestions', [], null);
-                    return;
-                }
-
-                this.debounceTimer = setTimeout(() => this.fetchSuggestions(query), 300);
-            });
-        },
-        async fetchSuggestions(query) {
-            const currentRequestId = ++this.requestId;
-            this.abortController = new AbortController();
-            this.isLoadingSuggestions = true;
-
-            const { lat, lng } = this.getBiasCoordinates();
-            const params = new URLSearchParams({ q: query });
-
-            if (Number.isFinite(lat) && Number.isFinite(lng)) {
-                params.set('lat', lat.toFixed(6));
-                params.set('lng', lng.toFixed(6));
-            }
-
-            try {
-                const response = await fetch(`/api/geocode?${params.toString()}`, {
-                    signal: this.abortController.signal,
-                });
-
-                if (currentRequestId !== this.requestId) {
-                    return;
-                }
-
-                if (!response.ok) {
-                    this.$wire.call('setPhotonSuggestions', [], 'Адресу не знайдено');
-                    return;
-                }
-
-                const items = await response.json();
-                this.$wire.call('setPhotonSuggestions', items, items.length ? null : 'Адресу не знайдено');
-            } catch (error) {
-                if (error?.name !== 'AbortError' && currentRequestId === this.requestId) {
-                    this.$wire.call('setPhotonSuggestions', [], 'Адресу не знайдено');
-                }
-            } finally {
-                if (currentRequestId === this.requestId) {
-                    this.isLoadingSuggestions = false;
-                }
-            }
-        },
-        getBiasCoordinates() {
-            const fallback = { lat: 48.450000, lng: 34.980000 };
-            const mapCenter = window.POOF?.map?.instance?.getCenter?.();
-
-            if (mapCenter && Number.isFinite(mapCenter.lat) && Number.isFinite(mapCenter.lng)) {
-                return {
-                    lat: Number(mapCenter.lat.toFixed(6)),
-                    lng: Number(mapCenter.lng.toFixed(6)),
-                };
-            }
-
-            if (Number.isFinite(this.lat) && Number.isFinite(this.lng)) {
-                return {
-                    lat: Number(this.lat.toFixed(6)),
-                    lng: Number(this.lng.toFixed(6)),
-                };
-            }
-
-            return fallback;
-        },
-        escapeRegExp(value) {
-            return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-        },
-        highlight(text) {
-            const source = String(text ?? '');
-            const query = String(this.search ?? '').trim();
-
-            if (!query || source === '') {
-                return source;
-            }
-
-            const regex = new RegExp(`(${this.escapeRegExp(query)})`, 'ig');
-
-            return source.replace(
-                regex,
-                '<mark class="bg-yellow-400 text-black px-1 rounded">$1</mark>'
-            );
-        }
-    }">
+    x-data="addressAutocomplete(
+        @entangle('search').live,
+        @entangle('lat'),
+        @entangle('lng'),
+        @entangle('street'),
+        @entangle('house'),
+        @entangle('city'),
+        @entangle('suggestions').live,
+        @entangle('suggestionsMessage').live
+    )"
+    x-init="init()">
 
     <div class="flex gap-2">
         @foreach (['home' => 'Дім', 'work' => 'Робота', 'other' => 'Інше'] as $key => $text)
@@ -205,7 +105,7 @@
 
                 <div
                     x-cloak
-                    x-show="isLoadingSuggestions || {{ !empty($suggestions) ? 'true' : 'false' }} || {{ !empty($suggestionsMessage) ? 'true' : 'false' }}"
+                    x-show="isLoadingSuggestions || suggestions.length > 0 || Boolean(suggestionsMessage)"
                     class="absolute z-50 mt-2 w-full overflow-hidden rounded-xl border border-neutral-700 bg-neutral-900 shadow-xl"
                 >
                     <div x-show="isLoadingSuggestions" class="px-4 py-3 text-sm text-gray-300">Пошук адреси…</div>
