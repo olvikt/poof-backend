@@ -77,13 +77,13 @@ class GeocodeController extends Controller
 
         return collect($features)
             ->take(5)
-            ->map(function ($feature): ?array {
-                if (! is_array($feature)) {
+            ->map(function ($item): ?array {
+                if (! is_array($item)) {
                     return null;
                 }
 
-                $properties = is_array($feature['properties'] ?? null) ? $feature['properties'] : [];
-                $coords = $feature['geometry']['coordinates'] ?? null;
+                $props = is_array($item['properties'] ?? null) ? $item['properties'] : [];
+                $coords = $item['geometry']['coordinates'] ?? [];
 
                 if (! is_array($coords) || count($coords) < 2) {
                     return null;
@@ -96,22 +96,18 @@ class GeocodeController extends Controller
                     return null;
                 }
 
-                $name = $this->nullableString($properties['name'] ?? null);
-                $street = $this->nullableString($properties['street'] ?? $properties['district'] ?? $properties['locality'] ?? null);
-                $house = $this->nullableString($properties['housenumber'] ?? null);
-                $city = $this->nullableString($properties['city'] ?? $properties['county'] ?? $properties['state'] ?? null);
+                $name = $this->nullableString($props['name'] ?? null) ?? '';
+                $street = $this->nullableString($props['street'] ?? null) ?? '';
+                $city = $this->nullableString($props['city'] ?? $props['county'] ?? null) ?? '';
 
-                $label = trim(implode(', ', array_filter([$name, $street, $city])));
-                $line1 = trim(implode(' ', array_filter([$street, $house])));
+                $label = collect([$name, $street, $city])
+                    ->filter()
+                    ->implode(', ');
 
                 return [
-                    'name' => $name,
-                    'label' => $label !== '' ? $label : ($line1 !== '' ? $line1 : ($city ?? '')),
-                    'street' => $street,
+                    'label' => $label,
+                    'street' => $street !== '' ? $street : $name,
                     'city' => $city,
-                    'house' => $house,
-                    'line1' => $line1 !== '' ? $line1 : null,
-                    'line2' => $city,
                     'lat' => $lat,
                     'lng' => $lng,
                 ];

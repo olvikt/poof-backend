@@ -73,9 +73,8 @@ export default function addressAutocomplete() {
         }
 
         const items = await response.json()
-        const normalizedItems = Array.isArray(items)
-          ? items.map((item) => this.normalizeSuggestion(item)).filter(Boolean)
-          : []
+        const suggestions = Array.isArray(items) ? items : []
+        const normalizedItems = suggestions.map((item) => this.normalizeSuggestion(item)).filter(Boolean)
 
         this.$wire.call(
           'setPhotonSuggestions',
@@ -134,7 +133,6 @@ export default function addressAutocomplete() {
       this.search = item.label ?? ''
       this.street = item.street ?? ''
       this.city = item.city ?? ''
-      this.house = item.house ?? this.house ?? ''
 
       this.lat = item.lat ?? null
       this.lng = item.lng ?? null
@@ -145,7 +143,6 @@ export default function addressAutocomplete() {
       this.$wire.set('search', this.search)
       this.$wire.set('street', this.street)
       this.$wire.set('city', this.city)
-      this.$wire.set('house', this.house)
       this.$wire.set('lat', this.lat)
       this.$wire.set('lng', this.lng)
       this.$wire.set('suggestions', [])
