@@ -183,28 +183,27 @@ public function updatedHouse(): void
     try {
         $response = Http::timeout(8)
             ->acceptJson()
-            ->get('https://photon.komoot.io/api/', [
+            ->get(url('/api/geocode'), [
                 'q' => $query,
-                'limit' => 1,
-                'lang' => 'uk',
+                'lat' => $this->lat,
+                'lng' => $this->lng,
             ]);
 
         if (! $response->successful()) {
             return;
         }
 
-        $feature = $response->json('features.0');
-        if (!is_array($feature)) {
+        $item = $response->json('0');
+        if (!is_array($item)) {
             return;
         }
 
-        $coordinates = $feature['geometry']['coordinates'] ?? null;
-        if (!is_array($coordinates) || count($coordinates) < 2) {
+        if (!isset($item['lat'], $item['lng'])) {
             return;
         }
 
-        $this->lat = (float) $coordinates[1];
-        $this->lng = (float) $coordinates[0];
+        $this->lat = (float) $item['lat'];
+        $this->lng = (float) $item['lng'];
 
         $this->dispatch('map:set-marker', lat: $this->lat, lng: $this->lng);
     } catch (\Throwable $e) {
@@ -319,6 +318,7 @@ public function updatedHouse(): void
 
         if ($this->lat !== null && $this->lng !== null) {
             $this->dispatch('map:set-location', lat: $this->lat, lng: $this->lng, source: 'autocomplete', zoom: 17);
+            $this->dispatch('map:update', lat: $this->lat, lng: $this->lng, zoom: 17);
         }
     }
 

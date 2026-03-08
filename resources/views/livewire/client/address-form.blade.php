@@ -6,156 +6,104 @@
         street: $wire.entangle('street'),
         house: $wire.entangle('house'),
         city: $wire.entangle('city'),
-        photonDebounceTimer: null,
-        photonAbortController: null,
-        photonRequestId: 0,
+        debounceTimer: null,
+        abortController: null,
+        requestId: 0,
+        isLoadingSuggestions: false,
         init() {
             this.$watch('search', (value) => {
                 const query = String(value ?? '').trim();
 
-                if (this.photonDebounceTimer) {
-                    clearTimeout(this.photonDebounceTimer);
+                if (this.debounceTimer) {
+                    clearTimeout(this.debounceTimer);
                 }
 
-                if (this.photonAbortController) {
-                    this.photonAbortController.abort();
-                    this.photonAbortController = null;
+                if (this.abortController) {
+                    this.abortController.abort();
+                    this.abortController = null;
                 }
 
                 if (query.length < 3) {
+                    this.isLoadingSuggestions = false;
                     this.$wire.call('setPhotonSuggestions', [], null);
                     return;
                 }
 
-                this.photonDebounceTimer = setTimeout(() => this.fetchPhoton(query), 300);
+                this.debounceTimer = setTimeout(() => this.fetchSuggestions(query), 300);
             });
         },
-        async fetchPhoton(query) {
-            const requestId = ++this.photonRequestId;
-            this.photonAbortController = new AbortController();
-            const { lat, lon } = this.getPhotonBiasCoordinates();
-            const url = `https://photon.komoot.io/api/?q=${encodeURIComponent(query)}&limit=5&lang=uk&lat=${lat.toFixed(6)}&lon=${lon.toFixed(6)}&countrycode=ua`;
+        async fetchSuggestions(query) {
+            const currentRequestId = ++this.requestId;
+            this.abortController = new AbortController();
+            this.isLoadingSuggestions = true;
+
+            const { lat, lng } = this.getBiasCoordinates();
+            const params = new URLSearchParams({ q: query });
+
+            if (Number.isFinite(lat) && Number.isFinite(lng)) {
+                params.set('lat', lat.toFixed(6));
+                params.set('lng', lng.toFixed(6));
+            }
 
             try {
-                const response = await fetch(url, {
-                    signal: this.photonAbortController.signal,
+                const response = await fetch(`/api/geocode?${params.toString()}`, {
+                    signal: this.abortController.signal,
                 });
 
+                if (currentRequestId !== this.requestId) {
+                    return;
+                }
+
                 if (!response.ok) {
-                    if (requestId === this.photonRequestId) {
-                        this.$wire.call('setPhotonSuggestions', [], 'Адресу не знайдено');
-                    }
+                    this.$wire.call('setPhotonSuggestions', [], 'Адресу не знайдено');
                     return;
                 }
 
-                const data = await response.json();
-
-                if (!data?.features || data.features.length === 0) {
-                    if (requestId === this.photonRequestId) {
-                        this.$wire.call('setPhotonSuggestions', [], 'Адресу не знайдено');
-                    }
-                    return;
-                }
-
-                const features = data.features;
-
-                const items = features
-                    .map((feature) => {
-                        const properties = feature?.properties ?? {};
-                        const coordinates = feature?.geometry?.coordinates;
-
-                        if (!Array.isArray(coordinates) || coordinates.length < 2) {
-                            return null;
-                        }
-
-                        const name = String(properties?.name ?? '').trim();
-                        const street = String(
-                            properties?.street ??
-                            properties?.name ??
-                            ''
-                        ).trim();
-                        const house = String(properties?.housenumber ?? '').trim();
-
-                        const city = String(
-                            properties?.city ??
-                            properties?.county ??
-                            properties?.district ??
-                            ''
-                        ).trim();
-
-                        const region = String(
-                            properties?.state ??
-                            properties?.region ??
-                            ''
-                        ).trim();
-
-                        if (!name && !street) {
-                            return null;
-                        }
-
-                        const lon = Number(coordinates[0]);
-                        const lat = Number(coordinates[1]);
-
-                        if (!Number.isFinite(lat) || !Number.isFinite(lon)) {
-                            return null;
-                        }
-
-                        return {
-                            name,
-                            street: street || name,
-                            house: house || null,
-                            city: city || null,
-                            region: region || null,
-                            lat,
-                            lon,
-                            lng: lon,
-                            line1: [name || street, house].filter(Boolean).join(' '),
-                            line2: city ? `${city}${region ? `, ${region}` : ''}` : region,
-                            label: [
-                                [name || street, house].filter(Boolean).join(' '),
-                                city,
-                            ].filter(Boolean).join(', '),
-                        };
-                    })
-                    .filter(Boolean);
-
-                if (requestId !== this.photonRequestId) {
-                    return;
-                }
-
+                const items = await response.json();
                 this.$wire.call('setPhotonSuggestions', items, items.length ? null : 'Адресу не знайдено');
             } catch (error) {
-                if (error?.name === 'AbortError') {
-                    return;
-                }
-
-                if (requestId === this.photonRequestId) {
+                if (error?.name !== 'AbortError' && currentRequestId === this.requestId) {
                     this.$wire.call('setPhotonSuggestions', [], 'Адресу не знайдено');
+                }
+            } finally {
+                if (currentRequestId === this.requestId) {
+                    this.isLoadingSuggestions = false;
                 }
             }
         },
-        getPhotonBiasCoordinates() {
-            const fallback = {
-                lat: 48.450000,
-                lon: 34.980000,
-            };
+        getBiasCoordinates() {
+            const fallback = { lat: 48.450000, lng: 34.980000 };
             const mapCenter = window.POOF?.map?.instance?.getCenter?.();
 
             if (mapCenter && Number.isFinite(mapCenter.lat) && Number.isFinite(mapCenter.lng)) {
                 return {
                     lat: Number(mapCenter.lat.toFixed(6)),
-                    lon: Number(mapCenter.lng.toFixed(6)),
+                    lng: Number(mapCenter.lng.toFixed(6)),
                 };
             }
 
             if (Number.isFinite(this.lat) && Number.isFinite(this.lng)) {
                 return {
                     lat: Number(this.lat.toFixed(6)),
-                    lon: Number(this.lng.toFixed(6)),
+                    lng: Number(this.lng.toFixed(6)),
                 };
             }
 
             return fallback;
+        },
+        escapeRegExp(value) {
+            return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+        },
+        highlight(text) {
+            const source = String(text ?? '');
+            const query = String(this.search ?? '').trim();
+
+            if (!query || source === '') {
+                return source;
+            }
+
+            const regex = new RegExp(`(${this.escapeRegExp(query)})`, 'ig');
+            return source.replace(regex, '<mark class="bg-yellow-400/30 text-yellow-200 rounded px-0.5">$1</mark>');
         }
     }">
 
@@ -251,26 +199,35 @@
                     autocomplete="off"
                 >
 
-                @if (!empty($suggestions))
-                    <div class="absolute z-50 mt-1 w-full overflow-hidden rounded-xl bg-neutral-900 border border-neutral-700 shadow-xl">
+                <div
+                    x-cloak
+                    x-show="isLoadingSuggestions || {{ !empty($suggestions) ? 'true' : 'false' }} || {{ !empty($suggestionsMessage) ? 'true' : 'false' }}"
+                    class="absolute z-50 mt-2 w-full overflow-hidden rounded-xl border border-neutral-700 bg-neutral-900 shadow-xl"
+                >
+                    <div x-show="isLoadingSuggestions" class="px-4 py-3 text-sm text-gray-300">Пошук адреси…</div>
+
+                    @if (!empty($suggestions))
                         @foreach ($suggestions as $item)
                             <button
                                 type="button"
                                 wire:click="selectSuggestion({{ $loop->index }})"
-                                class="block w-full text-left px-4 py-2 text-sm transition {{ $activeSuggestionIndex === $loop->index ? 'bg-neutral-800' : 'hover:bg-neutral-800' }}"
+                                class="flex w-full items-start gap-3 px-4 py-3 text-left text-sm transition {{ $activeSuggestionIndex === $loop->index ? 'bg-neutral-800' : 'hover:bg-neutral-800' }}"
                             >
-                                <div class="font-medium text-gray-100">{{ $item['line1'] ?? $item['label'] }}</div>
-                                @if(!empty($item['line2']))
-                                    <div class="text-xs text-gray-400">{{ $item['line2'] }}</div>
-                                @endif
+                                <span class="text-yellow-400">📍</span>
+                                <span class="min-w-0">
+                                    <span class="block font-medium text-gray-100" x-html="highlight(@js($item['line1'] ?? $item['label']))"></span>
+                                    @if(!empty($item['line2']))
+                                        <span class="block text-xs text-gray-400" x-html="highlight(@js($item['line2']))"></span>
+                                    @endif
+                                </span>
                             </button>
                         @endforeach
-                    </div>
-                @elseif (!empty($suggestionsMessage))
-                    <div class="absolute z-50 mt-1 w-full rounded-xl bg-neutral-900 border border-neutral-700 shadow-xl px-4 py-3 text-sm text-gray-300">
-                        {{ $suggestionsMessage }}
-                    </div>
-                @endif
+                    @elseif (!empty($suggestionsMessage))
+                        <div x-show="!isLoadingSuggestions" class="px-4 py-3 text-sm text-gray-300">
+                            {{ $suggestionsMessage }}
+                        </div>
+                    @endif
+                </div>
             </div>
 
             <div class="w-20">
