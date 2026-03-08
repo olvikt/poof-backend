@@ -1,6 +1,4 @@
-<form wire:submit.prevent="save" class="space-y-5"
-    x-data="addressAutocomplete()"
-    x-init="init()">
+<form wire:submit.prevent="save" class="space-y-5">
 
     <div class="flex gap-2">
         @foreach (['home' => 'Дім', 'work' => 'Робота', 'other' => 'Інше'] as $key => $text)
@@ -82,10 +80,11 @@
         <label class="text-xs text-gray-400">Адреса</label>
 
         <div class="flex gap-2">
-            <div class="relative flex-1">
+            <div class="relative flex-1" x-data="addressAutocomplete()" x-init="init()">
                 <input
                     type="text"
                     x-model="search"
+                    @input.debounce.300ms="fetchSuggestions"
                     wire:keydown.arrow-down.prevent="moveSuggestionDown"
                     wire:keydown.arrow-up.prevent="moveSuggestionUp"
                     wire:keydown.enter.prevent="selectActiveSuggestion"
@@ -101,27 +100,19 @@
                 >
                     <div x-show="isLoadingSuggestions" class="px-4 py-3 text-sm text-gray-300">Пошук адреси…</div>
 
-                    @if (!empty($suggestions))
-                        @foreach ($suggestions as $item)
-                            <button
-                                type="button"
-                                x-on:click.prevent='selectSuggestion(@js($item))'
-                                class="flex w-full items-start gap-3 px-4 py-3 text-left text-sm transition {{ $activeSuggestionIndex === $loop->index ? 'bg-neutral-800' : 'hover:bg-neutral-800' }}"
-                            >
+                    <ul x-show="suggestions.length" x-cloak>
+                        <template x-for="item in suggestions" :key="item.label">
+                            <li @click="selectSuggestion(item)" class="flex cursor-pointer items-start gap-3 px-4 py-3 text-left text-sm transition hover:bg-neutral-800">
                                 <span class="text-yellow-400">📍</span>
                                 <span class="min-w-0">
-                                    <span class="block font-medium text-gray-100" x-html="highlight(@js($item['label'] ?? $item['line1']))"></span>
-                                    @if(!empty($item['line2']))
-                                        <span class="block text-xs text-gray-400" x-html="highlight(@js($item['line2']))"></span>
-                                    @endif
+                                    <span class="block font-medium text-gray-100" x-html="highlight(item.label ?? item.line1)"></span>
+                                    <span x-show="item.line2" class="block text-xs text-gray-400" x-html="highlight(item.line2)"></span>
                                 </span>
-                            </button>
-                        @endforeach
-                    @elseif (!empty($suggestionsMessage))
-                        <div x-show="!isLoadingSuggestions" class="px-4 py-3 text-sm text-gray-300">
-                            {{ $suggestionsMessage }}
-                        </div>
-                    @endif
+                            </li>
+                        </template>
+                    </ul>
+
+                    <div x-show="!isLoadingSuggestions && !suggestions.length && Boolean(suggestionsMessage)" class="px-4 py-3 text-sm text-gray-300" x-text="suggestionsMessage"></div>
                 </div>
             </div>
 

@@ -8,7 +8,6 @@ export default function addressAutocomplete() {
     city: null,
     suggestions: [],
     suggestionsMessage: null,
-    debounceTimer: null,
     abortController: null,
     requestId: 0,
     isLoadingSuggestions: false,
@@ -24,9 +23,7 @@ export default function addressAutocomplete() {
       this.suggestionsMessage = this.$wire.entangle('suggestionsMessage', true)
 
 
-      window.addEventListener('address:reverse-geocoded', (event) => {
-        const item = event.detail?.item
-
+      const applyAddressItem = (item) => {
         if (!item || typeof item !== 'object') {
           return
         }
@@ -38,46 +35,52 @@ export default function addressAutocomplete() {
         this.lat = item.lat
         this.lng = item.lng
 
+        this.suggestions = []
+        this.suggestionsMessage = ''
+
         this.$wire.set('search', this.search)
         this.$wire.set('street', this.street)
         this.$wire.set('city', this.city)
         this.$wire.set('lat', this.lat ?? null)
         this.$wire.set('lng', this.lng ?? null)
+        this.$wire.set('suggestions', [])
+        this.$wire.set('suggestionsMessage', null)
+      }
+
+      window.addEventListener('address:reverse-geocoded', (event) => {
+        applyAddressItem(event.detail?.item)
+      })
+
+      window.addEventListener('map:set-address', (event) => {
+        applyAddressItem(event.detail)
       })
       this.$watch('search', (value) => {
         if (typeof value === 'object' && value !== null) {
           this.search = value.label ?? value.name ?? value.street ?? ''
-          return
         }
-
-        const query = String(value ?? '').trim()
-
-        if (this.debounceTimer) {
-          clearTimeout(this.debounceTimer)
-        }
-
-        if (this.abortController) {
-          this.abortController.abort()
-          this.abortController = null
-        }
-
-        if (query.length < 3) {
-          this.isLoadingSuggestions = false
-          this.$wire.call('setPhotonSuggestions', [], null)
-          return
-        }
-
-        this.debounceTimer = setTimeout(() => this.fetchSuggestions(query), 300)
       })
     },
 
-    async fetchSuggestions(query) {
+    async fetchSuggestions(query = this.search) {
+      const normalizedQuery = String(query ?? '').trim()
+
+      if (this.abortController) {
+        this.abortController.abort()
+        this.abortController = null
+      }
+
+      if (normalizedQuery.length < 3) {
+        this.isLoadingSuggestions = false
+        this.$wire.call('setPhotonSuggestions', [], null)
+        return
+      }
+
       const currentRequestId = ++this.requestId
       this.abortController = new AbortController()
       this.isLoadingSuggestions = true
 
       const { lat, lng } = this.getBiasCoordinates()
-      const params = new URLSearchParams({ q: query })
+      const params = new URLSearchParams({ q: normalizedQuery })
 
       if (Number.isFinite(lat) && Number.isFinite(lng)) {
         params.set('lat', lat.toFixed(6))
