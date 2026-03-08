@@ -3,6 +3,8 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use Illuminate\Http\Client\ConnectionException;
+use Illuminate\Http\Client\RequestException;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cache;
@@ -21,67 +23,107 @@ class GeocodeController extends Controller
         $lat = $this->normalizedCoordinate($request->query('lat'), -90, 90);
         $lng = $this->normalizedCoordinate($request->query('lng'), -180, 180);
 
-        $cacheKeyPayload = [
-            'q' => mb_strtolower($query),
-            'lat' => $lat,
-            'lng' => $lng,
+        $cacheKey = 'geocode_' . md5(mb_strtolower($query));
+
+        try {
+            $suggestions = Cache::remember($cacheKey, 3600, function () use ($query, $lat, $lng): array {
+                return $this->fetchPhotonSuggestions($query, $lat, $lng);
+            });
+        } catch (\Throwable) {
+            $suggestions = [];
+        }
+
+        return response()->json(is_array($suggestions) ? $suggestions : []);
+    }
+
+    private function fetchPhotonSuggestions(string $query, ?float $lat, ?float $lng): array
+    {
+        $params = [
+            'q' => $query,
+            'limit' => 5,
+            'lang' => 'uk',
+            'countrycode' => 'ua',
         ];
 
-        $cacheKey = 'geocode:photon:' . md5(json_encode($cacheKeyPayload));
+        if ($lat !== null && $lng !== null) {
+            $params['lat'] = $lat;
+            $params['lon'] = $lng;
+        }
 
-        $suggestions = Cache::remember($cacheKey, now()->addHour(), function () use ($query, $lat, $lng): array {
-            $params = [
-                'q' => $query,
-                'limit' => 5,
-                'lang' => 'uk',
-                'countrycode' => 'ua',
-            ];
-
-            if ($lat !== null && $lng !== null) {
-                $params['lat'] = $lat;
-                $params['lon'] = $lng;
-            }
-
-            $response = Http::timeout(3)
+        try {
+            $response = Http::timeout(5)
+                ->retry(2, 100)
                 ->acceptJson()
                 ->get('https://photon.komoot.io/api', $params);
+        } catch (ConnectionException|RequestException|\Throwable) {
+            return [];
+        }
 
-            if (! $response->ok()) {
-                return [];
-            }
+        if (! $response->successful()) {
+            return [];
+        }
 
-            $data = $response->json();
+        $data = $response->json();
 
-            if (! isset($data['features']) || ! is_array($data['features'])) {
-                return [];
-            }
+        if (! is_array($data)) {
+            return [];
+        }
 
-            $results = collect($data['features'])
-                ->take(5)
-                ->map(function ($feature) {
+        $features = $data['features'] ?? null;
 
-                    $p = $feature['properties'] ?? [];
-                    $coords = $feature['geometry']['coordinates'] ?? [null, null];
+        if (! is_array($features)) {
+            return [];
+        }
 
-                    $street = $p['street'] ?? $p['name'] ?? $p['district'] ?? $p['locality'] ?? null;
-                    $house = $p['housenumber'] ?? null;
-                    $city = $p['city'] ?? $p['county'] ?? $p['state'] ?? null;
+        return collect($features)
+            ->take(5)
+            ->map(function ($feature): ?array {
+                if (! is_array($feature)) {
+                    return null;
+                }
 
-                    return [
-                        'label' => trim(($street ?? '') . ' ' . ($house ?? '') . ', ' . ($city ?? '')),
-                        'street' => $street,
-                        'house' => $house,
-                        'city' => $city,
-                        'lat' => $coords[1] ?? null,
-                        'lng' => $coords[0] ?? null,
-                    ];
-                })
-                ->values();
+                $properties = $feature['properties'] ?? [];
+                $coordinates = $feature['geometry']['coordinates'] ?? [null, null];
 
-            return $results->all();
-        });
+                $lng = isset($coordinates[0]) && is_numeric($coordinates[0])
+                    ? (float) $coordinates[0]
+                    : null;
+                $lat = isset($coordinates[1]) && is_numeric($coordinates[1])
+                    ? (float) $coordinates[1]
+                    : null;
 
-        return response()->json($suggestions);
+                if ($lat === null || $lng === null) {
+                    return null;
+                }
+
+                $street = $this->nullableString($properties['street'] ?? $properties['name'] ?? $properties['district'] ?? $properties['locality'] ?? null);
+                $house = $this->nullableString($properties['housenumber'] ?? null);
+                $city = $this->nullableString($properties['city'] ?? $properties['county'] ?? $properties['state'] ?? null);
+
+                $line1 = trim(implode(' ', array_filter([$street, $house])));
+                $label = trim(implode(', ', array_filter([$line1, $city])));
+
+                return [
+                    'label' => $label !== '' ? $label : ($street ?? $city ?? ''),
+                    'street' => $street,
+                    'city' => $city,
+                    'house' => $house,
+                    'line1' => $line1 !== '' ? $line1 : null,
+                    'line2' => $city,
+                    'lat' => $lat,
+                    'lng' => $lng,
+                ];
+            })
+            ->filter()
+            ->values()
+            ->all();
+    }
+
+    private function nullableString(mixed $value): ?string
+    {
+        $value = trim((string) $value);
+
+        return $value !== '' ? $value : null;
     }
 
     private function normalizedCoordinate(mixed $value, float $min, float $max): ?float
