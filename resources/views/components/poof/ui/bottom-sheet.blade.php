@@ -49,7 +49,7 @@
         x-transition
         class="fixed inset-x-0 bottom-0 z-[61]"
     >
-        <div class="mx-auto max-w-md">
+        <div class="mx-auto w-full max-w-md">
             <div
                 class="
                     bg-neutral-900 border border-neutral-800
@@ -77,7 +77,7 @@
                 </div>
 
                 {{-- Body (scrollable content) --}}
-                <div class="p-4 flex-1 overflow-y-auto">
+                <div class="modal-body p-4 flex-1 overflow-y-auto">
                     {{ $slot }}
                 </div>
 
