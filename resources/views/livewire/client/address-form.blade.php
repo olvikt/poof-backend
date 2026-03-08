@@ -103,7 +103,11 @@
             }
 
             const regex = new RegExp(`(${this.escapeRegExp(query)})`, 'ig');
-            return source.replace(regex, '<mark class="bg-yellow-400/30 text-yellow-200 rounded px-0.5">$1</mark>');
+
+            return source.replace(
+                regex,
+                '<mark class="bg-yellow-400 text-black px-1 rounded">$1</mark>'
+            );
         }
     }">
 
