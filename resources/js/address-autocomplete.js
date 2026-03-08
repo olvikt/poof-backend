@@ -73,7 +73,9 @@ export default function addressAutocomplete() {
         }
 
         const items = await response.json()
-        const normalizedItems = Array.isArray(items) ? items : []
+        const normalizedItems = Array.isArray(items)
+          ? items.map((item) => this.normalizeSuggestion(item)).filter(Boolean)
+          : []
 
         this.$wire.call(
           'setPhotonSuggestions',
@@ -88,6 +90,74 @@ export default function addressAutocomplete() {
         if (currentRequestId === this.requestId) {
           this.isLoadingSuggestions = false
         }
+      }
+    },
+
+    normalizeSuggestion(item) {
+      if (!item || typeof item !== 'object') {
+        return null
+      }
+
+      const lat = Number(item.lat)
+      const lng = Number(item.lng)
+
+      if (!Number.isFinite(lat) || !Number.isFinite(lng)) {
+        return null
+      }
+
+      const name = String(item.name ?? '').trim()
+      const street = String(item.street ?? '').trim()
+      const city = String(item.city ?? '').trim()
+      const line1 = String(item.line1 ?? '').trim()
+      const line2 = String(item.line2 ?? '').trim()
+
+      const labelParts = [name, street, city].filter(Boolean)
+      const label = labelParts.join(', ') || String(item.label ?? '').trim() || line1 || city
+
+      return {
+        ...item,
+        lat,
+        lng,
+        street: street || null,
+        city: city || null,
+        line1: line1 || null,
+        line2: line2 || null,
+        label,
+      }
+    },
+
+    selectSuggestion(item) {
+      if (!item || typeof item !== 'object') {
+        return
+      }
+
+      this.search = item.label ?? ''
+      this.street = item.street ?? ''
+      this.city = item.city ?? ''
+      this.house = item.house ?? this.house ?? ''
+
+      this.lat = item.lat ?? null
+      this.lng = item.lng ?? null
+
+      this.suggestions = []
+      this.suggestionsMessage = null
+
+      this.$wire.set('search', this.search)
+      this.$wire.set('street', this.street)
+      this.$wire.set('city', this.city)
+      this.$wire.set('house', this.house)
+      this.$wire.set('lat', this.lat)
+      this.$wire.set('lng', this.lng)
+      this.$wire.set('suggestions', [])
+      this.$wire.set('suggestionsMessage', null)
+      this.$wire.set('activeSuggestionIndex', -1)
+
+      if (this.lat !== null && this.lng !== null) {
+        window.dispatchEvent(
+          new CustomEvent('map:set-location', {
+            detail: { lat: this.lat, lng: this.lng, source: 'autocomplete', zoom: 17 },
+          }),
+        )
       }
     },
 
