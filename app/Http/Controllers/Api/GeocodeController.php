@@ -83,20 +83,30 @@ class GeocodeController extends Controller
                     return null;
                 }
 
+                $lng = is_numeric($coords[0] ?? null) ? (float) $coords[0] : null;
+                $lat = is_numeric($coords[1] ?? null) ? (float) $coords[1] : null;
+
+                if ($lat === null || $lng === null) {
+                    return null;
+                }
+
                 $name = $this->nullableString($props['name'] ?? null) ?? '';
                 $street = $this->nullableString($props['street'] ?? null) ?? '';
-                $city = $this->nullableString($props['city'] ?? $props['county'] ?? null) ?? '';
+                $city = $this->nullableString($props['city'] ?? $props['county'] ?? $props['state'] ?? null) ?? '';
+                $houseNumber = $this->nullableString($props['housenumber'] ?? null) ?? '';
 
-                $label = collect([$name, $street, $city])
-                    ->filter()
-                    ->implode(', ');
+                $label = trim(($street !== '' ? $street : $name) . ' ' . $houseNumber);
+
+                if ($label === '') {
+                    $label = $name;
+                }
 
                 return [
-                    'label' => $label !== '' ? $label : $name,
+                    'label' => $label,
                     'street' => $street !== '' ? $street : $name,
                     'city' => $city,
-                    'lat' => $coords[1],
-                    'lng' => $coords[0],
+                    'lat' => $lat,
+                    'lng' => $lng,
                 ];
             })
             ->filter(fn ($item) => $item !== null)

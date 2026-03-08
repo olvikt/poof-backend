@@ -130,7 +130,9 @@ export default function addressAutocomplete() {
         return
       }
 
-      this.search = item.label ?? ''
+      const label = String(item.label ?? '').trim()
+
+      this.search = label
       this.street = item.street ?? ''
       this.city = item.city ?? ''
 
@@ -140,7 +142,7 @@ export default function addressAutocomplete() {
       this.suggestions = []
       this.suggestionsMessage = null
 
-      this.$wire.set('search', this.search)
+      this.$wire.set('search', label)
       this.$wire.set('street', this.street)
       this.$wire.set('city', this.city)
       this.$wire.set('lat', this.lat)
