@@ -69,49 +69,49 @@ class GeocodeController extends Controller
             return [];
         }
 
-        return collect($data['features'] ?? [])
-            ->take(5)
-            ->map(function ($item): ?array {
-                if (! is_array($item)) {
+        $results = collect($data['features'] ?? [])
+            ->map(function ($feature) {
+
+                $coords = $feature['geometry']['coordinates'] ?? null;
+
+                if (! $coords || ! is_array($coords) || count($coords) < 2) {
                     return null;
                 }
 
-                $props = is_array($item['properties'] ?? null) ? $item['properties'] : [];
-                $coords = $item['geometry']['coordinates'] ?? [];
+                $props = $feature['properties'] ?? [];
 
-                if (! is_array($coords) || count($coords) < 2) {
-                    return null;
-                }
+                $name = $props['name'] ?? '';
+                $street = $props['street'] ?? $name;
 
-                $lng = is_numeric($coords[0] ?? null) ? (float) $coords[0] : null;
-                $lat = is_numeric($coords[1] ?? null) ? (float) $coords[1] : null;
+                $city =
+                    $props['city'] ??
+                    $props['county'] ??
+                    $props['state'] ??
+                    '';
 
-                if ($lat === null || $lng === null) {
-                    return null;
-                }
+                $label = trim(
+                    ($props['street'] ?? $name) .
+                    ' ' .
+                    ($props['housenumber'] ?? '')
+                );
 
-                $name = $this->nullableString($props['name'] ?? null) ?? '';
-                $street = $this->nullableString($props['street'] ?? null) ?? '';
-                $city = $this->nullableString($props['city'] ?? $props['county'] ?? $props['state'] ?? null) ?? '';
-                $houseNumber = $this->nullableString($props['housenumber'] ?? null) ?? '';
-
-                $label = trim(($street !== '' ? $street : $name) . ' ' . $houseNumber);
-
-                if ($label === '') {
+                if (! $label) {
                     $label = $name;
                 }
 
                 return [
                     'label' => $label,
-                    'street' => $street !== '' ? $street : $name,
+                    'street' => $street,
                     'city' => $city,
-                    'lat' => $lat,
-                    'lng' => $lng,
+                    'lat' => (float) $coords[1],
+                    'lng' => (float) $coords[0],
                 ];
             })
             ->filter(fn ($item) => $item !== null)
             ->values()
             ->all();
+
+        return $results;
     }
 
     private function nullableString(mixed $value): ?string
