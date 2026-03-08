@@ -7,6 +7,7 @@ use App\Http\Controllers\Auth\RegisterController;
 use App\Http\Controllers\Api\Client\ClientProfileController;
 use App\Http\Controllers\Api\Client\ClientAddressController;
 use App\Http\Controllers\Api\OrderController;
+use App\Http\Controllers\Api\GeocodeController;
 
 // COURIER
 use App\Http\Controllers\Api\CourierOrderController;
@@ -14,6 +15,9 @@ use App\Http\Controllers\Api\CourierOrderController;
 
 Route::post('/register', [RegisterController::class, 'register'])
     ->middleware('throttle:10,1');
+
+Route::get('/geocode', [GeocodeController::class, 'search'])
+    ->middleware('throttle:60,1');
 
 Route::middleware('auth:sanctum')->group(function () {
 
@@ -46,5 +50,4 @@ Route::middleware('auth:sanctum')->group(function () {
     // courier accepts order
     Route::post('/orders/{order}/accept', [CourierOrderController::class, 'accept']);
 });
-
 
