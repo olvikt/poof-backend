@@ -46,9 +46,8 @@ class GeocodeControllerTest extends TestCase
             ->assertOk()
             ->assertJson([
                 [
-                    'label' => 'Мандриківська 23, Дніпро',
+                    'label' => 'Мандриківська 23',
                     'street' => 'Мандриківська',
-                    'house' => '23',
                     'city' => 'Дніпро',
                     'lat' => 48.4572,
                     'lng' => 35.0308,
@@ -81,4 +80,21 @@ class GeocodeControllerTest extends TestCase
 
         Http::assertSentCount(1);
     }
+
+    public function test_it_does_not_cache_empty_results(): void
+    {
+        Cache::flush();
+
+        Http::fake([
+            'https://photon.komoot.io/api*' => Http::response([
+                'features' => [],
+            ]),
+        ]);
+
+        $this->getJson('/api/geocode?q=порожньо')->assertOk()->assertExactJson([]);
+        $this->getJson('/api/geocode?q=порожньо')->assertOk()->assertExactJson([]);
+
+        Http::assertSentCount(2);
+    }
+
 }
