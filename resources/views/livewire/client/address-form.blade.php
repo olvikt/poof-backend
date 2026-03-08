@@ -105,12 +105,12 @@
                         @foreach ($suggestions as $item)
                             <button
                                 type="button"
-                                wire:click="selectSuggestion({{ $loop->index }})"
+                                x-on:click.prevent='selectSuggestion(@js($item))'
                                 class="flex w-full items-start gap-3 px-4 py-3 text-left text-sm transition {{ $activeSuggestionIndex === $loop->index ? 'bg-neutral-800' : 'hover:bg-neutral-800' }}"
                             >
                                 <span class="text-yellow-400">📍</span>
                                 <span class="min-w-0">
-                                    <span class="block font-medium text-gray-100" x-html="highlight(@js($item['line1'] ?? $item['label']))"></span>
+                                    <span class="block font-medium text-gray-100" x-html="highlight(@js($item['label'] ?? $item['line1']))"></span>
                                     @if(!empty($item['line2']))
                                         <span class="block text-xs text-gray-400" x-html="highlight(@js($item['line2']))"></span>
                                     @endif

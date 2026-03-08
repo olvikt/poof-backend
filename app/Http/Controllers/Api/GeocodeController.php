@@ -42,7 +42,7 @@ class GeocodeController extends Controller
             'q' => $query,
             'limit' => 5,
             'lang' => 'uk',
-            'countrycode' => 'ua',
+            'bbox' => '22,44,40,52',
         ];
 
         if ($lat !== null && $lng !== null) {
@@ -82,29 +82,31 @@ class GeocodeController extends Controller
                     return null;
                 }
 
-                $properties = $feature['properties'] ?? [];
-                $coordinates = $feature['geometry']['coordinates'] ?? [null, null];
+                $properties = is_array($feature['properties'] ?? null) ? $feature['properties'] : [];
+                $coords = $feature['geometry']['coordinates'] ?? null;
 
-                $lng = isset($coordinates[0]) && is_numeric($coordinates[0])
-                    ? (float) $coordinates[0]
-                    : null;
-                $lat = isset($coordinates[1]) && is_numeric($coordinates[1])
-                    ? (float) $coordinates[1]
-                    : null;
+                if (! is_array($coords) || count($coords) < 2) {
+                    return null;
+                }
+
+                $lng = is_numeric($coords[0] ?? null) ? (float) $coords[0] : null;
+                $lat = is_numeric($coords[1] ?? null) ? (float) $coords[1] : null;
 
                 if ($lat === null || $lng === null) {
                     return null;
                 }
 
-                $street = $this->nullableString($properties['street'] ?? $properties['name'] ?? $properties['district'] ?? $properties['locality'] ?? null);
+                $name = $this->nullableString($properties['name'] ?? null);
+                $street = $this->nullableString($properties['street'] ?? $properties['district'] ?? $properties['locality'] ?? null);
                 $house = $this->nullableString($properties['housenumber'] ?? null);
                 $city = $this->nullableString($properties['city'] ?? $properties['county'] ?? $properties['state'] ?? null);
 
+                $label = trim(implode(', ', array_filter([$name, $street, $city])));
                 $line1 = trim(implode(' ', array_filter([$street, $house])));
-                $label = trim(implode(', ', array_filter([$line1, $city])));
 
                 return [
-                    'label' => $label !== '' ? $label : ($street ?? $city ?? ''),
+                    'name' => $name,
+                    'label' => $label !== '' ? $label : ($line1 !== '' ? $line1 : ($city ?? '')),
                     'street' => $street,
                     'city' => $city,
                     'house' => $house,
