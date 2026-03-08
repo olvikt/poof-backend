@@ -48,8 +48,16 @@
                     return;
                 }
 
-                const payload = await response.json();
-                const features = Array.isArray(payload?.features) ? payload.features : [];
+                const data = await response.json();
+
+                if (!data?.features || data.features.length === 0) {
+                    if (requestId === this.photonRequestId) {
+                        this.$wire.call('setPhotonSuggestions', [], 'Адресу не знайдено');
+                    }
+                    return;
+                }
+
+                const features = data.features;
 
                 const items = features
                     .map((feature) => {
@@ -60,12 +68,13 @@
                             return null;
                         }
 
-                        const street =
+                        const name = String(properties?.name ?? '').trim();
+                        const street = String(
                             properties?.street ??
                             properties?.name ??
-                            '';
-
-                        const name = String(street).trim();
+                            ''
+                        ).trim();
+                        const house = String(properties?.housenumber ?? '').trim();
 
                         const city = String(
                             properties?.city ??
@@ -80,7 +89,7 @@
                             ''
                         ).trim();
 
-                        if (!name) {
+                        if (!name && !street) {
                             return null;
                         }
 
@@ -93,15 +102,19 @@
 
                         return {
                             name,
-                            street: name,
+                            street: street || name,
+                            house: house || null,
                             city: city || null,
                             region: region || null,
                             lat,
                             lon,
                             lng: lon,
-                            line1: name,
+                            line1: [name || street, house].filter(Boolean).join(' '),
                             line2: city ? `${city}${region ? `, ${region}` : ''}` : region,
-                            label: [name, city].filter(Boolean).join(', '),
+                            label: [
+                                [name || street, house].filter(Boolean).join(' '),
+                                city,
+                            ].filter(Boolean).join(', '),
                         };
                     })
                     .filter(Boolean);

@@ -2,6 +2,11 @@
 @tailwind components;
 @tailwind utilities;
 
+
+body {
+    overflow-x: hidden;
+}
+
 .poof-input {
     background-color: #0b0b0b;
     border: 1px solid #2a2a2a;
@@ -145,3 +150,8 @@ html.sheet-open nav.fixed.bottom-0 {
   max-width: none !important;
   max-height: none !important;
 }
+.modal-body {
+    max-height: 70vh;
+    overflow-y: auto;
+}
+
