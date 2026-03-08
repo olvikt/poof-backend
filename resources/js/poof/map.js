@@ -587,9 +587,17 @@ async function buildRoute(fromLat, fromLng, toLat, toLng) {
           return
         }
 
+        const result = data[0]
+
         window.dispatchEvent(
           new CustomEvent('address:reverse-geocoded', {
-            detail: { item: data[0] },
+            detail: { item: result },
+          })
+        )
+
+        window.dispatchEvent(
+          new CustomEvent('map:set-address', {
+            detail: result,
           })
         )
       } catch (_) {}
