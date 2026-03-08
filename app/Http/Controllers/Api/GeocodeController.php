@@ -69,13 +69,7 @@ class GeocodeController extends Controller
             return [];
         }
 
-        $features = $data['features'] ?? null;
-
-        if (! is_array($features)) {
-            return [];
-        }
-
-        return collect($features)
+        return collect($data['features'] ?? [])
             ->take(5)
             ->map(function ($item): ?array {
                 if (! is_array($item)) {
@@ -89,13 +83,6 @@ class GeocodeController extends Controller
                     return null;
                 }
 
-                $lng = is_numeric($coords[0] ?? null) ? (float) $coords[0] : null;
-                $lat = is_numeric($coords[1] ?? null) ? (float) $coords[1] : null;
-
-                if ($lat === null || $lng === null) {
-                    return null;
-                }
-
                 $name = $this->nullableString($props['name'] ?? null) ?? '';
                 $street = $this->nullableString($props['street'] ?? null) ?? '';
                 $city = $this->nullableString($props['city'] ?? $props['county'] ?? null) ?? '';
@@ -105,14 +92,14 @@ class GeocodeController extends Controller
                     ->implode(', ');
 
                 return [
-                    'label' => $label,
+                    'label' => $label !== '' ? $label : $name,
                     'street' => $street !== '' ? $street : $name,
                     'city' => $city,
-                    'lat' => $lat,
-                    'lng' => $lng,
+                    'lat' => $coords[1],
+                    'lng' => $coords[0],
                 ];
             })
-            ->filter()
+            ->filter(fn ($item) => $item !== null)
             ->values()
             ->all();
     }
