@@ -1,5 +1,5 @@
 import './bootstrap'
-import { Livewire, Alpine } from '../../vendor/livewire/livewire/dist/livewire.esm'
+import { Livewire, Alpine } from '../../vendor/livewire/livewire/dist/livewire.esm.js'
 import poofTimeCarousel from './poof/carousel'
 import addressAutocomplete from './address-autocomplete'
 
