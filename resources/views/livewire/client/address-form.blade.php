@@ -1,4 +1,9 @@
-<form wire:submit.prevent="save" class="space-y-5">
+<form
+    wire:submit.prevent="save"
+    class="space-y-5"
+    x-data="addressAutocomplete()"
+    x-init="init()"
+>
 
     <div class="flex gap-2">
         @foreach (['home' => 'Дім', 'work' => 'Робота', 'other' => 'Інше'] as $key => $text)
@@ -80,7 +85,7 @@
         <label class="text-xs text-gray-400">Адреса</label>
 
         <div class="flex gap-2">
-            <div class="relative flex-1" x-data="addressAutocomplete()" x-init="init()">
+            <div class="relative flex-1">
                 <input
                     type="text"
                     x-model="search"
@@ -101,11 +106,11 @@
                     <div x-show="isLoadingSuggestions" class="px-4 py-3 text-sm text-gray-300">Пошук адреси…</div>
 
                     <ul x-show="suggestions.length" x-cloak>
-                        <template x-for="item in suggestions" :key="item.label">
-                            <li @click="selectSuggestion(item)" class="flex cursor-pointer items-start gap-3 px-4 py-3 text-left text-sm transition hover:bg-neutral-800">
+                        <template x-for="(item, index) in suggestions" :key="item.lat + '-' + item.lng + '-' + index">
+                            <li @mousedown.prevent="selectSuggestion(item)" class="flex cursor-pointer items-start gap-3 px-4 py-3 text-left text-sm transition hover:bg-neutral-800">
                                 <span class="text-yellow-400">📍</span>
                                 <span class="min-w-0">
-                                    <span class="block font-medium text-gray-100" x-html="highlight(item.label ?? item.line1)"></span>
+                                    <span class="block font-medium text-gray-100" x-html="highlight(item.label || item.line1 || '')"></span>
                                     <span x-show="item.line2" class="block text-xs text-gray-400" x-html="highlight(item.line2)"></span>
                                 </span>
                             </li>
@@ -188,7 +193,16 @@
     <button
         type="submit"
         wire:loading.attr="disabled"
-        x-bind:disabled="!lat || !lng || !street || !house || !city || !String(street).trim() || !String(house).trim() || !String(city).trim()"
+        x-bind:disabled="
+            !lat ||
+            !lng ||
+            !street ||
+            !house ||
+            !city ||
+            !String(street || '').trim() ||
+            !String(house || '').trim() ||
+            !String(city || '').trim()
+        "
         class="w-full bg-yellow-400 text-black font-bold py-3 rounded-2xl
                active:scale-95 transition disabled:opacity-70"
     >
