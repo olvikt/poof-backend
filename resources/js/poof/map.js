@@ -133,6 +133,48 @@ export default function initMap() {
     } catch (_) {}
   }
 
+  function toScalarString(value) {
+    if (typeof value === 'string') return value.trim()
+
+    if (value && typeof value === 'object') {
+      return String(
+        value.label
+        ?? value.name
+        ?? value.value
+        ?? value.street
+        ?? value.road
+        ?? ''
+      ).trim()
+    }
+
+    return String(value ?? '').trim()
+  }
+
+  function normalizeAddressPayload(item, lat, lng) {
+    if (!item || typeof item !== 'object') return null
+
+    const street = toScalarString(item.street ?? item.road)
+    const house = toScalarString(item.house ?? item.housenumber ?? item.house_number)
+    const city = toScalarString(item.city ?? item.town ?? item.village)
+    const region = toScalarString(item.region ?? item.state)
+    const line1 = toScalarString(item.line1) || [street, house].filter(Boolean).join(' ').trim()
+    const line2 = toScalarString(item.line2) || [city, region].filter(Boolean).join(', ').trim()
+    const label = toScalarString(item.label) || line1 || line2
+
+    return {
+      ...item,
+      street: street || null,
+      house: house || null,
+      city: city || null,
+      region: region || null,
+      line1: line1 || null,
+      line2: line2 || null,
+      label: label || null,
+      lat: toNumber(item.lat) ?? toNumber(lat),
+      lng: toNumber(item.lng) ?? toNumber(lng),
+    }
+  }
+
   async function reverseGeocodeAndDispatch(lat, lng) {
     try {
       const response = await fetch(`/api/geocode?lat=${lat}&lng=${lng}`)
@@ -147,7 +189,8 @@ export default function initMap() {
         return
       }
 
-      const result = data[0]
+      const result = normalizeAddressPayload(data[0], lat, lng)
+      if (!result) return
 
       window.dispatchEvent(
         new CustomEvent('address:reverse-geocoded', {
