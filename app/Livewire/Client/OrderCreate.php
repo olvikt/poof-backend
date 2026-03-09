@@ -629,27 +629,50 @@ class OrderCreate extends Component
 			$cacheKey
 		);
 
+		$streetName = null;
+		$houseNumber = null;
+		$cityName = null;
+
 		$components = data_get($json, 'results.0.address_components');
-		if (! is_array($components)) {
-			return;
+		if (is_array($components)) {
+			$street = collect($components)->first(
+				fn ($c) => in_array('route', $c['types'] ?? [], true)
+			);
+			$house = collect($components)->first(
+				fn ($c) => in_array('street_number', $c['types'] ?? [], true)
+			);
+			$city = collect($components)->first(
+				fn ($c) => in_array('locality', $c['types'] ?? [], true)
+			);
+
+			$streetName = $street['long_name'] ?? null;
+			$houseNumber = $house['long_name'] ?? null;
+			$cityName = $city['long_name'] ?? null;
 		}
 
-		$street = collect($components)->first(
-			fn ($c) => in_array('route', $c['types'] ?? [], true)
-		);
-		$house = collect($components)->first(
-			fn ($c) => in_array('street_number', $c['types'] ?? [], true)
-		);
-		$city = collect($components)->first(
-			fn ($c) => in_array('locality', $c['types'] ?? [], true)
-		);
+		if (! $streetName || ! $cityName) {
+			try {
+				$fallback = Http::timeout(5)
+					->acceptJson()
+					->get(url('/api/geocode'), ['lat' => $lat, 'lng' => $lng])
+					->json('0');
+
+				if (is_array($fallback)) {
+					$streetName ??= trim((string) ($fallback['street'] ?? '')) ?: null;
+					$houseNumber ??= trim((string) ($fallback['house'] ?? '')) ?: null;
+					$cityName ??= trim((string) ($fallback['city'] ?? '')) ?: null;
+				}
+			} catch (\Throwable) {
+				// silently ignore, we still keep known values
+			}
+		}
 
 		$this->suppressAddressHooks = true;
 
 		try {
-			$this->street = $street['long_name'] ?? $this->street;
-			$this->house  = $house['long_name'] ?? $this->house;
-			$this->city   = $city['long_name'] ?? $this->city;
+			$this->street = $streetName ?? $this->street;
+			$this->house  = $houseNumber ?? $this->house;
+			$this->city   = $cityName ?? $this->city;
 
 			$this->syncAddressText();
 		} finally {
