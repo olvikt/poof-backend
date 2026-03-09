@@ -13,7 +13,7 @@ class GeocodeController extends Controller
 {
     public function search(Request $request): JsonResponse
     {
-        $query = trim((string) $request->query('q', ''));
+        $query = trim(preg_replace('/\s+/', ' ', (string) $request->query('q', '')) ?? '');
         $lat = $this->normalizedCoordinate($request->query('lat'), -90, 90);
         $lng = $this->normalizedCoordinate($request->query('lng'), -180, 180);
 
@@ -108,9 +108,8 @@ class GeocodeController extends Controller
     {
         $params = [
             'q' => $query,
-            'limit' => 5,
+            'limit' => 10,
             'lang' => 'uk',
-            'bbox' => '22,44,40,52',
         ];
 
         if ($lat !== null && $lng !== null) {
@@ -132,6 +131,14 @@ class GeocodeController extends Controller
         }
 
         $data = $response->json() ?? [];
+
+        if (empty($data['features'])) {
+            logger()->debug('Photon returned empty result', [
+                'query' => $query,
+                'lat' => $lat,
+                'lng' => $lng,
+            ]);
+        }
 
         $results = collect($data['features'] ?? [])
             ->map(function ($feature) {
@@ -155,7 +162,7 @@ class GeocodeController extends Controller
                 $lng = (float) $coords[0];
                 $lat = (float) $coords[1];
 
-                if (!$lat || !$lng) {
+                if (!is_finite($lat) || !is_finite($lng)) {
                     return null;
                 }
 
@@ -174,7 +181,7 @@ class GeocodeController extends Controller
 
                 $label = trim(
                     implode(' ', array_filter([
-                        $street ?: $name,
+                        $street ?? $name,
                         $housenumber
                     ]))
                 );
@@ -195,7 +202,7 @@ class GeocodeController extends Controller
             })
             ->filter()
             ->unique('label')
-            ->take(5)
+            ->take(10)
             ->values()
             ->all();
 
