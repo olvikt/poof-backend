@@ -1,6 +1,12 @@
 function safeString(value) {
+  if (value === null || value === undefined) return ''
   if (typeof value === 'string') return value
   if (typeof value === 'number') return String(value)
+  if (typeof value === 'object') {
+    if (value.label) return String(value.label)
+    if (value.name) return String(value.name)
+    return ''
+  }
   return ''
 }
 
@@ -79,23 +85,29 @@ export default function addressAutocomplete() {
         if (regionInput) regionInput.value = this.safe(item?.region)
       }
 
-      const applyAddressItem = (item) => {
-        if (!item || typeof item !== 'object') {
+      const applyAddress = (payload) => {
+        if (!payload || typeof payload !== 'object') {
           return
         }
 
-        console.debug('[POOF] address form received', item)
+        const street = safeString(payload.street)
+        const house = safeString(payload.house || payload.housenumber)
+        const city = safeString(payload.city)
 
-        const region = this.safe(item.region)
-        const label = safeString(item.label) || buildAddressLabel(item)
+        const lat = Number(payload.lat)
+        const lng = Number(payload.lng)
+
+        const label = [street, house].filter(Boolean).join(' ').trim()
+
+        console.debug('[POOF] address form received', payload)
 
         this.search = label
-        this.street = safeString(item.street)
-        this.house = safeString(item.house || item.housenumber)
-        this.city = safeString(item.city)
+        this.street = street
+        this.house = house
+        this.city = city
 
-        this.lat = Number.isFinite(Number(item.lat)) ? Number(item.lat) : null
-        this.lng = Number.isFinite(Number(item.lng)) ? Number(item.lng) : null
+        this.lat = Number.isFinite(lat) ? lat : null
+        this.lng = Number.isFinite(lng) ? lng : null
 
         this.suggestions = []
         this.suggestionsMessage = null
@@ -104,13 +116,12 @@ export default function addressAutocomplete() {
         this.$wire.set('street', this.street)
         this.$wire.set('house', this.house)
         this.$wire.set('city', this.city)
-        this.$wire.set('region', region || null)
-        this.$wire.set('lat', this.lat ?? null)
-        this.$wire.set('lng', this.lng ?? null)
+        this.$wire.set('lat', this.lat)
+        this.$wire.set('lng', this.lng)
         this.$wire.set('suggestions', [])
         this.$wire.set('suggestionsMessage', null)
 
-        syncAddressInputs(item)
+        syncAddressInputs(payload)
       }
 
       window.addEventListener('address:reverse-geocoded', (e) => {
@@ -127,7 +138,7 @@ export default function addressAutocomplete() {
         if (cityInput) cityInput.value = this.safe(item.city)
         if (regionInput) regionInput.value = this.safe(item.region)
 
-        applyAddressItem(item)
+        applyAddress(item)
       })
 
       window.addEventListener('map:set-address', (event) => {
@@ -137,7 +148,7 @@ export default function addressAutocomplete() {
         }
 
         syncAddressInputs(item)
-        applyAddressItem(item)
+        applyAddress(item)
       })
       this.$watch('search', (value) => {
         if (typeof value === 'object' && value !== null) {
