@@ -239,9 +239,16 @@ export default function addressAutocomplete() {
 
         const items = await response.json()
         const suggestions = Array.isArray(items) ? items : []
+        const seen = new Set()
+
         const normalizedItems = suggestions
           .map((item) => this.normalizeSuggestion(item))
           .filter(Boolean)
+          .filter((item) => {
+            if (seen.has(item.label)) return false
+            seen.add(item.label)
+            return true
+          })
           .slice(0, 10)
 
         this.prefixCache[cacheKey] = normalizedItems
@@ -282,13 +289,18 @@ export default function addressAutocomplete() {
 
       const streetLabel = [street, house].filter(Boolean).join(' ').trim()
 
+      const labelParts = []
+
+      if (streetLabel) labelParts.push(streetLabel)
+      else if (street) labelParts.push(street)
+
+      if (city) labelParts.push(city)
+
       const label =
-        streetLabel ||
-        street ||
+        labelParts.join(', ') ||
         name ||
         safeString(item.label) ||
-        line1 ||
-        city
+        line1
 
       return {
         ...item,
