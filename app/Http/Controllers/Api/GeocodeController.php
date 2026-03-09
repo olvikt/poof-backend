@@ -7,19 +7,29 @@ use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Http\Client\RequestException;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Http;
 
 class GeocodeController extends Controller
 {
     public function search(Request $request): JsonResponse
     {
-        $query = trim(preg_replace('/\s+/', ' ', (string) $request->query('q', '')) ?? '');
+        $query = (string) $request->query('q', '');
+        $normalizedQuery = mb_strtolower(trim(preg_replace('/\s+/u', ' ', $query) ?? ''));
         $lat = $this->normalizedCoordinate($request->query('lat'), -90, 90);
         $lng = $this->normalizedCoordinate($request->query('lng'), -180, 180);
 
-        if ($query === '' && $lat !== null && $lng !== null) {
+        if ($normalizedQuery === '' && $lat !== null && $lng !== null) {
+            $cacheKey = 'geocode:reverse:' . md5($lat . ',' . $lng);
+
             try {
-                $suggestions = $this->fetchReverseSuggestions($lat, $lng);
+                $suggestions = Cache::remember(
+                    $cacheKey,
+                    now()->addHours(24),
+                    function () use ($lat, $lng) {
+                        return $this->fetchReverseSuggestions($lat, $lng);
+                    }
+                );
             } catch (\Throwable) {
                 $suggestions = [];
             }
@@ -27,12 +37,26 @@ class GeocodeController extends Controller
             return response()->json(is_array($suggestions) ? $suggestions : []);
         }
 
-        if (mb_strlen($query) < 2) {
+        if (mb_strlen($normalizedQuery) < 3) {
             return response()->json([]);
         }
 
+        $cacheKey = 'geocode:photon:' . md5($normalizedQuery);
+
         try {
-            $suggestions = $this->fetchPhotonSuggestions($query, $lat, $lng);
+            $suggestions = Cache::remember(
+                $cacheKey,
+                now()->addHours(12),
+                function () use ($normalizedQuery, $lat, $lng) {
+                    \Log::debug('Photon cache miss', [
+                        'query' => $normalizedQuery,
+                        'lat' => $lat,
+                        'lng' => $lng,
+                    ]);
+
+                    return $this->fetchPhotonSuggestions($normalizedQuery, $lat, $lng);
+                }
+            );
         } catch (\Throwable) {
             $suggestions = [];
         }
@@ -118,8 +142,8 @@ class GeocodeController extends Controller
         }
 
         try {
-            $response = Http::timeout(5)
-                ->retry(2, 100)
+            $response = Http::timeout(2)
+                ->retry(1, 100)
                 ->acceptJson()
                 ->get('https://photon.komoot.io/api', $params);
         } catch (ConnectionException|RequestException|\Throwable) {
