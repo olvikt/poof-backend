@@ -708,6 +708,14 @@ async function buildRoute(fromLat, fromLng, toLat, toLng) {
 
     if (lat == null || lng == null) return
 
+    if (source === 'autocomplete' || source === 'geolocation' || source === 'user') {
+      void updatePointAndAddress(lat, lng, {
+        source,
+        zoom,
+      })
+      return
+    }
+
     setMarker(lat, lng, {
       emit: false,
       zoom,
@@ -723,6 +731,14 @@ async function buildRoute(fromLat, fromLng, toLat, toLng) {
     const zoom = Number.isFinite(Number(e.detail?.zoom)) ? Number(e.detail.zoom) : 18
 
     if (lat == null || lng == null) return
+
+    if (source === 'autocomplete' || source === 'geolocation' || source === 'user') {
+      void updatePointAndAddress(lat, lng, {
+        source,
+        zoom,
+      })
+      return
+    }
 
     setMarker(lat, lng, {
       emit: false,
