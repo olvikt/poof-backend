@@ -313,7 +313,7 @@ export default function initMap() {
   // ------------------------------------------------------------
   // CORE: marker API (pendingPoint safe)
   // ------------------------------------------------------------
-  function setMarker(lat, lng, { emit = false, zoom = null, source = 'user' } = {}) {
+  function setMarker(lat, lng, options = {}) {
     if (!leafletReady()) return
 
     const latN = toNumber(lat)
@@ -322,44 +322,49 @@ export default function initMap() {
 
     // карта ещё не готова — сохраняем точку
     if (!state.instance) {
-      state.pendingPoint = { lat: latN, lng: lngN, zoom: zoom ?? 18 }
+      state.pendingPoint = { lat: latN, lng: lngN, zoom: options.zoom ?? 18 }
       return
     }
 
-    const ll = window.L.latLng(latN, lngN)
+    const map = window.POOF?.map?.instance
+    if (!map) return
+
+    const zoom = options.zoom ?? map.getZoom()
+    const emit = options.emit ?? false
+
+    console.debug('[POOF MAP] setMarker', latN, lngN)
 
     state.lastLat = latN
     state.lastLng = lngN
 
-    // marker
-    if (!state.marker) {
+    // create marker if it doesn't exist
+    if (!window.POOF.marker) {
       const icon = getMarkerIcon()
-
-      state.marker = window.L.marker(ll, {
+      window.POOF.marker = window.L.marker([latN, lngN], {
         draggable: true,
         icon: icon || undefined,
-      }).addTo(state.instance)
+      }).addTo(map)
 
-      state.marker.on('dragend', (e) => {
+      window.POOF.marker.on('dragend', (e) => {
         const p = e.target.getLatLng()
         void updatePointAndAddress(p.lat, p.lng, {
           source: 'user',
-          zoom: state.instance?.getZoom() || 18,
+          zoom: map?.getZoom() || 18,
         })
       })
     } else {
-      state.marker.setLatLng(ll)
+      window.POOF.marker.setLatLng([latN, lngN])
       const icon = getMarkerIcon()
-      if (icon) state.marker.setIcon(icon)
+      if (icon) window.POOF.marker.setIcon(icon)
     }
 
-    const targetZoom = zoom ?? state.instance.getZoom() ?? 16
+    state.marker = window.POOF.marker
 
-    if (source === 'user' || source === 'autocomplete') {
-      state.instance.flyTo(ll, targetZoom, { animate: true, duration: 0.6 })
-    } else {
-      state.instance.setView(ll, targetZoom, { animate: false })
-    }
+    // ensure map centers on the marker
+    map.flyTo([latN, lngN], zoom, {
+      animate: true,
+      duration: 0.8,
+    })
 
     if (emit) sendLocation(latN, lngN)
   }
@@ -609,6 +614,7 @@ async function buildRoute(fromLat, fromLng, toLat, toLng) {
 
     state.instance = null
     state.marker = null
+    window.POOF.marker = null
     state.lastLat = null
     state.lastLng = null
     state.el = null
@@ -773,27 +779,16 @@ async function buildRoute(fromLat, fromLng, toLat, toLng) {
   state.handlersBound = true
 
   // PHP/Browser → JS: set location from autocomplete or sync
-  window.addEventListener('map:set-location', (e) => {
-    const lat = e.detail?.lat
-    const lng = e.detail?.lng
-    const source = e.detail?.source ?? 'sync'
-    const zoom = Number.isFinite(Number(e.detail?.zoom)) ? Number(e.detail.zoom) : 18
+  window.addEventListener('map:set-location', (event) => {
+    const { lat, lng, zoom } = event.detail || {}
 
-    if (lat == null || lng == null) return
-
-    if (source === 'autocomplete' || source === 'geolocation' || source === 'user') {
-      void updatePointAndAddress(lat, lng, {
-        source,
-        zoom,
-      })
+    if (!Number.isFinite(lat) || !Number.isFinite(lng)) {
       return
     }
 
-    setMarker(lat, lng, {
-      emit: false,
-      zoom,
-      source: source === 'autocomplete' ? 'autocomplete' : 'sync',
-    })
+    if (window.POOF?.setMarker) {
+      window.POOF.setMarker(lat, lng, { zoom })
+    }
   })
 
   // PHP → JS: marker set
@@ -932,7 +927,15 @@ window.addEventListener('build-route', (e) => {
     setCourierMap(payload || {})
   }
 
-  POOF.setMarker = (lat, lng) => setMarker(lat, lng, { emit: true, zoom: 18, source: 'user' })
+  POOF.setMarker = (lat, lng, options) => {
+    const hasOptions = typeof options === 'object' && options !== null
+
+    return setMarker(lat, lng, {
+      emit: hasOptions ? (options.emit ?? false) : true,
+      zoom: hasOptions ? (options.zoom ?? 18) : 18,
+      source: hasOptions ? (options.source ?? 'user') : 'user',
+    })
+  }
   POOF.setMarkerSilent = (lat, lng, zoom = 18) => setMarker(lat, lng, { emit: false, zoom, source: 'sync' })
 
   POOF.setMarkerPrecision = (precision) => {
