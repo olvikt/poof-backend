@@ -12,6 +12,16 @@ export default function addressAutocomplete() {
     requestId: 0,
     isLoadingSuggestions: false,
 
+    normalizeText(value) {
+      if (typeof value === 'string') return value.trim()
+
+      if (value && typeof value === 'object') {
+        return String(value.label ?? value.name ?? value.value ?? value.street ?? '').trim()
+      }
+
+      return String(value ?? '').trim()
+    },
+
     init() {
       this.search = this.$wire.entangle('search', true)
       this.lat = this.$wire.entangle('lat')
@@ -22,30 +32,20 @@ export default function addressAutocomplete() {
       this.suggestions = this.$wire.entangle('suggestions', true)
       this.suggestionsMessage = this.$wire.entangle('suggestionsMessage', true)
 
-
-      const normalizeText = (value) => {
-        if (typeof value === 'string') return value.trim()
-        if (value && typeof value === 'object') {
-          return String(value.label ?? value.name ?? value.street ?? '').trim()
-        }
-
-        return String(value ?? '').trim()
-      }
-
       const applyAddressItem = (item) => {
         if (!item || typeof item !== 'object') {
           return
         }
 
-        const street = normalizeText(item.street)
-        const house = normalizeText(item.house ?? item.housenumber)
-        const city = normalizeText(item.city)
-        const region = normalizeText(item.region)
+        const street = this.normalizeText(item.street)
+        const house = this.normalizeText(item.house ?? item.housenumber)
+        const city = this.normalizeText(item.city)
+        const region = this.normalizeText(item.region)
 
         const line1 = [street, house].filter(Boolean).join(' ').trim()
         const line2 = [city, region].filter(Boolean).join(', ').trim()
 
-        this.search = normalizeText(item.label) || line1 || line2
+        this.search = this.normalizeText(item.label) || line1 || line2
         this.street = street
         this.house = house
         this.city = city
@@ -76,7 +76,7 @@ export default function addressAutocomplete() {
       })
       this.$watch('search', (value) => {
         if (typeof value === 'object' && value !== null) {
-          this.search = value.label ?? value.name ?? value.street ?? ''
+          this.search = this.normalizeText(value)
         }
       })
     },
@@ -158,15 +158,15 @@ export default function addressAutocomplete() {
         return null
       }
 
-      const name = String(item.name ?? '').trim()
-      const street = String(item.street ?? '').trim()
-      const city = String(item.city ?? '').trim()
-      const house = String(item.housenumber ?? item.house ?? '').trim()
-      const line1 = String(item.line1 ?? '').trim()
-      const line2 = String(item.line2 ?? '').trim()
+      const name = this.normalizeText(item.name)
+      const street = this.normalizeText(item.street)
+      const city = this.normalizeText(item.city)
+      const house = this.normalizeText(item.housenumber ?? item.house)
+      const line1 = this.normalizeText(item.line1)
+      const line2 = this.normalizeText(item.line2)
 
       const streetLabel = [street, house].filter(Boolean).join(' ').trim()
-      const label = streetLabel || street || name || String(item.label ?? '').trim() || line1 || city
+      const label = streetLabel || street || name || this.normalizeText(item.label) || line1 || city
 
       return {
         ...item,
@@ -175,7 +175,7 @@ export default function addressAutocomplete() {
         street: street || null,
         house: house || null,
         city: city || null,
-        region: String(item.region ?? '').trim() || null,
+        region: this.normalizeText(item.region) || null,
         line1: line1 || null,
         line2: line2 || null,
         label,
@@ -187,11 +187,11 @@ export default function addressAutocomplete() {
         return
       }
 
-      this.search = item.label ?? ''
+      this.search = this.normalizeText(item.label)
 
-      this.street = item.street ?? ''
-      this.house = item.house ?? item.housenumber ?? ''
-      this.city = item.city ?? ''
+      this.street = this.normalizeText(item.street)
+      this.house = this.normalizeText(item.house ?? item.housenumber)
+      this.city = this.normalizeText(item.city)
 
       this.lat = item.lat
       this.lng = item.lng
@@ -203,7 +203,7 @@ export default function addressAutocomplete() {
       this.$wire.set('street', this.street)
       this.$wire.set('house', this.house)
       this.$wire.set('city', this.city)
-      this.$wire.set('region', item.region ?? null)
+      this.$wire.set('region', this.normalizeText(item.region) || null)
       this.$wire.set('lat', this.lat)
       this.$wire.set('lng', this.lng)
       this.$wire.set('suggestions', [])
