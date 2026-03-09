@@ -1,4 +1,20 @@
 export default function addressAutocomplete() {
+  function safeString(value) {
+    if (typeof value === 'string') return value
+    if (typeof value === 'number') return String(value)
+    return ''
+  }
+
+  function buildAddressLabel(item) {
+    const parts = [
+      safeString(item.street),
+      safeString(item.house || item.housenumber),
+      safeString(item.city),
+    ].filter(Boolean)
+
+    return parts.join(' ')
+  }
+
   return {
     search: '',
     lat: null,
@@ -18,7 +34,7 @@ export default function addressAutocomplete() {
       if (typeof value === 'number') return String(value)
 
       if (value && typeof value === 'object') {
-        return String(value.label ?? value.name ?? value.street ?? value.value ?? '')
+        return safeString(value.label) || safeString(value.name) || safeString(value.street) || safeString(value.value)
       }
 
       return ''
@@ -71,17 +87,18 @@ export default function addressAutocomplete() {
         console.debug('[POOF] address form received', item)
 
         const region = this.safe(item.region)
+        const label = safeString(item.label) || buildAddressLabel(item)
 
-        this.search = this.safe(item.label)
-        this.street = this.safe(item.street)
-        this.house = this.safe(item.house)
-        this.city = this.safe(item.city)
+        this.search = label
+        this.street = safeString(item.street)
+        this.house = safeString(item.house || item.housenumber)
+        this.city = safeString(item.city)
 
-        this.lat = item.lat
-        this.lng = item.lng
+        this.lat = Number.isFinite(Number(item.lat)) ? Number(item.lat) : null
+        this.lng = Number.isFinite(Number(item.lng)) ? Number(item.lng) : null
 
         this.suggestions = []
-        this.suggestionsMessage = ''
+        this.suggestionsMessage = null
 
         this.$wire.set('search', this.search)
         this.$wire.set('street', this.street)
@@ -211,17 +228,21 @@ export default function addressAutocomplete() {
         return null
       }
 
-      const name = this.normalizeText(item.name)
-      const street = this.normalizeText(item.street)
-      const city = this.normalizeText(item.city)
-      const house = String(item.housenumber ?? item.house ?? '').trim()
+      const street = safeString(item.street)
+      const house = safeString(item.housenumber || item.house)
+      const city = safeString(item.city)
+      const name = safeString(item.name)
       const line1 = this.normalizeText(item.line1)
       const line2 = this.normalizeText(item.line2)
 
-      const streetLabel = [street, house].filter(Boolean).join(' ').trim()
-      const label = streetLabel || street || name || this.normalizeText(item.label) || line1 || city
+      const label =
+        [street, house].filter(Boolean).join(' ') ||
+        street ||
+        name ||
+        city
 
       return {
+        ...item,
         lat,
         lng,
         street: street || null,
@@ -238,7 +259,7 @@ export default function addressAutocomplete() {
         return
       }
 
-      this.search = this.safe(item.label)
+      this.search = safeString(item.label)
       this.street = this.safe(item.street)
       this.house = this.safe(item.house)
       this.city = this.safe(item.city)
@@ -260,7 +281,7 @@ export default function addressAutocomplete() {
       this.$wire.set('suggestionsMessage', null)
       this.$wire.set('activeSuggestionIndex', -1)
 
-      if (this.lat !== null && this.lng !== null) {
+      if (Number.isFinite(this.lat) && Number.isFinite(this.lng)) {
         window.dispatchEvent(
           new CustomEvent('map:set-location', {
             detail: { lat: this.lat, lng: this.lng, source: 'autocomplete', zoom: 17 },
