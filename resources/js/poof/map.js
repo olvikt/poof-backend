@@ -353,11 +353,11 @@ export default function initMap() {
           zoom: map?.getZoom() || 18,
         })
       })
-    } else {
-      window.POOF.marker.setLatLng([latN, lngN])
-      const icon = getMarkerIcon()
-      if (icon) window.POOF.marker.setIcon(icon)
     }
+
+    window.POOF.marker.setLatLng([latN, lngN])
+    const icon = getMarkerIcon()
+    if (icon) window.POOF.marker.setIcon(icon)
 
     state.marker = window.POOF.marker
 
