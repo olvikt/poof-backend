@@ -133,7 +133,6 @@ class GeocodeController extends Controller
         $params = [
             'q' => $query,
             'limit' => 10,
-            'lang' => 'uk',
         ];
 
         if ($lat !== null && $lng !== null) {
@@ -161,7 +160,6 @@ class GeocodeController extends Controller
             $fallbackParams = [
                 'q' => $query,
                 'limit' => 10,
-                'lang' => 'uk',
             ];
 
             try {
