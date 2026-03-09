@@ -149,14 +149,24 @@ export default function addressAutocomplete() {
         syncAddressInputs(item)
         applyAddressItem(item)
       })
+      let lastQuery = ''
+
       this.$watch('search', (value) => {
         if (typeof value === 'object' && value !== null) {
           this.search = safeString(value.label) || safeString(value.name) || safeString(value.street)
           return
         }
 
+        const query = String(value ?? '').trim()
+
+        if (query === lastQuery) {
+          return
+        }
+
+        lastQuery = query
+
         this.debounce(() => {
-          this.fetchSuggestions(value)
+          this.fetchSuggestions(query)
         }, 300)
       })
     },
