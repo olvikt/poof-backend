@@ -96,6 +96,7 @@
                     placeholder="Вулиця, район…"
                     class="poof-input w-full"
                     autocomplete="off"
+                    data-address-search
                 >
 
                 <div
@@ -127,6 +128,7 @@
                     wire:model.live.debounce.300ms="house"
                     placeholder="Буд."
                     class="poof-input w-full text-center"
+                    data-address-house
                 >
             </div>
         </div>
@@ -139,6 +141,8 @@
             <p class="mt-1 text-xs text-red-400">{{ $message }}</p>
         @enderror
 
+        <input type="hidden" wire:model.live="street" data-address-street>
+
         @error('house')
             <p class="mt-1 text-xs text-red-400">{{ $message }}</p>
         @enderror
@@ -147,14 +151,14 @@
     <div class="grid grid-cols-2 gap-3">
         <div>
             <label class="text-xs text-gray-400">Місто</label>
-            <input type="text" wire:model.live.debounce.300ms="city" placeholder="Місто" class="poof-input w-full">
+            <input type="text" wire:model.live.debounce.300ms="city" placeholder="Місто" class="poof-input w-full" data-address-city>
             @error('city')
                 <p class="mt-1 text-xs text-red-400">{{ $message }}</p>
             @enderror
         </div>
         <div>
             <label class="text-xs text-gray-400">Область</label>
-            <input type="text" wire:model.live.debounce.300ms="region" placeholder="Область" class="poof-input w-full">
+            <input type="text" wire:model.live.debounce.300ms="region" placeholder="Область" class="poof-input w-full" data-address-region>
             @error('region')
                 <p class="mt-1 text-xs text-red-400">{{ $message }}</p>
             @enderror
