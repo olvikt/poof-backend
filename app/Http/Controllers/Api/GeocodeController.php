@@ -154,9 +154,34 @@ class GeocodeController extends Controller
             return [];
         }
 
-        $data = $response->json() ?? [];
+        $data = $response->json();
+        $features = $data['features'] ?? [];
 
-        if (empty($data['features'])) {
+        if (empty($features) && $lat !== null && $lng !== null) {
+            $fallbackParams = [
+                'q' => $query,
+                'limit' => 10,
+                'lang' => 'uk',
+            ];
+
+            try {
+                $response = Http::timeout(2)
+                    ->retry(1, 100)
+                    ->acceptJson()
+                    ->get('https://photon.komoot.io/api', $fallbackParams);
+            } catch (ConnectionException|RequestException|\Throwable) {
+                return [];
+            }
+
+            if (! $response->successful()) {
+                return [];
+            }
+
+            $data = $response->json();
+            $features = $data['features'] ?? [];
+        }
+
+        if (empty($features)) {
             logger()->debug('Photon returned empty result', [
                 'query' => $query,
                 'lat' => $lat,
@@ -164,73 +189,46 @@ class GeocodeController extends Controller
             ]);
         }
 
-        $results = collect($data['features'] ?? [])
-            ->map(function ($feature) {
+        $suggestions = [];
 
-                if (!is_array($feature)) {
-                    return null;
-                }
+        foreach ($features as $feature) {
+            $props = $feature['properties'] ?? [];
+            $coords = $feature['geometry']['coordinates'] ?? null;
 
-                $geometry = $feature['geometry'] ?? null;
+            if (! is_array($coords) || count($coords) < 2) {
+                continue;
+            }
 
-                if (!is_array($geometry)) {
-                    return null;
-                }
+            $lon = (float) $coords[0];
+            $latValue = (float) $coords[1];
 
-                $coords = $geometry['coordinates'] ?? null;
+            if (! is_finite($latValue) || ! is_finite($lon)) {
+                continue;
+            }
 
-                if (!is_array($coords) || count($coords) < 2) {
-                    return null;
-                }
+            $labelParts = array_filter([
+                $props['name'] ?? null,
+                $props['street'] ?? null,
+                $props['city'] ?? null,
+                $props['state'] ?? null,
+                $props['country'] ?? null,
+            ]);
 
-                $lng = (float) $coords[0];
-                $lat = (float) $coords[1];
+            $suggestions[] = [
+                'label' => implode(', ', $labelParts),
+                'name' => $props['name'] ?? null,
+                'street' => $props['street'] ?? null,
+                'city' => $props['city'] ?? null,
+                'state' => $props['state'] ?? null,
+                'country' => $props['country'] ?? null,
+                'lat' => $latValue,
+                'lng' => $lon,
+            ];
+        }
 
-                if (!is_finite($lat) || !is_finite($lng)) {
-                    return null;
-                }
+        $suggestions = array_slice($suggestions, 0, 10);
 
-                $props = $feature['properties'] ?? [];
-
-                $name = $props['name'] ?? null;
-                $street = $props['street'] ?? null;
-                $housenumber = $props['housenumber'] ?? null;
-                $region = $props['state'] ?? $props['region'] ?? null;
-
-                $city =
-                    $props['city'] ??
-                    $props['county'] ??
-                    $props['state'] ??
-                    null;
-
-                $label = trim(
-                    implode(' ', array_filter([
-                        $street ?? $name,
-                        $housenumber
-                    ]))
-                );
-
-                if (!$label) {
-                    $label = $name ?? $city ?? 'Unknown location';
-                }
-
-                return [
-                    'label' => $label,
-                    'street' => $street ?? $name,
-                    'house' => $housenumber,
-                    'city' => $city,
-                    'region' => $region,
-                    'lat' => $lat,
-                    'lng' => $lng
-                ];
-            })
-            ->filter()
-            ->unique('label')
-            ->take(10)
-            ->values()
-            ->all();
-
-        return $results;
+        return $suggestions;
     }
 
     private function nullableString(mixed $value): ?string
