@@ -20,7 +20,7 @@ function buildAddressLabel(item) {
     safeString(item.city),
   ].filter(Boolean)
 
-  return parts.join(' ')
+  return parts.join(', ')
 }
 
 export default function addressAutocomplete() {
@@ -36,6 +36,7 @@ export default function addressAutocomplete() {
     abortController: null,
     requestId: 0,
     isLoadingSuggestions: false,
+    prefixCache: {},
     _debounceTimer: null,
 
     safe(value) {
@@ -185,6 +186,17 @@ export default function addressAutocomplete() {
         return
       }
 
+      const cacheKey = normalizedQuery.toLowerCase()
+
+      if (this.prefixCache[cacheKey]) {
+        this.$wire.call(
+          'setPhotonSuggestions',
+          this.prefixCache[cacheKey],
+          null,
+        )
+        return
+      }
+
       const currentRequestId = ++this.requestId
 
       if (this.abortController) {
@@ -222,7 +234,12 @@ export default function addressAutocomplete() {
 
         const items = await response.json()
         const suggestions = Array.isArray(items) ? items : []
-        const normalizedItems = suggestions.map((item) => this.normalizeSuggestion(item)).filter(Boolean)
+        const normalizedItems = suggestions
+          .map((item) => this.normalizeSuggestion(item))
+          .filter(Boolean)
+          .slice(0, 10)
+
+        this.prefixCache[cacheKey] = normalizedItems
 
         this.$wire.call(
           'setPhotonSuggestions',
@@ -276,6 +293,7 @@ export default function addressAutocomplete() {
         line1: line1 || null,
         line2: line2 || null,
         label,
+        value: label,
       }
     },
 
