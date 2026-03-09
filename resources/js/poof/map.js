@@ -333,7 +333,7 @@ export default function initMap() {
     const emit = options.emit ?? false
 
     console.debug('[POOF MAP] setMarker', latN, lngN)
-    console.debug('[POOF MAP] marker update', latN, lngN, options)
+    console.debug('[POOF MAP] update', latN, lngN, options)
 
     state.lastLat = latN
     state.lastLng = lngN
@@ -362,7 +362,7 @@ export default function initMap() {
     state.marker = window.POOF.marker
 
     // ensure map centers on the marker (except courier location streaming updates)
-    if (options?.source !== 'courier') {
+    if (map && options?.source !== 'courier') {
       map.flyTo([latN, lngN], zoom, {
         animate: true,
         duration: 0.8,
