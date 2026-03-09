@@ -1,3 +1,5 @@
+const API_BASE = (import.meta.env.VITE_API_URL || '').replace(/\/$/, '')
+
 function safeString(value) {
   if (value === null || value === undefined) return ''
   if (typeof value === 'string') return value.trim()
@@ -192,7 +194,9 @@ export default function addressAutocomplete() {
       this.abortController = new AbortController()
       this.isLoadingSuggestions = true
 
-      console.debug('Geocode query:', normalizedQuery)
+      if (import.meta.env.DEV) {
+        console.log('Geocode query:', normalizedQuery)
+      }
 
       const { lat, lng } = this.getBiasCoordinates()
       const params = new URLSearchParams({ q: normalizedQuery })
@@ -203,7 +207,7 @@ export default function addressAutocomplete() {
       }
 
       try {
-        const response = await fetch('/api/geocode?' + params.toString(), {
+        const response = await fetch(`${API_BASE}/api/geocode?${params.toString()}`, {
           signal: this.abortController.signal,
         })
 

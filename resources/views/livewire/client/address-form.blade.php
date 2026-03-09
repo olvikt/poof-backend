@@ -89,7 +89,6 @@
                 <input
                     type="text"
                     x-model="search"
-                    @input.debounce.300ms="fetchSuggestions($event.target.value)"
                     wire:keydown.arrow-down.prevent="moveSuggestionDown"
                     wire:keydown.arrow-up.prevent="moveSuggestionUp"
                     wire:keydown.enter.prevent="selectActiveSuggestion"
