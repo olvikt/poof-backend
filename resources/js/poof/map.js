@@ -133,6 +133,46 @@ export default function initMap() {
     } catch (_) {}
   }
 
+  async function reverseGeocodeAndDispatch(lat, lng) {
+    try {
+      const response = await fetch(`/api/geocode?lat=${lat}&lng=${lng}`)
+
+      if (!response.ok) {
+        return
+      }
+
+      const data = await response.json()
+
+      if (!Array.isArray(data) || data.length === 0) {
+        return
+      }
+
+      const result = data[0]
+
+      window.dispatchEvent(
+        new CustomEvent('address:reverse-geocoded', {
+          detail: { item: result },
+        })
+      )
+
+      window.dispatchEvent(
+        new CustomEvent('map:set-address', {
+          detail: result,
+        })
+      )
+    } catch (_) {}
+  }
+
+  async function updatePointAndAddress(lat, lng, { source = 'user', zoom = 18 } = {}) {
+    setMarker(lat, lng, {
+      emit: true,
+      zoom,
+      source,
+    })
+
+    await reverseGeocodeAndDispatch(lat, lng)
+  }
+
   // ------------------------------------------------------------
   // ResizeObserver (bottom-sheet safe)
   // ------------------------------------------------------------
@@ -448,10 +488,9 @@ async function buildRoute(fromLat, fromLng, toLat, toLng) {
           // --------- ADDED (prod) ---------
           if (!isValidLatLng(lat, lng)) return
 
-          setMarker(lat, lng, {
-            emit: true,
-            zoom: 18,
+          updatePointAndAddress(lat, lng, {
             source: 'user',
+            zoom: 18,
           })
         },
         () => alert('Не вдалося отримати локацію'),
@@ -471,10 +510,9 @@ async function buildRoute(fromLat, fromLng, toLat, toLng) {
         const lng = pos.coords?.longitude
         if (!isValidLatLng(lat, lng)) return
 
-        setMarker(lat, lng, {
-          emit: true,
-          zoom: 17,
+        updatePointAndAddress(lat, lng, {
           source: 'user',
+          zoom: 17,
         })
       },
       () => {},
@@ -568,39 +606,10 @@ async function buildRoute(fromLat, fromLng, toLat, toLng) {
       const lat = e.latlng.lat
       const lng = e.latlng.lng
 
-      setMarker(lat, lng, {
-        emit: true,
-        zoom: 18,
+      await updatePointAndAddress(lat, lng, {
         source: 'user',
+        zoom: 18,
       })
-
-      try {
-        const response = await fetch(`/api/geocode?lat=${lat}&lng=${lng}`)
-
-        if (!response.ok) {
-          return
-        }
-
-        const data = await response.json()
-
-        if (!Array.isArray(data) || data.length === 0) {
-          return
-        }
-
-        const result = data[0]
-
-        window.dispatchEvent(
-          new CustomEvent('address:reverse-geocoded', {
-            detail: { item: result },
-          })
-        )
-
-        window.dispatchEvent(
-          new CustomEvent('map:set-address', {
-            detail: result,
-          })
-        )
-      } catch (_) {}
     })
 
     // применяем pendingPoint (если события пришли раньше)
