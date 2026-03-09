@@ -22,6 +22,7 @@ export default function initMap() {
   // ------------------------------------------------------------
   window.POOF = window.POOF || {}
   const POOF = window.POOF
+  const DEBUG_MAP = true
 
   // ------------------------------------------------------------
   // Shared singleton state
@@ -77,7 +78,9 @@ export default function initMap() {
   // Helpers
   // ------------------------------------------------------------
   const leafletReady = () => !!window.L
-  const hasLivewire = () => !!window.Livewire?.dispatch
+  function hasLivewire() {
+    return typeof window.Livewire !== 'undefined'
+  }
 
   function toNumber(v) {
     const n = Number(v)
@@ -118,7 +121,7 @@ export default function initMap() {
   }
 
   function sendLocation(lat, lng) {
-    if (!hasLivewire()) return
+    if (!hasLivewire() || typeof window.Livewire.dispatch !== 'function') return
 
     // OrderCreate
     window.Livewire.dispatch('set-location', { lat, lng })
@@ -134,63 +137,88 @@ export default function initMap() {
   }
 
   function toScalarString(value) {
-    if (typeof value === 'string') return value.trim()
+    if (typeof value === 'string') {
+      return value.trim()
+    }
+
+    if (typeof value === 'number') {
+      return String(value)
+    }
 
     if (value && typeof value === 'object') {
       return String(
-        value.label
-        ?? value.name
-        ?? value.value
-        ?? value.street
-        ?? value.road
-        ?? ''
+        value.label ??
+        value.name ??
+        value.value ??
+        value.street ??
+        value.road ??
+        ''
       ).trim()
     }
 
-    return String(value ?? '').trim()
+    return ''
   }
 
   function normalizeAddressPayload(item, lat, lng) {
-    if (!item || typeof item !== 'object') return null
+    if (!item || typeof item !== 'object') {
+      console.warn('[POOF] Invalid reverse geocode item', item)
+      return null
+    }
 
     const street = toScalarString(item.street ?? item.road)
     const house = toScalarString(item.house ?? item.housenumber ?? item.house_number)
     const city = toScalarString(item.city ?? item.town ?? item.village)
     const region = toScalarString(item.region ?? item.state)
-    const line1 = toScalarString(item.line1) || [street, house].filter(Boolean).join(' ').trim()
-    const line2 = toScalarString(item.line2) || [city, region].filter(Boolean).join(', ').trim()
-    const label = toScalarString(item.label) || line1 || line2
+
+    const line1 = street
+      ? [street, house].filter(Boolean).join(' ')
+      : toScalarString(item.line1)
+
+    const line2 = city
+      ? [city, region].filter(Boolean).join(', ')
+      : toScalarString(item.line2)
+
+    const label =
+      toScalarString(item.label) ||
+      [line1, line2].filter(Boolean).join(', ')
 
     return {
-      ...item,
       street: street || null,
       house: house || null,
       city: city || null,
       region: region || null,
       line1: line1 || null,
       line2: line2 || null,
-      label: label || null,
-      lat: toNumber(item.lat) ?? toNumber(lat),
-      lng: toNumber(item.lng) ?? toNumber(lng),
+      label: label || 'Unknown address',
+      lat: Number(item.lat ?? lat),
+      lng: Number(item.lng ?? lng),
     }
   }
 
   async function reverseGeocodeAndDispatch(lat, lng) {
     try {
+      if (DEBUG_MAP) console.debug('[POOF] reverse geocode start', lat, lng)
+
       const response = await fetch(`/api/geocode?lat=${lat}&lng=${lng}`)
 
       if (!response.ok) {
+        if (DEBUG_MAP) console.warn('[POOF] reverse geocode failed', response.status)
         return
       }
 
       const data = await response.json()
 
       if (!Array.isArray(data) || data.length === 0) {
+        if (DEBUG_MAP) console.warn('[POOF] reverse geocode empty result')
         return
       }
 
-      const result = normalizeAddressPayload(data[0], lat, lng)
+      const raw = data[0]
+      const result = normalizeAddressPayload(raw, lat, lng)
+
       if (!result) return
+
+      if (DEBUG_MAP) console.debug('[POOF] normalized address', result)
 
       window.dispatchEvent(
         new CustomEvent('address:reverse-geocoded', {
@@ -203,7 +231,10 @@ export default function initMap() {
           detail: result,
         })
       )
-    } catch (_) {}
+
+    } catch (error) {
+      console.error('[POOF] reverse geocode error', error)
+    }
   }
 
   async function updatePointAndAddress(lat, lng, { source = 'user', zoom = 18 } = {}) {
@@ -311,10 +342,9 @@ export default function initMap() {
 
       state.marker.on('dragend', (e) => {
         const p = e.target.getLatLng()
-        setMarker(p.lat, p.lng, {
-          emit: true,
-          zoom: state.instance?.getZoom() || 18,
+        void updatePointAndAddress(p.lat, p.lng, {
           source: 'user',
+          zoom: state.instance?.getZoom() || 18,
         })
       })
     } else {
