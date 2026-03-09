@@ -182,18 +182,20 @@ export default function addressAutocomplete() {
 
       if (!normalizedQuery || normalizedQuery.length < 3) {
         this.isLoadingSuggestions = false
-        this.$wire.call('setPhotonSuggestions', [], null)
+        this.suggestions = []
+        this.suggestionsMessage = null
+        this.$wire.set('suggestions', [])
+        this.$wire.set('suggestionsMessage', null)
         return
       }
 
       const cacheKey = normalizedQuery.toLowerCase()
 
       if (this.prefixCache[cacheKey]) {
-        this.$wire.call(
-          'setPhotonSuggestions',
-          this.prefixCache[cacheKey],
-          null,
-        )
+        this.suggestions = this.prefixCache[cacheKey]
+        this.suggestionsMessage = null
+        this.$wire.set('suggestions', this.suggestions)
+        this.$wire.set('suggestionsMessage', null)
         return
       }
 
@@ -228,7 +230,10 @@ export default function addressAutocomplete() {
         }
 
         if (!response.ok) {
-          this.$wire.call('setPhotonSuggestions', [], 'Адресу не знайдено')
+          this.suggestions = []
+          this.suggestionsMessage = 'Адресу не знайдено'
+          this.$wire.set('suggestions', [])
+          this.$wire.set('suggestionsMessage', this.suggestionsMessage)
           return
         }
 
@@ -241,14 +246,16 @@ export default function addressAutocomplete() {
 
         this.prefixCache[cacheKey] = normalizedItems
 
-        this.$wire.call(
-          'setPhotonSuggestions',
-          normalizedItems,
-          normalizedItems.length ? null : 'Адресу не знайдено',
-        )
+        this.suggestions = normalizedItems
+        this.suggestionsMessage = normalizedItems.length ? null : 'Адресу не знайдено'
+        this.$wire.set('suggestions', normalizedItems)
+        this.$wire.set('suggestionsMessage', this.suggestionsMessage)
       } catch (error) {
         if (error?.name !== 'AbortError' && currentRequestId === this.requestId) {
-          this.$wire.call('setPhotonSuggestions', [], 'Адресу не знайдено')
+          this.suggestions = []
+          this.suggestionsMessage = 'Адресу не знайдено'
+          this.$wire.set('suggestions', [])
+          this.$wire.set('suggestionsMessage', this.suggestionsMessage)
         }
       } finally {
         if (currentRequestId === this.requestId) {

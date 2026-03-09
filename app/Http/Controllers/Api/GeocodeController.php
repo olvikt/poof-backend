@@ -224,6 +224,22 @@ class GeocodeController extends Controller
             ];
         }
 
+        usort($suggestions, function ($a, $b) use ($query) {
+            $aScore = similar_text(mb_strtolower((string) ($a['label'] ?? '')), mb_strtolower($query));
+            $bScore = similar_text(mb_strtolower((string) ($b['label'] ?? '')), mb_strtolower($query));
+
+            return $bScore <=> $aScore;
+        });
+
+        if ($lat !== null && $lng !== null) {
+            usort($suggestions, function ($a, $b) use ($lat, $lng) {
+                $da = sqrt(pow(((float) ($a['lat'] ?? 0)) - $lat, 2) + pow(((float) ($a['lng'] ?? 0)) - $lng, 2));
+                $db = sqrt(pow(((float) ($b['lat'] ?? 0)) - $lat, 2) + pow(((float) ($b['lng'] ?? 0)) - $lng, 2));
+
+                return $da <=> $db;
+            });
+        }
+
         $suggestions = array_slice($suggestions, 0, 10);
 
         return $suggestions;
