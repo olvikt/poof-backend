@@ -1,10 +1,11 @@
 function safeString(value) {
   if (value === null || value === undefined) return ''
-  if (typeof value === 'string') return value
+  if (typeof value === 'string') return value.trim()
   if (typeof value === 'number') return String(value)
   if (typeof value === 'object') {
-    if (value.label) return String(value.label)
-    if (value.name) return String(value.name)
+    if (typeof value.label === 'string') return value.label
+    if (typeof value.name === 'string') return value.name
+    if (typeof value.street === 'string') return value.street
     return ''
   }
   return ''
@@ -62,6 +63,27 @@ export default function addressAutocomplete() {
     },
 
     init() {
+      const safeString = (value) => {
+        if (value === null || value === undefined) return ''
+
+        if (typeof value === 'string') {
+          return value.trim()
+        }
+
+        if (typeof value === 'number') {
+          return String(value)
+        }
+
+        if (typeof value === 'object') {
+          if (typeof value.label === 'string') return value.label
+          if (typeof value.name === 'string') return value.name
+          if (typeof value.street === 'string') return value.street
+          return ''
+        }
+
+        return ''
+      }
+
       this.search = this.$wire.entangle('search', true)
       this.lat = this.$wire.entangle('lat')
       this.lng = this.$wire.entangle('lng')
@@ -85,21 +107,21 @@ export default function addressAutocomplete() {
         if (regionInput) regionInput.value = this.safe(item?.region)
       }
 
-      const applyAddress = (payload) => {
-        if (!payload || typeof payload !== 'object') {
-          return
-        }
+      const applyAddressItem = (item) => {
+        if (!item || typeof item !== 'object') return
 
-        const street = safeString(payload.street)
-        const house = safeString(payload.house || payload.housenumber)
-        const city = safeString(payload.city)
+        const street = safeString(item.street)
+        const house = safeString(item.housenumber ?? item.house)
+        const city = safeString(item.city)
 
-        const lat = Number(payload.lat)
-        const lng = Number(payload.lng)
+        const label =
+          safeString(item.label) ||
+          [street, house].filter(Boolean).join(' ') ||
+          street ||
+          safeString(item.name)
 
-        const label = [street, house].filter(Boolean).join(' ').trim()
-
-        console.debug('[POOF] address form received', payload)
+        const lat = Number(item.lat)
+        const lng = Number(item.lng)
 
         this.search = label
         this.street = street
@@ -120,8 +142,6 @@ export default function addressAutocomplete() {
         this.$wire.set('lng', this.lng)
         this.$wire.set('suggestions', [])
         this.$wire.set('suggestionsMessage', null)
-
-        syncAddressInputs(payload)
       }
 
       window.addEventListener('address:reverse-geocoded', (e) => {
@@ -138,7 +158,7 @@ export default function addressAutocomplete() {
         if (cityInput) cityInput.value = this.safe(item.city)
         if (regionInput) regionInput.value = this.safe(item.region)
 
-        applyAddress(item)
+        applyAddressItem(item)
       })
 
       window.addEventListener('map:set-address', (event) => {
@@ -148,11 +168,11 @@ export default function addressAutocomplete() {
         }
 
         syncAddressInputs(item)
-        applyAddress(item)
+        applyAddressItem(item)
       })
       this.$watch('search', (value) => {
         if (typeof value === 'object' && value !== null) {
-          this.search = this.safe(value.label ?? value.name ?? value.street ?? '')
+          this.search = safeString(value.label) || safeString(value.name) || safeString(value.street)
           return
         }
 
@@ -243,10 +263,14 @@ export default function addressAutocomplete() {
       const line1 = this.normalizeText(item.line1)
       const line2 = this.normalizeText(item.line2)
 
+      const streetLabel = [street, house].filter(Boolean).join(' ').trim()
+
       const label =
-        [street, house].filter(Boolean).join(' ') ||
+        streetLabel ||
         street ||
         name ||
+        safeString(item.label) ||
+        line1 ||
         city
 
       return {
@@ -267,11 +291,7 @@ export default function addressAutocomplete() {
         return
       }
 
-      const label =
-        safeString(item.label) ||
-        buildAddressLabel(item)
-
-      this.search = label
+      this.search = safeString(item.label) || safeString(item.street)
       this.street = safeString(item.street)
       this.house = safeString(item.house || item.housenumber)
       this.city = safeString(item.city)
