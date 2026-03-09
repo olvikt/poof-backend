@@ -63,27 +63,6 @@ export default function addressAutocomplete() {
     },
 
     init() {
-      const safeString = (value) => {
-        if (value === null || value === undefined) return ''
-
-        if (typeof value === 'string') {
-          return value.trim()
-        }
-
-        if (typeof value === 'number') {
-          return String(value)
-        }
-
-        if (typeof value === 'object') {
-          if (typeof value.label === 'string') return value.label
-          if (typeof value.name === 'string') return value.name
-          if (typeof value.street === 'string') return value.street
-          return ''
-        }
-
-        return ''
-      }
-
       this.search = this.$wire.entangle('search', true)
       this.lat = this.$wire.entangle('lat')
       this.lng = this.$wire.entangle('lng')
