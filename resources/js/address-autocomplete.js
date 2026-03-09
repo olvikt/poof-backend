@@ -1,4 +1,10 @@
 export default function addressAutocomplete() {
+  const safe = (value) => {
+    if (typeof value === 'string') return value
+    if (typeof value === 'number') return String(value)
+    return ''
+  }
+
   return {
     search: '',
     lat: null,
@@ -31,6 +37,20 @@ export default function addressAutocomplete() {
       this.city = this.$wire.entangle('city')
       this.suggestions = this.$wire.entangle('suggestions', true)
       this.suggestionsMessage = this.$wire.entangle('suggestionsMessage', true)
+
+      const syncAddressInputs = (item) => {
+        const streetInput = document.querySelector('[data-address-street]')
+        const houseInput = document.querySelector('[data-address-house]')
+        const cityInput = document.querySelector('[data-address-city]')
+        const regionInput = document.querySelector('[data-address-region]')
+        const searchInput = document.querySelector('[data-address-search]')
+
+        if (searchInput) searchInput.value = safe(item?.label)
+        if (streetInput) streetInput.value = safe(item?.street)
+        if (houseInput) houseInput.value = safe(item?.house)
+        if (cityInput) cityInput.value = safe(item?.city)
+        if (regionInput) regionInput.value = safe(item?.region)
+      }
 
       const applyAddressItem = (item) => {
         if (!item || typeof item !== 'object') {
@@ -65,14 +85,37 @@ export default function addressAutocomplete() {
         this.$wire.set('lng', this.lng ?? null)
         this.$wire.set('suggestions', [])
         this.$wire.set('suggestionsMessage', null)
+
+        syncAddressInputs(item)
       }
 
-      window.addEventListener('address:reverse-geocoded', (event) => {
-        applyAddressItem(event.detail?.item)
+      window.addEventListener('address:reverse-geocoded', (e) => {
+        const item = e.detail?.item
+        if (!item) return
+
+        const streetInput = document.querySelector('[data-address-street]')
+        const houseInput = document.querySelector('[data-address-house]')
+        const cityInput = document.querySelector('[data-address-city]')
+        const regionInput = document.querySelector('[data-address-region]')
+
+        if (streetInput) streetInput.value = safe(item.street)
+        if (houseInput) houseInput.value = safe(item.house)
+        if (cityInput) cityInput.value = safe(item.city)
+        if (regionInput) regionInput.value = safe(item.region)
+
+        console.debug('[POOF] address form received', item)
+
+        applyAddressItem(item)
       })
 
       window.addEventListener('map:set-address', (event) => {
-        applyAddressItem(event.detail)
+        const item = event.detail?.item ?? event.detail
+        if (!item || typeof item !== 'object') {
+          return
+        }
+
+        syncAddressInputs(item)
+        applyAddressItem(item)
       })
       this.$watch('search', (value) => {
         if (typeof value === 'object' && value !== null) {
