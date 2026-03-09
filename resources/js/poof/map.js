@@ -23,6 +23,7 @@ export default function initMap() {
   window.POOF = window.POOF || {}
   const POOF = window.POOF
   const DEBUG_MAP = true
+  const API_BASE = (import.meta.env.VITE_API_URL || '').replace(/\/$/, '')
 
   // ------------------------------------------------------------
   // Shared singleton state
@@ -199,7 +200,7 @@ export default function initMap() {
     try {
       if (DEBUG_MAP) console.debug('[POOF] reverse geocode start', lat, lng)
 
-      const response = await fetch(`/api/geocode?lat=${lat}&lng=${lng}`)
+      const response = await fetch(`${API_BASE}/api/geocode?lat=${lat}&lng=${lng}`)
 
       if (!response.ok) {
         if (DEBUG_MAP) console.warn('[POOF] reverse geocode failed', response.status)
