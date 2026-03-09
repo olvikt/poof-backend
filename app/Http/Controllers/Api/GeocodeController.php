@@ -81,16 +81,24 @@ class GeocodeController extends Controller
         );
 
         $house = $this->nullableString($address['house_number'] ?? null);
+        $region = $this->nullableString($address['state'] ?? $address['region'] ?? null);
 
         $label = trim(implode(' ', array_filter([$street, $house])));
         if ($label === '') {
             $label = $this->nullableString($payload['display_name'] ?? null) ?? 'Unknown location';
         }
 
+        $line1 = trim(implode(' ', array_filter([$street, $house])));
+        $line2 = trim(implode(', ', array_filter([$city, $region])));
+
         return [[
             'label' => $label,
             'street' => $street,
+            'house' => $house,
             'city' => $city,
+            'region' => $region,
+            'line1' => $line1 !== '' ? $line1 : null,
+            'line2' => $line2 !== '' ? $line2 : null,
             'lat' => round($lat, 6),
             'lng' => round($lng, 6),
         ]];
@@ -156,6 +164,7 @@ class GeocodeController extends Controller
                 $name = $props['name'] ?? null;
                 $street = $props['street'] ?? null;
                 $housenumber = $props['housenumber'] ?? null;
+                $region = $props['state'] ?? $props['region'] ?? null;
 
                 $city =
                     $props['city'] ??
@@ -177,7 +186,9 @@ class GeocodeController extends Controller
                 return [
                     'label' => $label,
                     'street' => $street ?? $name,
+                    'house' => $housenumber,
                     'city' => $city,
+                    'region' => $region,
                     'lat' => $lat,
                     'lng' => $lng
                 ];

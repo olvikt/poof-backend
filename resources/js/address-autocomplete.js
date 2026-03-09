@@ -23,14 +23,32 @@ export default function addressAutocomplete() {
       this.suggestionsMessage = this.$wire.entangle('suggestionsMessage', true)
 
 
+      const normalizeText = (value) => {
+        if (typeof value === 'string') return value.trim()
+        if (value && typeof value === 'object') {
+          return String(value.label ?? value.name ?? value.street ?? '').trim()
+        }
+
+        return String(value ?? '').trim()
+      }
+
       const applyAddressItem = (item) => {
         if (!item || typeof item !== 'object') {
           return
         }
 
-        this.search = item.label ?? ''
-        this.street = item.street ?? ''
-        this.city = item.city ?? ''
+        const street = normalizeText(item.street)
+        const house = normalizeText(item.house ?? item.housenumber)
+        const city = normalizeText(item.city)
+        const region = normalizeText(item.region)
+
+        const line1 = [street, house].filter(Boolean).join(' ').trim()
+        const line2 = [city, region].filter(Boolean).join(', ').trim()
+
+        this.search = normalizeText(item.label) || line1 || line2
+        this.street = street
+        this.house = house
+        this.city = city
 
         this.lat = item.lat
         this.lng = item.lng
@@ -40,7 +58,9 @@ export default function addressAutocomplete() {
 
         this.$wire.set('search', this.search)
         this.$wire.set('street', this.street)
+        this.$wire.set('house', this.house)
         this.$wire.set('city', this.city)
+        this.$wire.set('region', region || null)
         this.$wire.set('lat', this.lat ?? null)
         this.$wire.set('lng', this.lng ?? null)
         this.$wire.set('suggestions', [])
@@ -153,7 +173,9 @@ export default function addressAutocomplete() {
         lat,
         lng,
         street: street || null,
+        house: house || null,
         city: city || null,
+        region: String(item.region ?? '').trim() || null,
         line1: line1 || null,
         line2: line2 || null,
         label,
@@ -168,6 +190,7 @@ export default function addressAutocomplete() {
       this.search = item.label ?? ''
 
       this.street = item.street ?? ''
+      this.house = item.house ?? item.housenumber ?? ''
       this.city = item.city ?? ''
 
       this.lat = item.lat
@@ -178,7 +201,9 @@ export default function addressAutocomplete() {
 
       this.$wire.set('search', this.search)
       this.$wire.set('street', this.street)
+      this.$wire.set('house', this.house)
       this.$wire.set('city', this.city)
+      this.$wire.set('region', item.region ?? null)
       this.$wire.set('lat', this.lat)
       this.$wire.set('lng', this.lng)
       this.$wire.set('suggestions', [])
