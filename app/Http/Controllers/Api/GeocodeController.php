@@ -41,7 +41,7 @@ class GeocodeController extends Controller
             return response()->json([]);
         }
 
-        $cacheKey = 'geocode:photon:' . md5($normalizedQuery);
+        $cacheKey = 'geocode:photon:' . md5($normalizedQuery . '|' . ($lat ?? 'null') . '|' . ($lng ?? 'null'));
 
         try {
             $suggestions = Cache::remember(
@@ -130,16 +130,19 @@ class GeocodeController extends Controller
 
     private function fetchPhotonSuggestions(string $query, ?float $lat, ?float $lng): array
     {
+        $params = [
+            'q' => $query,
+            'lat' => $lat,
+            'lon' => $lng,
+            'limit' => 10,
+            'bbox' => '22.0,44.0,40.0,53.0',
+        ];
+
         try {
             $response = Http::timeout(2)
                 ->retry(1, 100)
                 ->acceptJson()
-                ->get('https://photon.komoot.io/api/', [
-                    'q' => $query,
-                    'lat' => $lat,
-                    'lon' => $lng,
-                    'limit' => 10,
-                ]);
+                ->get('https://photon.komoot.io/api/', $params);
         } catch (ConnectionException|RequestException|\Throwable) {
             return [];
         }
@@ -150,14 +153,35 @@ class GeocodeController extends Controller
 
         $data = $response->json();
         $features = collect($data['features'] ?? [])
-            ->filter(function ($feature) {
+            ->filter(function ($feature) use ($lat, $lng) {
                 $type = $feature['properties']['type'] ?? null;
 
-                return in_array($type, [
+                if (! in_array($type, [
                     'street',
                     'house',
                     'housenumber',
-                ]);
+                ])) {
+                    return false;
+                }
+
+                if ($lat === null || $lng === null) {
+                    return true;
+                }
+
+                $coords = $feature['geometry']['coordinates'] ?? null;
+
+                if (! is_array($coords) || count($coords) < 2) {
+                    return false;
+                }
+
+                $distance = $this->distance(
+                    $lat,
+                    $lng,
+                    (float) $coords[1],
+                    (float) $coords[0]
+                );
+
+                return $distance < 30;
             })
             ->values()
             ->all();
@@ -246,5 +270,21 @@ class GeocodeController extends Controller
         }
 
         return round($coordinate, 6);
+    }
+
+    private function distance(float $lat1, float $lon1, float $lat2, float $lon2): float
+    {
+        $earth = 6371;
+
+        $dLat = deg2rad($lat2 - $lat1);
+        $dLon = deg2rad($lon2 - $lon1);
+
+        $a = sin($dLat / 2) * sin($dLat / 2)
+            + cos(deg2rad($lat1)) * cos(deg2rad($lat2))
+            * sin($dLon / 2) * sin($dLon / 2);
+
+        $c = 2 * atan2(sqrt($a), sqrt(1 - $a));
+
+        return $earth * $c;
     }
 }
