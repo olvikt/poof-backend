@@ -35,24 +35,17 @@
     x-cloak
 >
 
-    {{-- Backdrop --}}
-    <div
-        x-show="open"
-        x-transition.opacity
-        class="fixed inset-0 bg-black/60 z-[60]"
-        x-on:click="closeSheet()"
-    ></div>
-
-    {{-- Sheet --}}
     <div
         x-show="open"
         x-transition
-        class="fixed inset-0 z-50 flex items-end"
+        class="fixed inset-0 z-50"
     >
-        <div class="w-full h-full">
-            <div
-                class="w-full h-full flex flex-col bg-neutral-900 rounded-t-2xl"
-            >
+        {{-- Overlay --}}
+        <div class="absolute inset-0 bg-black/60 pointer-events-none"></div>
+
+        {{-- Bottom sheet container --}}
+        <div class="absolute inset-x-0 bottom-0 top-0 flex flex-col pointer-events-auto">
+            <div class="bg-neutral-900 rounded-t-2xl shadow-xl flex flex-col h-full">
 
                 {{-- Header --}}
                 <div class="p-4 border-b border-neutral-800 shrink-0">
@@ -72,7 +65,7 @@
                 </div>
 
                 {{-- Body (scrollable content) --}}
-                <div class="modal-body flex-1 overflow-y-auto p-4 overflow-x-hidden">
+                <div class="modal-body flex-1 overflow-y-auto overflow-x-hidden p-4">
                     {{ $slot }}
                 </div>
 
