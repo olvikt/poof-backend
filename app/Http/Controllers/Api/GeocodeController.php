@@ -17,7 +17,7 @@ class GeocodeController extends Controller
         $query = (string) $request->query('q', '');
         $normalizedQuery = mb_strtolower(trim(preg_replace('/\s+/u', ' ', $query) ?? ''));
         $lat = $this->normalizedCoordinate($request->query('lat'), -90, 90);
-        $lng = $this->normalizedCoordinate($request->query('lng'), -180, 180);
+        $lng = $this->normalizedCoordinate($request->query('lon', $request->query('lng')), -180, 180);
 
         if ($normalizedQuery === '' && $lat !== null && $lng !== null) {
             $cacheKey = 'geocode:reverse:' . md5($lat . ',' . $lng);
@@ -130,21 +130,16 @@ class GeocodeController extends Controller
 
     private function fetchPhotonSuggestions(string $query, ?float $lat, ?float $lng): array
     {
-        $params = [
-            'q' => $query,
-            'limit' => 10,
-        ];
-
-        if ($lat !== null && $lng !== null) {
-            $params['lat'] = $lat;
-            $params['lon'] = $lng;
-        }
-
         try {
             $response = Http::timeout(2)
                 ->retry(1, 100)
                 ->acceptJson()
-                ->get('https://photon.komoot.io/api', $params);
+                ->get('https://photon.komoot.io/api/', [
+                    'q' => $query,
+                    'lat' => $lat,
+                    'lon' => $lng,
+                    'limit' => 10,
+                ]);
         } catch (ConnectionException|RequestException|\Throwable) {
             return [];
         }
@@ -154,30 +149,18 @@ class GeocodeController extends Controller
         }
 
         $data = $response->json();
-        $features = $data['features'] ?? [];
+        $features = collect($data['features'] ?? [])
+            ->filter(function ($feature) {
+                $type = $feature['properties']['type'] ?? null;
 
-        if (empty($features) && $lat !== null && $lng !== null) {
-            $fallbackParams = [
-                'q' => $query,
-                'limit' => 10,
-            ];
-
-            try {
-                $response = Http::timeout(2)
-                    ->retry(1, 100)
-                    ->acceptJson()
-                    ->get('https://photon.komoot.io/api', $fallbackParams);
-            } catch (ConnectionException|RequestException|\Throwable) {
-                return [];
-            }
-
-            if (! $response->successful()) {
-                return [];
-            }
-
-            $data = $response->json();
-            $features = $data['features'] ?? [];
-        }
+                return in_array($type, [
+                    'street',
+                    'house',
+                    'housenumber',
+                ]);
+            })
+            ->values()
+            ->all();
 
         if (empty($features)) {
             logger()->debug('Photon returned empty result', [
@@ -204,16 +187,12 @@ class GeocodeController extends Controller
                 continue;
             }
 
-            $labelParts = array_filter([
-                $props['name'] ?? null,
-                $props['street'] ?? null,
-                $props['city'] ?? null,
-                $props['state'] ?? null,
-                $props['country'] ?? null,
-            ]);
+            $street = $props['street'] ?? $props['name'] ?? null;
+            $city = $props['city'] ?? null;
+            $label = implode(', ', array_filter([$street, $city]));
 
             $suggestions[] = [
-                'label' => implode(', ', $labelParts),
+                'label' => $label !== '' ? $label : ($props['name'] ?? ''),
                 'name' => $props['name'] ?? null,
                 'street' => $props['street'] ?? null,
                 'city' => $props['city'] ?? null,
