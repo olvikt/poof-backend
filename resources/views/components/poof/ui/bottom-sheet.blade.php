@@ -5,84 +5,56 @@
 
 <div
     wire:ignore.self
-    x-data="{
-        open: false,
-        name: @js($name),
-
-        openSheet(e) {
-            if (!e?.detail || e.detail.name !== this.name) return
-            this.open = true
-
-            document.documentElement.classList.add(
-                'overflow-hidden',
-                'sheet-open'
-            )
-        },
-
-        closeSheet(e) {
-            if (e?.detail?.name && e.detail.name !== this.name) return
-            this.open = false
-
-            document.documentElement.classList.remove(
-                'overflow-hidden',
-                'sheet-open'
-            )
-        }
-    }"
+    x-data="bottomSheet(@js($name))"
     x-on:sheet:open.window="openSheet($event)"
     x-on:sheet:close.window="closeSheet($event)"
-    x-on:keydown.escape.window="closeSheet()"
+    x-on:keydown.escape.window="close()"
     x-cloak
 >
-
     <div
         x-show="open"
-        x-transition
-        class="fixed inset-0 z-50"
+        class="fixed inset-0 z-[999] flex flex-col"
     >
         {{-- Overlay --}}
-        <div class="absolute inset-0 bg-black/60 pointer-events-none"></div>
+        <div
+            class="absolute inset-0 bg-black/60 backdrop-blur-sm"
+            x-on:click="close()"
+        ></div>
 
-        {{-- Bottom sheet container --}}
-        <div class="absolute inset-x-0 bottom-0 top-0 flex flex-col pointer-events-auto">
-            <div class="bg-neutral-900 rounded-t-2xl shadow-xl flex flex-col h-full">
+        {{-- Sheet --}}
+        <div
+            x-ref="sheet"
+            class="relative bg-neutral-900 rounded-t-2xl shadow-xl flex flex-col h-full translate-y-0 transition-transform duration-300 ease-out"
+        >
+            {{-- Drag handle --}}
+            <div
+                class="flex justify-center pt-3 pb-2 cursor-grab"
+                x-on:pointerdown="startDrag($event)"
+            >
+                <div class="w-10 h-1.5 bg-neutral-500 rounded-full"></div>
+            </div>
 
-                {{-- Header --}}
-                <div class="p-4 border-b border-neutral-800 shrink-0">
-                    <div class="flex items-center justify-between">
-                        <div class="font-bold text-white">
-                            {{ $title }}
-                        </div>
-
-                        <button
-                            type="button"
-                            class="text-gray-400 hover:text-white transition"
-                            x-on:click="closeSheet()"
-                        >
-                            ✕
-                        </button>
+            {{-- Scrollable content --}}
+            <div class="flex-1 overflow-y-auto overflow-x-hidden p-4">
+                @if($title)
+                    <div class="mb-4 border-b border-neutral-800 pb-3">
+                        <div class="font-bold text-white">{{ $title }}</div>
                     </div>
-                </div>
+                @endif
 
-                {{-- Body (scrollable content) --}}
-                <div class="modal-body flex-1 overflow-y-auto overflow-x-hidden p-4">
-                    {{ $slot }}
-                </div>
+                {{ $slot }}
 
-                {{-- Actions (fixed, always visible) --}}
                 @isset($actions)
                     <div
                         class="
-                            p-4 border-t border-neutral-800 shrink-0
+                            mt-4 border-t border-neutral-800 pt-4
                             pb-[calc(4.5rem+env(safe-area-inset-bottom))]
                         "
                     >
                         {{ $actions }}
                     </div>
                 @endisset
-
             </div>
         </div>
     </div>
-
 </div>
