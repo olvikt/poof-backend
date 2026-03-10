@@ -18,13 +18,13 @@
             class="fixed inset-0 z-[9999] flex items-end"
         >
             <div
-                class="absolute inset-0 bg-black/60 backdrop-blur-sm"
+                class="absolute inset-0 bg-black/60"
                 @click="close()"
             ></div>
 
             <div
                 x-ref="sheet"
-                class="absolute inset-x-0 bottom-0 h-[100dvh] bg-neutral-900 rounded-t-2xl flex flex-col transition-transform duration-300"
+                class="absolute inset-x-0 bottom-0 h-[100dvh] bg-neutral-900 rounded-t-2xl flex flex-col"
             >
                 <div
                     class="flex justify-center pt-3 pb-2 cursor-grab"
