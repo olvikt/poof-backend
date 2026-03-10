@@ -26,22 +26,26 @@
                 x-ref="sheet"
                 class="absolute inset-x-0 bottom-0 h-[100dvh] bg-neutral-900 rounded-t-2xl flex flex-col"
             >
-                <div
-                    class="flex justify-center pt-3 pb-2 cursor-grab"
-                    @pointerdown="startDrag($event)"
-                >
-                    <div class="w-10 h-1.5 bg-neutral-500 rounded-full"></div>
+                <div class="flex items-center justify-between px-3 py-3 border-b border-neutral-800">
+                    <h2 class="text-sm font-semibold text-white">
+                        {{ $title }}
+                    </h2>
+
+                    <button
+                        type="button"
+                        @click="close()"
+                        class="text-neutral-400 hover:text-white"
+                    >
+                        ✕
+                    </button>
                 </div>
 
-                <div class="px-4 pb-2 text-center text-sm font-semibold text-white/80 shrink-0">
-                    {{ $title }}
-                </div>
 
                 <div class="flex-1 overflow-y-auto overflow-x-hidden px-4 pb-6">
                     {{ $slot }}
                 </div>
 
-                <div class="p-4 border-t border-neutral-800 bg-neutral-900">
+                <div class="border-t border-neutral-800 bg-neutral-900">
                     {{ $actions ?? '' }}
                 </div>
             </div>

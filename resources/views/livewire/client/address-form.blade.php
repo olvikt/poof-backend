@@ -6,7 +6,7 @@
     x-init="init()"
 >
 
-    <div class="space-y-3 rounded-2xl bg-neutral-900/40 p-4">
+    <div class="space-y-3 rounded-2xl bg-neutral-900/40 p-3">
         <div class="w-full h-[320px] rounded-2xl overflow-hidden border border-neutral-700 bg-neutral-800">
             <div
                 id="map"
@@ -16,7 +16,7 @@
         </div>
 
         <div class="flex items-center justify-between mt-3 gap-3">
-            <span class="text-sm text-neutral-300">Уточніть точку адреси</span>
+            <span class="text-sm text-neutral-300">Точка адреси</span>
 
             <button
                 type="button"
