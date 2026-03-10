@@ -121,6 +121,33 @@ import initMap from './map'
     })
   }
 
+
+  function bindMapLocationReverseGeocodeOnce() {
+    if (window.POOF?.__orderMapLocationBound) return
+
+    window.POOF = window.POOF || {}
+    window.POOF.__orderMapLocationBound = true
+
+    window.addEventListener('poof:map-location', (e) => {
+      const { lat, lng } = e.detail || {}
+
+      console.log('[POOF ORDER] location update', lat, lng)
+
+      fetch(`/api/geocode?lat=${lat}&lng=${lng}`)
+        .then((r) => r.json())
+        .then((data) => {
+          const item = Array.isArray(data) ? data[0] : data
+          if (!item) return
+
+          const streetInput = document.querySelector('[name="street"]')
+
+          if (streetInput && item.street) {
+            streetInput.value = item.street
+          }
+        })
+    })
+  }
+
   // ---------------------------------------------------------------------------
   // Date Picker (bind once + exported)
   // ---------------------------------------------------------------------------
@@ -203,6 +230,7 @@ import initMap from './map'
     bindLivewireToMapSyncOnce()
     bindGeocodeDebounceOnce()
     bindDatePickerOnce()
+    bindMapLocationReverseGeocodeOnce()
   }
 
   // First run

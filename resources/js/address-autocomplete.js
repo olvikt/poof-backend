@@ -159,6 +159,34 @@ export default function addressAutocomplete() {
         this.lat = Number.isFinite(Number(lat)) ? Number(lat) : null
         this.lng = Number.isFinite(Number(lng)) ? Number(lng) : null
       })
+
+      window.addEventListener('poof:map-location', (e) => {
+        const { lat, lng } = e.detail || {}
+
+        console.log('[POOF] reverse geocode start', lat, lng)
+
+        fetch(`/api/geocode?lat=${lat}&lng=${lng}`)
+          .then((r) => r.json())
+          .then((data) => {
+            console.log('[POOF] normalized address', data)
+
+            const item = Array.isArray(data) ? data[0] : data
+            if (!item) return
+
+            const streetInput = document.querySelector('[name="street"]')
+            const houseInput = document.querySelector('[name="house"]')
+
+            if (streetInput && item.street) {
+              streetInput.value = item.street
+            }
+
+            if (houseInput && (item.house || item.housenumber)) {
+              houseInput.value = item.house || item.housenumber
+            }
+
+            applyAddressItem(item)
+          })
+      })
       let lastQuery = ''
 
       this.$watch('search', (value) => {
