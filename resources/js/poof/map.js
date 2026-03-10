@@ -702,6 +702,19 @@ async function buildRoute(fromLat, fromLng, toLat, toLng) {
       await reverseGeocodeAndDispatch(lat, lng)
     })
 
+    state.instance.on('click', function (e) {
+      const lat = e.latlng.lat
+      const lng = e.latlng.lng
+
+      window.POOF.setMarker(lat, lng)
+
+      window.dispatchEvent(
+        new CustomEvent('poof:map-location', {
+          detail: { lat, lng },
+        })
+      )
+    })
+
     // применяем pendingPoint (если события пришли раньше)
     if (state.pendingPoint) {
       const { lat, lng, zoom } = state.pendingPoint
@@ -978,11 +991,23 @@ window.addEventListener('build-route', (e) => {
       const lat = pos.coords.latitude
       const lng = pos.coords.longitude
 
-      if (window.POOF?.map?.instance) {
-        window.POOF.map.instance.setView([lat, lng], 17)
-      }
+      console.log('[POOF] user geolocation', lat, lng)
+
+      const map = window.POOF.map.instance
+
+      if (!map) return
+
+      map.setView([lat, lng], 17)
 
       window.POOF.userLocation = { lat, lng }
+
+      window.POOF.setMarker(lat, lng)
+
+      window.dispatchEvent(
+        new CustomEvent('poof:map-location', {
+          detail: { lat, lng },
+        })
+      )
     })
   }
 }
