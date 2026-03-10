@@ -16,7 +16,7 @@ Livewire.start()
 import '../css/app.css'
 
 // UI
-import bottomSheet from './poof/bottom-sheet'
+import './poof/bottom-sheet'
 
 // MAP
 import initMap from './poof/map'
@@ -24,7 +24,6 @@ import initMap from './poof/map'
 // OrderCreate
 import './poof/order-create'
 
-bottomSheet()
 initMap()
 
 if ('serviceWorker' in navigator) {
