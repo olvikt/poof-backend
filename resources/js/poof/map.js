@@ -972,4 +972,17 @@ window.addEventListener('build-route', (e) => {
   // ------------------------------------------------------------
   bindGlobalHandlersOnce()
   mountAny()
+
+  if (navigator.geolocation) {
+    navigator.geolocation.getCurrentPosition((pos) => {
+      const lat = pos.coords.latitude
+      const lng = pos.coords.longitude
+
+      if (window.POOF?.map?.instance) {
+        window.POOF.map.instance.setView([lat, lng], 17)
+      }
+
+      window.POOF.userLocation = { lat, lng }
+    })
+  }
 }

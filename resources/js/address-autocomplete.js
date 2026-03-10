@@ -219,24 +219,16 @@ export default function addressAutocomplete() {
         console.log('Geocode query:', normalizedQuery)
       }
 
-      const mapCenter = window.POOF?.map?.instance?.getCenter?.()
-      const lat = Number.isFinite(mapCenter?.lat) ? mapCenter.lat : this.getBiasCoordinates().lat
-      const lon = Number.isFinite(mapCenter?.lng) ? mapCenter.lng : this.getBiasCoordinates().lng
+      const lat =
+        window.POOF?.userLocation?.lat ??
+        window.POOF?.map?.instance?.getCenter()?.lat
 
-      const params = new URLSearchParams({
-        q: normalizedQuery,
-      })
-
-      if (Number.isFinite(lat)) {
-        params.set('lat', Number(lat).toFixed(6))
-      }
-
-      if (Number.isFinite(lon)) {
-        params.set('lon', Number(lon).toFixed(6))
-      }
+      const lng =
+        window.POOF?.userLocation?.lng ??
+        window.POOF?.map?.instance?.getCenter()?.lng
 
       try {
-        const response = await fetch(`${API_BASE}/api/geocode?${params.toString()}`, {
+        const response = await fetch(`/api/geocode?q=${encodeURIComponent(normalizedQuery)}&lat=${lat}&lng=${lng}`, {
           signal: this.abortController.signal,
         })
 
