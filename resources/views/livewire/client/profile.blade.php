@@ -30,7 +30,7 @@
 						form="address-form"
 						class="w-full bg-yellow-400 text-black font-semibold py-3 rounded-xl active:scale-95 transition"
 					>
-						Зберегти
+						Зберегти адресу
 					</button>
 				</x-slot:actions>
 			</x-poof.ui.bottom-sheet>
