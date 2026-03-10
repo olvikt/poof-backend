@@ -6,11 +6,13 @@
 >
 
     <div class="space-y-3 rounded-2xl bg-neutral-900/40 p-4">
-        <div
-            id="map"
-            wire:ignore
-            class="map-container h-64 w-full overflow-hidden rounded-2xl border border-neutral-700 bg-neutral-800"
-        ></div>
+        <div class="w-full h-[320px] rounded-2xl overflow-hidden border border-neutral-700 bg-neutral-800">
+            <div
+                id="map"
+                wire:ignore
+                class="w-full h-full"
+            ></div>
+        </div>
 
         <h3 class="text-sm text-gray-300">Уточніть точку адреси</h3>
 
