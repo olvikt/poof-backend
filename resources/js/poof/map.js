@@ -710,6 +710,12 @@ async function buildRoute(fromLat, fromLng, toLat, toLng) {
       }, 50)
     })
 
+    setTimeout(() => {
+      if (window.POOF?.map?.instance) {
+        window.POOF.map.instance.invalidateSize()
+      }
+    }, 200)
+
     bindGeoButton()
     return true
   }

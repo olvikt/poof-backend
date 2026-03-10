@@ -77,7 +77,7 @@
                 </div>
 
                 {{-- Body (scrollable content) --}}
-                <div class="modal-body p-4 flex-1 overflow-y-auto">
+                <div class="modal-body p-4 flex-1 overflow-y-auto overflow-x-hidden">
                     {{ $slot }}
                 </div>
 
