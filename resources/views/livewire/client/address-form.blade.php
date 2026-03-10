@@ -8,11 +8,16 @@
 
     <div class="space-y-3 rounded-2xl bg-neutral-900/40 p-3">
         <div class="w-full h-[320px] rounded-2xl overflow-hidden border border-neutral-700 bg-neutral-800">
-            <div
-                id="map"
-                wire:ignore
-                class="w-full h-full"
-            ></div>
+            <div class="relative w-full h-full" wire:ignore>
+                <div
+                    id="map"
+                    class="map-container w-full h-full"
+                ></div>
+
+                <div class="pointer-events-none absolute inset-0 flex items-center justify-center">
+                    <div class="text-yellow-400 text-3xl drop-shadow-lg">📍</div>
+                </div>
+            </div>
         </div>
 
         <div class="flex items-center justify-between mt-3 gap-3">

@@ -45,7 +45,7 @@
                     {{ $slot }}
                 </div>
 
-                <div class="border-t border-neutral-800 bg-neutral-900">
+                <div class="border-t border-neutral-800 bg-neutral-900 p-4">
                     {{ $actions ?? '' }}
                 </div>
             </div>
