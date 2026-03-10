@@ -47,16 +47,11 @@
     <div
         x-show="open"
         x-transition
-        class="fixed inset-x-0 bottom-0 top-0 z-[61]"
+        class="fixed inset-0 z-50 flex items-end"
     >
-        <div class="mx-auto w-full max-w-md h-full">
+        <div class="w-full h-full">
             <div
-                class="
-                    bg-neutral-900 border border-neutral-800
-                    rounded-t-3xl
-                    flex flex-col
-                    h-full
-                "
+                class="w-full h-full flex flex-col bg-neutral-900 rounded-t-2xl"
             >
 
                 {{-- Header --}}
@@ -77,7 +72,7 @@
                 </div>
 
                 {{-- Body (scrollable content) --}}
-                <div class="modal-body p-4 flex-1 overflow-y-auto overflow-x-hidden">
+                <div class="modal-body flex-1 overflow-y-auto p-4 overflow-x-hidden">
                     {{ $slot }}
                 </div>
 

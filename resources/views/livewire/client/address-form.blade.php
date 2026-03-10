@@ -14,16 +14,16 @@
             ></div>
         </div>
 
-        <h3 class="text-sm text-gray-300">Уточніть точку адреси</h3>
+        <div class="flex items-center justify-between mt-3 gap-3">
+            <span class="text-sm text-neutral-300">Уточніть точку адреси</span>
 
-        <div class="flex justify-end">
-            <x-poof.button
+            <button
                 type="button"
                 id="use-location-btn"
-                size="sm"
+                class="inline-flex items-center gap-2 font-semibold rounded-xl px-3 py-1.5 bg-yellow-400 text-black active:scale-95"
             >
                 📍 Моя локація
-            </x-poof.button>
+            </button>
         </div>
 
         <div class="flex gap-2 pt-1">
@@ -183,95 +183,51 @@
     </div>
 
     @if($building_type === 'apartment')
-        <div class="grid grid-cols-2 gap-3 mt-3">
-            <div class="relative">
+        <div class="flex gap-2 mt-3">
+            <div class="address-mini-input">
                 <input
                     type="text"
                     wire:model.defer="entrance"
-                    placeholder=" "
-                    class="peer w-full rounded-xl border border-neutral-700 bg-neutral-900 px-3 pt-4 pb-1 text-sm text-white focus:outline-none focus:border-yellow-400"
+                    placeholder="Підʼїзд"
+                    class="poof-input w-full text-center"
                 >
-                <label
-                    class="absolute left-3 top-2 text-xs text-neutral-400 transition-all
-                        peer-placeholder-shown:top-3
-                        peer-placeholder-shown:text-sm
-                        peer-placeholder-shown:text-neutral-500
-                        peer-focus:top-1
-                        peer-focus:text-xs
-                        peer-focus:text-yellow-400"
-                >
-                    Підʼїзд
-                </label>
                 @error('entrance')
                     <p class="mt-1 text-xs text-red-400">{{ $message }}</p>
                 @enderror
             </div>
 
-            <div class="relative">
-                <input
-                    type="text"
-                    wire:model.defer="intercom"
-                    placeholder=" "
-                    class="peer w-full rounded-xl border border-neutral-700 bg-neutral-900 px-3 pt-4 pb-1 text-sm text-white focus:outline-none focus:border-yellow-400"
-                >
-                <label
-                    class="absolute left-3 top-2 text-xs text-neutral-400 transition-all
-                        peer-placeholder-shown:top-3
-                        peer-placeholder-shown:text-sm
-                        peer-placeholder-shown:text-neutral-500
-                        peer-focus:top-1
-                        peer-focus:text-xs
-                        peer-focus:text-yellow-400"
-                >
-                    Домофон
-                </label>
-                @error('intercom')
-                    <p class="mt-1 text-xs text-red-400">{{ $message }}</p>
-                @enderror
-            </div>
-
-            <div class="relative">
+            <div class="address-mini-input">
                 <input
                     type="text"
                     wire:model.defer="floor"
-                    placeholder=" "
-                    class="peer w-full rounded-xl border border-neutral-700 bg-neutral-900 px-3 pt-4 pb-1 text-sm text-white focus:outline-none focus:border-yellow-400"
+                    placeholder="Поверх"
+                    class="poof-input w-full text-center"
                 >
-                <label
-                    class="absolute left-3 top-2 text-xs text-neutral-400 transition-all
-                        peer-placeholder-shown:top-3
-                        peer-placeholder-shown:text-sm
-                        peer-placeholder-shown:text-neutral-500
-                        peer-focus:top-1
-                        peer-focus:text-xs
-                        peer-focus:text-yellow-400"
-                >
-                    Поверх
-                </label>
                 @error('floor')
                     <p class="mt-1 text-xs text-red-400">{{ $message }}</p>
                 @enderror
             </div>
 
-            <div class="relative">
+            <div class="address-mini-input">
                 <input
                     type="text"
                     wire:model.defer="apartment"
-                    placeholder=" "
-                    class="peer w-full rounded-xl border border-neutral-700 bg-neutral-900 px-3 pt-4 pb-1 text-sm text-white focus:outline-none focus:border-yellow-400"
+                    placeholder="Кв./офіс"
+                    class="poof-input w-full text-center"
                 >
-                <label
-                    class="absolute left-3 top-2 text-xs text-neutral-400 transition-all
-                        peer-placeholder-shown:top-3
-                        peer-placeholder-shown:text-sm
-                        peer-placeholder-shown:text-neutral-500
-                        peer-focus:top-1
-                        peer-focus:text-xs
-                        peer-focus:text-yellow-400"
-                >
-                    Квартира
-                </label>
                 @error('apartment')
+                    <p class="mt-1 text-xs text-red-400">{{ $message }}</p>
+                @enderror
+            </div>
+
+            <div class="address-mini-input">
+                <input
+                    type="text"
+                    wire:model.defer="intercom"
+                    placeholder="Домофон"
+                    class="poof-input w-full text-center"
+                >
+                @error('intercom')
                     <p class="mt-1 text-xs text-red-400">{{ $message }}</p>
                 @enderror
             </div>
@@ -299,3 +255,9 @@
     </button>
 
 </form>
+
+<style>
+    .address-mini-input {
+        width: 72px;
+    }
+</style>
