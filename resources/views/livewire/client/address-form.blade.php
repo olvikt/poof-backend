@@ -1,4 +1,5 @@
 <form
+    id="address-form"
     wire:submit.prevent="save"
     class="space-y-5"
     x-data="addressAutocomplete()"
@@ -233,26 +234,6 @@
             </div>
         </div>
     @endif
-
-    <button
-        type="submit"
-        wire:loading.attr="disabled"
-        x-bind:disabled="
-            !lat ||
-            !lng ||
-            !street ||
-            !house ||
-            !city ||
-            !String(street || '').trim() ||
-            !String(house || '').trim() ||
-            !String(city || '').trim()
-        "
-        class="w-full bg-yellow-400 text-black font-bold py-3 rounded-2xl
-               active:scale-95 transition disabled:opacity-70"
-    >
-        <span wire:loading.remove>Зберегти</span>
-        <span wire:loading>Збереження…</span>
-    </button>
 
 </form>
 

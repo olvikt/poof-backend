@@ -1,39 +1,77 @@
-export default function bottomSheet(name) {
-  return {
-    isOpen: false,
+window.bottomSheet = (name) => ({
+  open: false,
+  name,
+  startY: 0,
+  currentY: 0,
+  dragging: false,
 
-    init() {
-      window.addEventListener('sheet:open', (e) => {
-        if (e.detail?.name !== name) return
+  openSheet(e) {
+    if (!e?.detail || e.detail.name !== this.name) return
 
-        this.isOpen = true
+    this.open = true
+    document.body.style.overflow = 'hidden'
+    document.documentElement.classList.add('overflow-hidden', 'sheet-open')
 
-        // 🔑 Ждём:
-        // 1) окончания transition
-        // 2) 2 кадра layout-а (RAF)
-        // 3) только потом считаем sheet "открытым"
-        setTimeout(() => {
-          requestAnimationFrame(() => {
-            requestAnimationFrame(() => {
-              window.dispatchEvent(
-                new CustomEvent('poof:sheet-opened', {
-                  detail: { name }
-                })
-              )
-            })
-          })
-        }, 350) // ← duration transition
-      })
+    this.$nextTick(() => {
+      if (this.$refs.sheet) {
+        this.$refs.sheet.style.transform = 'translateY(0)'
+      }
+    })
+  },
 
-      window.addEventListener('sheet:close', (e) => {
-        if (!e.detail || e.detail.name === name) {
-          this.isOpen = false
-        }
-      })
-    },
+  closeSheet(e) {
+    if (e?.detail?.name && e.detail.name !== this.name) return
+    this.close()
+  },
 
-    close() {
-      this.isOpen = false
-    },
-  }
-}
+  startDrag(e) {
+    window.__activeBottomSheet = this
+    this.dragging = true
+    this.startY = e.clientY
+
+    window.addEventListener('pointermove', this.onDrag)
+    window.addEventListener('pointerup', this.endDrag)
+  },
+
+  onDrag: (e) => {
+    const sheet = window.__activeBottomSheet?.$refs?.sheet
+    if (!sheet || !window.__activeBottomSheet) return
+
+    const delta = e.clientY - window.__activeBottomSheet.startY
+
+    if (delta > 0) {
+      sheet.style.transform = `translateY(${delta}px)`
+    }
+  },
+
+  endDrag: (e) => {
+    const sheet = window.__activeBottomSheet?.$refs?.sheet
+    if (!sheet || !window.__activeBottomSheet) return
+
+    const delta = e.clientY - window.__activeBottomSheet.startY
+
+    if (delta > 120) {
+      window.__activeBottomSheet.close()
+    } else {
+      sheet.style.transform = 'translateY(0)'
+    }
+
+    window.removeEventListener('pointermove', window.__activeBottomSheet.onDrag)
+    window.removeEventListener('pointerup', window.__activeBottomSheet.endDrag)
+    window.__activeBottomSheet.dragging = false
+  },
+
+  close() {
+    if (this.$refs.sheet) {
+      this.$refs.sheet.style.transform = 'translateY(100%)'
+    }
+
+    setTimeout(() => {
+      this.open = false
+      document.body.style.overflow = ''
+      document.documentElement.classList.remove('overflow-hidden', 'sheet-open')
+    }, 250)
+  },
+
+  init() {},
+})
