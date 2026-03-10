@@ -47,15 +47,15 @@
     <div
         x-show="open"
         x-transition
-        class="fixed inset-x-0 bottom-0 z-[61]"
+        class="fixed inset-x-0 bottom-0 top-0 z-[61]"
     >
-        <div class="mx-auto w-full max-w-md">
+        <div class="mx-auto w-full max-w-md h-full">
             <div
                 class="
                     bg-neutral-900 border border-neutral-800
                     rounded-t-3xl
                     flex flex-col
-                    max-h-[calc(100vh-1rem)]
+                    h-full
                 "
             >
 
