@@ -5,38 +5,52 @@
     x-init="init()"
 >
 
-    <div class="flex gap-2">
-        @foreach (['home' => 'Дім', 'work' => 'Робота', 'other' => 'Інше'] as $key => $text)
-            <button
-                type="button"
-                wire:click="$set('label','{{ $key }}')"
-                class="px-4 py-2 rounded-xl text-sm font-semibold transition
-                    {{ $label === $key
-                        ? 'bg-yellow-400 text-black'
-                        : 'bg-neutral-800 text-gray-300 hover:bg-neutral-700' }}"
-            >
-                {{ $text }}
-            </button>
-        @endforeach
-    </div>
+    <div class="space-y-3 rounded-2xl bg-neutral-900/40 p-4">
+        <div
+            id="map"
+            wire:ignore
+            class="map-container h-64 w-full overflow-hidden rounded-2xl border border-neutral-700 bg-neutral-800"
+        ></div>
 
-    <div>
-        <label class="text-xs text-gray-400">Назва (опційно)</label>
-        <input
-            type="text"
-            wire:model.defer="title"
-            placeholder="Напр. Дім, Офіс"
-            class="poof-input w-full"
+        <h3 class="text-sm text-gray-300">Уточніть точку адреси</h3>
+
+        <x-poof.button
+            type="button"
+            id="use-location-btn"
+            size="sm"
         >
-        @error('title')
-            <p class="mt-1 text-xs text-red-400">{{ $message }}</p>
-        @enderror
-    </div>
+            📍 Моя локація
+        </x-poof.button>
 
-    <div>
-        <x-poof.map>
-            Уточніть точку адреси
-        </x-poof.map>
+        <div class="flex gap-2 pt-1">
+            @foreach (['home' => 'Дім', 'work' => 'Робота', 'other' => 'Інше'] as $key => $text)
+                <button
+                    type="button"
+                    wire:click="$set('label','{{ $key }}')"
+                    class="px-4 py-2 rounded-xl text-sm font-semibold transition
+                        {{ $label === $key
+                            ? 'bg-yellow-400 text-black'
+                            : 'bg-neutral-800 text-gray-300 hover:bg-neutral-700' }}"
+                >
+                    {{ $text }}
+                </button>
+            @endforeach
+        </div>
+
+        @if($label === 'other')
+            <div>
+                <label class="text-xs text-gray-400">Назва (опційно)</label>
+                <input
+                    type="text"
+                    wire:model.defer="title"
+                    placeholder="Напр. Дім, Офіс"
+                    class="poof-input w-full"
+                >
+                @error('title')
+                    <p class="mt-1 text-xs text-red-400">{{ $message }}</p>
+                @enderror
+            </div>
+        @endif
 
         @if($lat && $lng)
             <p class="mt-2 text-xs text-green-400">✔ Точка підтверджена</p>
