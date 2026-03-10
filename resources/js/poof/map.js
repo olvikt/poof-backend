@@ -685,14 +685,21 @@ async function buildRoute(fromLat, fromLng, toLat, toLng) {
 
     state.tiles.addTo(state.instance)
 
-    state.instance.on('click', async (e) => {
-      const lat = e.latlng.lat
-      const lng = e.latlng.lng
+    state.instance.on('moveend', async () => {
+      const center = state.instance.getCenter()
+      const lat = center.lat
+      const lng = center.lng
 
-      await updatePointAndAddress(lat, lng, {
-        source: 'user',
-        zoom: 18,
-      })
+      window.dispatchEvent(
+        new CustomEvent('poof:map-center-changed', {
+          detail: {
+            lat,
+            lng,
+          },
+        })
+      )
+
+      await reverseGeocodeAndDispatch(lat, lng)
     })
 
     // применяем pendingPoint (если события пришли раньше)

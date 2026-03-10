@@ -152,6 +152,13 @@ export default function addressAutocomplete() {
         syncAddressInputs(item)
         applyAddressItem(item)
       })
+
+      window.addEventListener('poof:map-center-changed', (e) => {
+        const { lat, lng } = e.detail || {}
+
+        this.lat = Number.isFinite(Number(lat)) ? Number(lat) : null
+        this.lng = Number.isFinite(Number(lng)) ? Number(lng) : null
+      })
       let lastQuery = ''
 
       this.$watch('search', (value) => {
