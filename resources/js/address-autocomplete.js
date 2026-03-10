@@ -252,25 +252,16 @@ export default function addressAutocomplete() {
           return
         }
 
-        const items = await response.json()
-        const suggestions = Array.isArray(items) ? items : []
-        const seen = new Set()
+        const data = await response.json()
+        console.log('[POOF autocomplete]', data)
 
-        const normalizedItems = suggestions
-          .map((item) => this.normalizeSuggestion(item))
-          .filter(Boolean)
-          .filter((item) => {
-            if (seen.has(item.label)) return false
-            seen.add(item.label)
-            return true
-          })
-          .slice(0, 10)
+        const suggestions = Array.isArray(data) ? data.slice(0, 10) : []
 
-        this.prefixCache[cacheKey] = normalizedItems
+        this.prefixCache[cacheKey] = suggestions
 
-        this.suggestions = normalizedItems
-        this.suggestionsMessage = normalizedItems.length ? null : 'Адресу не знайдено'
-        this.$wire.set('suggestions', normalizedItems)
+        this.suggestions = suggestions
+        this.suggestionsMessage = suggestions.length ? null : 'Адресу не знайдено'
+        this.$wire.set('suggestions', suggestions)
         this.$wire.set('suggestionsMessage', this.suggestionsMessage)
       } catch (error) {
         if (error?.name !== 'AbortError' && currentRequestId === this.requestId) {
@@ -313,8 +304,8 @@ export default function addressAutocomplete() {
 
       const label =
         labelParts.join(', ') ||
-        name ||
         safeString(item.label) ||
+        name ||
         line1
 
       return {
