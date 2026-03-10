@@ -20,22 +20,23 @@
 		<x-poof.ui.bottom-sheet name="editProfile" title="Редагувати профіль">
 			<livewire:client.profile-form />
 		</x-poof.ui.bottom-sheet>
-		<x-poof.ui.bottom-sheet name="addressForm" title="Адреса">
-			<livewire:client.address-form wire:key="address-form" />
+		<template x-teleport="body">
+			<x-poof.ui.bottom-sheet name="addressForm" title="Адреса">
+				<livewire:client.address-form wire:key="address-form" />
 
-			<x-slot:actions>
-				<button
-					type="submit"
-					form="address-form"
-					class="w-full bg-yellow-400 text-black font-semibold py-3 rounded-xl active:scale-95 transition"
-				>
-					Зберегти
-				</button>
-			</x-slot:actions>
-		</x-poof.ui.bottom-sheet>
+				<x-slot:actions>
+					<button
+						type="submit"
+						form="address-form"
+						class="w-full bg-yellow-400 text-black font-semibold py-3 rounded-xl active:scale-95 transition"
+					>
+						Зберегти
+					</button>
+				</x-slot:actions>
+			</x-poof.ui.bottom-sheet>
+		</template>
 		<x-poof.ui.bottom-sheet name="editAvatar" title="Аватар">
 			<livewire:client.avatar-form />
 		</x-poof.ui.bottom-sheet>
 	</x-slot:sheets>
 	</div>
-
