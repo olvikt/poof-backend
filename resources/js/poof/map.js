@@ -71,6 +71,12 @@ export default function initMap() {
 
     // prevent mount recursion storms
     mountInFlight: false,
+
+    // reverse geocode stability guards
+    reverseDebounceTimer: null,
+    reverseRequestId: 0,
+    addressLocked: false,
+    isReverseUpdating: false,
   }
 
   const state = POOF.map
@@ -196,11 +202,26 @@ export default function initMap() {
     }
   }
 
-  async function reverseGeocodeAndDispatch(lat, lng) {
+  async function reverseGeocodeAndDispatch(lat, lng, options = {}) {
+    if (options?.source === 'autocomplete' || state.addressLocked) {
+      if (DEBUG_MAP) console.debug('[POOF] reverse geocode skipped (locked/source)', options?.source)
+      return
+    }
+
+    if (state.isReverseUpdating) {
+      if (DEBUG_MAP) console.debug('[POOF] reverse geocode skipped (self update)')
+      return
+    }
+
+    const requestId = ++state.reverseRequestId
+
     try {
+      state.isReverseUpdating = true
       if (DEBUG_MAP) console.debug('[POOF] reverse geocode start', lat, lng)
 
       const response = await fetch(`${API_BASE}/api/geocode?lat=${lat}&lng=${lng}`)
+
+      if (requestId !== state.reverseRequestId) return
 
       if (!response.ok) {
         if (DEBUG_MAP) console.warn('[POOF] reverse geocode failed', response.status)
@@ -235,7 +256,20 @@ export default function initMap() {
 
     } catch (error) {
       console.error('[POOF] reverse geocode error', error)
+    } finally {
+      if (requestId === state.reverseRequestId) {
+        state.isReverseUpdating = false
+      }
     }
+  }
+
+  function scheduleReverseGeocode(lat, lng, options = {}) {
+    if (options?.source === 'autocomplete' || state.addressLocked) return
+
+    clearTimeout(state.reverseDebounceTimer)
+    state.reverseDebounceTimer = setTimeout(() => {
+      void reverseGeocodeAndDispatch(lat, lng, options)
+    }, 500)
   }
 
   async function updatePointAndAddress(lat, lng, { source = 'user', zoom = 18 } = {}) {
@@ -245,7 +279,7 @@ export default function initMap() {
       source,
     })
 
-    await reverseGeocodeAndDispatch(lat, lng)
+    await reverseGeocodeAndDispatch(lat, lng, { source })
   }
 
   // ------------------------------------------------------------
@@ -699,20 +733,22 @@ async function buildRoute(fromLat, fromLng, toLat, toLng) {
         })
       )
 
-      await reverseGeocodeAndDispatch(lat, lng)
+      scheduleReverseGeocode(lat, lng, { source: 'map-move' })
     })
 
     state.instance.on('click', function (e) {
       const lat = e.latlng.lat
       const lng = e.latlng.lng
 
-      window.POOF.setMarker(lat, lng)
+      state.addressLocked = false
+      window.dispatchEvent(new CustomEvent('address:unlock', {
+        detail: { reason: 'map-click' },
+      }))
 
-      window.dispatchEvent(
-        new CustomEvent('poof:map-location', {
-          detail: { lat, lng },
-        })
-      )
+      void updatePointAndAddress(lat, lng, {
+        source: 'user',
+        zoom: state.instance?.getZoom() || 18,
+      })
     })
 
     // применяем pendingPoint (если события пришли раньше)
@@ -810,14 +846,18 @@ async function buildRoute(fromLat, fromLng, toLat, toLng) {
 
   // PHP/Browser → JS: set location from autocomplete or sync
   window.addEventListener('map:set-location', (event) => {
-    const { lat, lng, zoom } = event.detail || {}
+    const { lat, lng, zoom, source } = event.detail || {}
 
     if (!Number.isFinite(lat) || !Number.isFinite(lng)) {
       return
     }
 
     if (window.POOF?.setMarker) {
-      window.POOF.setMarker(lat, lng, { zoom })
+      if (source !== 'autocomplete') {
+        state.addressLocked = false
+      }
+
+      window.POOF.setMarker(lat, lng, { zoom, source })
     }
   })
 
@@ -830,7 +870,14 @@ async function buildRoute(fromLat, fromLng, toLat, toLng) {
 
     if (lat == null || lng == null) return
 
-    if (source === 'autocomplete' || source === 'geolocation' || source === 'user') {
+    if (source === 'autocomplete') {
+      state.addressLocked = true
+      setMarker(lat, lng, { emit: false, zoom, source })
+      return
+    }
+
+    if (source === 'geolocation' || source === 'user') {
+      state.addressLocked = false
       void updatePointAndAddress(lat, lng, {
         source,
         zoom,
@@ -882,6 +929,14 @@ async function buildRoute(fromLat, fromLng, toLat, toLng) {
     mountAny()
     if (!state.instance) return
     setCourierMap(e.detail || {})
+  })
+
+  window.addEventListener('address:lock', () => {
+    state.addressLocked = true
+  })
+
+  window.addEventListener('address:unlock', () => {
+    state.addressLocked = false
   })
 
   // ============================================================
@@ -1001,13 +1056,11 @@ window.addEventListener('build-route', (e) => {
 
       window.POOF.userLocation = { lat, lng }
 
-      window.POOF.setMarker(lat, lng)
-
-      window.dispatchEvent(
-        new CustomEvent('poof:map-location', {
-          detail: { lat, lng },
-        })
-      )
+      state.addressLocked = false
+      void updatePointAndAddress(lat, lng, {
+        source: 'geolocation',
+        zoom: 17,
+      })
     })
   }
 }
