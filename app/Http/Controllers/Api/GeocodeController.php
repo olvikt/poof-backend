@@ -44,19 +44,21 @@ class GeocodeController extends Controller
         $cacheKey = 'geocode:photon:' . md5($normalizedQuery . '|' . ($lat ?? 'null') . '|' . ($lng ?? 'null'));
 
         try {
-            $suggestions = Cache::remember(
-                $cacheKey,
-                now()->addHours(12),
-                function () use ($normalizedQuery, $lat, $lng) {
-                    \Log::debug('Photon cache miss', [
-                        'query' => $normalizedQuery,
-                        'lat' => $lat,
-                        'lng' => $lng,
-                    ]);
+            $suggestions = Cache::get($cacheKey);
 
-                    return $this->fetchPhotonSuggestions($normalizedQuery, $lat, $lng);
+            if (! is_array($suggestions) || empty($suggestions)) {
+                \Log::debug('Photon cache miss', [
+                    'query' => $normalizedQuery,
+                    'lat' => $lat,
+                    'lng' => $lng,
+                ]);
+
+                $suggestions = $this->fetchPhotonSuggestions($normalizedQuery, $lat, $lng);
+
+                if (! empty($suggestions)) {
+                    Cache::put($cacheKey, $suggestions, now()->addMinutes(30));
                 }
-            );
+            }
         } catch (\Throwable) {
             $suggestions = [];
         }
@@ -154,39 +156,6 @@ class GeocodeController extends Controller
 
         $data = $response->json();
         $features = collect($data['features'] ?? [])
-            ->filter(function ($feature) use ($lat, $lng) {
-                $type = $feature['properties']['type'] ?? null;
-
-                if (! in_array($type, [
-                    'street',
-                    'road',
-                    'house',
-                    'housenumber',
-                    'locality',
-                    'place',
-                ])) {
-                    return false;
-                }
-
-                if ($lat === null || $lng === null) {
-                    return true;
-                }
-
-                $coords = $feature['geometry']['coordinates'] ?? null;
-
-                if (! is_array($coords) || count($coords) < 2) {
-                    return false;
-                }
-
-                $distance = $this->distance(
-                    $lat,
-                    $lng,
-                    (float) $coords[1],
-                    (float) $coords[0]
-                );
-
-                return $distance < 200;
-            })
             ->values()
             ->all();
 
@@ -215,6 +184,14 @@ class GeocodeController extends Controller
                 continue;
             }
 
+            if ($lat !== null && $lng !== null) {
+                $distance = $this->distance($lat, $lng, $latValue, $lon);
+
+                if ($distance >= 500) {
+                    continue;
+                }
+            }
+
             $street = $props['street']
                 ?? $props['name']
                 ?? $props['road']
@@ -231,7 +208,7 @@ class GeocodeController extends Controller
             ])));
 
             if ($label === '') {
-                $label = $street ?? 'Unknown address';
+                $label = $street ?? $props['name'] ?? 'Unknown address';
             }
 
             $suggestions[] = [
