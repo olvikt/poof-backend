@@ -134,7 +134,7 @@ class GeocodeController extends Controller
             'q' => $query,
             'lat' => $lat,
             'lon' => $lng,
-            'limit' => 15,
+            'limit' => 5,
             'bbox' => '22.0,44.0,40.0,53.0',
             'lang' => 'uk',
         ];
@@ -182,7 +182,7 @@ class GeocodeController extends Controller
                     (float) $coords[0]
                 );
 
-                return $distance < 30;
+                return $distance < 200;
             })
             ->values()
             ->all();

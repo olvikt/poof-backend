@@ -258,9 +258,9 @@ export default function addressAutocomplete() {
 
         if (!response.ok) {
           this.suggestions = []
-          this.suggestionsMessage = 'Адресу не знайдено'
+          this.suggestionsMessage = null
           this.$wire.set('suggestions', [])
-          this.$wire.set('suggestionsMessage', this.suggestionsMessage)
+          this.$wire.set('suggestionsMessage', null)
           return
         }
 
@@ -287,15 +287,15 @@ export default function addressAutocomplete() {
         this.prefixCache[cacheKey] = suggestions
 
         this.suggestions = suggestions
-        this.suggestionsMessage = suggestions.length ? null : 'Адресу не знайдено'
+        this.suggestionsMessage = null
         this.$wire.set('suggestions', suggestions)
-        this.$wire.set('suggestionsMessage', this.suggestionsMessage)
+        this.$wire.set('suggestionsMessage', null)
       } catch (error) {
         if (error?.name !== 'AbortError' && currentRequestId === this.requestId) {
           this.suggestions = []
-          this.suggestionsMessage = 'Адресу не знайдено'
+          this.suggestionsMessage = null
           this.$wire.set('suggestions', [])
-          this.$wire.set('suggestionsMessage', this.suggestionsMessage)
+          this.$wire.set('suggestionsMessage', null)
         }
       } finally {
         if (currentRequestId === this.requestId) {
