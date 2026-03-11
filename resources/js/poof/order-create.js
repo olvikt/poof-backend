@@ -15,10 +15,11 @@ import initMap from './map'
 
 ;(function () {
   const params = new URLSearchParams(window.location.search)
+  const addressId = params.get('address_id')
 
-  window.POOF = window.POOF || {}
+  if (addressId) {
+    window.POOF = window.POOF || {}
 
-  if (params.has('address_id')) {
     window.POOF.addressState = {
       source: 'saved',
       locked: true,
@@ -26,6 +27,8 @@ import initMap from './map'
 
     console.log('[POOF] saved address detected → geolocation disabled')
   }
+
+  window.POOF = window.POOF || {}
 
   // ---------------------------------------------------------------------------
   // Private state (closure)
@@ -237,6 +240,27 @@ import initMap from './map'
         window.POOF.map.setView([lat, lng], 17)
       }
     }, 200)
+
+    if (addressId) {
+      fetch(`/api/addresses/${addressId}`)
+        .then((res) => res.json())
+        .then((address) => {
+          if (!address?.lat || !address?.lng) {
+            console.log('[POOF] address has no coordinates')
+            return
+          }
+
+          console.log('[POOF] center map from saved address', address.lat, address.lng)
+
+          if (window.POOF?.map && window.POOF?.setMarker) {
+            window.POOF.setMarker(address.lat, address.lng)
+            window.POOF.map.setView([address.lat, address.lng], 17)
+          }
+        })
+        .catch((err) => {
+          console.error('[POOF] address fetch failed', err)
+        })
+    }
 
     // Sync & helpers
     bindLivewireToMapSyncOnce()

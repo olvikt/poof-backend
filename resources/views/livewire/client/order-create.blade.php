@@ -8,7 +8,7 @@
     </h1>
     <div class="mb-5">
        {{-- ================= MAP ================= --}}  	
-	    <x-poof.map :lat="$this->address?->lat" :lng="$this->address?->lng">
+	    <x-poof.map>
 			Місце забору
 		</x-poof.map>
 
@@ -452,4 +452,3 @@
       @vite('resources/js/poof/order-create.js')
 
 </div>
-
