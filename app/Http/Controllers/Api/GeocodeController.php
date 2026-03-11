@@ -131,7 +131,7 @@ class GeocodeController extends Controller
     private function fetchPhotonSuggestions(string $query, ?float $lat, ?float $lng): array
     {
         $params = [
-            'q' => $query,
+            'q' => $query . '*',
             'lat' => $lat,
             'lon' => $lng,
             'limit' => 5,
@@ -159,8 +159,11 @@ class GeocodeController extends Controller
 
                 if (! in_array($type, [
                     'street',
+                    'road',
                     'house',
                     'housenumber',
+                    'locality',
+                    'place',
                 ])) {
                     return false;
                 }
@@ -212,15 +215,29 @@ class GeocodeController extends Controller
                 continue;
             }
 
-            $street = $props['street'] ?? $props['name'] ?? null;
+            $street = $props['street']
+                ?? $props['name']
+                ?? $props['road']
+                ?? null;
             $house = $props['housenumber'] ?? $props['house_number'] ?? null;
-            $city = $props['city'] ?? $props['district'] ?? null;
-            $label = implode(', ', array_filter([trim(implode(' ', array_filter([$street, $house]))), $city]));
+            $city = $props['city']
+                ?? $props['district']
+                ?? $props['county']
+                ?? $props['state']
+                ?? null;
+            $label = trim(implode(', ', array_filter([
+                trim(implode(' ', array_filter([$street, $house]))),
+                $city,
+            ])));
+
+            if ($label === '') {
+                $label = $props['name'] ?? 'Unknown address';
+            }
 
             $suggestions[] = [
-                'label' => $label !== '' ? $label : ($props['name'] ?? ''),
+                'label' => $label,
                 'name' => $props['name'] ?? null,
-                'street' => $props['street'] ?? null,
+                'street' => $street,
                 'house' => $house,
                 'housenumber' => $house,
                 'city' => $city,
