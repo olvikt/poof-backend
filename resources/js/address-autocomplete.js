@@ -38,6 +38,8 @@ export default function addressAutocomplete() {
     isLoadingSuggestions: false,
     prefixCache: {},
     _debounceTimer: null,
+    addressLocked: false,
+    isApplyingSelection: false,
 
     safe(value) {
       if (typeof value === 'string') return value
@@ -105,6 +107,7 @@ export default function addressAutocomplete() {
         const lat = Number(item.lat)
         const lng = Number(item.lng)
 
+        this.isApplyingSelection = true
         this.search = label
         this.street = street
         this.house = house
@@ -124,9 +127,15 @@ export default function addressAutocomplete() {
         this.$wire.set('lng', this.lng)
         this.$wire.set('suggestions', [])
         this.$wire.set('suggestionsMessage', null)
+
+        this.$nextTick(() => {
+          this.isApplyingSelection = false
+        })
       }
 
       window.addEventListener('address:reverse-geocoded', (e) => {
+        if (this.addressLocked) return
+
         const item = e.detail?.item
         if (!item) return
 
@@ -144,6 +153,8 @@ export default function addressAutocomplete() {
       })
 
       window.addEventListener('map:set-address', (event) => {
+        if (this.addressLocked) return
+
         const item = event.detail?.item ?? event.detail
         if (!item || typeof item !== 'object') {
           return
@@ -160,32 +171,12 @@ export default function addressAutocomplete() {
         this.lng = Number.isFinite(Number(lng)) ? Number(lng) : null
       })
 
-      window.addEventListener('poof:map-location', (e) => {
-        const { lat, lng } = e.detail || {}
+      window.addEventListener('address:lock', () => {
+        this.addressLocked = true
+      })
 
-        console.log('[POOF] reverse geocode start', lat, lng)
-
-        fetch(`/api/geocode?lat=${lat}&lng=${lng}`)
-          .then((r) => r.json())
-          .then((data) => {
-            console.log('[POOF] normalized address', data)
-
-            const item = Array.isArray(data) ? data[0] : data
-            if (!item) return
-
-            const streetInput = document.querySelector('[name="street"]')
-            const houseInput = document.querySelector('[name="house"]')
-
-            if (streetInput && item.street) {
-              streetInput.value = item.street
-            }
-
-            if (houseInput && (item.house || item.housenumber)) {
-              houseInput.value = item.house || item.housenumber
-            }
-
-            applyAddressItem(item)
-          })
+      window.addEventListener('address:unlock', () => {
+        this.addressLocked = false
       })
       let lastQuery = ''
 
@@ -199,6 +190,13 @@ export default function addressAutocomplete() {
 
         if (query === lastQuery) {
           return
+        }
+
+        if (!this.isApplyingSelection && this.addressLocked) {
+          this.addressLocked = false
+          window.dispatchEvent(new CustomEvent('address:unlock', {
+            detail: { reason: 'manual-input' },
+          }))
         }
 
         lastQuery = query
@@ -247,13 +245,7 @@ export default function addressAutocomplete() {
         console.log('Geocode query:', normalizedQuery)
       }
 
-      const lat =
-        window.POOF?.userLocation?.lat ??
-        window.POOF?.map?.instance?.getCenter()?.lat
-
-      const lng =
-        window.POOF?.userLocation?.lng ??
-        window.POOF?.map?.instance?.getCenter()?.lng
+      const { lat, lng } = this.getBiasCoordinates()
 
       try {
         const response = await fetch(`/api/geocode?q=${encodeURIComponent(normalizedQuery)}&lat=${lat}&lng=${lng}`, {
@@ -275,7 +267,22 @@ export default function addressAutocomplete() {
         const data = await response.json()
         console.log('[POOF autocomplete]', data)
 
-        const suggestions = Array.isArray(data) ? data.slice(0, 10) : []
+        const seen = new Set()
+        const suggestions = Array.isArray(data)
+          ? data
+            .map((item) => this.normalizeSuggestion(item))
+            .filter(Boolean)
+            .filter((item) => {
+              const key = [item.street, item.house, item.city]
+                .map((part) => this.normalizeText(part).toLowerCase())
+                .join('-')
+
+              if (seen.has(key)) return false
+              seen.add(key)
+              return true
+            })
+            .slice(0, 5)
+          : []
 
         this.prefixCache[cacheKey] = suggestions
 
@@ -348,6 +355,7 @@ export default function addressAutocomplete() {
       }
 
       this.search = safeString(item.label) || safeString(item.street)
+      this.isApplyingSelection = true
       this.street = safeString(item.street)
       this.house = safeString(item.house || item.housenumber)
       this.city = safeString(item.city)
@@ -368,6 +376,15 @@ export default function addressAutocomplete() {
       this.$wire.set('suggestions', [])
       this.$wire.set('suggestionsMessage', null)
       this.$wire.set('activeSuggestionIndex', -1)
+
+      this.addressLocked = true
+      window.dispatchEvent(new CustomEvent('address:lock', {
+        detail: { reason: 'autocomplete' },
+      }))
+
+      this.$nextTick(() => {
+        this.isApplyingSelection = false
+      })
 
       if (Number.isFinite(this.lat) && Number.isFinite(this.lng)) {
         window.dispatchEvent(

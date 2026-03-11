@@ -134,8 +134,9 @@ class GeocodeController extends Controller
             'q' => $query,
             'lat' => $lat,
             'lon' => $lng,
-            'limit' => 10,
+            'limit' => 15,
             'bbox' => '22.0,44.0,40.0,53.0',
+            'lang' => 'uk',
         ];
 
         try {
@@ -212,14 +213,17 @@ class GeocodeController extends Controller
             }
 
             $street = $props['street'] ?? $props['name'] ?? null;
-            $city = $props['city'] ?? null;
-            $label = implode(', ', array_filter([$street, $city]));
+            $house = $props['housenumber'] ?? $props['house_number'] ?? null;
+            $city = $props['city'] ?? $props['district'] ?? null;
+            $label = implode(', ', array_filter([trim(implode(' ', array_filter([$street, $house]))), $city]));
 
             $suggestions[] = [
                 'label' => $label !== '' ? $label : ($props['name'] ?? ''),
                 'name' => $props['name'] ?? null,
                 'street' => $props['street'] ?? null,
-                'city' => $props['city'] ?? null,
+                'house' => $house,
+                'housenumber' => $house,
+                'city' => $city,
                 'state' => $props['state'] ?? null,
                 'country' => $props['country'] ?? null,
                 'lat' => $latValue,
@@ -245,9 +249,33 @@ class GeocodeController extends Controller
             return 0;
         });
 
-        $suggestions = array_slice($suggestions, 0, 10);
+        $unique = [];
+        $seen = [];
 
-        return $suggestions;
+        foreach ($suggestions as $suggestion) {
+            $key = mb_strtolower(trim(implode('-', array_filter([
+                (string) ($suggestion['street'] ?? ''),
+                (string) ($suggestion['house'] ?? $suggestion['housenumber'] ?? ''),
+                (string) ($suggestion['city'] ?? ''),
+            ]))));
+
+            if ($key === '') {
+                $key = mb_strtolower((string) ($suggestion['label'] ?? ''));
+            }
+
+            if (isset($seen[$key])) {
+                continue;
+            }
+
+            $seen[$key] = true;
+            $unique[] = $suggestion;
+
+            if (count($unique) >= 5) {
+                break;
+            }
+        }
+
+        return $unique;
     }
 
     private function nullableString(mixed $value): ?string
