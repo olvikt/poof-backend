@@ -8,7 +8,7 @@
     </h1>
     <div class="mb-5">
        {{-- ================= MAP ================= --}}  	
-	    <x-poof.map>
+	    <x-poof.map :lat="$lat" :lng="$lng">
 			Місце забору
 		</x-poof.map>
 
