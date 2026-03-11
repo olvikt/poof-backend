@@ -743,10 +743,17 @@ async function buildRoute(fromLat, fromLng, toLat, toLng) {
 
     state.el = el
 
+    const defaultCenter = [50.4501, 30.5234]
+    const defaultZoom = 16
+
     state.instance = window.L.map(el, {
       zoomControl: true,
       attributionControl: true,
-    }).setView([50.4501, 30.5234], 16)
+    })
+
+    if (!window.POOF?.initialAddress) {
+      state.instance.setView(defaultCenter, defaultZoom)
+    }
 
     observeMapResize(el, state.instance)
 
@@ -767,6 +774,14 @@ async function buildRoute(fromLat, fromLng, toLat, toLng) {
     })
 
     state.tiles.addTo(state.instance)
+
+
+    if (window.POOF?.initialAddress) {
+      const { lat, lng } = window.POOF.initialAddress
+      console.log('[POOF] center map from saved address', lat, lng)
+      setMarker(lat, lng)
+      state.instance.setView([lat, lng], 17)
+    }
 
     state.instance.on('moveend', async () => {
       const center = state.instance.getCenter()

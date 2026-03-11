@@ -9,6 +9,17 @@
     </script>
 @endif
 
+@if($address)
+    <script>
+        window.POOF = window.POOF || {}
+        window.POOF.initialAddress = {
+            lat: {{ $address->lat }},
+            lng: {{ $address->lng }}
+        }
+        console.log('[POOF] initial saved address coords', window.POOF.initialAddress)
+    </script>
+@endif
+
 <div>
 <div
     id="order-create-root"
