@@ -197,6 +197,10 @@ import initMap from './map'
 
     // namespace
     window.POOF = window.POOF || {}
+    window.POOF.addressState = {
+      source: window.POOF.addressState?.source || null,
+      locked: window.POOF.addressState?.locked || false,
+    }
 
     // UI init (должны быть идемпотентными внутри)
     initCarousel()
