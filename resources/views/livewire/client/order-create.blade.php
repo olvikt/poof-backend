@@ -1,3 +1,14 @@
+@if(request()->address_id)
+    <script>
+        window.POOF = window.POOF || {}
+        window.POOF.addressState = {
+            source: 'saved',
+            locked: true,
+        }
+        console.log('[POOF] address source: saved')
+    </script>
+@endif
+
 <div>
 <div
     id="order-create-root"
@@ -452,4 +463,3 @@
       @vite('resources/js/poof/order-create.js')
 
 </div>
-

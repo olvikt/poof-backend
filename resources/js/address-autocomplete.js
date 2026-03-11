@@ -377,8 +377,15 @@ export default function addressAutocomplete() {
       this.$wire.set('suggestionsMessage', null)
       this.$wire.set('activeSuggestionIndex', -1)
 
-      this.addressLocked = true
-      window.dispatchEvent(new CustomEvent('address:lock', {
+      window.POOF = window.POOF || {}
+      window.POOF.addressState = {
+        source: 'autocomplete',
+        locked: false,
+      }
+      console.log('[POOF] address source: autocomplete')
+
+      this.addressLocked = false
+      window.dispatchEvent(new CustomEvent('address:unlock', {
         detail: { reason: 'autocomplete' },
       }))
 

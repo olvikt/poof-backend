@@ -81,6 +81,9 @@ export default function initMap() {
 
   const state = POOF.map
 
+  const initialAddressState = getAddressState()
+  state.addressLocked = !!initialAddressState.locked
+
   // ------------------------------------------------------------
   // Helpers
   // ------------------------------------------------------------
@@ -125,6 +128,49 @@ export default function initMap() {
       }
     }
     return null
+  }
+
+  function getAddressState() {
+    window.POOF = window.POOF || {}
+
+    if (!window.POOF.addressState) {
+      window.POOF.addressState = {
+        source: null,
+        locked: false,
+      }
+    }
+
+    return window.POOF.addressState
+  }
+
+  function setAddressState(source, locked = false) {
+    const nextState = {
+      source,
+      locked,
+    }
+
+    window.POOF = window.POOF || {}
+    window.POOF.addressState = nextState
+
+    state.addressLocked = locked
+    console.log(`[POOF] address source: ${source}`)
+
+    window.dispatchEvent(new CustomEvent(locked ? 'address:lock' : 'address:unlock', {
+      detail: {
+        reason: source,
+      },
+    }))
+  }
+
+  function safeReverseGeocode(lat, lng, options = {}) {
+    const addressState = getAddressState()
+
+    if (addressState?.locked) {
+      console.log('[POOF] reverse geocode blocked (locked)')
+      return
+    }
+
+    void reverseGeocodeAndDispatch(lat, lng, options)
   }
 
   function sendLocation(lat, lng) {
@@ -203,7 +249,8 @@ export default function initMap() {
   }
 
   async function reverseGeocodeAndDispatch(lat, lng, options = {}) {
-    if (options?.source === 'autocomplete' || state.addressLocked) {
+    if (options?.source === 'autocomplete' || getAddressState()?.locked || state.addressLocked) {
+      console.log('[POOF] reverse geocode blocked (locked)')
       if (DEBUG_MAP) console.debug('[POOF] reverse geocode skipped (locked/source)', options?.source)
       return
     }
@@ -264,7 +311,7 @@ export default function initMap() {
   }
 
   function scheduleReverseGeocode(lat, lng, options = {}) {
-    if (options?.source === 'autocomplete' || state.addressLocked) return
+    if (options?.source === 'autocomplete' || getAddressState()?.locked || state.addressLocked) return
 
     clearTimeout(state.reverseDebounceTimer)
     state.reverseDebounceTimer = setTimeout(() => {
@@ -279,7 +326,7 @@ export default function initMap() {
       source,
     })
 
-    await reverseGeocodeAndDispatch(lat, lng, { source })
+    safeReverseGeocode(lat, lng, { source })
   }
 
   // ------------------------------------------------------------
@@ -382,9 +429,11 @@ export default function initMap() {
       }).addTo(map)
 
       window.POOF.marker.on('dragend', (e) => {
+        setAddressState('map', false)
+
         const p = e.target.getLatLng()
         void updatePointAndAddress(p.lat, p.lng, {
-          source: 'user',
+          source: 'map',
           zoom: map?.getZoom() || 18,
         })
       })
@@ -605,7 +654,7 @@ async function buildRoute(fromLat, fromLng, toLat, toLng) {
           if (!isValidLatLng(lat, lng)) return
 
           updatePointAndAddress(lat, lng, {
-            source: 'user',
+            source: 'map',
             zoom: 18,
           })
         },
@@ -627,7 +676,7 @@ async function buildRoute(fromLat, fromLng, toLat, toLng) {
         if (!isValidLatLng(lat, lng)) return
 
         updatePointAndAddress(lat, lng, {
-          source: 'user',
+          source: 'map',
           zoom: 17,
         })
       },
@@ -740,13 +789,10 @@ async function buildRoute(fromLat, fromLng, toLat, toLng) {
       const lat = e.latlng.lat
       const lng = e.latlng.lng
 
-      state.addressLocked = false
-      window.dispatchEvent(new CustomEvent('address:unlock', {
-        detail: { reason: 'map-click' },
-      }))
+      setAddressState('map', false)
 
       void updatePointAndAddress(lat, lng, {
-        source: 'user',
+        source: 'map',
         zoom: state.instance?.getZoom() || 18,
       })
     })
@@ -853,8 +899,10 @@ async function buildRoute(fromLat, fromLng, toLat, toLng) {
     }
 
     if (window.POOF?.setMarker) {
-      if (source !== 'autocomplete') {
-        state.addressLocked = false
+      if (source === 'autocomplete') {
+        setAddressState('autocomplete', false)
+      } else if (source === 'map') {
+        setAddressState('map', false)
       }
 
       window.POOF.setMarker(lat, lng, { zoom, source })
@@ -870,16 +918,31 @@ async function buildRoute(fromLat, fromLng, toLat, toLng) {
 
     if (lat == null || lng == null) return
 
-    if (source === 'autocomplete') {
-      state.addressLocked = true
+    if (source === 'saved') {
+      setAddressState('saved', true)
       setMarker(lat, lng, { emit: false, zoom, source })
       return
     }
 
-    if (source === 'geolocation' || source === 'user') {
-      state.addressLocked = false
+    if (source === 'autocomplete') {
+      setAddressState('autocomplete', false)
+      setMarker(lat, lng, { emit: false, zoom, source })
+      return
+    }
+
+    if (source === 'geolocation') {
+      setAddressState('geolocation', false)
       void updatePointAndAddress(lat, lng, {
         source,
+        zoom,
+      })
+      return
+    }
+
+    if (source === 'map' || source === 'user') {
+      setAddressState('map', false)
+      void updatePointAndAddress(lat, lng, {
+        source: 'map',
         zoom,
       })
       return
@@ -933,10 +996,20 @@ async function buildRoute(fromLat, fromLng, toLat, toLng) {
 
   window.addEventListener('address:lock', () => {
     state.addressLocked = true
+    const addressState = getAddressState()
+    window.POOF.addressState = {
+      source: addressState.source,
+      locked: true,
+    }
   })
 
   window.addEventListener('address:unlock', () => {
     state.addressLocked = false
+    const addressState = getAddressState()
+    window.POOF.addressState = {
+      source: addressState.source,
+      locked: false,
+    }
   })
 
   // ============================================================
@@ -1041,7 +1114,7 @@ window.addEventListener('build-route', (e) => {
   bindGlobalHandlersOnce()
   mountAny()
 
-  if (navigator.geolocation) {
+  if (navigator.geolocation && getAddressState()?.source !== 'saved') {
     navigator.geolocation.getCurrentPosition((pos) => {
       const lat = pos.coords.latitude
       const lng = pos.coords.longitude
@@ -1052,7 +1125,7 @@ window.addEventListener('build-route', (e) => {
 
       window.POOF.userLocation = { lat, lng }
 
-      state.addressLocked = false
+      setAddressState('geolocation', false)
       void updatePointAndAddress(lat, lng, {
         source: 'geolocation',
         zoom: 17,
