@@ -14,6 +14,19 @@ import initMap from './map'
  */
 
 ;(function () {
+  const params = new URLSearchParams(window.location.search)
+
+  window.POOF = window.POOF || {}
+
+  if (params.has('address_id')) {
+    window.POOF.addressState = {
+      source: 'saved',
+      locked: true,
+    }
+
+    console.log('[POOF] saved address detected → geolocation disabled')
+  }
+
   // ---------------------------------------------------------------------------
   // Private state (closure)
   // ---------------------------------------------------------------------------
