@@ -772,6 +772,19 @@ async function buildRoute(fromLat, fromLng, toLat, toLng) {
       setMarker(lat, lng, { emit: false, zoom: zoom ?? 18, source: 'sync' })
     }
 
+    const mapContainer = document.getElementById('map')
+
+    if (mapContainer) {
+      const lat = parseFloat(mapContainer.dataset.lat)
+      const lng = parseFloat(mapContainer.dataset.lng)
+
+      if (isValidLatLng(lat, lng)) {
+        console.log('[POOF] center map from saved address', lat, lng)
+        setMarker(lat, lng, { emit: false, zoom: 17, source: 'saved-address' })
+        state.instance.setView([lat, lng], 17, { animate: false })
+      }
+    }
+
     // post-mount invalidate (важно когда карта появляется после toggle)
     requestAnimationFrame(() => {
       setTimeout(() => {

@@ -1,5 +1,7 @@
 @props([
     'hint' => null,
+    'lat' => null,
+    'lng' => null,
 ])
 
 <div>
@@ -23,6 +25,8 @@
 		
 		<div
     id="map"
+    data-lat="{{ $lat }}"
+    data-lng="{{ $lng }}"
     wire:ignore
     class="map-container w-full rounded-xl
            border border-neutral-700
