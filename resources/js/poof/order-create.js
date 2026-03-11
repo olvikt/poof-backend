@@ -215,6 +215,29 @@ import initMap from './map'
     initCarousel()
     initMap()
 
+    setTimeout(() => {
+      const latInput = document.querySelector('input[name="lat"]')
+      const lngInput = document.querySelector('input[name="lng"]')
+
+      if (!latInput || !lngInput) {
+        return
+      }
+
+      const lat = parseFloat(latInput.value)
+      const lng = parseFloat(lngInput.value)
+
+      if (!Number.isFinite(lat) || !Number.isFinite(lng)) {
+        return
+      }
+
+      console.log('[POOF] center map from form coordinates', lat, lng)
+
+      if (window.POOF?.map && window.POOF?.setMarker) {
+        window.POOF.setMarker(lat, lng)
+        window.POOF.map.setView([lat, lng], 17)
+      }
+    }, 200)
+
     // Sync & helpers
     bindLivewireToMapSyncOnce()
     bindGeocodeDebounceOnce()
