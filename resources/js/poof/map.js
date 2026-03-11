@@ -1046,13 +1046,9 @@ window.addEventListener('build-route', (e) => {
       const lat = pos.coords.latitude
       const lng = pos.coords.longitude
 
+      if (!isValidLatLng(lat, lng)) return
+
       console.log('[POOF] user geolocation', lat, lng)
-
-      const map = window.POOF.map.instance
-
-      if (!map) return
-
-      map.setView([lat, lng], 17)
 
       window.POOF.userLocation = { lat, lng }
 

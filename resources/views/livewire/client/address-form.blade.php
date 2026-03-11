@@ -124,7 +124,7 @@
 
                 <div
                     x-cloak
-                    x-show="isLoadingSuggestions || suggestions.length > 0 || Boolean(suggestionsMessage)"
+                    x-show="isLoadingSuggestions || suggestions.length > 0"
                     class="absolute z-50 mt-2 w-full overflow-hidden rounded-xl border border-neutral-700 bg-neutral-900 shadow-xl"
                 >
                     <div x-show="isLoadingSuggestions" class="px-4 py-3 text-sm text-gray-300">Пошук адреси…</div>
