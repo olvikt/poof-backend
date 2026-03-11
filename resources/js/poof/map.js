@@ -89,6 +89,10 @@ export default function initMap() {
     return typeof window.Livewire !== 'undefined'
   }
 
+  function isSavedAddressLocked() {
+    return Boolean(window.POOF?.addressState?.locked)
+  }
+
   function toNumber(v) {
     const n = Number(v)
     return Number.isFinite(n) ? n : null
@@ -203,8 +207,12 @@ export default function initMap() {
   }
 
   async function reverseGeocodeAndDispatch(lat, lng, options = {}) {
-    if (options?.source === 'autocomplete' || state.addressLocked) {
-      if (DEBUG_MAP) console.debug('[POOF] reverse geocode skipped (locked/source)', options?.source)
+    if (options?.source === 'autocomplete' || state.addressLocked || isSavedAddressLocked()) {
+      if (isSavedAddressLocked()) {
+        console.log('[POOF] reverse geocode blocked (saved address)')
+      } else if (DEBUG_MAP) {
+        console.debug('[POOF] reverse geocode skipped (locked/source)', options?.source)
+      }
       return
     }
 
@@ -264,7 +272,12 @@ export default function initMap() {
   }
 
   function scheduleReverseGeocode(lat, lng, options = {}) {
-    if (options?.source === 'autocomplete' || state.addressLocked) return
+    if (options?.source === 'autocomplete' || state.addressLocked || isSavedAddressLocked()) {
+      if (isSavedAddressLocked()) {
+        console.log('[POOF] reverse geocode blocked (saved address)')
+      }
+      return
+    }
 
     clearTimeout(state.reverseDebounceTimer)
     state.reverseDebounceTimer = setTimeout(() => {
@@ -618,6 +631,7 @@ async function buildRoute(fromLat, fromLng, toLat, toLng) {
 
   function tryLocateUserForAddressModal() {
     if (!navigator.geolocation) return
+    if (isSavedAddressLocked()) return
     if (state.lastLat !== null && state.lastLng !== null) return
 
     navigator.geolocation.getCurrentPosition(
@@ -1041,7 +1055,7 @@ window.addEventListener('build-route', (e) => {
   bindGlobalHandlersOnce()
   mountAny()
 
-  if (navigator.geolocation) {
+  if (navigator.geolocation && !isSavedAddressLocked()) {
     navigator.geolocation.getCurrentPosition((pos) => {
       const lat = pos.coords.latitude
       const lng = pos.coords.longitude
