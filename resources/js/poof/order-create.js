@@ -241,27 +241,6 @@ import initMap from './map'
       }
     }, 200)
 
-    if (addressId) {
-      fetch(`/api/addresses/${addressId}`)
-        .then((res) => res.json())
-        .then((address) => {
-          if (!address?.lat || !address?.lng) {
-            console.log('[POOF] address has no coordinates')
-            return
-          }
-
-          console.log('[POOF] center map from saved address', address.lat, address.lng)
-
-          if (window.POOF?.map && window.POOF?.setMarker) {
-            window.POOF.setMarker(address.lat, address.lng)
-            window.POOF.map.setView([address.lat, address.lng], 17)
-          }
-        })
-        .catch((err) => {
-          console.error('[POOF] address fetch failed', err)
-        })
-    }
-
     // Sync & helpers
     bindLivewireToMapSyncOnce()
     bindGeocodeDebounceOnce()
