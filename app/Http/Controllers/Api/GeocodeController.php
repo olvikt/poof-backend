@@ -231,12 +231,12 @@ class GeocodeController extends Controller
             ])));
 
             if ($label === '') {
-                $label = $props['name'] ?? 'Unknown address';
+                $label = $street ?? 'Unknown address';
             }
 
             $suggestions[] = [
                 'label' => $label,
-                'name' => $props['name'] ?? null,
+                'name' => $street,
                 'street' => $street,
                 'house' => $house,
                 'housenumber' => $house,
