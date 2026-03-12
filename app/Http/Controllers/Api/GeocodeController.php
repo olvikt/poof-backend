@@ -144,11 +144,16 @@ class GeocodeController extends Controller
         }
 
         try {
-            $response = Http::timeout(2)
+            $response = Http::timeout(8)
                 ->retry(1, 100)
                 ->acceptJson()
                 ->get('https://photon.komoot.io/api/', $params);
-        } catch (ConnectionException|RequestException|\Throwable) {
+        } catch (\Throwable $e) {
+            logger()->error('Photon request failed', [
+                'query' => $query,
+                'error' => $e->getMessage(),
+            ]);
+
             return [];
         }
 
