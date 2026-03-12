@@ -203,15 +203,15 @@ class GeocodeController extends Controller
                 continue;
             }
 
-            $lon = (float) $coords[0];
-            $latValue = (float) $coords[1];
+            $featureLon = (float) $coords[0];
+            $featureLat = (float) $coords[1];
 
-            if (! is_finite($latValue) || ! is_finite($lon)) {
+            if (! is_finite($featureLat) || ! is_finite($featureLon)) {
                 continue;
             }
 
             if ($lat !== null && $lng !== null) {
-                $distance = $this->distance($lat, $lng, $latValue, $lon);
+                $distance = $this->distance($lat, $lng, $featureLat, $featureLon);
 
                 if ($distance > 1000) {
                     continue;
@@ -250,8 +250,8 @@ class GeocodeController extends Controller
                 'city' => $city,
                 'state' => $props['state'] ?? null,
                 'country' => $props['country'] ?? null,
-                'lat' => $latValue,
-                'lng' => $lon,
+                'lat' => $featureLat,
+                'lng' => $featureLon,
             ];
         }
 
