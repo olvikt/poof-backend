@@ -135,7 +135,7 @@ class GeocodeController extends Controller
             'limit' => 15,
             'lang' => 'uk',
             'countrycode' => 'UA',
-            'osm_tag' => 'highway',
+            'layer' => 'street',
         ];
 
         if ($lat !== null && $lng !== null) {
@@ -153,6 +153,12 @@ class GeocodeController extends Controller
         }
 
         if (! $response->successful()) {
+            logger()->error('Photon request failed', [
+                'status' => $response->status(),
+                'body' => $response->body(),
+                'query' => $query,
+            ]);
+
             return [];
         }
 
@@ -161,6 +167,11 @@ class GeocodeController extends Controller
         logger()->debug('Photon features', [
             'query' => $query,
             'features' => count($data['features'] ?? []),
+        ]);
+
+        logger()->debug('PHOTON RAW', [
+            'query' => $query,
+            'features' => $data['features'] ?? [],
         ]);
 
         $features = collect($data['features'] ?? [])
