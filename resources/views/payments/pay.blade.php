@@ -11,7 +11,7 @@
             <p class="text-gray-400 text-sm">Сума до сплати</p>
 
             <div class="text-3xl font-bold text-yellow-400 mt-1">
-                ₴ {{ number_format($amount, 2) }}
+                ₴ {{ number_format((float) $order->price, 2, '.', ' ') }}
             </div>
         </div>
 
