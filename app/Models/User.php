@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use Filament\Panel;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
@@ -94,6 +95,11 @@ class User extends Authenticatable
     public function isAdmin(): bool
     {
         return $this->isActive() && $this->hasRole(self::ROLE_ADMIN);
+    }
+
+    public function canAccessPanel(Panel $panel): bool
+    {
+        return $this->isAdmin();
     }
 
     public function isCourier(): bool
@@ -345,5 +351,4 @@ class User extends Authenticatable
         ];
     }
 }
-
 
