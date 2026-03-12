@@ -968,7 +968,7 @@ async function buildRoute(fromLat, fromLng, toLat, toLng) {
 
   window.addEventListener('use-current-location', () => {
     if (!navigator.geolocation) {
-      alert('Геолокація не підтримується')
+      alert('Геолокація не підтримується браузером')
       return
     }
 
@@ -978,13 +978,20 @@ async function buildRoute(fromLat, fromLng, toLat, toLng) {
         const lng = pos.coords?.longitude
         if (!isValidLatLng(lat, lng)) return
 
+        console.log('User location:', lat, lng)
+
         void updatePointAndAddress(lat, lng, {
           source: 'user',
           zoom: 18,
         })
+
+        window.dispatchEvent(new CustomEvent('close-address-book'))
       },
-      () => alert('Не вдалося отримати локацію'),
-      { enableHighAccuracy: true, timeout: 12000, maximumAge: 0 }
+      (err) => {
+        console.error('Geolocation error', err)
+        alert('Не вдалося отримати вашу локацію')
+      },
+      { enableHighAccuracy: true, timeout: 8000 }
     )
   })
 
