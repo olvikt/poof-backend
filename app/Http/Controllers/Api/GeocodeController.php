@@ -17,7 +17,11 @@ class GeocodeController extends Controller
         $query = (string) $request->query('q', '');
         $normalizedQuery = mb_strtolower(trim(preg_replace('/\s+/u', ' ', $query) ?? ''));
         $lat = $this->normalizedCoordinate($request->query('lat'), -90, 90);
-        $lng = $this->normalizedCoordinate($request->query('lon', $request->query('lng')), -180, 180);
+        $lng = $this->normalizedCoordinate(
+            $request->query('lng', $request->query('lon')),
+            -180,
+            180
+        );
 
         if ($normalizedQuery === '' && $lat !== null && $lng !== null) {
             $cacheKey = 'geocode:reverse:' . md5($lat . ',' . $lng);
@@ -55,9 +59,16 @@ class GeocodeController extends Controller
 
                 $suggestions = $this->fetchPhotonSuggestions($normalizedQuery, $lat, $lng);
 
-                Cache::put($cacheKey, $suggestions, now()->addMinutes(30));
+                if (! empty($suggestions)) {
+                    Cache::put($cacheKey, $suggestions, now()->addMinutes(30));
+                }
             }
-        } catch (\Throwable) {
+        } catch (\Throwable $e) {
+            logger()->error('Photon request failed', [
+                'query' => $normalizedQuery,
+                'error' => $e->getMessage(),
+            ]);
+
             $suggestions = [];
         }
 
