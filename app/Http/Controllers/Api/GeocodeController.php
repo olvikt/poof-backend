@@ -134,6 +134,7 @@ class GeocodeController extends Controller
             'q' => $query,
             'limit' => 15,
             'lang' => 'uk',
+            'countrycode' => 'UA',
             'osm_tag' => 'highway',
         ];
 
