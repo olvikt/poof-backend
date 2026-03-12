@@ -132,12 +132,14 @@ class GeocodeController extends Controller
     {
         $params = [
             'q' => $query,
-            'lat' => $lat,
-            'lon' => $lng,
             'limit' => 15,
-            'bbox' => '22.0,44.0,40.0,53.0',
             'lang' => 'uk',
         ];
+
+        if ($lat !== null && $lng !== null) {
+            $params['lat'] = $lat;
+            $params['lon'] = $lng;
+        }
 
         try {
             $response = Http::timeout(2)
