@@ -83,13 +83,18 @@ class User extends Authenticatable
 
     public function isActive(): bool
     {
-        return (bool) $this->is_active;
+        // Старые записи могли быть созданы до добавления поля is_active.
+        // Для обратной совместимости считаем null как активного пользователя.
+        return $this->is_active !== false;
     }
 
     public function hasRole(string $role): bool
     {
-        return in_array($role, self::ROLES, true)
-            && $this->role === $role;
+        $expectedRole = strtolower(trim($role));
+        $currentRole = strtolower(trim((string) $this->role));
+
+        return in_array($expectedRole, self::ROLES, true)
+            && $currentRole === $expectedRole;
     }
 
     public function isAdmin(): bool
@@ -351,4 +356,3 @@ class User extends Authenticatable
         ];
     }
 }
-
