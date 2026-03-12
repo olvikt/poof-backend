@@ -442,10 +442,20 @@
 				</button>
 
 				@empty
-					<div class="text-center mt-6">
+					<div class="text-center mt-6 space-y-3">
 						<p class="text-sm text-gray-400 mb-4">
 							Збережених адрес поки немає
 						</p>
+
+						<button
+							type="button"
+							x-data
+							@click="$dispatch('use-current-location')"
+							class="inline-flex w-full sm:w-auto items-center justify-center gap-2 p-4 rounded-xl border border-neutral-700 hover:bg-neutral-800 text-white font-medium transition"
+						>
+							<span>📍</span>
+							<span>Використати мою локацію</span>
+						</button>
 
 						<a
 							href="/client/profile"

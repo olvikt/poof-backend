@@ -966,6 +966,28 @@ async function buildRoute(fromLat, fromLng, toLat, toLng) {
     state.addressLocked = false
   })
 
+  window.addEventListener('use-current-location', () => {
+    if (!navigator.geolocation) {
+      alert('Геолокація не підтримується')
+      return
+    }
+
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        const lat = pos.coords?.latitude
+        const lng = pos.coords?.longitude
+        if (!isValidLatLng(lat, lng)) return
+
+        void updatePointAndAddress(lat, lng, {
+          source: 'user',
+          zoom: 18,
+        })
+      },
+      () => alert('Не вдалося отримати локацію'),
+      { enableHighAccuracy: true, timeout: 12000, maximumAge: 0 }
+    )
+  })
+
   // ============================================================
   // 🗺 ROUTE BUILDING (ADD THIS HERE)
   // ============================================================
