@@ -101,7 +101,7 @@ class GeocodeControllerTest extends TestCase
             ->assertJsonPath('1.city', 'Львів');
     }
 
-    public function test_it_does_not_cache_repeated_queries_while_debugging(): void
+    public function test_it_caches_repeated_queries(): void
     {
         Http::fake([
             'https://photon.komoot.io/api*' => Http::response([
@@ -122,10 +122,10 @@ class GeocodeControllerTest extends TestCase
         $this->getJson('/api/geocode?q=стрільців')->assertOk();
         $this->getJson('/api/geocode?q=стрільців')->assertOk();
 
-        Http::assertSentCount(2);
+        Http::assertSentCount(1);
     }
 
-    public function test_it_does_not_cache_empty_results(): void
+    public function test_it_caches_empty_results(): void
     {
         Http::fake([
             'https://photon.komoot.io/api*' => Http::response([
@@ -136,7 +136,46 @@ class GeocodeControllerTest extends TestCase
         $this->getJson('/api/geocode?q=порожньо')->assertOk()->assertExactJson([]);
         $this->getJson('/api/geocode?q=порожньо')->assertOk()->assertExactJson([]);
 
-        Http::assertSentCount(2);
+        Http::assertSentCount(1);
+    }
+
+    public function test_it_uses_photon_supported_query_params(): void
+    {
+        Http::fake([
+            'https://photon.komoot.io/api*' => Http::response([
+                'features' => [],
+            ]),
+        ]);
+
+        $this->getJson('/api/geocode?q=набережна&lat=48.42&lng=35.05')->assertOk();
+
+        Http::assertSent(function ($request) {
+            return $request->url() === 'https://photon.komoot.io/api/?q=%D0%BD%D0%B0%D0%B1%D0%B5%D1%80%D0%B5%D0%B6%D0%BD%D0%B0&lat=48.42&lon=35.05&limit=15&bbox=22.0%2C44.0%2C40.0%2C53.0&lang=uk';
+        });
+    }
+
+    public function test_it_keeps_results_within_broad_distance_radius(): void
+    {
+        Http::fake([
+            'https://photon.komoot.io/api*' => Http::response([
+                'features' => [
+                    [
+                        'properties' => [
+                            'name' => 'Набережна',
+                            'city' => 'Дніпро',
+                        ],
+                        'geometry' => [
+                            'coordinates' => [27.56, 53.9],
+                        ],
+                    ],
+                ],
+            ]),
+        ]);
+
+        $this->getJson('/api/geocode?q=набережна&lat=48.42&lng=35.05')
+            ->assertOk()
+            ->assertJsonCount(1)
+            ->assertJsonPath('0.label', 'Набережна, Дніпро');
     }
 
 }

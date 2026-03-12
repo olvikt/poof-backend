@@ -46,7 +46,7 @@ class GeocodeController extends Controller
         try {
             $suggestions = Cache::get($cacheKey);
 
-            if (! is_array($suggestions) || empty($suggestions)) {
+            if (! is_array($suggestions)) {
                 \Log::debug('Photon cache miss', [
                     'query' => $normalizedQuery,
                     'lat' => $lat,
@@ -55,9 +55,7 @@ class GeocodeController extends Controller
 
                 $suggestions = $this->fetchPhotonSuggestions($normalizedQuery, $lat, $lng);
 
-                if (! empty($suggestions)) {
-                    Cache::put($cacheKey, $suggestions, now()->addMinutes(30));
-                }
+                Cache::put($cacheKey, $suggestions, now()->addMinutes(30));
             }
         } catch (\Throwable) {
             $suggestions = [];
@@ -133,10 +131,10 @@ class GeocodeController extends Controller
     private function fetchPhotonSuggestions(string $query, ?float $lat, ?float $lng): array
     {
         $params = [
-            'q' => $query . '*',
+            'q' => $query,
             'lat' => $lat,
             'lon' => $lng,
-            'limit' => 5,
+            'limit' => 15,
             'bbox' => '22.0,44.0,40.0,53.0',
             'lang' => 'uk',
         ];
@@ -158,6 +156,11 @@ class GeocodeController extends Controller
         $features = collect($data['features'] ?? [])
             ->values()
             ->all();
+
+        logger()->debug('Photon results', [
+            'query' => $query,
+            'features' => count($features),
+        ]);
 
         if (empty($features)) {
             logger()->debug('Photon returned empty result', [
@@ -187,7 +190,7 @@ class GeocodeController extends Controller
             if ($lat !== null && $lng !== null) {
                 $distance = $this->distance($lat, $lng, $latValue, $lon);
 
-                if ($distance >= 500) {
+                if ($distance > 1000) {
                     continue;
                 }
             }
@@ -196,6 +199,10 @@ class GeocodeController extends Controller
                 ?? $props['name']
                 ?? $props['road']
                 ?? null;
+
+            if (! $street) {
+                $street = $props['name'] ?? null;
+            }
             $house = $props['housenumber'] ?? $props['house_number'] ?? null;
             $city = $props['city']
                 ?? $props['district']
@@ -264,10 +271,14 @@ class GeocodeController extends Controller
             $seen[$key] = true;
             $unique[] = $suggestion;
 
-            if (count($unique) >= 5) {
+            if (count($unique) >= 10) {
                 break;
             }
         }
+
+        logger()->debug('Photon filtered results', [
+            'count' => count($unique),
+        ]);
 
         return $unique;
     }
