@@ -442,9 +442,18 @@
 				</button>
 
 				@empty
-					<p class="text-sm text-gray-400 text-center">
-						Збережених адрес поки немає
-					</p>
+					<div class="text-center mt-6">
+						<p class="text-sm text-gray-400 mb-4">
+							Збережених адрес поки немає
+						</p>
+
+						<a
+							href="/client/profile"
+							class="inline-flex w-full sm:w-auto items-center justify-center px-5 py-2.5 rounded-xl bg-yellow-500 hover:bg-yellow-400 text-black font-semibold transition"
+						>
+							➕ Додати адресу
+						</a>
+					</div>
 				@endforelse
 			</div>
 
