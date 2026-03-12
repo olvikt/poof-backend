@@ -404,6 +404,10 @@
 
 </div>
 		{{-- ================= ADDRESS PICKER SHEET ================= --}}
+		<div
+			x-data
+			x-on:close-address-book.window="$dispatch('sheet:close', { name: 'addressPicker' })"
+		>
 		<x-poof.ui.bottom-sheet name="addressPicker" title="Мої адреси">
 			<div class="space-y-3">
 				@forelse($addresses as $address)
@@ -469,6 +473,7 @@
 			</div>
 
 		</x-poof.ui.bottom-sheet>
+		</div>
       @vite('resources/js/poof/order-create.js')
 
 </div>
