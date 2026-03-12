@@ -186,6 +186,8 @@ class GeocodeController extends Controller
             $props = $feature['properties'] ?? [];
             $coords = $feature['geometry']['coordinates'] ?? null;
 
+            // Photon `properties.type` can vary (e.g. `street`, `residential`) and
+            // should not be used as a hard filter for autocomplete suggestions.
             if (! is_array($coords) || count($coords) < 2) {
                 continue;
             }
