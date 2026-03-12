@@ -449,9 +449,10 @@
 
 						<a
 							href="/client/profile"
-							class="inline-flex w-full sm:w-auto items-center justify-center px-5 py-2.5 rounded-xl bg-yellow-500 hover:bg-yellow-400 text-black font-semibold transition"
+							class="inline-flex w-full sm:w-auto items-center justify-center gap-2 p-4 rounded-xl bg-yellow-500 hover:bg-yellow-400 text-black font-semibold transition"
 						>
-							➕ Додати адресу
+							<span>➕</span>
+							<span>Додати адресу</span>
 						</a>
 					</div>
 				@endforelse
