@@ -1,33 +1,98 @@
-@extends('layouts.app')
+<x-layouts.app title="Poof — Оплата">
 
-@section('content')
-<div class="min-h-screen flex items-center justify-center bg-gray-900 text-white p-4">
-    <div class="w-full max-w-md bg-neutral-900 border border-neutral-800 rounded-2xl p-6 space-y-6 shadow-lg">
-        <h1 class="text-xl font-semibold text-center">
-            💳 Оплата замовлення #{{ $order->id }}
-        </h1>
+<div class="px-4 py-6">
 
-        <div class="text-center">
-            <p class="text-gray-400 text-sm">Сума до сплати</p>
+<div class="bg-gradient-to-b from-gray-900 to-gray-800 rounded-3xl p-6 border border-gray-700 shadow-xl space-y-6">
 
-            <div class="text-3xl font-bold text-yellow-400 mt-1">
-                ₴ {{ number_format((float) $order->price, 2, '.', ' ') }}
-            </div>
-        </div>
+{{-- Header --}}
+<div class="text-center space-y-1">
 
-        <a
-            href="{{ $liqpayUrl }}"
-            class="block w-full text-center p-4 rounded-xl bg-green-500 hover:bg-green-400 text-white font-semibold text-lg transition"
-        >
-            Сплатити через LiqPay
-        </a>
+<div class="text-3xl">💳</div>
 
-        <a
-            href="{{ route('client.orders.show', $order) }}"
-            class="block w-full text-center p-4 rounded-xl bg-yellow-500 hover:bg-yellow-400 text-black font-semibold transition"
-        >
-            Повернутися до замовлення
-        </a>
-    </div>
+<h2 class="text-xl font-semibold text-gray-200">
+Оплата замовлення
+</h2>
+
+<p class="text-gray-400 text-xl">
+№ {{ $order->id }}
+</p>
+
 </div>
-@endsection
+
+{{-- Amount card --}}
+<div class="bg-gray-800 rounded-2xl p-6 text-center relative overflow-hidden">
+
+<div class="absolute inset-0 bg-gradient-to-r from-yellow-400/10 via-yellow-400/20 to-yellow-400/10 blur-xl"></div>
+
+<p class="text-gray-400 text-sm relative">
+Сума до сплати
+</p>
+
+<div class="text-5xl font-bold text-yellow-400 mt-2 relative">
+{{ number_format((float) $order->price, 2, '.', ' ') }} ₴
+</div>
+
+</div>
+
+{{-- Payment method --}}
+<div class="bg-gray-800 rounded-xl p-4 flex items-center justify-between">
+
+<div class="flex items-center gap-3">
+
+<div class="text-xl">💳</div>
+
+<div>
+
+<p class="text-sm  text-gray-200  font-medium">
+Картка
+</p>
+
+<p class="text-xs text-gray-400">
+LiqPay / Apple Pay / Google Pay
+</p>
+
+</div>
+
+</div>
+
+<div class="text-green-400 text-sm">
+доступно
+</div>
+
+</div>
+
+{{-- Security --}}
+<div class="flex items-center justify-center gap-2 text-xs text-gray-400">
+
+<span>🔒</span>
+
+<span>Безпечна оплата через LiqPay</span>
+
+</div>
+
+{{-- Pay button --}}
+<form method="POST" action="{{ route('client.payments.dev-pay', $order) }}">
+@csrf
+
+<button
+class="w-full py-4 rounded-2xl bg-green-500 hover:bg-green-400 active:scale-95 transition text-lg font-semibold shadow-lg shadow-green-500/30">
+
+✅ Оплатити
+
+</button>
+
+</form>
+
+{{-- Back --}}
+<a href="{{ route('client.orders') }}"
+class="block w-full text-center py-3 rounded-2xl bg-yellow-500 hover:bg-yellow-400 text-black font-semibold transition">
+
+← До замовлень
+
+</a>
+
+</div>
+
+</div>
+
+</x-layouts.app>
