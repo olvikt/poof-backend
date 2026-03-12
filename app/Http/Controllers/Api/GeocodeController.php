@@ -134,6 +134,7 @@ class GeocodeController extends Controller
             'q' => $query,
             'limit' => 15,
             'lang' => 'uk',
+            'osm_tag' => 'highway',
         ];
 
         if ($lat !== null && $lng !== null) {
@@ -155,6 +156,12 @@ class GeocodeController extends Controller
         }
 
         $data = $response->json();
+
+        logger()->debug('Photon features', [
+            'query' => $query,
+            'features' => count($data['features'] ?? []),
+        ]);
+
         $features = collect($data['features'] ?? [])
             ->values()
             ->all();
