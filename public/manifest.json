@@ -34,7 +34,7 @@
     {
       "name": "Створити замовлення",
       "short_name": "Замовлення",
-      "url": "/#order",
+      "url": "/order",
       "icons": [
         {
           "src": "/assets/icons/icon-192.png",
