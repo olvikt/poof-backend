@@ -73,6 +73,13 @@ return [
             'replace_placeholders' => true,
         ],
 
+        'dispatch' => [
+            'driver' => 'single',
+            'path' => storage_path('logs/dispatch.log'),
+            'level' => env('LOG_LEVEL', 'debug'),
+            'replace_placeholders' => true,
+        ],
+
         'slack' => [
             'driver' => 'slack',
             'url' => env('LOG_SLACK_WEBHOOK_URL'),

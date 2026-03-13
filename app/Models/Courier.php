@@ -49,6 +49,16 @@ class Courier extends Model
             ->where('last_location_at', '>', now()->subSeconds(60));
     }
 
+
+    public function gpsAgeSeconds(): ?int
+    {
+        if (! $this->last_location_at) {
+            return null;
+        }
+
+        return abs(now()->diffInSeconds($this->last_location_at));
+    }
+
     public function scopeAvailable(Builder $query): Builder
     {
         return $query->where('status', self::STATUS_ONLINE);
