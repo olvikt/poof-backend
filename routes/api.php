@@ -11,6 +11,7 @@ use App\Http\Controllers\Api\GeocodeController;
 
 // COURIER
 use App\Http\Controllers\Api\CourierOrderController;
+use App\Http\Controllers\Api\AdminMapController;
 
 
 Route::post('/register', [RegisterController::class, 'register'])
@@ -51,3 +52,6 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('/orders/{order}/accept', [CourierOrderController::class, 'accept']);
 });
 
+
+Route::middleware('auth:sanctum')
+    ->get('/admin/map-data', [AdminMapController::class, 'index']);
