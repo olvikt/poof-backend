@@ -3,6 +3,7 @@
 namespace App\Livewire\Courier;
 
 use Livewire\Component;
+use App\Models\Courier;
 use App\Models\User;
 use App\Services\Dispatch\OfferDispatcher;
 
@@ -70,6 +71,20 @@ class LocationTracker extends Component
             'last_lng'     => $lng,
             'last_seen_at' => now(),
         ]);
+
+        $courierProfile = $user->courierProfile;
+
+        if ($courierProfile) {
+            $courierData = [
+                'last_location_at' => now(),
+            ];
+
+            if ($user->is_online && $courierProfile->status === Courier::STATUS_OFFLINE) {
+                $courierData['status'] = Courier::STATUS_ONLINE;
+            }
+
+            $courierProfile->update($courierData);
+        }
 
         // -------------------------------------------------
         // Если курьер ONLINE — запускаем dispatcher

@@ -228,7 +228,7 @@ Route::middleware('auth:web')
                 return back()->with('error', 'Неможливо розпочати це замовлення.');
             }
 
-            $order->start();
+            $order->startBy(auth()->user());
 
             return redirect()
                 ->route('courier.my-orders')
@@ -247,7 +247,7 @@ Route::middleware('auth:web')
                 return back()->with('error', 'Неможливо завершити це замовлення.');
             }
 
-            $order->complete();
+            $order->completeBy(auth()->user());
 
             return redirect()
                 ->route('courier.my-orders')
