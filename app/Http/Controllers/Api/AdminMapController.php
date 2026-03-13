@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use App\Models\Courier;
 use App\Models\Order;
 use App\Models\User;
 use Illuminate\Http\JsonResponse;
@@ -13,7 +14,11 @@ class AdminMapController extends Controller
     {
         $couriers = User::query()
             ->where('role', User::ROLE_COURIER)
-            ->where('is_online', 1)
+            ->whereHas('courierProfile', function ($query) {
+                $query->whereIn('status', Courier::ACTIVE_MAP_STATUSES)
+                    ->where('last_location_at', '>', now()->subSeconds(60));
+            })
+            ->with('courierProfile:id,user_id,status,last_location_at')
             ->whereNotNull('last_lat')
             ->whereNotNull('last_lng')
             ->get([
@@ -27,6 +32,7 @@ class AdminMapController extends Controller
                 'name' => $courier->name,
                 'lat' => (float) $courier->last_lat,
                 'lng' => (float) $courier->last_lng,
+                'status' => $courier->courierProfile?->status,
                 'vehicle_type' => null,
             ])
             ->values();

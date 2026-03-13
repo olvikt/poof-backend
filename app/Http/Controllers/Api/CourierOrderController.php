@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use App\Models\Courier;
 use App\Models\Order;
 use Illuminate\Support\Facades\DB;
 
@@ -18,7 +19,7 @@ class CourierOrderController extends Controller
         abort_if(! $courier || ! $courier->isCourier(), 403);
 
         $orders = Order::query()
-            ->where('status', 'new')
+            ->where('status', Order::STATUS_SEARCHING)
             ->whereNull('courier_id')
             ->orderBy('created_at')
             ->get();
@@ -42,7 +43,7 @@ class CourierOrderController extends Controller
             // 🔒 защита от гонок
             $order->refresh();
 
-            if ($order->status !== 'new' || $order->courier_id !== null) {
+            if ($order->status !== Order::STATUS_SEARCHING || $order->courier_id !== null) {
                 return response()->json([
                     'success' => false,
                     'message' => 'Замовлення вже взято',
@@ -50,9 +51,12 @@ class CourierOrderController extends Controller
             }
 
             $order->update([
-                'status'     => 'accepted',
+                'status'     => Order::STATUS_ACCEPTED,
                 'courier_id' => $courier->id,
             ]);
+
+            $courier->update(['is_busy' => true]);
+            $courier->courierProfile()->update(['status' => Courier::STATUS_ASSIGNED]);
 
             return response()->json([
                 'success' => true,

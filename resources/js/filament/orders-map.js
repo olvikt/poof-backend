@@ -1,7 +1,9 @@
 window.ordersMapComponent = function (config) {
     return {
         map: null,
-        markersLayer: null,
+        availableCouriersLayer: null,
+        busyCouriersLayer: null,
+        ordersLayer: null,
         pollingTimer: null,
 
         init() {
@@ -49,7 +51,9 @@ window.ordersMapComponent = function (config) {
                 keyboard: true,
             }).setView([50.4501, 30.5234], 11)
 
-            this.markersLayer = L.layerGroup().addTo(this.map)
+            this.availableCouriersLayer = L.layerGroup().addTo(this.map)
+            this.busyCouriersLayer = L.layerGroup().addTo(this.map)
+            this.ordersLayer = L.layerGroup().addTo(this.map)
 
             L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
                 attribution: '© OpenStreetMap',
@@ -57,10 +61,10 @@ window.ordersMapComponent = function (config) {
         },
 
         async loadMapData() {
-            if (!this.map || !this.markersLayer) return
+            if (!this.map || !this.availableCouriersLayer || !this.busyCouriersLayer || !this.ordersLayer) return
 
             try {
-                const response = await fetch('/api/admin/map-data', {
+                const response = await fetch('/api/dashboard/map', {
                     headers: {
                         Accept: 'application/json',
                     },
@@ -79,27 +83,44 @@ window.ordersMapComponent = function (config) {
         },
 
         renderMapData(data) {
-            if (!this.markersLayer) return
+            if (!this.availableCouriersLayer || !this.busyCouriersLayer || !this.ordersLayer) return
 
             const couriers = Array.isArray(data?.couriers) ? data.couriers : []
             const orders = Array.isArray(data?.orders) ? data.orders : []
 
-            this.markersLayer.clearLayers()
+            this.availableCouriersLayer.clearLayers()
+            this.busyCouriersLayer.clearLayers()
+            this.ordersLayer.clearLayers()
+
+            const getCourierColor = (status) => {
+                if (status === 'online') return '#16a34a'
+                if (status === 'assigned') return '#2563eb'
+                if (status === 'delivering') return '#f97316'
+                return null
+            }
 
             couriers.forEach((courier) => {
                 if (!courier?.lat || !courier?.lng) return
 
-                L.circleMarker([courier.lat, courier.lng], {
+                const color = getCourierColor(courier.status)
+                if (!color) return
+
+                const marker = L.circleMarker([courier.lat, courier.lng], {
                     radius: 8,
-                    color: '#16a34a',
+                    color,
                     weight: 2,
-                    fillColor: '#16a34a',
+                    fillColor: color,
                     fillOpacity: 0.8,
                 })
                     .bindPopup(
-                        `<div><strong>Courier</strong><br>Name: ${courier.name ?? '-'}<br>Vehicle: ${courier.vehicle_type ?? '-'}</div>`
+                        `<div><strong>Courier</strong><br>Name: ${courier.name ?? '-'}<br>Status: ${courier.status ?? '-'}<br>Vehicle: ${courier.vehicle_type ?? '-'}</div>`
                     )
-                    .addTo(this.markersLayer)
+
+                if (courier.status === 'online') {
+                    marker.addTo(this.availableCouriersLayer)
+                } else {
+                    marker.addTo(this.busyCouriersLayer)
+                }
             })
 
             orders.forEach((order) => {
@@ -115,7 +136,7 @@ window.ordersMapComponent = function (config) {
                     .bindPopup(
                         `<div><strong>Order #${order.id}</strong><br>Status: ${order.status ?? '-'}<br>Price: ${order.price ?? '-'} ₴</div>`
                     )
-                    .addTo(this.markersLayer)
+                    .addTo(this.ordersLayer)
             })
         },
     }
