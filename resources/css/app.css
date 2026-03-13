@@ -161,3 +161,9 @@ html.sheet-open nav.fixed.bottom-0 {
     height: 100%;
     width: 100%;
 }
+
+input,
+textarea,
+select {
+    font-size: 16px;
+}
