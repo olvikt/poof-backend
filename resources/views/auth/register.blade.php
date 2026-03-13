@@ -3,7 +3,7 @@
         <div class="mx-auto w-full max-w-md">
             <div class="mb-8 text-center">
                 <div class="mx-auto mb-4 flex h-20 w-20 items-center justify-center overflow-hidden rounded-[22px] bg-yellow-400 shadow-[0_0_30px_rgba(250,204,21,0.45)]">
-                    <img src="/images/logo-poof.png" alt="Poof logo" class="w-12 object-contain">
+                    <img src="/images/logo-poof.png" alt="Poof logo" class="object-contain">
                 </div>
                 <h1 class="text-2xl font-extrabold tracking-tight">Створіть акаунт</h1>
                 <p class="mt-1 text-sm text-white/60">Кілька кроків — і можна робити перші замовлення</p>
@@ -19,23 +19,23 @@
                 </div>
             @endif
 
-            <form method="POST" action="{{ route('register.store') }}" class="space-y-4 rounded-2xl border border-white/10 bg-white/5 p-4 sm:p-5" x-data="{ role: '{{ old('role', $defaultRole) }}', transport_type: '{{ old('transport_type') }}', city: '{{ old('city') }}' }" x-effect="if(role === 'client'){ transport_type = ''; city = '' }">
+            <form method="POST" action="{{ route('register.store') }}" class="space-y-4 rounded-2xl border border-white/10 bg-white/5 p-4 sm:p-5" x-data="{ role: '{{ old('role', $defaultRole) }}', activeTab: 'bg-yellow-400 text-black shadow-sm', inactiveTab: 'text-white/70 hover:text-white', transport_type: '{{ old('transport_type') }}', city: '{{ old('city') }}' }" x-effect="if(role === 'client'){ transport_type = ''; city = '' }">
                 @csrf
 
                 <div class="grid grid-cols-2 gap-2 rounded-xl bg-white/5 p-1">
                     <button
                         type="button"
                         @click="role = 'client'"
-                        :class="role === 'client' ? 'bg-yellow-400 text-black' : ''"
-                        class="rounded-lg px-4 py-3 text-sm font-semibold text-white/70 transition"
+                         :class="role === 'client' ? activeTab : inactiveTab"
+                        class="rounded-lg px-4 py-3 text-sm font-semibold transition"
                     >
                         Клієнт
                     </button>
                     <button
                         type="button"
                         @click="role = 'courier'"
-                        :class="role === 'courier' ? 'bg-yellow-400 text-black' : ''"
-                        class="rounded-lg px-4 py-3 text-sm font-semibold text-white/70 transition"
+                         :class="role === 'courier' ? activeTab : inactiveTab"
+                        class="rounded-lg px-4 py-3 text-sm font-semibold transition"
                     >
                         Курʼєр
                     </button>
