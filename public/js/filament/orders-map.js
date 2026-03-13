@@ -153,12 +153,15 @@ window.ordersMapComponent = function (config) {
             })
 
             // Авто-центрирование карты
-            if (bounds.length) {
+            if (bounds.length && !this.hasCentered) {
                 try {
                     this.map.fitBounds(bounds, {
                         padding: [60, 60],
-                        maxZoom: 15,
+                        maxZoom: 14,
                     })
+
+                  this.hasCentered = true
+
                 } catch (e) {}
             }
         },
