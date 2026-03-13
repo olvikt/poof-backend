@@ -3,19 +3,22 @@ window.ordersMapComponent = function (config) {
         map: null,
         markersLayer: null,
         pollingTimer: null,
+        hasCentered: false,
 
         init() {
+
             if (typeof L === 'undefined') {
-                console.error('Leaflet is not loaded')
+                console.error('Leaflet not loaded')
                 return
             }
 
             this.$nextTick(() => {
+
                 this.buildMap()
 
                 this.renderMapData({
                     couriers: [],
-                    orders: Array.isArray(config.orders) ? config.orders : [],
+                    orders: Array.isArray(config.orders) ? config.orders : []
                 })
 
                 this.loadMapData()
@@ -23,10 +26,12 @@ window.ordersMapComponent = function (config) {
                 this.pollingTimer = setInterval(() => {
                     this.loadMapData()
                 }, 10000)
+
             })
         },
 
         buildMap() {
+
             const el = document.getElementById(config.mapId)
             if (!el) return
 
@@ -36,134 +41,127 @@ window.ordersMapComponent = function (config) {
                 this.map = null
             }
 
-            if (this.pollingTimer) {
-                clearInterval(this.pollingTimer)
-                this.pollingTimer = null
-            }
-
-            if (el._leaflet_id) {
-                try {
-                    delete el._leaflet_id
-                } catch (_) {
-                    el._leaflet_id = null
-                }
-            }
-
             this.map = L.map(config.mapId, {
                 zoomControl: true,
                 dragging: true,
                 scrollWheelZoom: true,
                 doubleClickZoom: true,
                 boxZoom: true,
-                keyboard: true,
-            }).setView([50.4501, 30.5234], 6)
+                keyboard: true
+            }).setView([48.45, 35.05], 12)
 
             this.markersLayer = L.layerGroup().addTo(this.map)
 
             L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-                attribution: '© OpenStreetMap',
+                attribution: '© OpenStreetMap'
             }).addTo(this.map)
+
         },
 
         async loadMapData() {
-            if (!this.map || !this.markersLayer) return
+
+            if (!this.map) return
 
             try {
+
                 const response = await fetch('/api/admin/map-data', {
-                    headers: {
-                        Accept: 'application/json',
-                    },
                     credentials: 'same-origin',
+                    headers: { Accept: 'application/json' }
                 })
 
                 if (!response.ok) {
-                    throw new Error(`Map data request failed: ${response.status}`)
+                    throw new Error('Map data error: ' + response.status)
                 }
 
                 const data = await response.json()
 
                 this.renderMapData(data)
 
-            } catch (error) {
-                console.error('Map load error:', error)
+            } catch (e) {
+
+                console.error('Map fetch error', e)
+
             }
+
         },
 
         renderMapData(data) {
-            if (!this.markersLayer || !this.map) return
+
+            if (!this.map || !this.markersLayer) return
 
             const couriers = Array.isArray(data?.couriers) ? data.couriers : []
             const orders = Array.isArray(data?.orders) ? data.orders : []
 
-            // FIX Leaflet popup crash
+            // закрываем popup перед очисткой
             try {
-                if (this.map.closePopup) {
-                    this.map.closePopup()
-                }
+                this.map.closePopup()
             } catch (e) {}
 
             this.markersLayer.clearLayers()
 
             const bounds = []
 
-            couriers.forEach((courier) => {
+            couriers.forEach(courier => {
 
-                if (!courier?.lat || !courier?.lng) return
+                if (!courier.lat || !courier.lng) return
 
                 bounds.push([courier.lat, courier.lng])
 
                 L.circleMarker([courier.lat, courier.lng], {
                     radius: 8,
-                    color: '#16a34a',
+                    color: "#16a34a",
                     weight: 2,
-                    fillColor: '#16a34a',
-                    fillOpacity: 0.8,
+                    fillColor: "#16a34a",
+                    fillOpacity: 0.8
                 })
-                    .bindPopup(
-                        `<div>
-                            <strong>Courier</strong><br>
-                            Name: ${courier.name ?? '-'}<br>
-                            Vehicle: ${courier.vehicle_type ?? '-'}
-                        </div>`
-                    )
-                    .addTo(this.markersLayer)
+                .bindPopup(
+                    `<b>Courier</b><br>
+                     ${courier.name ?? '-'}`
+                )
+                .addTo(this.markersLayer)
+
             })
 
-            orders.forEach((order) => {
+            orders.forEach(order => {
 
-                if (!order?.lat || !order?.lng) return
+                if (!order.lat || !order.lng) return
 
                 bounds.push([order.lat, order.lng])
 
                 L.circleMarker([order.lat, order.lng], {
                     radius: 10,
-                    color: '#f97316',
+                    color: "#f97316",
                     weight: 2,
-                    fillColor: '#f97316',
-                    fillOpacity: 0.85,
+                    fillColor: "#f97316",
+                    fillOpacity: 0.9
                 })
-                    .bindPopup(
-                        `<div>
-                            <strong>Order #${order.id}</strong><br>
-                            Status: ${order.status ?? '-'}<br>
-                            Price: ${order.price ?? '-'} ₴
-                        </div>`
-                    )
-                    .addTo(this.markersLayer)
+                .bindPopup(
+                    `<b>Order #${order.id}</b><br>
+                     ${order.status}<br>
+                     ${order.price} ₴`
+                )
+                .addTo(this.markersLayer)
+
             })
 
-            // Авто-центрирование карты
-            if (bounds.length && !this.hasCentered) {
+            // центрируем карту только один раз
+            if (!this.hasCentered && bounds.length) {
+
                 try {
+
                     this.map.fitBounds(bounds, {
-                        padding: [60, 60],
-                        maxZoom: 14,
+                        padding: [50,50],
+                        maxZoom: 14
                     })
 
-                  this.hasCentered = true
+                    this.hasCentered = true
 
                 } catch (e) {}
+
             }
-        },
+
+        }
+
     }
 }
+
