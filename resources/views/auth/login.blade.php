@@ -1,6 +1,6 @@
-<x-layouts.app title="Вхід — Poof">
-    <div class="min-h-screen bg-gradient-to-b from-neutral-900 to-black text-white px-4 py-8 sm:py-12">
-        <div class="mx-auto w-full max-w-md">
+<x-layouts.auth title="Вхід — Poof">
+    <div class="min-h-[100dvh] flex items-center justify-center bg-gradient-to-b from-neutral-900 to-black text-white px-4">
+        <div class="w-full max-w-md">
             <div class="mb-8 text-center">
                 <div class="mx-auto mb-4 flex h-20 w-20 items-center justify-center overflow-hidden rounded-[22px] bg-yellow-400 shadow-[0_0_30px_rgba(250,204,21,0.45)]">
                     <img src="/images/logo-poof.png" alt="Poof logo" class="object-contain">
@@ -51,4 +51,4 @@
             </form>
         </div>
     </div>
-</x-layouts.app>
+</x-layouts.auth>
