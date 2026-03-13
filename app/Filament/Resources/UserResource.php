@@ -63,6 +63,22 @@ class UserResource extends Resource
                     ->dateTime('d.m.Y H:i')
                     ->timezone(config('app.timezone'))
                     ->sortable(),
+                TextColumn::make('last_login_at')
+                    ->label('Последний вход')
+                    ->since()
+                    ->sortable(),
+                TextColumn::make('last_seen_at')
+                    ->label('Активность')
+                    ->since()
+                    ->color(fn ($state) =>
+                        $state && now()->diffInMinutes($state) < 10
+                            ? 'success'
+                            : 'gray'
+                    )
+                    ->sortable(),
+                TextColumn::make('courierProfile.last_location_at')
+                    ->label('GPS')
+                    ->since(),
                 IconColumn::make('is_active')->boolean(),
             ])
             ->actions([

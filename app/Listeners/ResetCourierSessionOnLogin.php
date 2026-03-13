@@ -16,8 +16,17 @@ class ResetCourierSessionOnLogin
         /** @var User $user */
         $user = $event->user;
 
-        // 🔒 Только для курьеров
-        if (! $user instanceof User || ! $user->isCourier()) {
+        if (! $user instanceof User) {
+            return;
+        }
+
+        // Обновляем время последнего входа для мониторинга в админке.
+        $user->forceFill([
+            'last_login_at' => now(),
+        ])->save();
+
+        // 🔒 Дополнительная логика только для курьеров
+        if (! $user->isCourier()) {
             return;
         }
 
