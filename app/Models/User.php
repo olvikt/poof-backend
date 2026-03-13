@@ -103,6 +103,10 @@ class User extends Authenticatable implements FilamentUser
         return $this->isActive() && $this->hasRole(self::ROLE_ADMIN);
     }
 
+    /* =========================================================
+     |  FILAMENT ADMIN ACCESS
+     | ========================================================= */
+
     public function canAccessPanel(Panel $panel): bool
     {
         return $this->isAdmin();
