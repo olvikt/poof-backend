@@ -42,6 +42,18 @@ Route::get('/register', [RegisterController::class, 'show'])
     ->middleware('guest')
     ->name('register');
 
+Route::view('/forgot-password', 'auth.forgot-password')
+    ->middleware('guest')
+    ->name('password.request');
+
+Route::view('/reset-password/{token}', 'auth.reset-password')
+    ->middleware('guest')
+    ->name('password.reset');
+
+Route::view('/verify-email', 'auth.verify-email')
+    ->middleware('auth')
+    ->name('verification.notice');
+
 Route::get('/courier/register', fn () => redirect()->route('register', ['role' => 'courier']))
     ->middleware('guest')
     ->name('courier.register');

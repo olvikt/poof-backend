@@ -1,54 +1,60 @@
-<x-layouts.auth title="Вхід — Poof">
-    <div class="min-h-[100dvh] flex items-center justify-center bg-gradient-to-b from-neutral-900 to-black text-white px-4">
-        <div class="w-full max-w-md">
-            <div class="mb-8 text-center">
-                <div class="mx-auto mb-4 flex h-20 w-20 items-center justify-center overflow-hidden rounded-[22px] bg-yellow-400 shadow-[0_0_30px_rgba(250,204,21,0.45)]">
-                    <img src="/images/logo-poof.png" alt="Poof logo" class="object-contain">
-                </div>
-                <h1 class="text-2xl font-extrabold tracking-tight">Увійти до POOF</h1>
-                <p class="mt-1 text-sm text-white/60">Використайте email або телефон для входу</p>
+<x-layouts.auth>
+    <x-auth.logo />
+
+    <x-auth.title
+        title="Увійти до POOF"
+        subtitle="Використайте email або телефон для входу"
+    />
+
+    <x-auth.card>
+        @if ($errors->any())
+            <div class="rounded-xl border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-300">
+                {{ $errors->first() }}
             </div>
+        @endif
 
-            @if ($errors->any())
-                <div class="mb-4 rounded-xl border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-300">
-                    {{ $errors->first() }}
-                </div>
-            @endif
+        <form method="POST" action="{{ route('login.post') }}" class="space-y-4">
+            @csrf
 
-            <form method="POST" action="{{ route('login') }}" class="space-y-4 rounded-2xl border border-white/10 bg-white/5 p-4 sm:p-5">
-                @csrf
+            <input
+                type="text"
+                name="login"
+                value="{{ old('login') }}"
+                placeholder="Email або телефон"
+                required
+                autofocus
+                class="w-full rounded-xl bg-white/10 border border-white/10 px-4 py-3 text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-yellow-400"
+            />
 
-                <input
-                    type="text"
-                    name="login"
-                    value="{{ old('login') }}"
-                    placeholder="Email або телефон"
-                    required
-                    autofocus
-                    class="w-full rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-white placeholder-white/40 focus:outline-none focus:ring-2 focus:ring-yellow-400"
-                >
+            <input
+                type="password"
+                name="password"
+                autocomplete="current-password"
+                placeholder="Пароль"
+                required
+                class="w-full rounded-xl bg-white/10 border border-white/10 px-4 py-3 text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-yellow-400"
+            />
 
-                <input
-                    type="password"
-                    name="password"
-                    autocomplete="current-password"
-                    placeholder="Пароль"
-                    required
-                    class="w-full rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-white placeholder-white/40 focus:outline-none focus:ring-2 focus:ring-yellow-400"
-                >
+            <button
+                type="submit"
+                class="w-full bg-yellow-400 text-black font-semibold py-3 rounded-xl hover:bg-yellow-300 transition"
+            >
+                Увійти
+            </button>
+        </form>
 
-                <button
-                    type="submit"
-                    class="w-full rounded-xl bg-yellow-400 py-3 text-base font-bold text-black transition active:scale-95"
-                >
-                    Увійти
-                </button>
+        <p class="text-center text-gray-400 text-sm mt-4">
+            Забули пароль?
+            <a href="{{ url('/forgot-password') }}" class="text-yellow-400 font-semibold">
+                Відновити
+            </a>
+        </p>
 
-                <div class="mt-6 text-center text-sm">
-                    <span class="text-white/60">Немає акаунту?</span>
-                    <a href="{{ route('register') }}" class="font-semibold text-yellow-400 hover:underline">Зареєструватися</a>
-                </div>
-            </form>
-        </div>
-    </div>
+        <p class="text-center text-gray-400 text-sm mt-2">
+            Немає акаунту?
+            <a href="{{ route('register') }}" class="text-yellow-400 font-semibold">
+                Зареєструватися
+            </a>
+        </p>
+    </x-auth.card>
 </x-layouts.auth>
