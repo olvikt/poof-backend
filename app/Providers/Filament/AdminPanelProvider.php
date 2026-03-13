@@ -74,8 +74,8 @@ class AdminPanelProvider extends PanelProvider
                 for: 'App\\Filament\\Widgets'
             )
             ->widgets([
+                \App\Filament\Widgets\PoofStats::class,
                 Widgets\AccountWidget::class,
-                Widgets\FilamentInfoWidget::class,
             ])
 
             /**
