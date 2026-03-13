@@ -7,6 +7,10 @@ html, body {
     height: 100%;
 }
 
+html {
+    touch-action: pan-y;
+}
+
 body {
     overscroll-behavior-y: contain;
     overflow-x: hidden;
