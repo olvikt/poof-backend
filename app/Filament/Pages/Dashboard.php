@@ -26,7 +26,6 @@ class Dashboard extends BaseDashboard
         return [
             PoofStats::class,
             OrdersMap::class,
-            Widgets\FilamentInfoWidget::class,
         ];
     }
 }
