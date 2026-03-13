@@ -61,6 +61,7 @@ class UserResource extends Resource
                 TextColumn::make('created_at')
                     ->label('Дата регистрации')
                     ->dateTime('d.m.Y H:i')
+                    ->timezone(config('app.timezone'))
                     ->sortable(),
                 IconColumn::make('is_active')->boolean(),
             ])
