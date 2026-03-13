@@ -271,6 +271,14 @@ class User extends Authenticatable implements FilamentUser
     }
 
     /**
+     * Courier profile relation alias for Filament/resource queries.
+     */
+    public function courier(): HasOne
+    {
+        return $this->courierProfile();
+    }
+
+    /**
      * Все адреса пользователя
      */
     public function addresses(): HasMany
