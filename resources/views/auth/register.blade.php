@@ -1,12 +1,13 @@
 <x-layouts.auth>
-    <x-auth.logo />
+    <div class="min-h-[100dvh] flex flex-col items-center px-4 pt-12 pb-12">
+        <x-auth.logo />
 
-    <x-auth.title
-        title="Створіть акаунт"
-        subtitle="Кілька кроків — і можна робити перші замовлення"
-    />
+        <x-auth.title
+            title="Створіть акаунт"
+            subtitle="Кілька кроків — і можна робити перші замовлення"
+        />
 
-    <x-auth.card>
+        <x-auth.card>
         @if ($errors->any())
             <div class="rounded-xl border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-300">
                 <ul class="space-y-1">
@@ -77,5 +78,6 @@
                 Увійти
             </a>
         </p>
-    </x-auth.card>
+        </x-auth.card>
+    </div>
 </x-layouts.auth>
