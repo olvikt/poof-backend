@@ -76,6 +76,7 @@ class User extends Authenticatable implements FilamentUser
         'last_lat',
         'last_lng',
         'last_seen_at',
+        'last_login_at',
     ];
 
     /* =========================================================
@@ -373,6 +374,7 @@ class User extends Authenticatable implements FilamentUser
             'last_lng'     => 'float',
 			
             'last_seen_at' => 'datetime',
+            'last_login_at' => 'datetime',
 			'last_completed_at' => 'datetime',
             'last_offer_at'     => 'datetime',
         ];
