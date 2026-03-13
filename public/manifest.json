@@ -6,8 +6,10 @@
   "start_url": "/",
   "scope": "/",
   "display": "standalone",
+  "orientation": "portrait",
   "background_color": "#000000",
   "theme_color": "#000000",
+  "categories": ["business","utilities"],
   "icons": [
     {
       "src": "/assets/icons/icon-192.png",
