@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class Courier extends Model
@@ -40,5 +41,24 @@ class Courier extends Model
     public function user(): BelongsTo
     {
         return $this->belongsTo(User::class);
+    }
+
+    public function scopeActiveOnMap(Builder $query): Builder
+    {
+        return $query->whereIn('status', self::ACTIVE_MAP_STATUSES)
+            ->where('last_location_at', '>', now()->subSeconds(60));
+    }
+
+    public function scopeAvailable(Builder $query): Builder
+    {
+        return $query->where('status', self::STATUS_ONLINE);
+    }
+
+    public function scopeBusy(Builder $query): Builder
+    {
+        return $query->whereIn('status', [
+            self::STATUS_ASSIGNED,
+            self::STATUS_DELIVERING,
+        ]);
     }
 }

@@ -28,7 +28,8 @@ class LocationTracker extends Component
 			if (
 				$user instanceof User &&
 				$user->isCourier() &&
-				$user->is_online &&
+				$user->courierProfile &&
+				in_array($user->courierProfile->status, Courier::ACTIVE_MAP_STATUSES, true) &&
 				$user->last_lat &&
 				$user->last_lng
 			) {
@@ -75,22 +76,16 @@ class LocationTracker extends Component
         $courierProfile = $user->courierProfile;
 
         if ($courierProfile) {
-            $courierData = [
+            $courierProfile->update([
                 'last_location_at' => now(),
-            ];
-
-            if ($user->is_online && $courierProfile->status === Courier::STATUS_OFFLINE) {
-                $courierData['status'] = Courier::STATUS_ONLINE;
-            }
-
-            $courierProfile->update($courierData);
+            ]);
         }
 
         // -------------------------------------------------
         // Если курьер ONLINE — запускаем dispatcher
         // -------------------------------------------------
 
-        if ($user->is_online) {
+        if ($courierProfile && $courierProfile->status === Courier::STATUS_ONLINE) {
 
             // 🔒 анти-спам: не чаще 1 раза в 5 секунд
             if (
