@@ -53,5 +53,5 @@ Route::middleware('auth:sanctum')->group(function () {
 });
 
 
-Route::middleware('auth:sanctum')
+Route::middleware(['web', 'auth'])
     ->get('/admin/map-data', [AdminMapController::class, 'index']);
