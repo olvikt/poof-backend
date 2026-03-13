@@ -58,6 +58,10 @@ class UserResource extends Resource
                 TextColumn::make('email')->searchable(),
                 TextColumn::make('role')->badge(),
                 TextColumn::make('phone'),
+                TextColumn::make('created_at')
+                    ->label('Дата регистрации')
+                    ->dateTime('d.m.Y H:i')
+                    ->sortable(),
                 IconColumn::make('is_active')->boolean(),
             ])
             ->actions([
