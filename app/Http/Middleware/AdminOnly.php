@@ -9,22 +9,20 @@ use Symfony\Component\HttpFoundation\Response;
 class AdminOnly
 {
     public function handle(Request $request, Closure $next): Response
-    {
-        // 🔑 используем admin guard
-        $user = auth('admin')->user();
+{
+    $user = auth()->user(); // используем стандартный web guard
 
-        // ❗ ЕСЛИ НЕ ЗАЛОГИНЕН — НЕ МЕШАЕМ
-        // Filament сам отправит на /admin/login
-        if (! $user) {
-            return $next($request);
-        }
-
-        // ❌ залогинен, но не админ
-        if ($user->role !== 'admin') {
-            abort(403);
-        }
-
+    // если пользователь не залогинен — Filament сам отправит на login
+    if (! $user) {
         return $next($request);
     }
+
+    // если не админ — запрещаем доступ
+    if ($user->role !== 'admin') {
+        abort(403);
+    }
+
+    return $next($request);
+}
 }
 
