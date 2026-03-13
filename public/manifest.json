@@ -10,6 +10,7 @@
   "background_color": "#000000",
   "theme_color": "#000000",
   "categories": ["business","utilities"],
+
   "icons": [
     {
       "src": "/assets/icons/icon-192.png",
@@ -26,6 +27,20 @@
       "sizes": "512x512",
       "type": "image/png",
       "purpose": "any maskable"
+    }
+  ],
+
+  "shortcuts": [
+    {
+      "name": "Створити замовлення",
+      "short_name": "Замовлення",
+      "url": "/#order",
+      "icons": [
+        {
+          "src": "/assets/icons/icon-192.png",
+          "sizes": "192x192"
+        }
+      ]
     }
   ]
 }
