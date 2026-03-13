@@ -1,6 +1,6 @@
 {
   "id": "/",
-  "name": "POOF",
+  "name": "POOF — швидкий винос сміття",
   "short_name": "POOF",
   "description": "Сервіс швидкого виносу сміття",
   "start_url": "/",
@@ -9,7 +9,11 @@
   "orientation": "portrait",
   "background_color": "#000000",
   "theme_color": "#000000",
-  "categories": ["business","utilities"],
+
+  "categories": [
+    "business",
+    "utilities"
+  ],
 
   "icons": [
     {
@@ -34,6 +38,7 @@
     {
       "name": "Створити замовлення",
       "short_name": "Замовлення",
+      "description": "Швидко створити нове замовлення",
       "url": "/order",
       "icons": [
         {
@@ -41,6 +46,15 @@
           "sizes": "192x192"
         }
       ]
+    }
+  ],
+
+  "screenshots": [
+    {
+      "src": "/assets/screenshots/home.png",
+      "sizes": "1080x1920",
+      "type": "image/png",
+      "form_factor": "wide"
     }
   ]
 }
