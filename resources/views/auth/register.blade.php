@@ -3,7 +3,7 @@
         <div class="mx-auto w-full max-w-md">
             <div class="mb-8 text-center">
                 <div class="mx-auto mb-4 flex h-20 w-20 items-center justify-center overflow-hidden rounded-[22px] bg-yellow-400 shadow-[0_0_30px_rgba(250,204,21,0.45)]">
-                    <img src="/images/logo-poof.png" alt="Poof logo" class="h-12 w-12 object-contain">
+                    <img src="/images/logo-poof.png" alt="Poof logo" class="w-12 object-contain">
                 </div>
                 <h1 class="text-2xl font-extrabold tracking-tight">Створіть акаунт</h1>
                 <p class="mt-1 text-sm text-white/60">Кілька кроків — і можна робити перші замовлення</p>
