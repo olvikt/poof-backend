@@ -5,20 +5,15 @@ namespace App\Filament\Pages;
 use Filament\Pages\Dashboard as BaseDashboard;
 use Filament\Widgets;
 use App\Filament\Widgets\OrdersMap;
+use App\Filament\Widgets\PoofStats;
 
 class Dashboard extends BaseDashboard
 {
-    /**
-     * ✅ Одна колонка = full width
-     */
     public function getColumns(): int | string | array
     {
         return 1;
     }
 
-    /**
-     * 🔝 Header widgets (САМОЕ ВЕРХНЕЕ)
-     */
     public function getHeaderWidgets(): array
     {
         return [
@@ -26,17 +21,12 @@ class Dashboard extends BaseDashboard
         ];
     }
 
-    /**
-     * 🧱 Основной контент страницы
-     * Welcome → КАРТА → Filament info
-     */
     public function getWidgets(): array
     {
         return [
+            PoofStats::class,
             OrdersMap::class,
             Widgets\FilamentInfoWidget::class,
         ];
     }
 }
-
-

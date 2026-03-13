@@ -9,6 +9,10 @@ use Filament\Widgets\StatsOverviewWidget\Stat;
 
 class PoofStats extends BaseWidget
 {
+    protected static ?int $sort = 1;
+
+    protected int|string|array $columnSpan = 'full';
+
     protected function getStats(): array
     {
         return [
@@ -17,8 +21,7 @@ class PoofStats extends BaseWidget
                 User::where('role', 'courier')
                     ->where('is_online', 1)
                     ->count(),
-            )
-                ->color('success'),
+            )->color('success'),
 
             Stat::make(
                 'Активные заказы',
@@ -28,20 +31,17 @@ class PoofStats extends BaseWidget
                     'accepted',
                     'in_progress',
                 ])->count(),
-            )
-                ->color('warning'),
+            )->color('warning'),
 
             Stat::make(
                 'Заказы сегодня',
                 Order::whereDate('created_at', today())->count(),
-            )
-                ->color('info'),
+            )->color('info'),
 
             Stat::make(
                 'Доход сегодня',
                 '₴' . Order::whereDate('created_at', today())->sum('price'),
-            )
-                ->color('success'),
+            )->color('success'),
         ];
     }
 }
