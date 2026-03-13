@@ -4,6 +4,7 @@ use Illuminate\Foundation\Inspiring;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\Schedule;
 use App\Services\Dispatch\OfferDispatcher;
+use App\Jobs\MarkInactiveCouriers;
 
 /*
 |--------------------------------------------------------------------------
@@ -55,3 +56,10 @@ Schedule::call(function () {
 ->name('poof-dispatch-loop')
 ->description('POOF offer dispatch engine')
 ->everyFiveSeconds();
+
+
+Schedule::job(new MarkInactiveCouriers())
+    ->name('poof-couriers-mark-inactive')
+    ->description('Mark couriers offline when location TTL is expired')
+    ->everyMinute();
+

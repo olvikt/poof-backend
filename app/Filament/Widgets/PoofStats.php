@@ -4,7 +4,6 @@ namespace App\Filament\Widgets;
 
 use App\Models\Order;
 use App\Models\Courier;
-use App\Models\User;
 use Filament\Widgets\StatsOverviewWidget as BaseWidget;
 use Filament\Widgets\StatsOverviewWidget\Stat;
 
@@ -19,22 +18,21 @@ class PoofStats extends BaseWidget
         return [
             Stat::make(
                 'Курьеры онлайн',
-                User::where('role', 'courier')
-                    ->where('is_online', 1)
-                    ->count(),
+                Courier::activeOnMap()->count(),
             )->color('success'),
 
             Stat::make(
                 'Свободные курьеры',
-                Courier::where('status', Courier::STATUS_ONLINE)->count(),
+                Courier::available()
+                    ->activeOnMap()
+                    ->count(),
             )->color('success'),
 
             Stat::make(
                 'Занятые курьеры',
-                Courier::whereIn('status', [
-                    Courier::STATUS_ASSIGNED,
-                    Courier::STATUS_DELIVERING,
-                ])->count(),
+                Courier::busy()
+                    ->activeOnMap()
+                    ->count(),
             )->color('primary'),
 
             Stat::make(

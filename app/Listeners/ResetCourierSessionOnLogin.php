@@ -4,6 +4,7 @@ namespace App\Listeners;
 
 use Illuminate\Auth\Events\Login;
 use App\Models\User;
+use App\Models\Courier;
 
 class ResetCourierSessionOnLogin
 {
@@ -22,9 +23,12 @@ class ResetCourierSessionOnLogin
 
         // 🧹 Жёсткий сброс сессии курьера
         $user->forceFill([
-            'is_online'    => false,
-            'is_busy'      => false,
-            'session_state'=> User::SESSION_OFFLINE,
+            'is_busy'       => false,
+            'session_state' => User::SESSION_OFFLINE,
         ])->save();
+
+        $user->courierProfile()->update([
+            'status' => Courier::STATUS_OFFLINE,
+        ]);
     }
 }

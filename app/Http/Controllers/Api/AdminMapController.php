@@ -12,27 +12,21 @@ class AdminMapController extends Controller
 {
     public function index(): JsonResponse
     {
-        $couriers = User::query()
-            ->where('role', User::ROLE_COURIER)
-            ->whereHas('courierProfile', function ($query) {
-                $query->whereIn('status', Courier::ACTIVE_MAP_STATUSES)
-                    ->where('last_location_at', '>', now()->subSeconds(60));
+        $couriers = Courier::query()
+            ->activeOnMap()
+            ->whereHas('user', function ($query) {
+                $query->where('role', User::ROLE_COURIER)
+                    ->whereNotNull('last_lat')
+                    ->whereNotNull('last_lng');
             })
-            ->with('courierProfile:id,user_id,status,last_location_at')
-            ->whereNotNull('last_lat')
-            ->whereNotNull('last_lng')
-            ->get([
-                'id',
-                'name',
-                'last_lat',
-                'last_lng',
-            ])
-            ->map(fn (User $courier) => [
+            ->with('user:id,name,last_lat,last_lng')
+            ->get(['id', 'user_id', 'status'])
+            ->map(fn (Courier $courier) => [
                 'id' => $courier->id,
-                'name' => $courier->name,
-                'lat' => (float) $courier->last_lat,
-                'lng' => (float) $courier->last_lng,
-                'status' => $courier->courierProfile?->status,
+                'name' => $courier->user?->name,
+                'lat' => (float) $courier->user?->last_lat,
+                'lng' => (float) $courier->user?->last_lng,
+                'status' => $courier->status,
                 'vehicle_type' => null,
             ])
             ->values();

@@ -87,10 +87,12 @@ class OfferDispatcher
             $couriers = User::query()
                 ->where('role', User::ROLE_COURIER)
                 ->where('is_active', true)
-                ->where('is_online', true)
                 ->where('is_busy', false)
                 ->whereNotNull('last_lat')
                 ->whereNotNull('last_lng')
+                ->whereHas('courierProfile', function ($q) {
+                    $q->activeOnMap()->available();
+                })
 
                 // не выполняет активный заказ
                 ->whereDoesntHave('takenOrders', function ($q) {
