@@ -15,7 +15,7 @@ class DispatchSearchingOrdersJob implements ShouldQueue
 
     public function handle(OfferDispatcher $dispatcher): void
     {
-        $dispatcher->dispatchSearchingOrders(20);
+        $dispatcher->dispatchSearchingOrders((int) config('dispatch.radius_km', 20));
     }
 }
 
