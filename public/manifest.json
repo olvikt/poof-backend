@@ -1,7 +1,10 @@
 {
+  "id": "/",
   "name": "POOF",
   "short_name": "POOF",
+  "description": "Сервіс швидкого виносу сміття",
   "start_url": "/",
+  "scope": "/",
   "display": "standalone",
   "background_color": "#000000",
   "theme_color": "#000000",

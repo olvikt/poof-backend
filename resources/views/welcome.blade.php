@@ -24,6 +24,27 @@
               rel="stylesheet">
     </noscript>
     @vite(['resources/css/app.css','resources/js/app.js'])
+    <style>
+        .install-banner {
+            position: fixed;
+            bottom: 20px;
+            left: 20px;
+            right: 20px;
+            background: #111;
+            color: white;
+            padding: 16px;
+            border-radius: 12px;
+            z-index: 9999;
+            display: none;
+            box-shadow: 0 12px 30px rgba(0, 0, 0, 0.4);
+        }
+
+        .banner-buttons {
+            display: flex;
+            gap: 10px;
+            margin-top: 10px;
+        }
+    </style>
 </head>
 
 <body class="bg-zinc-950 text-white font-sans">
@@ -279,7 +300,26 @@
 				</p>
 			</section>
 
+			<button id="installAppBtn" class="w-full rounded-2xl bg-emerald-500 px-4 py-3 text-sm font-bold text-white hover:bg-emerald-400 transition" style="display:none;">
+				📱 Встановити додаток
+			</button>
+
 		</main>
+	</div>
+
+	<div id="installBanner" class="install-banner">
+		<div class="banner-content">
+			<div class="banner-title">
+				🚀 Встановіть додаток POOF
+			</div>
+			<div class="banner-subtitle">
+				Швидше оформляйте замовлення
+			</div>
+			<div class="banner-buttons">
+				<button id="installBannerBtn" class="rounded-xl bg-amber-400 px-4 py-2 font-semibold text-zinc-900">Встановити</button>
+				<button id="installBannerClose" class="rounded-xl border border-zinc-600 px-4 py-2">Пізніше</button>
+			</div>
+		</div>
 	</div>
 <script>
 	window.slider = function () {
@@ -313,6 +353,69 @@
 			},
 		};
 	};
+
+	let deferredPrompt;
+	const installAppBtn = document.getElementById('installAppBtn');
+	const installBanner = document.getElementById('installBanner');
+	const installBannerBtn = document.getElementById('installBannerBtn');
+	const installBannerClose = document.getElementById('installBannerClose');
+	const isMobile = window.matchMedia('(max-width: 768px)').matches;
+	const isStandalone = window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone;
+
+	window.addEventListener('beforeinstallprompt', (e) => {
+		e.preventDefault();
+		deferredPrompt = e;
+
+		if (installAppBtn) {
+			installAppBtn.style.display = 'block';
+		}
+
+		if (installBanner && isMobile && !isStandalone) {
+			installBanner.style.display = 'block';
+		}
+	});
+
+	if (installAppBtn) {
+		installAppBtn.addEventListener('click', async () => {
+			if (!deferredPrompt) return;
+
+			deferredPrompt.prompt();
+
+			const result = await deferredPrompt.userChoice;
+			console.log('Install result:', result);
+			deferredPrompt = null;
+			installAppBtn.style.display = 'none';
+			if (installBanner) {
+				installBanner.style.display = 'none';
+			}
+		});
+	}
+
+	if (installBannerBtn) {
+		installBannerBtn.addEventListener('click', async () => {
+			if (installBanner) {
+				installBanner.style.display = 'none';
+			}
+
+			if (!deferredPrompt) return;
+
+			deferredPrompt.prompt();
+			const result = await deferredPrompt.userChoice;
+			console.log('Install result:', result);
+			deferredPrompt = null;
+			if (installAppBtn) {
+				installAppBtn.style.display = 'none';
+			}
+		});
+	}
+
+	if (installBannerClose) {
+		installBannerClose.addEventListener('click', () => {
+			if (installBanner) {
+				installBanner.style.display = 'none';
+			}
+		});
+	}
 </script>
 
 </body>
