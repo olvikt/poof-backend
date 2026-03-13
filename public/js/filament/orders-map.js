@@ -12,12 +12,17 @@ window.ordersMapComponent = function (config) {
 
             this.$nextTick(() => {
                 this.buildMap()
+
                 this.renderMapData({
                     couriers: [],
                     orders: Array.isArray(config.orders) ? config.orders : [],
                 })
+
                 this.loadMapData()
-                this.pollingTimer = setInterval(() => this.loadMapData(), 10000)
+
+                this.pollingTimer = setInterval(() => {
+                    this.loadMapData()
+                }, 10000)
             })
         },
 
@@ -37,7 +42,11 @@ window.ordersMapComponent = function (config) {
             }
 
             if (el._leaflet_id) {
-                try { delete el._leaflet_id } catch (_) { el._leaflet_id = null }
+                try {
+                    delete el._leaflet_id
+                } catch (_) {
+                    el._leaflet_id = null
+                }
             }
 
             this.map = L.map(config.mapId, {
@@ -47,7 +56,7 @@ window.ordersMapComponent = function (config) {
                 doubleClickZoom: true,
                 boxZoom: true,
                 keyboard: true,
-            }).setView([50.4501, 30.5234], 11)
+            }).setView([50.4501, 30.5234], 6)
 
             this.markersLayer = L.layerGroup().addTo(this.map)
 
@@ -72,22 +81,36 @@ window.ordersMapComponent = function (config) {
                 }
 
                 const data = await response.json()
+
                 this.renderMapData(data)
+
             } catch (error) {
-                console.error(error)
+                console.error('Map load error:', error)
             }
         },
 
         renderMapData(data) {
-            if (!this.markersLayer) return
+            if (!this.markersLayer || !this.map) return
 
             const couriers = Array.isArray(data?.couriers) ? data.couriers : []
             const orders = Array.isArray(data?.orders) ? data.orders : []
 
+            // FIX Leaflet popup crash
+            try {
+                if (this.map.closePopup) {
+                    this.map.closePopup()
+                }
+            } catch (e) {}
+
             this.markersLayer.clearLayers()
 
+            const bounds = []
+
             couriers.forEach((courier) => {
+
                 if (!courier?.lat || !courier?.lng) return
+
+                bounds.push([courier.lat, courier.lng])
 
                 L.circleMarker([courier.lat, courier.lng], {
                     radius: 8,
@@ -97,13 +120,20 @@ window.ordersMapComponent = function (config) {
                     fillOpacity: 0.8,
                 })
                     .bindPopup(
-                        `<div><strong>Courier</strong><br>Name: ${courier.name ?? '-'}<br>Vehicle: ${courier.vehicle_type ?? '-'}</div>`
+                        `<div>
+                            <strong>Courier</strong><br>
+                            Name: ${courier.name ?? '-'}<br>
+                            Vehicle: ${courier.vehicle_type ?? '-'}
+                        </div>`
                     )
                     .addTo(this.markersLayer)
             })
 
             orders.forEach((order) => {
+
                 if (!order?.lat || !order?.lng) return
+
+                bounds.push([order.lat, order.lng])
 
                 L.circleMarker([order.lat, order.lng], {
                     radius: 10,
@@ -113,10 +143,24 @@ window.ordersMapComponent = function (config) {
                     fillOpacity: 0.85,
                 })
                     .bindPopup(
-                        `<div><strong>Order #${order.id}</strong><br>Status: ${order.status ?? '-'}<br>Price: ${order.price ?? '-'} ₴</div>`
+                        `<div>
+                            <strong>Order #${order.id}</strong><br>
+                            Status: ${order.status ?? '-'}<br>
+                            Price: ${order.price ?? '-'} ₴
+                        </div>`
                     )
                     .addTo(this.markersLayer)
             })
+
+            // Авто-центрирование карты
+            if (bounds.length) {
+                try {
+                    this.map.fitBounds(bounds, {
+                        padding: [60, 60],
+                        maxZoom: 15,
+                    })
+                } catch (e) {}
+            }
         },
     }
 }
