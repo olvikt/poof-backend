@@ -3,10 +3,14 @@
   "name": "POOF — швидкий винос сміття",
   "short_name": "POOF",
   "description": "Сервіс швидкого виносу сміття",
-  "start_url": "/",
+
+  "start_url": "/client",
   "scope": "/",
+
   "display": "standalone",
+  "display_override": ["standalone", "minimal-ui"],
   "orientation": "portrait",
+
   "background_color": "#000000",
   "theme_color": "#000000",
 
@@ -30,7 +34,7 @@
       "src": "/assets/icons/icon-512.png",
       "sizes": "512x512",
       "type": "image/png",
-      "purpose": "any maskable"
+      "purpose": "maskable"
     }
   ],
 
@@ -39,7 +43,31 @@
       "name": "Створити замовлення",
       "short_name": "Замовлення",
       "description": "Швидко створити нове замовлення",
-      "url": "/order",
+      "url": "/client/order/create",
+      "icons": [
+        {
+          "src": "/assets/icons/icon-192.png",
+          "sizes": "192x192"
+        }
+      ]
+    },
+    {
+      "name": "Мої замовлення",
+      "short_name": "Мої замовлення",
+      "description": "Переглянути історію та статус замовлень",
+      "url": "/client/orders",
+      "icons": [
+        {
+          "src": "/assets/icons/icon-192.png",
+          "sizes": "192x192"
+        }
+      ]
+    },
+    {
+      "name": "Профіль",
+      "short_name": "Профіль",
+      "description": "Відкрити профіль користувача",
+      "url": "/client/profile",
       "icons": [
         {
           "src": "/assets/icons/icon-192.png",
@@ -54,7 +82,7 @@
       "src": "/assets/screenshots/home.png",
       "sizes": "1080x1920",
       "type": "image/png",
-      "form_factor": "wide"
+      "form_factor": "narrow"
     }
   ]
 }
