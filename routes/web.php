@@ -217,10 +217,6 @@ Route::middleware('auth:web')
 
             abort_if(! auth()->user()?->isCourier(), 403);
 
-            if (! $order->canBeAccepted()) {
-                return back()->with('error', 'Замовлення вже прийнято або недоступне.');
-            }
-
             $ok = $order->acceptBy(auth()->user());
 
             return $ok
