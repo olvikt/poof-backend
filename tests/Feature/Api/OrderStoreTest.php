@@ -71,9 +71,9 @@ class OrderStoreTest extends TestCase
             'currency' => 'UAH',
             'address_id' => $address->id,
             'address_text' => 'вул. Тестова, 1',
-            'scheduled_date' => '2026-02-15',
-            'time_from' => '10:00:00',
-            'time_to' => '12:00:00',
+            'scheduled_date' => '2026-02-15 00:00:00',
+            'time_from' => '10:00',
+            'time_to' => '12:00',
             'comment' => 'Пакети біля дверей',
         ]);
 
