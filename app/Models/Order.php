@@ -76,32 +76,39 @@ public function markAsPaid(): void
     protected $fillable = [
         'client_id',
         'courier_id',
-        'order_type',
         'status',
         'payment_status',
 
+        // Canonical API create-order fields.
+        'type',
+        'service',
+        'bags_count',
+        'total_weight_kg',
+        'price',
+        'currency',
+        'address_id',
         'address_text',
         'lat',
         'lng',
+        'scheduled_date',
+        'time_from',
+        'time_to',
+        'comment',
+
+        // Legacy/web flow fields kept for non-API create scenarios.
+        'order_type',
         'entrance',
         'floor',
         'apartment',
         'intercom',
-        'comment',
-
-        'scheduled_date',
         'scheduled_time_from',
         'scheduled_time_to',
-
         'handover_type',
-        'bags_count',
-        'price',
 
         'promo_code',
         'is_trial',
         'trial_days',
 
-        // FSM timestamps (если колонок нет — добавь миграцию или убери отсюда)
         'accepted_at',
         'started_at',
         'completed_at',
@@ -115,11 +122,11 @@ public function markAsPaid(): void
         'lat'            => 'float',
         'lng'            => 'float',
         'bags_count'     => 'int',
+        'total_weight_kg'=> 'float',
         'price'          => 'int',
         'is_trial'       => 'bool',
         'trial_days'     => 'int',
 
-        // FSM timestamps
         'accepted_at'  => 'datetime',
         'started_at'   => 'datetime',
         'completed_at' => 'datetime',
