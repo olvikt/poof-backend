@@ -55,8 +55,8 @@ class OrderStoreTest extends TestCase
             ->assertJsonPath('order.service', 'trash_removal')
             ->assertJsonPath('order.bags_count', 3)
             ->assertJsonPath('order.total_weight_kg', 7.5)
-            ->assertJsonPath('order.time_from', '10:00:00')
-            ->assertJsonPath('order.time_to', '12:00:00')
+            ->assertJsonPath('order.time_from', '10:00')
+            ->assertJsonPath('order.time_to', '12:00')
             ->assertJsonPath('order.address_id', $address->id)
             ->assertJsonPath('order.address_text', 'вул. Тестова, 1');
 
