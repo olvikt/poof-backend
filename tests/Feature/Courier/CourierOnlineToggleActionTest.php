@@ -4,6 +4,7 @@ namespace Tests\Feature\Courier;
 
 use App\Livewire\Courier\OnlineToggle;
 use App\Models\Courier;
+use App\Models\Order;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Livewire\Livewire;
@@ -23,7 +24,7 @@ class CourierOnlineToggleActionTest extends TestCase
             ->assertSet('online', false)
             ->assertSee('⚫ Не на лінії', false)
             ->call('toggleOnlineState')
-            ->assertDispatched('courier-online-toggled', online: true)
+            ->assertDispatched('courier-online-toggled', online: true, changed: true, reason: null)
             ->assertDispatched('courier:online')
             ->assertSet('online', true)
             ->assertSee('🟢 На лінії', false);
@@ -48,7 +49,7 @@ class CourierOnlineToggleActionTest extends TestCase
             ->assertSet('online', true)
             ->assertSee('🟢 На лінії', false)
             ->call('toggleOnlineState')
-            ->assertDispatched('courier-online-toggled', online: false)
+            ->assertDispatched('courier-online-toggled', online: false, changed: true, reason: null)
             ->assertDispatched('courier:offline')
             ->assertSet('online', false)
             ->assertSee('⚫ Не на лінії', false);
@@ -73,13 +74,13 @@ class CourierOnlineToggleActionTest extends TestCase
             ->assertSet('online', false)
             ->call('toggleOnlineState')
             ->assertSet('online', true)
-            ->assertDispatched('courier-online-toggled', online: true)
+            ->assertDispatched('courier-online-toggled', online: true, changed: true)
             ->assertDispatched('courier:online');
 
         $component
             ->call('toggleOnlineState')
             ->assertSet('online', false)
-            ->assertDispatched('courier-online-toggled', online: false)
+            ->assertDispatched('courier-online-toggled', online: false, changed: true)
             ->assertDispatched('courier:offline');
 
         $courier->refresh();
@@ -87,6 +88,50 @@ class CourierOnlineToggleActionTest extends TestCase
         $this->assertFalse($courier->isCourierOnline());
         $this->assertSame(User::SESSION_OFFLINE, $courier->session_state);
         $this->assertSame(Courier::STATUS_OFFLINE, $courier->courierProfile->status);
+    }
+
+    public function test_toggle_to_offline_is_blocked_for_accepted_active_order_and_returns_diagnostics(): void
+    {
+        [$courier] = $this->createCourierWithActiveOrder(Order::STATUS_ACCEPTED);
+
+        $this->actingAs($courier, 'web');
+
+        Livewire::test(OnlineToggle::class)
+            ->assertSet('online', true)
+            ->call('toggleOnlineState')
+            ->assertDispatched('courier-online-toggled', online: true, changed: false, attempted_online: false, reason: 'blocked_by_active_order')
+            ->assertDispatched('courier-online-toggle-blocked', attempted_online: false, reason: 'blocked_by_active_order')
+            ->assertNotDispatched('courier:offline')
+            ->assertSet('online', true);
+
+        $courier->refresh();
+
+        $this->assertTrue((bool) $courier->is_online);
+        $this->assertTrue((bool) $courier->is_busy);
+        $this->assertSame(User::SESSION_ASSIGNED, $courier->session_state);
+        $this->assertSame(Courier::STATUS_ASSIGNED, $courier->courierProfile->status);
+    }
+
+    public function test_toggle_to_offline_is_blocked_for_in_progress_active_order_and_returns_diagnostics(): void
+    {
+        [$courier] = $this->createCourierWithActiveOrder(Order::STATUS_IN_PROGRESS);
+
+        $this->actingAs($courier, 'web');
+
+        Livewire::test(OnlineToggle::class)
+            ->assertSet('online', true)
+            ->call('toggleOnlineState')
+            ->assertDispatched('courier-online-toggled', online: true, changed: false, attempted_online: false, reason: 'blocked_by_active_order')
+            ->assertDispatched('courier-online-toggle-blocked', attempted_online: false, reason: 'blocked_by_active_order')
+            ->assertNotDispatched('courier:offline')
+            ->assertSet('online', true);
+
+        $courier->refresh();
+
+        $this->assertTrue((bool) $courier->is_online);
+        $this->assertTrue((bool) $courier->is_busy);
+        $this->assertSame(User::SESSION_IN_PROGRESS, $courier->session_state);
+        $this->assertSame(Courier::STATUS_DELIVERING, $courier->courierProfile->status);
     }
 
     private function createCourier(): User
@@ -105,5 +150,32 @@ class CourierOnlineToggleActionTest extends TestCase
         ]);
 
         return $courier;
+    }
+
+    private function createCourierWithActiveOrder(string $orderStatus): array
+    {
+        $client = User::factory()->create([
+            'role' => User::ROLE_CLIENT,
+            'is_active' => true,
+        ]);
+
+        $courier = $this->createCourier();
+        $courier->goOnline();
+
+        Order::query()->create([
+            'client_id' => $client->id,
+            'courier_id' => $courier->id,
+            'status' => $orderStatus,
+            'payment_status' => Order::PAY_PAID,
+            'address' => 'вул. Активна, 11',
+            'address_text' => 'вул. Активна, 11',
+            'price' => 100,
+            'accepted_at' => now(),
+            'started_at' => $orderStatus === Order::STATUS_IN_PROGRESS ? now() : null,
+        ]);
+
+        $courier->refresh();
+
+        return [$courier];
     }
 }
