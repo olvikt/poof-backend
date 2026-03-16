@@ -5,46 +5,39 @@
     </div>
 
     <div class="absolute bottom-4 left-3 right-3 z-30 space-y-3">
-        @if($online)
-            @if($activeOrder)
-                <div class="bg-yellow-400 text-black rounded-3xl p-5 shadow-2xl">
-                    <div class="flex items-start justify-between gap-4">
-                        <div>
-                            <div class="text-sm font-semibold opacity-80">Активне замовлення</div>
-                            <div class="text-lg font-extrabold">#{{ $activeOrder->id }}</div>
-                            <div class="text-xs mt-1 opacity-80">
-                                Статус: {{ \App\Models\Order::STATUS_LABELS[$activeOrder->status] ?? $activeOrder->status }}
-                            </div>
-                            <div class="text-xs mt-2 opacity-70">
-                                У вас є активне замовлення. Завершіть його, щоб отримати нове.
-                            </div>
-                        </div>
+        @if($activeOrder)
+            <div class="bg-yellow-400 text-black rounded-2xl px-4 py-3 shadow-2xl border border-yellow-300">
+                <div class="flex items-center justify-between gap-3">
+                    <div class="min-w-0">
+                        <div class="text-[11px] font-semibold uppercase tracking-wide opacity-80">Активне замовлення</div>
+                        <div class="text-base font-extrabold leading-tight">#{{ $activeOrder->id }}</div>
+                        <div class="text-xs mt-1 opacity-75">Завершіть його, щоб отримати нове</div>
+                    </div>
 
-                        <a
-                            href="{{ route('courier.my-orders') }}"
-                            wire:navigate
-                            class="shrink-0 bg-black text-white px-4 py-2 rounded-xl text-sm font-bold"
-                        >
-                            Перейти →
-                        </a>
+                    <a
+                        href="{{ route('courier.my-orders') }}"
+                        wire:navigate
+                        class="shrink-0 bg-black text-white px-4 py-2 rounded-xl text-sm font-bold"
+                    >
+                        Перейти →
+                    </a>
+                </div>
+            </div>
+        @elseif($online)
+            <div class="bg-gray-900/95 backdrop-blur border border-gray-700 rounded-3xl p-5 shadow-2xl">
+                <div class="flex items-center gap-3">
+                    <div class="animate-spin h-5 w-5 border-2 border-yellow-400 border-t-transparent rounded-full"></div>
+
+                    <div>
+                        <div class="font-semibold text-white">Пошук замовлень...</div>
+                        <div class="text-xs text-gray-400 mt-1">Очікуйте, ми шукаємо клієнтів поруч</div>
                     </div>
                 </div>
-            @else
-                <div class="bg-gray-900/95 backdrop-blur border border-gray-700 rounded-3xl p-5 shadow-2xl">
-                    <div class="flex items-center gap-3">
-                        <div class="animate-spin h-5 w-5 border-2 border-yellow-400 border-t-transparent rounded-full"></div>
-
-                        <div>
-                            <div class="font-semibold text-white">Пошук замовлень...</div>
-                            <div class="text-xs text-gray-400 mt-1">Очікуйте, ми шукаємо клієнтів поруч</div>
-                        </div>
-                    </div>
-                </div>
-            @endif
+            </div>
         @endif
     </div>
 
-    @if(! $online)
+    @if(! $online && ! $activeOrder)
         <div class="absolute inset-0 z-20 flex items-center justify-center rounded-2xl bg-black/70 backdrop-blur transition-opacity duration-300">
             <div class="bg-gray-900 border border-gray-700 rounded-2xl p-6 text-center shadow-xl">
                 <div class="text-3xl mb-2">🛑</div>
