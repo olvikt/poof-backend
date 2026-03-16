@@ -25,7 +25,7 @@ class OnlineToggle extends Component
 
     public function syncOnlineState(): void
     {
-        $user = auth()->user();
+        $user = $this->resolveCourier();
 
         $this->online = $user instanceof User
             && $user->isCourier()
@@ -34,9 +34,9 @@ class OnlineToggle extends Component
 
     public function goOnline(): void
     {
-        $user = auth()->user();
+        $user = $this->resolveCourier();
 
-        if (! $user || ! $user->isCourier()) {
+        if (! $user instanceof User) {
             return;
         }
 
@@ -60,9 +60,9 @@ class OnlineToggle extends Component
 
     public function goOffline(): void
     {
-        $user = auth()->user();
+        $user = $this->resolveCourier();
 
-        if (! $user || ! $user->isCourier()) {
+        if (! $user instanceof User) {
             return;
         }
 
@@ -76,5 +76,16 @@ class OnlineToggle extends Component
     public function render()
     {
         return view('livewire.courier.online-toggle');
+    }
+
+    private function resolveCourier(): ?User
+    {
+        $user = auth()->user();
+
+        if (! $user instanceof User || ! $user->isCourier()) {
+            return null;
+        }
+
+        return $user->fresh(['courierProfile']);
     }
 }
