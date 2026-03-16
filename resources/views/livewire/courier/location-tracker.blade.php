@@ -1,33 +1,42 @@
 <div></div>
 
 <script>
-(function () {
-    let watchId = null
+(() => {
+    const state = window.__poofCourierTrackerState ?? {
+        watchId: null,
+        bootstrapped: false,
+    };
+
+    window.__poofCourierTrackerState = state;
+
+    function userIsCourier() {
+        return @json(auth()->user()?->isCourier() ?? false);
+    }
+
+    function userIsOnline() {
+        return @json(auth()->user()?->isCourierOnline() ?? false);
+    }
 
     function start() {
-        if (watchId !== null) return;
+        if (state.watchId !== null || !userIsCourier()) {
+            return;
+        }
 
         if (!navigator.geolocation) {
             console.warn('Geolocation not supported');
             return;
         }
 
-        const userIsCourier = @json(auth()->user()?->isCourier() ?? false);
-
-        if (!userIsCourier) return;
-
-        watchId = navigator.geolocation.watchPosition(
+        state.watchId = navigator.geolocation.watchPosition(
             (pos) => {
                 const lat = pos.coords.latitude;
                 const lng = pos.coords.longitude;
                 const accuracy = pos.coords.accuracy ?? null;
 
-                // 1) в Livewire (БД)
                 if (window.Livewire?.dispatch) {
                     window.Livewire.dispatch('courier-location', { lat, lng, accuracy });
                 }
 
-                // 2) в карту (визуально)
                 window.dispatchEvent(new CustomEvent('map:courier-update', {
                     detail: { courierLat: lat, courierLng: lng, radiusKm: 5 }
                 }));
@@ -38,21 +47,33 @@
     }
 
     function stop() {
-        if (watchId === null) return;
-        try { navigator.geolocation.clearWatch(watchId); } catch (e) {}
-        watchId = null;
+        if (state.watchId === null) {
+            return;
+        }
+
+        try {
+            navigator.geolocation.clearWatch(state.watchId);
+        } catch (e) {
+            console.warn('Failed to clear geolocation watch', e);
+        }
+
+        state.watchId = null;
     }
 
-    window.addEventListener('courier:online', () => start());
-window.addEventListener('courier:offline', () => stop());
-
-// 🔥 автозапуск если уже online
-document.addEventListener('livewire:navigated', () => {
-    const isOnline = @json(auth()->user()?->isCourierOnline() ?? false);
-    if (isOnline) {
-        window.dispatchEvent(new Event('courier:online'));
+    function bootstrap() {
+        if (userIsOnline()) {
+            start();
+        }
     }
-});
 
+    if (!state.bootstrapped) {
+        window.addEventListener('courier:online', start);
+        window.addEventListener('courier:offline', stop);
+        window.addEventListener('courier:tracker-ready', bootstrap);
+        window.addEventListener('livewire:navigated', bootstrap);
+        state.bootstrapped = true;
+    }
+
+    bootstrap();
 })();
 </script>

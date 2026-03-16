@@ -18,6 +18,11 @@ class LocationTracker extends Component
         'courier-location' => 'updateLocation',
     ];
 
+    public function booted(): void
+    {
+        $this->dispatch('courier:tracker-ready');
+    }
+
     /**
      * 📍 Получение координат от фронта
      * ⚠ Без type-hint'ов (требование Livewire listeners)
@@ -99,6 +104,13 @@ class LocationTracker extends Component
         $dispatchTime = null;
 
         if (
+            (bool) $user->is_online &&
+            $courierProfile->status === Courier::STATUS_OFFLINE
+        ) {
+            $courierProfile->status = Courier::STATUS_ONLINE;
+        }
+
+        if (
             $courierProfile->status === Courier::STATUS_ONLINE &&
             $hasMovedEnough
         ) {
@@ -134,11 +146,13 @@ class LocationTracker extends Component
         $user->update([
             'last_lat' => $lat,
             'last_lng' => $lng,
+            'is_online' => true,
             'last_seen_at' => now(),
             'last_dispatch_at' => $dispatchTime ?? $user->last_dispatch_at,
         ]);
 
         $courierProfile->update([
+            'status' => $courierProfile->status,
             'last_location_at' => now(),
         ]);
 
