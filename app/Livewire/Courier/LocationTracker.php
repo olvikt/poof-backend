@@ -104,14 +104,7 @@ class LocationTracker extends Component
         $dispatchTime = null;
 
         if (
-            (bool) $user->is_online &&
-            $courierProfile->status === Courier::STATUS_OFFLINE
-        ) {
-            $courierProfile->status = Courier::STATUS_ONLINE;
-        }
-
-        if (
-            $courierProfile->status === Courier::STATUS_ONLINE &&
+            $user->isCourierOnline() &&
             $hasMovedEnough
         ) {
             $hasSearchingOrders = Order::query()
@@ -143,18 +136,11 @@ class LocationTracker extends Component
         // Обновляем координаты
         // -------------------------------------------------
 
-        $user->update([
-            'last_lat' => $lat,
-            'last_lng' => $lng,
-            'is_online' => true,
-            'last_seen_at' => now(),
-            'last_dispatch_at' => $dispatchTime ?? $user->last_dispatch_at,
-        ]);
+        $user->updateLocation($lat, $lng);
 
-        $courierProfile->update([
-            'status' => $courierProfile->status,
-            'last_location_at' => now(),
-        ]);
+        if ($dispatchTime) {
+            $user->update(['last_dispatch_at' => $dispatchTime]);
+        }
 
         // -------------------------------------------------
         // Обновляем карту (JS)

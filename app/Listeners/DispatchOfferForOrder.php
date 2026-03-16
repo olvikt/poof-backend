@@ -32,15 +32,6 @@ class DispatchOfferForOrder
             return;
         }
 
-        // ✅ Зафиксировать состояние курьера
-        $courier = $offer->courier;
-
-        if ($courier) {
-            $courier->forceFill([
-                'session_state' => 'HAS_OFFER',
-            ])->save();
-        }
-
         // 📣 Сообщаем системе / UI
         event('courier.offer.created', [
             'courier_id' => $offer->courier_id,

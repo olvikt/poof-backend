@@ -129,13 +129,23 @@ class User extends Authenticatable implements FilamentUser
      | ========================================================= */
 
     /**
+     * Каноническое runtime-состояние курьера.
+     */
+    public function courierRuntimeState(): ?string
+    {
+        if (! $this->isCourier()) {
+            return null;
+        }
+
+        return $this->courierProfile?->status;
+    }
+
+    /**
      * Курʼєр онлайн?
      */
     public function isCourierOnline(): bool
     {
-        return $this->isCourier()
-            && $this->courierProfile
-            && $this->courierProfile->status === Courier::STATUS_ONLINE;
+        return $this->courierRuntimeState() === Courier::STATUS_ONLINE;
     }
 
     /**
@@ -143,7 +153,10 @@ class User extends Authenticatable implements FilamentUser
      */
     public function isBusyForAccept(): bool
     {
-        if ((bool) $this->is_busy) {
+        if (in_array($this->courierRuntimeState(), [
+            Courier::STATUS_ASSIGNED,
+            Courier::STATUS_DELIVERING,
+        ], true)) {
             return true;
         }
 
@@ -160,44 +173,18 @@ class User extends Authenticatable implements FilamentUser
         return $this->isCourierOnline() && ! $this->isBusyForAccept();
     }
 
-    /**
-     * Перевести курʼєра в Online
-     */
     public function goOnline(): void
     {
-        if (! $this->isCourier()) {
-            return;
-        }
-
-        $this->update([
-            'is_online' => true,
-            'last_seen_at' => now(),
-        ]);
-
-        $this->courierProfile()->update([
-            'status' => Courier::STATUS_ONLINE,
-            'last_location_at' => now(),
-        ]);
+        $this->transitionCourierState(Courier::STATUS_ONLINE);
     }
 
     /**
      * Перевести курʼєра в Offline
      * ⚠️ Offline всегда = not busy
      */
-    public function goOffline(): void
+    public function goOffline(bool $force = false): void
     {
-        if (! $this->isCourier()) {
-            return;
-        }
-
-        $this->update([
-            'is_online' => false,
-            'is_busy' => false,
-        ]);
-
-        $this->courierProfile()->update([
-            'status' => Courier::STATUS_OFFLINE,
-        ]);
+        $this->transitionCourierState(Courier::STATUS_OFFLINE, $force);
     }
 
     /**
@@ -205,13 +192,7 @@ class User extends Authenticatable implements FilamentUser
      */
     public function markBusy(): void
     {
-        if (! $this->isCourier()) {
-            return;
-        }
-
-        $this->update([
-            'is_busy' => true,
-        ]);
+        $this->transitionCourierState(Courier::STATUS_ASSIGNED);
     }
 
     /**
@@ -219,13 +200,12 @@ class User extends Authenticatable implements FilamentUser
      */
     public function markFree(): void
     {
-        if (! $this->isCourier()) {
-            return;
-        }
+        $this->transitionCourierState(Courier::STATUS_ONLINE);
+    }
 
-        $this->update([
-            'is_busy' => false,
-        ]);
+    public function markDelivering(): void
+    {
+        $this->transitionCourierState(Courier::STATUS_DELIVERING);
     }
 
     /**
@@ -242,6 +222,75 @@ class User extends Authenticatable implements FilamentUser
             'last_lng'     => $lng,
             'last_seen_at' => now(),
         ]);
+
+        $this->courierProfile()->update([
+            'last_location_at' => now(),
+        ]);
+    }
+
+    public function transitionCourierState(string $toStatus, bool $force = false): void
+    {
+        if (! $this->isCourier()) {
+            return;
+        }
+
+        $courier = $this->courierProfile;
+
+        if (! $courier) {
+            return;
+        }
+
+        $fromStatus = (string) $courier->status;
+
+        if (! $force && ! $this->canTransitionCourierState($fromStatus, $toStatus)) {
+            return;
+        }
+
+        if ($fromStatus !== $toStatus) {
+            $courier->update(['status' => $toStatus]);
+        }
+
+        $this->syncRuntimeFlagsFromCourierState($toStatus);
+    }
+
+    private function canTransitionCourierState(string $fromStatus, string $toStatus): bool
+    {
+        if ($fromStatus === $toStatus) {
+            return true;
+        }
+
+        $allowed = [
+            Courier::STATUS_OFFLINE => [Courier::STATUS_ONLINE],
+            Courier::STATUS_ONLINE => [Courier::STATUS_ASSIGNED, Courier::STATUS_OFFLINE],
+            Courier::STATUS_ASSIGNED => [Courier::STATUS_DELIVERING],
+            Courier::STATUS_DELIVERING => [Courier::STATUS_ONLINE],
+        ];
+
+        return in_array($toStatus, $allowed[$fromStatus] ?? [], true);
+    }
+
+    private function syncRuntimeFlagsFromCourierState(string $status): void
+    {
+        $now = now();
+
+        $stateMap = [
+            Courier::STATUS_OFFLINE => ['is_online' => false, 'is_busy' => false, 'session_state' => self::SESSION_OFFLINE],
+            Courier::STATUS_ONLINE => ['is_online' => true, 'is_busy' => false, 'session_state' => self::SESSION_READY],
+            Courier::STATUS_ASSIGNED => ['is_online' => true, 'is_busy' => true, 'session_state' => self::SESSION_IN_PROGRESS],
+            Courier::STATUS_DELIVERING => ['is_online' => true, 'is_busy' => true, 'session_state' => self::SESSION_IN_PROGRESS],
+        ];
+
+        $sync = $stateMap[$status] ?? null;
+
+        if (! $sync) {
+            return;
+        }
+
+        if ($sync['is_online']) {
+            $sync['last_seen_at'] = $now;
+        }
+
+        $this->update($sync);
     }
 	
 	

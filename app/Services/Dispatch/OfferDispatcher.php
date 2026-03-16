@@ -2,6 +2,7 @@
 
 namespace App\Services\Dispatch;
 
+use App\Models\Courier;
 use App\Models\Order;
 use App\Models\OrderOffer;
 use App\Models\User;
@@ -87,11 +88,10 @@ class OfferDispatcher
             $couriers = User::query()
                 ->where('role', User::ROLE_COURIER)
                 ->where('is_active', true)
-                ->where('is_busy', false)
                 ->whereNotNull('last_lat')
                 ->whereNotNull('last_lng')
                 ->whereHas('courierProfile', function ($q) {
-                    $q->activeOnMap()->available();
+                    $q->activeOnMap()->where('status', Courier::STATUS_ONLINE);
                 })
 
                 // не выполняет активный заказ

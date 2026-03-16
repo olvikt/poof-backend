@@ -289,14 +289,7 @@ public function acceptBy(User $courier): bool
             'accepted_at' => now(),
         ]);
 
-        // 2️⃣ Курьер становится busy
-        if (method_exists($courier, 'markBusy')) {
-            $courier->markBusy();
-        }
-
-        $courier->courierProfile()->update([
-            'status' => Courier::STATUS_ASSIGNED,
-        ]);
+        $courier->markBusy();
 
         // 🔥 3️⃣ ВАЖНО: убиваем все остальные pending этого курьера
         \App\Models\OrderOffer::where('courier_id', $courier->id)
@@ -330,9 +323,7 @@ public function acceptBy(User $courier): bool
                 'started_at' => now(),
             ]);
 
-            $courier->courierProfile()->update([
-                'status' => Courier::STATUS_DELIVERING,
-            ]);
+            $courier->markDelivering();
 
             return true;
         });
@@ -358,14 +349,7 @@ public function acceptBy(User $courier): bool
                 'completed_at' => now(),
             ]);			
 			
-
-            if (method_exists($courier, 'markFree')) {
-                $courier->markFree();
-            }
-
-            $courier->courierProfile()->update([
-                'status' => Courier::STATUS_ONLINE,
-            ]);
+            $courier->markFree();
 			
 			$courier->update([
 				'last_completed_at' => now(),
