@@ -353,7 +353,7 @@
     @endif
 
 
-    @if(! $online)
+    @if(! $online && $orders->isEmpty())
         <div class="absolute inset-0 z-40 flex items-center justify-center rounded-2xl bg-black/70 backdrop-blur">
             <div class="bg-gray-900 border border-gray-700 rounded-2xl p-6 text-center shadow-xl">
                 <div class="text-3xl mb-2">🛑</div>
