@@ -33,6 +33,7 @@
 
                     <a
                         href="{{ route('courier.my-orders') }}"
+                        wire:navigate
                         class="bg-black text-white px-4 py-2 rounded-xl text-sm font-bold"
                     >
                         Перейти →

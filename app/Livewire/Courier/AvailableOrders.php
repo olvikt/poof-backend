@@ -19,6 +19,7 @@ class AvailableOrders extends Component
 
     protected $listeners = [
         'courier-online-toggled' => 'syncOnlineState',
+        'courier-online-sync-requested' => 'syncOnlineState',
         'order-updated'          => '$refresh',
     ];
 

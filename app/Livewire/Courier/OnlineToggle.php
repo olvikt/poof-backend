@@ -9,13 +9,27 @@ class OnlineToggle extends Component
 {
     public bool $online = false;
 
+    protected $listeners = [
+        'courier-online-sync-requested' => 'syncOnlineState',
+    ];
+
     public function mount(): void
+    {
+        $this->syncOnlineState();
+    }
+
+    public function hydrate(): void
+    {
+        $this->syncOnlineState();
+    }
+
+    public function syncOnlineState(): void
     {
         $user = auth()->user();
 
-        if ($user instanceof User && $user->isCourier()) {
-            $this->online = $user->isCourierOnline();
-        }
+        $this->online = $user instanceof User
+            && $user->isCourier()
+            && $user->isCourierOnline();
     }
 
     public function goOnline(): void
@@ -27,7 +41,7 @@ class OnlineToggle extends Component
         }
 
         $user->goOnline();
-        $this->online = true;
+        $this->syncOnlineState();
 
         $this->dispatch('courier-online-toggled', online: $this->online);
         $this->dispatch('courier:online');
@@ -42,7 +56,7 @@ class OnlineToggle extends Component
         }
 
         $user->goOffline();
-        $this->online = false;
+        $this->syncOnlineState();
 
         $this->dispatch('courier-online-toggled', online: $this->online);
         $this->dispatch('courier:offline');

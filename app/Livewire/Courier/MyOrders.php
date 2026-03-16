@@ -14,6 +14,15 @@ class MyOrders extends Component
         'order-updated' => '$refresh',
     ];
 
+    public function mount(): void
+    {
+        $courier = auth()->user();
+
+        if ($courier instanceof User && $courier->isCourier()) {
+            $this->dispatch('courier-online-sync-requested');
+        }
+    }
+
     /* =========================================================
      | START ORDER
      ========================================================= */
