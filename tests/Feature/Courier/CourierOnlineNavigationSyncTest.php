@@ -22,8 +22,9 @@ class CourierOnlineNavigationSyncTest extends TestCase
         $this->actingAs($courier, 'web');
 
         Livewire::test(OnlineToggle::class)
-            ->call('goOnline')
-            ->assertSet('online', true);
+            ->call('toggleOnlineState')
+            ->assertSet('online', true)
+            ->assertDispatched('courier-online-toggled', online: true);
 
         Livewire::test(AvailableOrders::class)
             ->assertSet('online', true)

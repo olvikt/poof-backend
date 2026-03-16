@@ -62,6 +62,33 @@ class CourierOnlineToggleActionTest extends TestCase
         $this->assertSame(Courier::STATUS_OFFLINE, $courier->courierProfile->status);
     }
 
+
+    public function test_toggle_action_supports_repeated_bidirectional_toggles(): void
+    {
+        $courier = $this->createCourier();
+
+        $this->actingAs($courier, 'web');
+
+        $component = Livewire::test(OnlineToggle::class)
+            ->assertSet('online', false)
+            ->call('toggleOnlineState')
+            ->assertSet('online', true)
+            ->assertDispatched('courier-online-toggled', online: true)
+            ->assertDispatched('courier:online');
+
+        $component
+            ->call('toggleOnlineState')
+            ->assertSet('online', false)
+            ->assertDispatched('courier-online-toggled', online: false)
+            ->assertDispatched('courier:offline');
+
+        $courier->refresh();
+
+        $this->assertFalse($courier->isCourierOnline());
+        $this->assertSame(User::SESSION_OFFLINE, $courier->session_state);
+        $this->assertSame(Courier::STATUS_OFFLINE, $courier->courierProfile->status);
+    }
+
     private function createCourier(): User
     {
         $courier = User::factory()->create([

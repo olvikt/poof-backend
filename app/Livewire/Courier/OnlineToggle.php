@@ -14,6 +14,11 @@ class OnlineToggle extends Component
         $this->syncOnlineState();
     }
 
+    public function hydrate(): void
+    {
+        $this->syncOnlineState();
+    }
+
     public function syncOnlineState(): void
     {
         $user = $this->resolveCourier();
@@ -21,21 +26,6 @@ class OnlineToggle extends Component
         $this->online = $user instanceof User
             && $user->isCourier()
             && $user->isCourierOnline();
-    }
-
-    public function goOnline(): void
-    {
-        $user = $this->resolveCourier();
-
-        if (! $user instanceof User) {
-            return;
-        }
-
-        $user->goOnline();
-        $this->syncOnlineState();
-
-        $this->dispatch('courier-online-toggled', online: $this->online);
-        $this->dispatch('courier:online');
     }
 
     public function toggleOnlineState(): void
@@ -46,34 +36,29 @@ class OnlineToggle extends Component
             return;
         }
 
-        if ($user->isCourierOnline()) {
-            $this->goOffline();
+        $wasOnline = $user->isCourierOnline();
 
-            return;
+        if ($wasOnline) {
+            $user->goOffline();
+        } else {
+            $user->goOnline();
         }
 
-        $this->goOnline();
-    }
-
-    public function goOffline(): void
-    {
-        $user = $this->resolveCourier();
-
-        if (! $user instanceof User) {
-            return;
-        }
-
-        $user->goOffline();
         $this->syncOnlineState();
 
         $this->dispatch('courier-online-toggled', online: $this->online);
+
+        if ($this->online) {
+            $this->dispatch('courier:online');
+
+            return;
+        }
+
         $this->dispatch('courier:offline');
     }
 
     public function render()
     {
-        $this->syncOnlineState();
-
         return view('livewire.courier.online-toggle');
     }
 
