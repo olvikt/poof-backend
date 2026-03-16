@@ -170,11 +170,13 @@ class User extends Authenticatable implements FilamentUser
         }
 
         $this->update([
+            'is_online' => true,
             'last_seen_at' => now(),
         ]);
 
         $this->courierProfile()->update([
             'status' => Courier::STATUS_ONLINE,
+            'last_location_at' => now(),
         ]);
     }
 
@@ -189,6 +191,7 @@ class User extends Authenticatable implements FilamentUser
         }
 
         $this->update([
+            'is_online' => false,
             'is_busy' => false,
         ]);
 
