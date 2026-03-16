@@ -29,7 +29,17 @@ class ResetCourierSessionOnLogin
             return;
         }
 
-        // 🧹 Жёсткий сброс сессии курьера через единый state API
-        $user->goOffline(force: true);
+        // Сначала выравниваем runtime-state на основе активных заказов (self-heal).
+        $user->repairCourierRuntimeState();
+
+        // Для свободного курьера сохраняем прежнее поведение: логин сбрасывает в OFFLINE.
+        if (! $user->hasActiveCourierOrder()) {
+            $user->goOffline(force: true);
+
+            return;
+        }
+
+        // Активный заказ запрещает offline/free на логине.
+        $user->repairCourierRuntimeState();
     }
 }

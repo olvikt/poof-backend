@@ -137,6 +137,8 @@ class User extends Authenticatable implements FilamentUser
             return null;
         }
 
+        $this->repairCourierRuntimeState();
+
         return $this->courierProfile?->status;
     }
 
@@ -170,7 +172,59 @@ class User extends Authenticatable implements FilamentUser
      */
     public function canAcceptOrders(): bool
     {
+        $this->repairCourierRuntimeState();
+
         return $this->isCourierOnline() && ! $this->isBusyForAccept();
+    }
+
+    public function hasActiveCourierOrder(): bool
+    {
+        if (! $this->isCourier()) {
+            return false;
+        }
+
+        return $this->takenOrders()->activeForCourier()->exists();
+    }
+
+    public function repairCourierRuntimeState(): void
+    {
+        if (! $this->isCourier()) {
+            return;
+        }
+
+        $courier = $this->courierProfile;
+
+        if (! $courier) {
+            return;
+        }
+
+        $activeOrderStatus = $this->takenOrders()
+            ->activeForCourier()
+            ->orderByRaw("CASE WHEN status = ? THEN 0 ELSE 1 END", [Order::STATUS_IN_PROGRESS])
+            ->value('status');
+
+        if ($activeOrderStatus !== null) {
+            $targetStatus = $activeOrderStatus === Order::STATUS_IN_PROGRESS
+                ? Courier::STATUS_DELIVERING
+                : Courier::STATUS_ASSIGNED;
+
+            if ((string) $courier->status !== $targetStatus) {
+                $courier->update(['status' => $targetStatus]);
+            }
+
+            $this->syncRuntimeFlagsFromCourierState($targetStatus);
+
+            return;
+        }
+
+        $targetStatus = (string) $courier->status;
+
+        if (in_array($targetStatus, [Courier::STATUS_ASSIGNED, Courier::STATUS_DELIVERING], true)) {
+            $targetStatus = Courier::STATUS_ONLINE;
+            $courier->update(['status' => $targetStatus]);
+        }
+
+        $this->syncRuntimeFlagsFromCourierState($targetStatus);
     }
 
     public function goOnline(): void
@@ -213,7 +267,9 @@ class User extends Authenticatable implements FilamentUser
      */
     public function updateLocation(float $lat, float $lng): void
     {
-        if (! $this->isCourierOnline()) {
+        $this->repairCourierRuntimeState();
+
+        if (! in_array($this->courierRuntimeState(), Courier::ACTIVE_MAP_STATUSES, true)) {
             return;
         }
 
@@ -241,6 +297,30 @@ class User extends Authenticatable implements FilamentUser
         }
 
         $fromStatus = (string) $courier->status;
+
+        $activeOrderStatus = $this->takenOrders()
+            ->activeForCourier()
+            ->orderByRaw("CASE WHEN status = ? THEN 0 ELSE 1 END", [Order::STATUS_IN_PROGRESS])
+            ->value('status');
+
+        if ($activeOrderStatus !== null) {
+            $enforcedStatus = $activeOrderStatus === Order::STATUS_IN_PROGRESS
+                ? Courier::STATUS_DELIVERING
+                : Courier::STATUS_ASSIGNED;
+
+            if ($fromStatus !== $enforcedStatus) {
+                $courier->update(['status' => $enforcedStatus]);
+                $fromStatus = $enforcedStatus;
+            }
+
+            $this->syncRuntimeFlagsFromCourierState($enforcedStatus);
+
+            if (in_array($toStatus, [Courier::STATUS_OFFLINE, Courier::STATUS_ONLINE], true)) {
+                return;
+            }
+
+            $toStatus = $enforcedStatus;
+        }
 
         if (! $force && ! $this->canTransitionCourierState($fromStatus, $toStatus)) {
             return;
