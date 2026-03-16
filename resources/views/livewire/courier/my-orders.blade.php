@@ -1,4 +1,4 @@
-<div class="w-full px-2 sm:px-3 pb-28 text-white" wire:poll.5s>
+<div class="relative w-full px-2 sm:px-3 pb-28 text-white" wire:poll.5s>
 
     {{-- HEADER --}}
     <div class="flex items-end justify-between mb-4 mt-3">
@@ -93,6 +93,7 @@
                             <button
                                 type="button"
                                 wire:click="navigate({{ $order->id }})"
+                                @if(! $online) disabled @endif
                                 class="
                                     flex-1
                                     h-12
@@ -104,6 +105,7 @@
                                     transition
                                     active:scale-[0.98]
                                     hover:bg-zinc-700
+                                    {{ $online ? '' : 'opacity-40 pointer-events-none' }}
                                 "
                             >
                                 🗺 <span>Навігація</span>
@@ -123,7 +125,7 @@
                                     transition
                                     active:scale-[0.98]
                                     hover:bg-zinc-700
-                                    {{ $clientPhone ? '' : 'opacity-40 pointer-events-none' }}
+                                    {{ ($online && $clientPhone) ? '' : 'opacity-40 pointer-events-none' }}
                                 "
                             >
                                 📞 <span>Зв’язок</span>
@@ -348,6 +350,17 @@
 
         </div>
 
+    @endif
+
+
+    @if(! $online)
+        <div class="absolute inset-0 z-40 flex items-center justify-center rounded-2xl bg-black/70 backdrop-blur">
+            <div class="bg-gray-900 border border-gray-700 rounded-2xl p-6 text-center shadow-xl">
+                <div class="text-3xl mb-2">🛑</div>
+                <div class="font-semibold text-white">Ви не на лінії</div>
+                <div class="text-sm text-gray-400 mt-1">Дії з замовленнями тимчасово недоступні</div>
+            </div>
+        </div>
     @endif
 
 </div>
