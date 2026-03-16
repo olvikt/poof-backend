@@ -60,16 +60,30 @@ class CourierRuntimeStateSyncTest extends TestCase
 
         $this->assertTrue($order->acceptBy($courier));
         $courier->refresh();
+        $order->refresh();
+
+        $this->assertSame(Order::STATUS_ACCEPTED, $order->status);
+        $this->assertNull($order->started_at);
         $this->assertSame(Courier::STATUS_ASSIGNED, $courier->courierProfile->status);
         $this->assertTrue((bool) $courier->is_busy);
+        $this->assertSame(User::SESSION_ASSIGNED, $courier->session_state);
 
         $this->assertTrue($order->fresh()->startBy($courier));
         $courier->refresh();
+        $order->refresh();
+
+        $this->assertSame(Order::STATUS_IN_PROGRESS, $order->status);
+        $this->assertNotNull($order->started_at);
         $this->assertSame(Courier::STATUS_DELIVERING, $courier->courierProfile->status);
         $this->assertTrue((bool) $courier->is_busy);
+        $this->assertSame(User::SESSION_IN_PROGRESS, $courier->session_state);
 
         $this->assertTrue($order->fresh()->completeBy($courier));
         $courier->refresh();
+        $order->refresh();
+
+        $this->assertSame(Order::STATUS_DONE, $order->status);
+        $this->assertNotNull($order->completed_at);
         $this->assertSame(Courier::STATUS_ONLINE, $courier->courierProfile->status);
         $this->assertFalse((bool) $courier->is_busy);
         $this->assertSame(User::SESSION_READY, $courier->session_state);
@@ -95,7 +109,7 @@ class CourierRuntimeStateSyncTest extends TestCase
         $this->assertSame(Courier::STATUS_ASSIGNED, $courier->courierProfile->status);
         $this->assertTrue((bool) $courier->is_busy);
         $this->assertTrue((bool) $courier->is_online);
-        $this->assertSame(User::SESSION_IN_PROGRESS, $courier->session_state);
+        $this->assertSame(User::SESSION_ASSIGNED, $courier->session_state);
     }
 
     public function test_active_order_prevents_forced_offline_transition(): void
@@ -108,7 +122,7 @@ class CourierRuntimeStateSyncTest extends TestCase
         $this->assertSame(Courier::STATUS_ASSIGNED, $courier->courierProfile->status);
         $this->assertTrue((bool) $courier->is_busy);
         $this->assertTrue((bool) $courier->is_online);
-        $this->assertSame(User::SESSION_IN_PROGRESS, $courier->session_state);
+        $this->assertSame(User::SESSION_ASSIGNED, $courier->session_state);
     }
 
     public function test_login_reset_does_not_break_busy_state_for_active_order(): void
@@ -129,7 +143,7 @@ class CourierRuntimeStateSyncTest extends TestCase
         $this->assertSame(Courier::STATUS_ASSIGNED, $courier->courierProfile->status);
         $this->assertTrue((bool) $courier->is_online);
         $this->assertTrue((bool) $courier->is_busy);
-        $this->assertSame(User::SESSION_IN_PROGRESS, $courier->session_state);
+        $this->assertSame(User::SESSION_ASSIGNED, $courier->session_state);
     }
 
     public function test_login_reset_uses_offline_for_free_courier(): void
@@ -175,7 +189,7 @@ class CourierRuntimeStateSyncTest extends TestCase
         $this->assertSame(Courier::STATUS_ASSIGNED, $busyCourier->courierProfile->status);
         $this->assertTrue((bool) $busyCourier->is_busy);
         $this->assertTrue((bool) $busyCourier->is_online);
-        $this->assertSame(User::SESSION_IN_PROGRESS, $busyCourier->session_state);
+        $this->assertSame(User::SESSION_ASSIGNED, $busyCourier->session_state);
 
         $this->assertSame(Courier::STATUS_OFFLINE, $freeCourier->courierProfile->status);
         $this->assertFalse((bool) $freeCourier->is_busy);
@@ -205,7 +219,7 @@ class CourierRuntimeStateSyncTest extends TestCase
         $this->assertSame(Courier::STATUS_ASSIGNED, $courier->courierProfile->status);
         $this->assertTrue((bool) $courier->is_busy);
         $this->assertTrue((bool) $courier->is_online);
-        $this->assertSame(User::SESSION_IN_PROGRESS, $courier->session_state);
+        $this->assertSame(User::SESSION_ASSIGNED, $courier->session_state);
     }
 
     public function test_dispatch_uses_canonical_courier_state_for_availability(): void

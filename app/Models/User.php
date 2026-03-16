@@ -41,6 +41,7 @@ class User extends Authenticatable implements FilamentUser
     public const SESSION_SEARCHING   = 'SEARCHING';
     public const SESSION_HAS_OFFER   = 'HAS_OFFER';
     public const SESSION_IN_PROGRESS = 'IN_PROGRESS';
+    public const SESSION_ASSIGNED    = 'ASSIGNED';
 
     public const SESSION_STATES = [
         self::SESSION_OFFLINE,
@@ -48,6 +49,7 @@ class User extends Authenticatable implements FilamentUser
         self::SESSION_SEARCHING,
         self::SESSION_HAS_OFFER,
         self::SESSION_IN_PROGRESS,
+        self::SESSION_ASSIGNED,
     ];	
 
 
@@ -356,7 +358,7 @@ class User extends Authenticatable implements FilamentUser
         $stateMap = [
             Courier::STATUS_OFFLINE => ['is_online' => false, 'is_busy' => false, 'session_state' => self::SESSION_OFFLINE],
             Courier::STATUS_ONLINE => ['is_online' => true, 'is_busy' => false, 'session_state' => self::SESSION_READY],
-            Courier::STATUS_ASSIGNED => ['is_online' => true, 'is_busy' => true, 'session_state' => self::SESSION_IN_PROGRESS],
+            Courier::STATUS_ASSIGNED => ['is_online' => true, 'is_busy' => true, 'session_state' => self::SESSION_ASSIGNED],
             Courier::STATUS_DELIVERING => ['is_online' => true, 'is_busy' => true, 'session_state' => self::SESSION_IN_PROGRESS],
         ];
 
