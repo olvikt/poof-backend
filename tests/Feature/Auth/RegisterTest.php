@@ -2,8 +2,11 @@
 
 namespace Tests\Feature\Auth;
 
+use App\Http\Controllers\Auth\RegisterController;
+use App\Mail\WelcomeMail;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Mail;
 use Tests\TestCase;
 
 class RegisterTest extends TestCase
@@ -19,6 +22,7 @@ class RegisterTest extends TestCase
             'password' => 'password123',
             'password_confirmation' => 'password123',
             'role' => 'client',
+            'terms_agreed' => '1',
         ]);
 
         $response->assertRedirect('/dashboard');
@@ -33,6 +37,8 @@ class RegisterTest extends TestCase
 
     public function test_courier_can_register_and_profile_is_created(): void
     {
+        Mail::fake();
+
         $response = $this->post('/register', [
             'name' => 'Courier User',
             'email' => 'courier@example.com',
@@ -58,6 +64,39 @@ class RegisterTest extends TestCase
             'city' => 'Kyiv',
             'status' => 'offline',
         ]);
+        Mail::assertSent(WelcomeMail::class, 1);
+    }
+
+
+    public function test_courier_registration_is_atomic_when_profile_creation_fails(): void
+    {
+        Mail::fake();
+
+        $this->partialMock(RegisterController::class, function ($mock): void {
+            $mock->shouldAllowMockingProtectedMethods();
+            $mock->shouldReceive('createCourierProfile')->once()->andThrow(new \RuntimeException('Courier create failed'));
+        });
+
+        $response = $this->post('/register', [
+            'name' => 'Broken Courier',
+            'email' => 'broken-courier@example.com',
+            'phone' => '+380504444444',
+            'password' => 'password123',
+            'password_confirmation' => 'password123',
+            'role' => 'courier',
+            'transport_type' => 'bike',
+            'city' => 'Kyiv',
+            'terms_agreed' => '1',
+        ]);
+
+        $response->assertStatus(500);
+
+        $this->assertGuest();
+        $this->assertDatabaseMissing('users', [
+            'email' => 'broken-courier@example.com',
+        ]);
+        $this->assertDatabaseCount('couriers', 0);
+        Mail::assertNothingSent();
     }
 
     public function test_login_works_with_phone_identifier(): void
