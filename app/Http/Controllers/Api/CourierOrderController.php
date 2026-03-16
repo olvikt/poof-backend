@@ -3,9 +3,7 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
-use App\Models\Courier;
 use App\Models\Order;
-use Illuminate\Support\Facades\DB;
 
 class CourierOrderController extends Controller
 {
@@ -38,30 +36,16 @@ class CourierOrderController extends Controller
 
         abort_if(! $courier || ! $courier->isCourier(), 403);
 
-        return DB::transaction(function () use ($order, $courier) {
-
-            // 🔒 защита от гонок
-            $order->refresh();
-
-            if ($order->status !== Order::STATUS_SEARCHING || $order->courier_id !== null) {
-                return response()->json([
-                    'success' => false,
-                    'message' => 'Замовлення вже взято',
-                ], 409);
-            }
-
-            $order->update([
-                'status'     => Order::STATUS_ACCEPTED,
-                'courier_id' => $courier->id,
-            ]);
-
-            $courier->update(['is_busy' => true]);
-            $courier->courierProfile()->update(['status' => Courier::STATUS_ASSIGNED]);
-
+        if (! $order->acceptBy($courier)) {
             return response()->json([
-                'success' => true,
-                'order'   => $order,
-            ]);
-        });
+                'success' => false,
+                'message' => 'Неможливо прийняти замовлення',
+            ], 409);
+        }
+
+        return response()->json([
+            'success' => true,
+            'order' => $order->fresh(),
+        ]);
     }
 }

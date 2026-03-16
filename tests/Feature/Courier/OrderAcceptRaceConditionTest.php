@@ -135,6 +135,66 @@ class OrderAcceptRaceConditionTest extends TestCase
         @unlink($resultB);
     }
 
+    public function test_busy_courier_cannot_accept_second_order(): void
+    {
+        $client = User::factory()->create([
+            'role' => User::ROLE_CLIENT,
+            'is_active' => true,
+        ]);
+
+        $courier = User::factory()->create([
+            'role' => User::ROLE_COURIER,
+            'is_active' => true,
+            'is_busy' => false,
+        ]);
+
+        Courier::query()->create([
+            'user_id' => $courier->id,
+            'status' => Courier::STATUS_ONLINE,
+        ]);
+
+        $firstOrder = Order::query()->create([
+            'client_id' => $client->id,
+            'status' => Order::STATUS_SEARCHING,
+            'payment_status' => Order::PAY_PAID,
+            'address' => 'вул. Перша, 1',
+            'address_text' => 'вул. Перша, 1',
+            'price' => 100,
+        ]);
+
+        $secondOrder = Order::query()->create([
+            'client_id' => $client->id,
+            'status' => Order::STATUS_SEARCHING,
+            'payment_status' => Order::PAY_PAID,
+            'address' => 'вул. Друга, 2',
+            'address_text' => 'вул. Друга, 2',
+            'price' => 120,
+        ]);
+
+        $this->assertTrue($firstOrder->acceptBy($courier));
+
+        $response = $this->actingAs($courier, 'web')
+            ->from(route('courier.orders'))
+            ->post(route('courier.orders.accept', $secondOrder));
+
+        $response
+            ->assertRedirect(route('courier.orders'))
+            ->assertSessionHas('error', 'Не вдалося прийняти замовлення.');
+
+        $firstOrder->refresh();
+        $secondOrder->refresh();
+        $courier->refresh();
+
+        $this->assertSame($courier->id, $firstOrder->courier_id);
+        $this->assertSame(Order::STATUS_ACCEPTED, $firstOrder->status);
+
+        $this->assertNull($secondOrder->courier_id);
+        $this->assertSame(Order::STATUS_SEARCHING, $secondOrder->status);
+
+        $this->assertTrue($courier->isBusyForAccept());
+        $this->assertSame(Courier::STATUS_ASSIGNED, $courier->courierProfile->status);
+    }
+
     private function spawnAcceptProcess(int $orderId, int $courierId, string $barrierPath, string $resultPath): int
     {
         $pid = pcntl_fork();

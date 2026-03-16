@@ -260,6 +260,15 @@ public function acceptBy(User $courier): bool
 {
     return (bool) DB::transaction(function () use ($courier) {
 
+        $courier = User::query()
+            ->whereKey($courier->getKey())
+            ->lockForUpdate()
+            ->first();
+
+        if (! $courier || ! $courier->isCourier()) {
+            return false;
+        }
+
         $order = self::query()
             ->whereKey($this->getKey())
             ->lockForUpdate()
@@ -269,7 +278,7 @@ public function acceptBy(User $courier): bool
             return false;
         }
 
-        if (method_exists($courier, 'canAcceptOrders') && ! $courier->canAcceptOrders()) {
+        if ($courier->isBusyForAccept() || ! $courier->canAcceptOrders()) {
             return false;
         }
 
