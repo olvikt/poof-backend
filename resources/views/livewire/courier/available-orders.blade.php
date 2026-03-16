@@ -1,8 +1,8 @@
-<div class="relative flex-1 rounded-2xl">
+<div class="relative flex-1 overflow-hidden rounded-2xl">
 
     {{-- MAP WRAPPER --}}
-<div class="relative h-[calc(100dvh-160px)] w-full rounded-2xl">
-    <div wire:ignore id="map" class="absolute inset-0"></div>
+<div class="relative h-[calc(100dvh-160px)] w-full overflow-hidden rounded-2xl bg-zinc-950">
+    <div wire:ignore id="map" class="absolute inset-0 rounded-2xl"></div>
 </div>
 {{-- STATUS BOTTOM PANEL --}}
 <div class="absolute bottom-4 left-3 right-3 z-30 space-y-3">
@@ -74,7 +74,7 @@
     {{-- OFFLINE OVERLAY --}}
     @if(! $online)
         <div class="absolute inset-0 z-20 flex items-center justify-center
-                    bg-black/70 backdrop-blur transition-opacity duration-300 rounded-2xl">
+                    rounded-2xl bg-black/70 backdrop-blur transition-opacity duration-300">
             <div class="bg-gray-900 border border-gray-700 rounded-2xl p-6 text-center shadow-xl">
                 <div class="text-3xl mb-2">🛑</div>
                 <div class="font-semibold text-white">Ви не на лінії</div>

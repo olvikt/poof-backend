@@ -37,8 +37,14 @@ class AvailableOrders extends Component
     /* -------------------------------------------------
      | SYNC ONLINE STATE (reactive)
      | ------------------------------------------------- */
-    public function syncOnlineState(): void
+    public function syncOnlineState(?bool $online = null): void
     {
+        if (is_bool($online)) {
+            $this->online = $online;
+
+            return;
+        }
+
         $user = auth()->user();
 
         if ($user instanceof User && $user->isCourier()) {
