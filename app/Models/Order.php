@@ -365,21 +365,42 @@ public function acceptBy(User $courier): bool
      */
     public function start(): bool
     {
-        // Безопасно разрешаем только если заказ уже принят (но не защищает от чужого курьера)
-        return $this->status === self::STATUS_ACCEPTED
-            && $this->update([
-                'status'     => self::STATUS_IN_PROGRESS,
-                'started_at' => $this->started_at ?? now(),
-            ]);
+        if ($this->status !== self::STATUS_ACCEPTED) {
+            return false;
+        }
+
+        $updated = $this->update([
+            'status'     => self::STATUS_IN_PROGRESS,
+            'started_at' => $this->started_at ?? now(),
+        ]);
+
+        if (! $updated) {
+            return false;
+        }
+
+        $this->courier?->markDelivering();
+
+        return true;
     }
 
     public function complete(): bool
     {
-        return $this->status === self::STATUS_IN_PROGRESS
-            && $this->update([
-                'status'       => self::STATUS_DONE,
-                'completed_at' => $this->completed_at ?? now(),
-            ]);
+        if ($this->status !== self::STATUS_IN_PROGRESS) {
+            return false;
+        }
+
+        $updated = $this->update([
+            'status'       => self::STATUS_DONE,
+            'completed_at' => $this->completed_at ?? now(),
+        ]);
+
+        if (! $updated) {
+            return false;
+        }
+
+        $this->courier?->markFree();
+
+        return true;
     }
 
     public function cancel(): bool

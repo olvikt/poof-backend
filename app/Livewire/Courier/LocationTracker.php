@@ -35,6 +35,8 @@ class LocationTracker extends Component
             return;
         }
 
+        $user->repairCourierRuntimeState();
+
         $courierProfile = $user->courierProfile;
 
         if (! $courierProfile) {
@@ -63,6 +65,8 @@ class LocationTracker extends Component
         if (! $user instanceof User || ! $user->isCourier()) {
             return;
         }
+
+        $user->repairCourierRuntimeState();
 
         $courierProfile = $user->courierProfile;
 

@@ -4,12 +4,14 @@ namespace Tests\Feature\Courier;
 
 use App\Jobs\MarkInactiveCouriers;
 use App\Listeners\ResetCourierSessionOnLogin;
+use App\Livewire\Courier\LocationTracker;
 use App\Models\Courier;
 use App\Models\Order;
 use App\Models\User;
 use App\Services\Dispatch\OfferDispatcher;
 use Illuminate\Auth\Events\Login;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Livewire\Livewire;
 use Tests\TestCase;
 
 class CourierRuntimeStateSyncTest extends TestCase
@@ -73,9 +75,66 @@ class CourierRuntimeStateSyncTest extends TestCase
         $this->assertSame(User::SESSION_READY, $courier->session_state);
     }
 
-    public function test_login_reset_uses_unified_state_api_without_desync(): void
+    public function test_legacy_desynced_state_is_self_healed_by_runtime_api(): void
     {
-        $courier = $this->createCourier(Courier::STATUS_DELIVERING, isBusy: true, isOnline: true);
+        [$courier, $order] = $this->createCourierWithActiveOrder(Order::STATUS_ACCEPTED);
+
+        $courier->update([
+            'is_online' => true,
+            'is_busy' => false,
+            'session_state' => User::SESSION_OFFLINE,
+        ]);
+        $courier->courierProfile()->update(['status' => Courier::STATUS_OFFLINE]);
+
+        $this->assertSame(Courier::STATUS_ASSIGNED, $courier->fresh()->courierRuntimeState());
+
+        $courier->refresh();
+        $order->refresh();
+
+        $this->assertSame(Order::STATUS_ACCEPTED, $order->status);
+        $this->assertSame(Courier::STATUS_ASSIGNED, $courier->courierProfile->status);
+        $this->assertTrue((bool) $courier->is_busy);
+        $this->assertTrue((bool) $courier->is_online);
+        $this->assertSame(User::SESSION_IN_PROGRESS, $courier->session_state);
+    }
+
+    public function test_active_order_prevents_forced_offline_transition(): void
+    {
+        [$courier] = $this->createCourierWithActiveOrder(Order::STATUS_ACCEPTED);
+
+        $courier->goOffline(force: true);
+        $courier->refresh();
+
+        $this->assertSame(Courier::STATUS_ASSIGNED, $courier->courierProfile->status);
+        $this->assertTrue((bool) $courier->is_busy);
+        $this->assertTrue((bool) $courier->is_online);
+        $this->assertSame(User::SESSION_IN_PROGRESS, $courier->session_state);
+    }
+
+    public function test_login_reset_does_not_break_busy_state_for_active_order(): void
+    {
+        [$courier] = $this->createCourierWithActiveOrder(Order::STATUS_ACCEPTED);
+
+        $courier->update([
+            'is_online' => true,
+            'is_busy' => false,
+            'session_state' => User::SESSION_OFFLINE,
+        ]);
+        $courier->courierProfile()->update(['status' => Courier::STATUS_OFFLINE]);
+
+        (new ResetCourierSessionOnLogin())->handle(new Login('web', $courier, false));
+
+        $courier->refresh();
+
+        $this->assertSame(Courier::STATUS_ASSIGNED, $courier->courierProfile->status);
+        $this->assertTrue((bool) $courier->is_online);
+        $this->assertTrue((bool) $courier->is_busy);
+        $this->assertSame(User::SESSION_IN_PROGRESS, $courier->session_state);
+    }
+
+    public function test_login_reset_uses_offline_for_free_courier(): void
+    {
+        $courier = $this->createCourier(Courier::STATUS_ONLINE, isBusy: false, isOnline: true);
 
         (new ResetCourierSessionOnLogin())->handle(new Login('web', $courier, false));
 
@@ -87,14 +146,19 @@ class CourierRuntimeStateSyncTest extends TestCase
         $this->assertSame(User::SESSION_OFFLINE, $courier->session_state);
     }
 
-    public function test_ttl_job_uses_unified_transition_and_keeps_busy_courier_busy(): void
+    public function test_ttl_job_self_heals_active_order_and_offlines_only_stale_free_courier(): void
     {
-        $busyCourier = $this->createCourier(
-            Courier::STATUS_ASSIGNED,
-            isBusy: true,
-            isOnline: true,
-            lastLocationAt: now()->subMinutes(10)
-        );
+        [$busyCourier] = $this->createCourierWithActiveOrder(Order::STATUS_ACCEPTED);
+
+        $busyCourier->update([
+            'is_online' => true,
+            'is_busy' => false,
+            'session_state' => User::SESSION_OFFLINE,
+        ]);
+        $busyCourier->courierProfile()->update([
+            'status' => Courier::STATUS_OFFLINE,
+            'last_location_at' => now()->subMinutes(10),
+        ]);
 
         $freeCourier = $this->createCourier(
             Courier::STATUS_ONLINE,
@@ -110,9 +174,38 @@ class CourierRuntimeStateSyncTest extends TestCase
 
         $this->assertSame(Courier::STATUS_ASSIGNED, $busyCourier->courierProfile->status);
         $this->assertTrue((bool) $busyCourier->is_busy);
+        $this->assertTrue((bool) $busyCourier->is_online);
+        $this->assertSame(User::SESSION_IN_PROGRESS, $busyCourier->session_state);
 
         $this->assertSame(Courier::STATUS_OFFLINE, $freeCourier->courierProfile->status);
         $this->assertFalse((bool) $freeCourier->is_busy);
+        $this->assertFalse((bool) $freeCourier->is_online);
+        $this->assertSame(User::SESSION_OFFLINE, $freeCourier->session_state);
+    }
+
+    public function test_location_tracker_mount_repairs_legacy_desync_for_active_order(): void
+    {
+        [$courier] = $this->createCourierWithActiveOrder(Order::STATUS_ACCEPTED);
+
+        $courier->update([
+            'is_online' => true,
+            'is_busy' => false,
+            'session_state' => User::SESSION_OFFLINE,
+            'last_lat' => 50.4501,
+            'last_lng' => 30.5234,
+        ]);
+        $courier->courierProfile()->update(['status' => Courier::STATUS_OFFLINE]);
+
+        $this->actingAs($courier, 'web');
+
+        Livewire::test(LocationTracker::class);
+
+        $courier->refresh();
+
+        $this->assertSame(Courier::STATUS_ASSIGNED, $courier->courierProfile->status);
+        $this->assertTrue((bool) $courier->is_busy);
+        $this->assertTrue((bool) $courier->is_online);
+        $this->assertSame(User::SESSION_IN_PROGRESS, $courier->session_state);
     }
 
     public function test_dispatch_uses_canonical_courier_state_for_availability(): void
@@ -153,6 +246,25 @@ class CourierRuntimeStateSyncTest extends TestCase
         $this->assertNotNull($offer);
         $this->assertSame($readyCourier->id, $offer->courier_id);
         $this->assertNotSame($blockedCourier->id, $offer->courier_id);
+    }
+
+    private function createCourierWithActiveOrder(string $orderStatus): array
+    {
+        $client = User::factory()->create(['role' => User::ROLE_CLIENT, 'is_active' => true]);
+        $courier = $this->createCourier(Courier::STATUS_ONLINE, isBusy: false, isOnline: true);
+
+        $order = Order::query()->create([
+            'client_id' => $client->id,
+            'courier_id' => $courier->id,
+            'status' => $orderStatus,
+            'payment_status' => Order::PAY_PAID,
+            'address' => 'вул. Активна, 11',
+            'address_text' => 'вул. Активна, 11',
+            'price' => 100,
+            'accepted_at' => now(),
+        ]);
+
+        return [$courier, $order];
     }
 
     private function createCourier(

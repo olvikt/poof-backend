@@ -15,18 +15,33 @@ class MarkInactiveCouriers implements ShouldQueue
 
     public function handle(): void
     {
-        $inactiveCouriers = Courier::query()
-            ->where('status', Courier::STATUS_ONLINE)
-            ->where(function ($query) {
-                $query->whereNull('last_location_at')
-                    ->orWhere('last_location_at', '<=', now()->subSeconds(120));
-            })
+        Courier::query()
             ->with('user')
-            ->get()
-            ->filter(fn (Courier $courier) => $courier->user && ! $courier->user->isBusyForAccept());
+            ->chunkById(200, function ($couriers): void {
+                foreach ($couriers as $courier) {
+                    $user = $courier->user;
 
-        foreach ($inactiveCouriers as $courier) {
-            $courier->user->goOffline();
-        }
+                    if (! $user) {
+                        continue;
+                    }
+
+                    // Self-heal: сначала всегда выравниваем runtime/business состояние.
+                    $user->repairCourierRuntimeState();
+
+                    $courier->refresh();
+
+                    $isStaleOnline = $courier->status === Courier::STATUS_ONLINE
+                        && (
+                            $courier->last_location_at === null
+                            || $courier->last_location_at->lte(now()->subSeconds(120))
+                        );
+
+                    if (! $isStaleOnline || $user->hasActiveCourierOrder()) {
+                        continue;
+                    }
+
+                    $user->goOffline();
+                }
+            });
     }
 }
