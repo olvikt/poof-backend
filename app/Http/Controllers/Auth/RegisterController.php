@@ -10,6 +10,7 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Mail;
@@ -52,29 +53,32 @@ class RegisterController extends Controller
         $validated = $request->validate($rules, [], [
             'phone' => 'phone',
         ]);
-        $user = User::create([
-            'name' => $validated['name'],
-            'email' => $validated['email'],
-            'phone' => $validated['phone'],
-            'password' => Hash::make($validated['password']),
-            'role' => $validated['role'],
-            'is_verified' => false,
-        ]);
 
-        try {
-            Mail::to($user->email)->send(new WelcomeMail($user));
-            Log::info('Welcome email sent to: '.$user->email);
-        } catch (\Exception $e) {
-            Log::error('Mail send error: '.$e->getMessage());
-        }
-
-        if ($request->role === 'courier') {
-            Courier::create([
-                'user_id' => $user->id,
-                'transport_type' => $request->transport_type,
-                'city' => $request->city,
+        $user = DB::transaction(function () use ($validated): User {
+            $user = User::create([
+                'name' => $validated['name'],
+                'email' => $validated['email'],
+                'phone' => $validated['phone'],
+                'password' => Hash::make($validated['password']),
+                'role' => $validated['role'],
+                'is_verified' => false,
             ]);
-        }
+
+            if ($validated['role'] === User::ROLE_COURIER) {
+                $this->createCourierProfile($user, $validated);
+            }
+
+            DB::afterCommit(function () use ($user): void {
+                try {
+                    Mail::to($user->email)->send(new WelcomeMail($user));
+                    Log::info('Welcome email sent to: '.$user->email);
+                } catch (\Exception $e) {
+                    Log::error('Mail send error: '.$e->getMessage());
+                }
+            });
+
+            return $user;
+        });
 
         Auth::login($user);
         $request->session()->regenerate();
@@ -94,5 +98,14 @@ class RegisterController extends Controller
         }
 
         return redirect($user->role === User::ROLE_COURIER ? '/courier' : '/dashboard');
+    }
+
+    protected function createCourierProfile(User $user, array $validated): Courier
+    {
+        return Courier::create([
+            'user_id' => $user->id,
+            'transport_type' => $validated['transport_type'],
+            'city' => $validated['city'],
+        ]);
     }
 }
