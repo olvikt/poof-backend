@@ -47,6 +47,17 @@ class OnlineToggle extends Component
         $this->dispatch('courier:online');
     }
 
+    public function toggleOnlineState(): void
+    {
+        if ($this->online) {
+            $this->goOffline();
+
+            return;
+        }
+
+        $this->goOnline();
+    }
+
     public function goOffline(): void
     {
         $user = auth()->user();

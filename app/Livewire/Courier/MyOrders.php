@@ -10,8 +10,12 @@ use Illuminate\Support\Collection;
 
 class MyOrders extends Component
 {
+    public bool $online = false;
+
     protected $listeners = [
         'order-updated' => '$refresh',
+        'courier-online-toggled' => 'syncOnlineState',
+        'courier-online-sync-requested' => 'syncOnlineState',
     ];
 
     public function mount(): void
@@ -19,7 +23,23 @@ class MyOrders extends Component
         $courier = auth()->user();
 
         if ($courier instanceof User && $courier->isCourier()) {
+            $this->online = $courier->isCourierOnline();
             $this->dispatch('courier-online-sync-requested');
+        }
+    }
+
+    public function syncOnlineState(?bool $online = null): void
+    {
+        if (is_bool($online)) {
+            $this->online = $online;
+
+            return;
+        }
+
+        $courier = auth()->user();
+
+        if ($courier instanceof User && $courier->isCourier()) {
+            $this->online = $courier->isCourierOnline();
         }
     }
 
@@ -141,8 +161,11 @@ class MyOrders extends Component
         if (! $courier instanceof User || ! $courier->isCourier()) {
             return view('livewire.courier.my-orders', [
                 'orders' => collect(),
+                'online' => false,
             ])->layout('layouts.courier');
         }
+
+        $this->online = $courier->isCourierOnline();
 
         // 🔥 БЕЗ scopeActiveForCourier — максимально безопасно
         $orders = Order::where('courier_id', $courier->id)
@@ -157,6 +180,7 @@ class MyOrders extends Component
 
         return view('livewire.courier.my-orders', [
             'orders' => $orders,
+            'online' => $this->online,
         ])->layout('layouts.courier');
     }
 
