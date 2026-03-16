@@ -28,7 +28,8 @@ class CourierBusyUxFlowTest extends TestCase
             ->assertSet('online', true)
             ->assertSee('Активне замовлення')
             ->assertSee('#' . $activeOrder->id)
-            ->assertSee('У вас є активне замовлення. Завершіть його, щоб отримати нове.')
+            ->assertSee('Завершіть його, щоб отримати нове')
+            ->assertSee('Перейти →', false)
             ->assertDontSee('Пошук замовлень...');
 
         Livewire::test(MyOrders::class)
@@ -49,7 +50,8 @@ class CourierBusyUxFlowTest extends TestCase
             ->assertSet('online', true)
             ->assertSee('Активне замовлення')
             ->assertSee('#' . $activeOrder->id)
-            ->assertSee('У вас є активне замовлення. Завершіть його, щоб отримати нове.')
+            ->assertSee('Завершіть його, щоб отримати нове')
+            ->assertSee('Перейти →', false)
             ->assertDontSee('Пошук замовлень...');
 
         Livewire::test(MyOrders::class)
@@ -68,8 +70,8 @@ class CourierBusyUxFlowTest extends TestCase
         Livewire::test(OnlineToggle::class)
             ->assertSet('online', true)
             ->assertSet('busyWithActiveOrder', true)
-            ->assertSee('🟢 Виконує замовлення', false)
-            ->assertDontSee('⚫ Не на лінії', false)
+            ->assertSee('🟢 На лінії', false)
+            ->assertDontSee('Завершіть активне замовлення, щоб змінити статус.', false)
             ->call('toggleOnlineState')
             ->assertDispatched('courier-online-toggled', online: true, changed: false, reason: 'blocked_by_active_order')
             ->assertDispatched('courier-online-toggle-blocked', reason: 'blocked_by_active_order')
