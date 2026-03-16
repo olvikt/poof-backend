@@ -40,6 +40,7 @@
                 {{-- Available --}}
                 <a
                     href="{{ route('courier.orders') }}"
+                    wire:navigate
                     class="flex flex-col items-center gap-1 transition
                         {{ request()->routeIs('courier.orders')
                             ? 'text-poof'
@@ -53,6 +54,7 @@
                 {{-- My Orders --}}
                 <a
                     href="{{ route('courier.my-orders') }}"
+                    wire:navigate
                     class="flex flex-col items-center gap-1 transition
                         {{ request()->routeIs('courier.my-orders')
                             ? 'text-poof'
@@ -183,3 +185,22 @@
 
 </x-layouts.app>
 
+<script>
+(() => {
+    const state = window.__poofCourierOnlineSyncState ?? { bootstrapped: false };
+    window.__poofCourierOnlineSyncState = state;
+
+    const syncOnlineState = () => {
+        if (window.Livewire?.dispatch) {
+            window.Livewire.dispatch('courier-online-sync-requested');
+        }
+    };
+
+    if (!state.bootstrapped) {
+        document.addEventListener('livewire:navigated', syncOnlineState);
+        state.bootstrapped = true;
+    }
+
+    syncOnlineState();
+})();
+</script>
