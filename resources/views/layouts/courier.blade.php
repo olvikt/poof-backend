@@ -16,7 +16,7 @@
                     <span class="text-gray-400 text-xs ml-1">Курʼєр</span>
                 </div>
 
-                <livewire:courier.online-toggle />
+                <livewire:courier.online-toggle wire:key="courier-online-toggle-header" />
 
             </div>
         </header>
