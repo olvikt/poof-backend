@@ -29,7 +29,7 @@ class OnlineToggle extends Component
         $user->goOnline();
         $this->online = true;
 
-        $this->dispatch('courier-online-toggled');
+        $this->dispatch('courier-online-toggled', online: $this->online);
         $this->dispatch('courier:online');
     }
 
@@ -44,7 +44,7 @@ class OnlineToggle extends Component
         $user->goOffline();
         $this->online = false;
 
-        $this->dispatch('courier-online-toggled');
+        $this->dispatch('courier-online-toggled', online: $this->online);
         $this->dispatch('courier:offline');
     }
 
