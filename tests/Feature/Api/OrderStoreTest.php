@@ -3,7 +3,9 @@
 namespace Tests\Feature\Api;
 
 use App\Jobs\DispatchOrderJob;
+use App\Models\Courier;
 use App\Models\ClientAddress;
+use App\Models\Order;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Bus;
@@ -428,5 +430,62 @@ class OrderStoreTest extends TestCase
         $response
             ->assertUnprocessable()
             ->assertJsonValidationErrors(['type', 'order_type']);
+    }
+
+    public function test_busy_courier_gets_business_error_when_accepting_second_order_via_api(): void
+    {
+        $client = User::factory()->create([
+            'role' => User::ROLE_CLIENT,
+            'is_active' => true,
+        ]);
+
+        $courier = User::factory()->create([
+            'role' => User::ROLE_COURIER,
+            'is_active' => true,
+            'is_busy' => false,
+        ]);
+
+        Courier::query()->create([
+            'user_id' => $courier->id,
+            'status' => Courier::STATUS_ONLINE,
+        ]);
+
+        $activeOrder = Order::query()->create([
+            'client_id' => $client->id,
+            'status' => Order::STATUS_SEARCHING,
+            'payment_status' => Order::PAY_PAID,
+            'address' => 'вул. Активна, 1',
+            'address_text' => 'вул. Активна, 1',
+            'price' => 100,
+        ]);
+
+        $newOrder = Order::query()->create([
+            'client_id' => $client->id,
+            'status' => Order::STATUS_SEARCHING,
+            'payment_status' => Order::PAY_PAID,
+            'address' => 'вул. Нова, 2',
+            'address_text' => 'вул. Нова, 2',
+            'price' => 120,
+        ]);
+
+        $this->assertTrue($activeOrder->acceptBy($courier));
+
+        Sanctum::actingAs($courier);
+
+        $response = $this->postJson('/api/orders/' . $newOrder->id . '/accept');
+
+        $response
+            ->assertStatus(409)
+            ->assertJsonPath('success', false)
+            ->assertJsonPath('message', 'Неможливо прийняти замовлення');
+
+        $activeOrder->refresh();
+        $newOrder->refresh();
+        $courier->refresh();
+
+        $this->assertSame($courier->id, $activeOrder->courier_id);
+        $this->assertNull($newOrder->courier_id);
+        $this->assertTrue($courier->isBusyForAccept());
+        $this->assertSame(Courier::STATUS_ASSIGNED, $courier->courierProfile->status);
     }
 }

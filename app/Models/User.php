@@ -139,11 +139,19 @@ class User extends Authenticatable implements FilamentUser
     }
 
     /**
+     * Единый источник правды занятости курьера в доменной логике accept.
+     */
+    public function isBusyForAccept(): bool
+    {
+        return (bool) $this->is_busy;
+    }
+
+    /**
      * Может ли курʼєр принимать заказы
      */
     public function canAcceptOrders(): bool
     {
-        return $this->isCourierOnline() && ! $this->is_busy;
+        return $this->isCourierOnline() && ! $this->isBusyForAccept();
     }
 
     /**
