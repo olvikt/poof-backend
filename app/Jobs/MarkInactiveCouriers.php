@@ -3,7 +3,6 @@
 namespace App\Jobs;
 
 use App\Models\Courier;
-use App\Models\User;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
@@ -16,34 +15,18 @@ class MarkInactiveCouriers implements ShouldQueue
 
     public function handle(): void
     {
-        $inactiveCourierIds = Courier::query()
-            ->where('status', '!=', Courier::STATUS_OFFLINE)
+        $inactiveCouriers = Courier::query()
+            ->where('status', Courier::STATUS_ONLINE)
             ->where(function ($query) {
                 $query->whereNull('last_location_at')
                     ->orWhere('last_location_at', '<=', now()->subSeconds(120));
             })
-            ->whereHas('user', function ($userQuery) {
-                $userQuery->where('is_busy', false)
-                    ->whereDoesntHave('takenOrders', function ($orderQuery) {
-                        $orderQuery->activeForCourier();
-                    });
-            })
-            ->pluck('user_id');
+            ->with('user')
+            ->get()
+            ->filter(fn (Courier $courier) => $courier->user && ! $courier->user->isBusyForAccept());
 
-        if ($inactiveCourierIds->isEmpty()) {
-            return;
+        foreach ($inactiveCouriers as $courier) {
+            $courier->user->goOffline();
         }
-
-        Courier::query()
-            ->whereIn('user_id', $inactiveCourierIds)
-            ->update([
-                'status' => Courier::STATUS_OFFLINE,
-            ]);
-
-        User::query()
-            ->whereIn('id', $inactiveCourierIds)
-            ->update([
-                'is_online' => false,
-            ]);
     }
 }
