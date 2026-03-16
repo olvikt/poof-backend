@@ -160,6 +160,10 @@ class OnlineToggle extends Component
 
     public function render()
     {
+        // Keep header status bound to canonical runtime state even when
+        // Livewire navigation reuses/morphs DOM between courier tabs.
+        $this->syncOnlineState();
+
         return view('livewire.courier.online-toggle');
     }
 
