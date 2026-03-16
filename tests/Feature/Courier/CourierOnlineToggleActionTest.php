@@ -23,6 +23,8 @@ class CourierOnlineToggleActionTest extends TestCase
             ->assertSet('online', false)
             ->assertSee('⚫ Не на лінії', false)
             ->call('toggleOnlineState')
+            ->assertDispatched('courier-online-toggled', online: true)
+            ->assertDispatched('courier:online')
             ->assertSet('online', true)
             ->assertSee('🟢 На лінії', false);
 
@@ -30,6 +32,8 @@ class CourierOnlineToggleActionTest extends TestCase
 
         $this->assertTrue($courier->isCourierOnline());
         $this->assertTrue((bool) $courier->is_online);
+        $this->assertFalse((bool) $courier->is_busy);
+        $this->assertSame(User::SESSION_READY, $courier->session_state);
         $this->assertSame(Courier::STATUS_ONLINE, $courier->courierProfile->status);
     }
 
@@ -44,6 +48,8 @@ class CourierOnlineToggleActionTest extends TestCase
             ->assertSet('online', true)
             ->assertSee('🟢 На лінії', false)
             ->call('toggleOnlineState')
+            ->assertDispatched('courier-online-toggled', online: false)
+            ->assertDispatched('courier:offline')
             ->assertSet('online', false)
             ->assertSee('⚫ Не на лінії', false);
 
@@ -51,6 +57,8 @@ class CourierOnlineToggleActionTest extends TestCase
 
         $this->assertFalse($courier->isCourierOnline());
         $this->assertFalse((bool) $courier->is_online);
+        $this->assertFalse((bool) $courier->is_busy);
+        $this->assertSame(User::SESSION_OFFLINE, $courier->session_state);
         $this->assertSame(Courier::STATUS_OFFLINE, $courier->courierProfile->status);
     }
 
