@@ -149,7 +149,11 @@ class User extends Authenticatable implements FilamentUser
      */
     public function isCourierOnline(): bool
     {
-        return $this->courierRuntimeState() === Courier::STATUS_ONLINE;
+        return in_array($this->courierRuntimeState(), [
+            Courier::STATUS_ONLINE,
+            Courier::STATUS_ASSIGNED,
+            Courier::STATUS_DELIVERING,
+        ], true);
     }
 
     /**
