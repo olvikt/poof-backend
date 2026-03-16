@@ -23,16 +23,12 @@ class PoofStats extends BaseWidget
 
             Stat::make(
                 'Свободные курьеры',
-                Courier::available()
-                    ->activeOnMap()
-                    ->count(),
+                Courier::available()->count(),
             )->color('success'),
 
             Stat::make(
                 'Занятые курьеры',
-                Courier::busy()
-                    ->activeOnMap()
-                    ->count(),
+                Courier::busy()->count(),
             )->color('primary'),
 
             Stat::make(

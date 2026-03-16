@@ -21,6 +21,12 @@ class MarkInactiveCouriers implements ShouldQueue
                 $query->whereNull('last_location_at')
                     ->orWhere('last_location_at', '<=', now()->subSeconds(120));
             })
+            ->whereHas('user', function ($userQuery) {
+                $userQuery->where('is_busy', false)
+                    ->whereDoesntHave('takenOrders', function ($orderQuery) {
+                        $orderQuery->activeForCourier();
+                    });
+            })
             ->update([
                 'status' => Courier::STATUS_OFFLINE,
             ]);

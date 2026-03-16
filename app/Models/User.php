@@ -143,7 +143,13 @@ class User extends Authenticatable implements FilamentUser
      */
     public function isBusyForAccept(): bool
     {
-        return (bool) $this->is_busy;
+        if ((bool) $this->is_busy) {
+            return true;
+        }
+
+        return $this->takenOrders()
+            ->activeForCourier()
+            ->exists();
     }
 
     /**
