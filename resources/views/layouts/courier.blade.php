@@ -185,22 +185,4 @@
 
 </x-layouts.app>
 
-<script>
-(() => {
-    const state = window.__poofCourierOnlineSyncState ?? { bootstrapped: false };
-    window.__poofCourierOnlineSyncState = state;
 
-    const syncOnlineState = () => {
-        if (window.Livewire?.dispatch) {
-            window.Livewire.dispatch('courier-online-sync-requested');
-        }
-    };
-
-    if (!state.bootstrapped) {
-        document.addEventListener('livewire:navigated', syncOnlineState);
-        state.bootstrapped = true;
-    }
-
-    syncOnlineState();
-})();
-</script>

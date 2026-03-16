@@ -30,7 +30,7 @@ class CourierOnlineNavigationSyncTest extends TestCase
             ->assertDontSee('Ви не на лінії');
 
         Livewire::test(MyOrders::class)
-            ->dispatch('courier-online-sync-requested');
+            ->assertSet('online', true);
 
         Livewire::test(OnlineToggle::class)
             ->assertSet('online', true)
@@ -51,6 +51,36 @@ class CourierOnlineNavigationSyncTest extends TestCase
         $this->assertSame(Courier::STATUS_ONLINE, $courier->courierProfile->status);
     }
 
+
+    public function test_toggle_action_remains_available_after_switching_between_courier_tabs(): void
+    {
+        $courier = $this->createCourier();
+
+        $this->actingAs($courier, 'web');
+
+        $this->get(route('courier.orders'))
+            ->assertOk()
+            ->assertSee('wire:click="toggleOnlineState"', false);
+
+        Livewire::test(OnlineToggle::class)
+            ->call('toggleOnlineState')
+            ->assertSet('online', true);
+
+        $this->get(route('courier.my-orders'))
+            ->assertOk()
+            ->assertSee('wire:click="toggleOnlineState"', false)
+            ->assertSee('🟢 На лінії', false);
+
+        Livewire::test(OnlineToggle::class)
+            ->call('toggleOnlineState')
+            ->assertSet('online', false);
+
+        $courier->refresh();
+
+        $this->assertFalse((bool) $courier->is_online);
+        $this->assertSame(Courier::STATUS_OFFLINE, $courier->courierProfile->status);
+        $this->assertSame(User::SESSION_OFFLINE, $courier->session_state);
+    }
     private function createCourier(): User
     {
         $courier = User::factory()->create([

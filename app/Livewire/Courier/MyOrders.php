@@ -15,7 +15,6 @@ class MyOrders extends Component
     protected $listeners = [
         'order-updated' => '$refresh',
         'courier-online-toggled' => 'syncOnlineState',
-        'courier-online-sync-requested' => 'syncOnlineState',
     ];
 
     public function mount(): void
@@ -24,7 +23,6 @@ class MyOrders extends Component
 
         if ($courier instanceof User && $courier->isCourier()) {
             $this->online = $courier->isCourierOnline();
-            $this->dispatch('courier-online-sync-requested');
         }
     }
 

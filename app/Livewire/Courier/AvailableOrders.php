@@ -19,7 +19,6 @@ class AvailableOrders extends Component
 
     protected $listeners = [
         'courier-online-toggled' => 'syncOnlineState',
-        'courier-online-sync-requested' => 'syncOnlineState',
         'order-updated'          => '$refresh',
     ];
 
@@ -89,6 +88,8 @@ class AvailableOrders extends Component
                 'activeOrder'  => null,
             ])->layout('layouts.courier');
         }
+
+        $this->online = $courier->isCourierOnline();
 
         // 1) Активне замовлення (якщо є) — використаємо для UI-блоків знизу
         $this->activeOrder = $this->resolveActiveOrder($courier);
