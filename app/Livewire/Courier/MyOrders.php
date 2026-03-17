@@ -10,6 +10,8 @@ use Illuminate\Support\Collection;
 
 class MyOrders extends Component
 {
+    private const MAX_CITY_NAVIGATION_DISTANCE_KM = 80;
+
     public bool $online = false;
 
     protected $listeners = [
@@ -133,6 +135,18 @@ class MyOrders extends Component
             return;
         }
 
+        $distanceKm = $this->haversine(
+            (float) $courier->last_lat,
+            (float) $courier->last_lng,
+            (float) $order->lat,
+            (float) $order->lng
+        );
+
+        if ($distanceKm > self::MAX_CITY_NAVIGATION_DISTANCE_KM) {
+            $this->dispatch('notify', type: 'error', message: 'Локація курʼєра не підтверджена');
+            return;
+        }
+
         $this->dispatch('map:courier-update', [
             'courierLat' => (float)$courier->last_lat,
             'courierLng' => (float)$courier->last_lng,
@@ -179,7 +193,46 @@ class MyOrders extends Component
         return view('livewire.courier.my-orders', [
             'orders' => $orders,
             'online' => $this->online,
+            'mapBootstrap' => $this->resolveMapBootstrap($orders, $courier),
         ])->layout('layouts.courier');
+    }
+
+    private function resolveMapBootstrap(Collection $orders, User $courier): array
+    {
+        $activeOrder = $orders
+            ->first(fn ($order) => $this->validCoords($order->lat, $order->lng));
+
+        if (! $activeOrder) {
+            return [
+                'orderLat' => null,
+                'orderLng' => null,
+                'courierLat' => null,
+                'courierLng' => null,
+                'courierConfirmed' => false,
+            ];
+        }
+
+        $hasCourier = $this->validCoords($courier->last_lat, $courier->last_lng);
+        $courierConfirmed = false;
+
+        if ($hasCourier) {
+            $distanceKm = $this->haversine(
+                (float) $courier->last_lat,
+                (float) $courier->last_lng,
+                (float) $activeOrder->lat,
+                (float) $activeOrder->lng
+            );
+
+            $courierConfirmed = $distanceKm <= self::MAX_CITY_NAVIGATION_DISTANCE_KM;
+        }
+
+        return [
+            'orderLat' => (float) $activeOrder->lat,
+            'orderLng' => (float) $activeOrder->lng,
+            'courierLat' => $hasCourier ? (float) $courier->last_lat : null,
+            'courierLng' => $hasCourier ? (float) $courier->last_lng : null,
+            'courierConfirmed' => $courierConfirmed,
+        ];
     }
 
     /* =========================================================

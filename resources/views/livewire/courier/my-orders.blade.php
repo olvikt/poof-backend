@@ -32,7 +32,10 @@
     @else
 
         {{-- MAP --}}
-        <div class="relative h-80 w-full rounded-3xl overflow-hidden mb-5 border border-zinc-800 shadow-xl">
+        <div
+            class="relative h-80 w-full rounded-3xl overflow-hidden mb-5 border border-zinc-800 shadow-xl"
+            data-map-bootstrap=@js($mapBootstrap ?? null)
+        >
             <div wire:ignore id="map" class="absolute inset-0"></div>
 
             {{-- subtle top gradient for readability --}}
