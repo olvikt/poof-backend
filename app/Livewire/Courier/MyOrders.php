@@ -7,6 +7,7 @@ use App\Models\User;
 use Livewire\Component;
 use App\Services\Dispatch\OfferDispatcher;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\Log;
 
 class MyOrders extends Component
 {
@@ -144,6 +145,9 @@ class MyOrders extends Component
 
         if ($distanceKm > self::MAX_CITY_NAVIGATION_DISTANCE_KM) {
             $this->dispatch('notify', type: 'error', message: 'Локація курʼєра не підтверджена');
+            $this->dispatch('map:ui-error', [
+                'message' => 'Локація курʼєра не підтверджена',
+            ]);
             return;
         }
 
@@ -226,13 +230,21 @@ class MyOrders extends Component
             $courierConfirmed = $distanceKm <= self::MAX_CITY_NAVIGATION_DISTANCE_KM;
         }
 
-        return [
+        $payload = [
             'orderLat' => (float) $activeOrder->lat,
             'orderLng' => (float) $activeOrder->lng,
             'courierLat' => $hasCourier ? (float) $courier->last_lat : null,
             'courierLng' => $hasCourier ? (float) $courier->last_lng : null,
             'courierConfirmed' => $courierConfirmed,
         ];
+
+        Log::debug('courier map bootstrap payload', [
+            'courier_id' => $courier->id,
+            'order_id' => $activeOrder->id,
+            'payload' => $payload,
+        ]);
+
+        return $payload;
     }
 
     /* =========================================================

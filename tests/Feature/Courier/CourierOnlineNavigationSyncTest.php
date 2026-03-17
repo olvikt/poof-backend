@@ -203,6 +203,7 @@ class CourierOnlineNavigationSyncTest extends TestCase
         Livewire::test(MyOrders::class)
             ->call('navigate', $order->id)
             ->assertNotDispatched('build-route')
+            ->assertDispatched('map:ui-error', message: 'Локація курʼєра не підтверджена')
             ->assertDispatched('notify', type: 'error', message: 'Локація курʼєра не підтверджена');
     }
 

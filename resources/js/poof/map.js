@@ -80,6 +80,11 @@ export default function initMap() {
     reverseRequestId: 0,
     addressLocked: false,
     isReverseUpdating: false,
+
+    // debug checkpoints for mobile active-order flow
+    debugBootstrapLogged: false,
+    debugFirstCourierCoordsLogged: false,
+    debugFirstOrderCoordsLogged: false,
   }
 
   const state = POOF.map
@@ -150,6 +155,15 @@ export default function initMap() {
         detail: [{ type: 'error', message }],
       })
     )
+
+    if (typeof window.alert === 'function') {
+      window.alert(message)
+    }
+  }
+
+  function debugMapFlow(event, payload = {}) {
+    if (!DEBUG_MAP) return
+    console.info(`[POOF:map][debug] ${event}`, payload)
   }
 
   // --------- ADDED (prod) ---------
@@ -481,6 +495,10 @@ export default function initMap() {
       : null
     const courierConfirmedPayload = payload.courierConfirmed === true
 
+    if (payload.source) {
+      debugMapFlow('source update', { source: payload.source })
+    }
+
     // if courier invalid but we have last good — use it
     let courierLatUse = courierLat
     let courierLngUse = courierLng
@@ -501,6 +519,16 @@ export default function initMap() {
     // Courier marker + radius
     if (hasCourierEffective) {
       const courierLL = window.L.latLng(Number(courierLatUse), Number(courierLngUse))
+
+      if (!state.debugFirstCourierCoordsLogged) {
+        state.debugFirstCourierCoordsLogged = true
+        debugMapFlow('first courier coords', {
+          courierLat: Number(courierLatUse),
+          courierLng: Number(courierLngUse),
+          accuracy: accuracyUse,
+          courierConfirmedPayload,
+        })
+      }
 
       // remember last good
       if (isCourierCoordsConfirmed(courierLatUse, courierLngUse, accuracyUse) || courierConfirmedPayload) {
@@ -532,6 +560,11 @@ export default function initMap() {
 
       const courierConfirmed = courierConfirmedPayload || isCourierCoordsConfirmed(courierLatUse, courierLngUse, accuracyUse)
       state.courierConfirmed = courierConfirmed
+      debugMapFlow('courier confirmation update', {
+        courierConfirmed,
+        payloadConfirmed: courierConfirmedPayload,
+        accuracy: accuracyUse,
+      })
 
       if (!state.__courierCenteredOnce && courierConfirmed && !hasOrder) {
         state.__courierCenteredOnce = true
@@ -542,6 +575,14 @@ export default function initMap() {
     // Order marker
     if (hasOrder) {
       const orderLL = window.L.latLng(Number(orderLat), Number(orderLng))
+
+      if (!state.debugFirstOrderCoordsLogged) {
+        state.debugFirstOrderCoordsLogged = true
+        debugMapFlow('first order coords', {
+          orderLat: Number(orderLat),
+          orderLng: Number(orderLng),
+        })
+      }
 
       if (!state.orderMarker) {
         state.orderMarker = window.L.marker(orderLL, {
@@ -866,6 +907,10 @@ async function buildRoute(fromLat, fromLng, toLat, toLng) {
     if (bootstrapRaw) {
       try {
         const bootstrap = JSON.parse(bootstrapRaw)
+        if (!state.debugBootstrapLogged) {
+          state.debugBootstrapLogged = true
+          debugMapFlow('bootstrap payload', bootstrap)
+        }
         if (bootstrap?.orderLat && bootstrap?.orderLng) {
           setCourierMap({
             orderLat: bootstrap.orderLat,
@@ -874,6 +919,7 @@ async function buildRoute(fromLat, fromLng, toLat, toLng) {
             courierLng: bootstrap.courierLng,
             courierConfirmed: bootstrap.courierConfirmed === true,
             radiusKm: 5,
+            source: 'bootstrap',
           })
         }
       } catch (error) {
@@ -961,6 +1007,7 @@ async function buildRoute(fromLat, fromLng, toLat, toLng) {
           accuracy,
           courierConfirmed,
           radiusKm: 5,
+          source: 'watchPosition',
         })
       },
       (err) => {
@@ -1071,6 +1118,12 @@ async function buildRoute(fromLat, fromLng, toLat, toLng) {
     mountAny()
     if (!state.instance) return
     setCourierMap(e.detail || {})
+  })
+
+  window.addEventListener('map:ui-error', (e) => {
+    const message = e?.detail?.[0]?.message ?? e?.detail?.message ?? null
+    if (!message) return
+    dispatchMapUiError(message)
   })
 
   window.addEventListener('address:lock', () => {

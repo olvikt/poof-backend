@@ -5,6 +5,7 @@
     const state = window.__poofCourierTrackerState ?? {
         watchId: null,
         bootstrapped: false,
+        firstPayloadLogged: false,
     };
 
     window.__poofCourierTrackerState = state;
@@ -33,12 +34,42 @@
                 const lng = pos.coords.longitude;
                 const accuracy = pos.coords.accuracy ?? null;
 
-                if (window.Livewire?.dispatch) {
+                const coordsValid = Number.isFinite(Number(lat))
+                    && Number.isFinite(Number(lng))
+                    && Math.abs(Number(lat)) <= 90
+                    && Math.abs(Number(lng)) <= 180
+                    && !(Number(lat) === 0 && Number(lng) === 0);
+
+                const accuracyValid = !Number.isFinite(Number(accuracy)) || Number(accuracy) <= 120;
+                const courierConfirmed = coordsValid && accuracyValid;
+
+                if (!state.firstPayloadLogged) {
+                    state.firstPayloadLogged = true;
+                    console.info('[POOF:courier-tracker][debug] first watchPosition payload', {
+                        lat,
+                        lng,
+                        accuracy,
+                        courierConfirmed,
+                    });
+                }
+
+                if (!coordsValid) {
+                    return;
+                }
+
+                if (courierConfirmed && window.Livewire?.dispatch) {
                     window.Livewire.dispatch('courier-location', { lat, lng, accuracy });
                 }
 
                 window.dispatchEvent(new CustomEvent('map:courier-update', {
-                    detail: { courierLat: lat, courierLng: lng, radiusKm: 5 }
+                    detail: {
+                        courierLat: lat,
+                        courierLng: lng,
+                        accuracy,
+                        courierConfirmed,
+                        source: 'tracker-watchPosition',
+                        radiusKm: 5,
+                    }
                 }));
             },
             (err) => console.warn('Geolocation error', err),
