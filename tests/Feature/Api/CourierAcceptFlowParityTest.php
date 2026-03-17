@@ -6,26 +6,20 @@ use App\Models\Courier;
 use App\Models\Order;
 use App\Models\User;
 use Laravel\Sanctum\Sanctum;
+use Illuminate\Support\Str;
 use Tests\TestCase;
 
 class CourierAcceptFlowParityTest extends TestCase
 {
     public function test_api_refusal_matches_web_domain_result_for_already_taken_order(): void
     {
-        $client = User::factory()->create([
-            'role' => User::ROLE_CLIENT,
-            'is_active' => true,
-        ]);
+        $client = $this->createUser(User::ROLE_CLIENT);
 
-        $webCourier = User::factory()->create([
-            'role' => User::ROLE_COURIER,
-            'is_active' => true,
+        $webCourier = $this->createUser(User::ROLE_COURIER, [
             'is_busy' => false,
         ]);
 
-        $apiCourier = User::factory()->create([
-            'role' => User::ROLE_COURIER,
-            'is_active' => true,
+        $apiCourier = $this->createUser(User::ROLE_COURIER, [
             'is_busy' => false,
         ]);
 
@@ -72,5 +66,20 @@ class CourierAcceptFlowParityTest extends TestCase
         $this->assertSame($webCourier->id, $order->courier_id);
         $this->assertTrue((bool) $webCourier->is_busy);
         $this->assertFalse((bool) $apiCourier->is_busy);
+    }
+
+    private function createUser(string $role, array $attributes = []): User
+    {
+        static $counter = 0;
+        $counter++;
+
+        $suffix = Str::uuid()->toString();
+
+        return User::factory()->create(array_merge([
+            'role' => $role,
+            'is_active' => true,
+            'email' => $role . '-' . $suffix . '@example.test',
+            'phone' => '+380' . str_pad((string) $counter, 9, '0', STR_PAD_LEFT),
+        ], $attributes));
     }
 }
