@@ -19,5 +19,11 @@ class MapSpaLifecycleGuardTest extends TestCase
         $this->assertStringContainsString("resetMapStateForNavigation()", $script);
         $this->assertStringContainsString("teardownMapInstance()", $script);
         $this->assertStringContainsString("mountAny()", $script);
+
+        $this->assertStringContainsString("if (state.instance && state.el === el)", $script);
+        $this->assertStringContainsString("applyBootstrapFromDom()", $script);
+        $this->assertStringContainsString("state.hasActiveOrderBootstrap = false", $script);
+        $this->assertStringContainsString("const bootstrapApplied = applyBootstrapFromDom()", $script);
+        $this->assertStringContainsString("!bootstrapApplied && !state.hasActiveOrderBootstrap", $script);
     }
 }
