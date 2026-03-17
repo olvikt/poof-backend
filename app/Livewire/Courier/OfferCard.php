@@ -5,7 +5,6 @@ namespace App\Livewire\Courier;
 use App\Models\Order;
 use App\Models\OrderOffer;
 use App\Models\User;
-use Illuminate\Support\Facades\DB;
 use Livewire\Component;
 
 class OfferCard extends Component
@@ -41,66 +40,51 @@ class OfferCard extends Component
      | ACCEPT OFFER
      ========================================================= */
 
-public function accept(): void
-{
-    if (! $this->offer) {
-        return;
+    public function accept(): void
+    {
+        if (! $this->offer) {
+            return;
+        }
+
+        $courier = auth()->user();
+
+        $offer = OrderOffer::query()->find($this->offer->id);
+        $order = $offer?->order;
+
+        if (! $offer || ! $order || $offer->status !== OrderOffer::STATUS_PENDING) {
+            $ok = false;
+        } else {
+            $ok = $order->acceptBy($courier);
+
+            if ($ok) {
+                OrderOffer::query()
+                    ->whereKey($offer->id)
+                    ->where('status', OrderOffer::STATUS_PENDING)
+                    ->update([
+                        'status' => OrderOffer::STATUS_ACCEPTED,
+                    ]);
+
+                $this->dispatch('map:courier-update', [
+                    'courierLat' => $courier->last_lat,
+                    'courierLng' => $courier->last_lng,
+                    'orderLat'   => $order->lat,
+                    'orderLng'   => $order->lng,
+                ]);
+            }
+        }
+
+        if (! $ok) {
+            $this->dispatch(
+                'notify',
+                type: 'error',
+                message: 'Не вдалося прийняти'
+            );
+            return;
+        }
+
+        // ✅ ВАЖНО: редирект через Livewire v3 API
+        $this->redirectRoute('courier.my-orders', navigate: true);
     }
-
-    $courier = auth()->user();
-
-    $ok = DB::transaction(function () use ($courier) {
-
-        $offer = OrderOffer::query()
-            ->whereKey($this->offer->id)
-            ->lockForUpdate()
-            ->first();
-
-        if (! $offer || $offer->status !== OrderOffer::STATUS_PENDING) {
-            return false;
-        }
-
-        $order = Order::query()
-            ->whereKey($offer->order_id)
-            ->lockForUpdate()
-            ->first();
-
-        if (! $order || ! $order->canBeAccepted()) {
-            return false;
-        }
-
-        $offer->update([
-            'status' => OrderOffer::STATUS_ACCEPTED,
-        ]);
-
-        $accepted = $order->acceptBy($courier);
-
-        if (! $accepted) {
-            return false;
-        }
-
-        $this->dispatch('map:courier-update', [
-            'courierLat' => $courier->last_lat,
-            'courierLng' => $courier->last_lng,
-            'orderLat'   => $order->lat,
-            'orderLng'   => $order->lng,
-        ]);
-
-        return true;
-    });
-
-    if (! $ok) {
-        $this->dispatch(
-            'notify',
-            type: 'error',
-            message: 'Не вдалося прийняти'
-        );
-        return;
-    }
-
-    // ✅ ВАЖНО: редирект через Livewire v3 API
-    $this->redirectRoute('courier.my-orders', navigate: true);
-}
 
     /* =========================================================
      | REJECT OFFER
