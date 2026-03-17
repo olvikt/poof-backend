@@ -167,6 +167,66 @@ class CourierOnlineNavigationSyncTest extends TestCase
             ->assertSee('⚫ Не на лінії', false);
     }
 
+
+    public function test_active_order_map_bootstrap_centers_on_order_not_default_city(): void
+    {
+        [$courier, $order] = $this->createCourierWithActiveOrder(Order::STATUS_ACCEPTED, [
+            'last_lat' => 48.4645,
+            'last_lng' => 35.0462,
+            'lat' => 48.4647,
+            'lng' => 35.0464,
+        ]);
+
+        $this->actingAs($courier, 'web');
+
+        $component = Livewire::test(MyOrders::class);
+        $html = $component->html();
+
+        $this->assertStringContainsString('data-map-bootstrap=', $html);
+        $this->assertStringContainsString('\"orderLat\":48.4647', $html);
+        $this->assertStringContainsString('\"orderLng\":35.0464', $html);
+        $this->assertStringNotContainsString('\"orderLat\":50.4501', $html);
+        $this->assertStringNotContainsString('\"orderLng\":30.5234', $html);
+    }
+
+    public function test_abnormal_cross_country_coordinates_do_not_build_navigation_route(): void
+    {
+        [$courier, $order] = $this->createCourierWithActiveOrder(Order::STATUS_ACCEPTED, [
+            'last_lat' => 48.4647,
+            'last_lng' => 35.0462,
+            'lat' => 51.5074,
+            'lng' => -0.1278,
+        ]);
+
+        $this->actingAs($courier, 'web');
+
+        Livewire::test(MyOrders::class)
+            ->call('navigate', $order->id)
+            ->assertNotDispatched('build-route')
+            ->assertDispatched('notify', type: 'error', message: 'Локація курʼєра не підтверджена');
+    }
+
+    public function test_navigation_uses_only_confirmed_courier_coords(): void
+    {
+        [$courier, $order] = $this->createCourierWithActiveOrder(Order::STATUS_ACCEPTED, [
+            'last_lat' => 48.4647,
+            'last_lng' => 35.0462,
+            'lat' => 48.4670,
+            'lng' => 35.0500,
+        ]);
+
+        $this->actingAs($courier, 'web');
+
+        Livewire::test(MyOrders::class)
+            ->call('navigate', $order->id)
+            ->assertDispatched('build-route',
+                fromLat: 48.4647,
+                fromLng: 35.0462,
+                toLat: 48.467,
+                toLng: 35.05,
+            );
+    }
+
     private function createCourier(): User
     {
         $courier = User::factory()->create([
@@ -185,12 +245,19 @@ class CourierOnlineNavigationSyncTest extends TestCase
         return $courier;
     }
 
-    private function createCourierWithActiveOrder(string $orderStatus): array
+    private function createCourierWithActiveOrder(string $orderStatus, array $coords = []): array
     {
         $client = User::factory()->create(['role' => User::ROLE_CLIENT, 'is_active' => true]);
 
         $courier = $this->createCourier();
         $courier->goOnline();
+
+        if (array_key_exists('last_lat', $coords) || array_key_exists('last_lng', $coords)) {
+            $courier->update([
+                'last_lat' => $coords['last_lat'] ?? $courier->last_lat,
+                'last_lng' => $coords['last_lng'] ?? $courier->last_lng,
+            ]);
+        }
 
         $order = Order::query()->create([
             'client_id' => $client->id,
@@ -202,6 +269,8 @@ class CourierOnlineNavigationSyncTest extends TestCase
             'price' => 125,
             'accepted_at' => now(),
             'started_at' => $orderStatus === Order::STATUS_IN_PROGRESS ? now() : null,
+            'lat' => $coords['lat'] ?? 48.4647,
+            'lng' => $coords['lng'] ?? 35.0462,
         ]);
 
         $courier->refresh();

@@ -57,6 +57,9 @@ export default function initMap() {
     // geolocation watch
     courierWatchId: null,
 
+    courierLastAccuracy: null,
+    courierConfirmed: false,
+
     // --------- ADDED (prod) ---------
     // remember last good courier coords to avoid (0,0) jumps
     lastGoodCourierLat: null,
@@ -109,6 +112,44 @@ export default function initMap() {
     if (latN < -90 || latN > 90) return false
     if (lngN < -180 || lngN > 180) return false
     return true
+  }
+
+
+  function distanceKm(lat1, lng1, lat2, lng2) {
+    const earth = 6371
+    const dLat = ((lat2 - lat1) * Math.PI) / 180
+    const dLng = ((lng2 - lng1) * Math.PI) / 180
+
+    const a =
+      Math.sin(dLat / 2) ** 2 +
+      Math.cos((lat1 * Math.PI) / 180) *
+      Math.cos((lat2 * Math.PI) / 180) *
+      Math.sin(dLng / 2) ** 2
+
+    return earth * (2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a)))
+  }
+
+  function isCourierCoordsConfirmed(lat, lng, accuracy = null) {
+    if (!isValidLatLng(lat, lng)) return false
+
+    const maxAccuracyMeters = 120
+    if (accuracy !== null && Number.isFinite(Number(accuracy)) && Number(accuracy) > maxAccuracyMeters) {
+      return false
+    }
+
+    const orderLL = state.orderMarker?.getLatLng?.()
+    if (!orderLL) return true
+
+    const maxCityDistanceKm = 80
+    return distanceKm(Number(lat), Number(lng), Number(orderLL.lat), Number(orderLL.lng)) <= maxCityDistanceKm
+  }
+
+  function dispatchMapUiError(message) {
+    window.dispatchEvent(
+      new CustomEvent('notify', {
+        detail: [{ type: 'error', message }],
+      })
+    )
   }
 
   // --------- ADDED (prod) ---------
@@ -435,15 +476,22 @@ export default function initMap() {
     // --------- FIX (prod): reject invalid + reject (0,0) ---------
     const hasCourier = isValidLatLng(courierLat, courierLng)
     const hasOrder = isValidLatLng(orderLat, orderLng)
+    const payloadAccuracy = Number.isFinite(Number(payload.accuracy))
+      ? Number(payload.accuracy)
+      : null
+    const courierConfirmedPayload = payload.courierConfirmed === true
 
     // if courier invalid but we have last good — use it
     let courierLatUse = courierLat
     let courierLngUse = courierLng
+    let accuracyUse = payloadAccuracy
+
     if (!hasCourier) {
       const last = getLastGoodCourier()
       if (last) {
         courierLatUse = last.lat
         courierLngUse = last.lng
+        accuracyUse = state.courierLastAccuracy
       }
     }
 
@@ -455,7 +503,9 @@ export default function initMap() {
       const courierLL = window.L.latLng(Number(courierLatUse), Number(courierLngUse))
 
       // remember last good
-      saveLastGoodCourier(courierLatUse, courierLngUse)
+      if (isCourierCoordsConfirmed(courierLatUse, courierLngUse, accuracyUse) || courierConfirmedPayload) {
+        saveLastGoodCourier(courierLatUse, courierLngUse)
+      }
 
       if (!state.courierMarker) {
         state.courierMarker = window.L.marker(courierLL, {
@@ -480,7 +530,10 @@ export default function initMap() {
         state.radiusCircle.setRadius(rMeters)
       }
 
-      if (!state.__courierCenteredOnce) {
+      const courierConfirmed = courierConfirmedPayload || isCourierCoordsConfirmed(courierLatUse, courierLngUse, accuracyUse)
+      state.courierConfirmed = courierConfirmed
+
+      if (!state.__courierCenteredOnce && courierConfirmed && !hasOrder) {
         state.__courierCenteredOnce = true
         state.instance.setView(courierLL, 15, { animate: false })
       }
@@ -503,6 +556,22 @@ export default function initMap() {
       } else {
         state.orderMarker.setLatLng(orderLL)
       }
+
+      const courierConfirmed = courierConfirmedPayload || (hasCourierEffective && isCourierCoordsConfirmed(courierLatUse, courierLngUse, accuracyUse))
+      if (!state.__courierCenteredOnce) {
+        state.__courierCenteredOnce = true
+
+        if (courierConfirmed && hasCourierEffective) {
+          const bounds = window.L.latLngBounds([
+            [Number(courierLatUse), Number(courierLngUse)],
+            [Number(orderLat), Number(orderLng)],
+          ])
+
+          state.instance.fitBounds(bounds, { padding: [40, 40], maxZoom: 16 })
+        } else {
+          state.instance.setView(orderLL, 16, { animate: false })
+        }
+      }
     }
   }
   
@@ -522,6 +591,13 @@ async function buildRoute(fromLat, fromLng, toLat, toLng) {
     const fLng = Number(fromLng);
     const tLat = Number(toLat);
     const tLng = Number(toLng);
+
+    const routeDistanceKm = distanceKm(fLat, fLng, tLat, tLng)
+    if (routeDistanceKm > 80) {
+        console.warn('Route rejected due to abnormal courier distance', routeDistanceKm)
+        dispatchMapUiError('Локація курʼєра не підтверджена')
+        return;
+    }
 
     try {
         const url =
@@ -785,6 +861,26 @@ async function buildRoute(fromLat, fromLng, toLat, toLng) {
       }
     }
 
+    const mapCardEl = document.querySelector('[data-map-bootstrap]')
+    const bootstrapRaw = mapCardEl?.dataset?.mapBootstrap || null
+    if (bootstrapRaw) {
+      try {
+        const bootstrap = JSON.parse(bootstrapRaw)
+        if (bootstrap?.orderLat && bootstrap?.orderLng) {
+          setCourierMap({
+            orderLat: bootstrap.orderLat,
+            orderLng: bootstrap.orderLng,
+            courierLat: bootstrap.courierLat,
+            courierLng: bootstrap.courierLng,
+            courierConfirmed: bootstrap.courierConfirmed === true,
+            radiusKm: 5,
+          })
+        }
+      } catch (error) {
+        console.warn('[POOF] invalid map bootstrap payload', error)
+      }
+    }
+
     // post-mount invalidate (важно когда карта появляется после toggle)
     requestAnimationFrame(() => {
       setTimeout(() => {
@@ -827,17 +923,34 @@ async function buildRoute(fromLat, fromLng, toLat, toLng) {
         // --------- FIX (prod): ignore invalid coords + ignore (0,0) ---------
         if (!isValidLatLng(lat, lng)) return
 
+        const hasAccuracy = Number.isFinite(Number(accuracy))
+        if (hasAccuracy && Number(accuracy) > 120) return
+
+        const previous = getLastGoodCourier()
+        if (previous) {
+          const jumpKm = distanceKm(previous.lat, previous.lng, Number(lat), Number(lng))
+          const positionTs = Number(pos.timestamp || Date.now())
+          const deltaSec = Math.max(1, (positionTs - (state.lastGoodCourierAt || positionTs)) / 1000)
+          const speedKmh = (jumpKm / deltaSec) * 3600
+          if (jumpKm > 3 && speedKmh > 180) {
+            console.warn('[POOF:map] abnormal courier jump ignored', { jumpKm, speedKmh, lat, lng })
+            return
+          }
+        }
+
         // --------- ADDED (prod): throttle to avoid jitter & unnecessary LW spam ---------
         const now = Date.now()
         if (now - state.courierLastEmitAt < 700) return
         state.courierLastEmitAt = now
 
-        // optional sanity: if accuracy is absurdly bad, skip visual centering but still save
-        // (we still save last good to prevent ocean fallback)
-        saveLastGoodCourier(lat, lng)
+        const courierConfirmed = isCourierCoordsConfirmed(lat, lng, accuracy)
+        if (courierConfirmed) {
+          saveLastGoodCourier(lat, lng)
+          state.courierLastAccuracy = hasAccuracy ? Number(accuracy) : null
+        }
 
-        // 1) обновляем БД
-        if (window.Livewire?.dispatch) {
+        // 1) обновляем БД только подтвержденными координатами
+        if (courierConfirmed && window.Livewire?.dispatch) {
           window.Livewire.dispatch('courier-location', { lat, lng, accuracy })
         }
 
@@ -845,6 +958,8 @@ async function buildRoute(fromLat, fromLng, toLat, toLng) {
         setCourierMap({
           courierLat: lat,
           courierLng: lng,
+          accuracy,
+          courierConfirmed,
           radiusKm: 5,
         })
       },
