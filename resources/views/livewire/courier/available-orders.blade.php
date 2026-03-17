@@ -1,4 +1,4 @@
-<div class="relative flex-1 overflow-hidden rounded-2xl">
+<div class="relative flex-1 overflow-hidden rounded-2xl" wire:poll.10s>
 
     <div
         class="relative h-[calc(100dvh-160px)] w-full overflow-hidden rounded-2xl bg-zinc-950"

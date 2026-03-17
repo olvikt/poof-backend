@@ -301,6 +301,7 @@
                                     type="button"
                                     wire:click="start({{ $order->id }})"
                                     wire:loading.attr="disabled"
+                                    @if(! $online) disabled @endif
                                     class="
                                         w-full
                                         h-14
@@ -313,6 +314,7 @@
                                         active:scale-[0.98]
                                         shadow-lg
                                         disabled:opacity-60
+                                        {{ $online ? '' : 'opacity-40 pointer-events-none' }}
                                     "
                                 >
                                     ▶️ Почати виконання
@@ -324,6 +326,7 @@
                                     type="button"
                                     wire:click="complete({{ $order->id }})"
                                     wire:loading.attr="disabled"
+                                    @if(! $online) disabled @endif
                                     class="
                                         w-full
                                         h-14
@@ -336,6 +339,7 @@
                                         active:scale-[0.98]
                                         shadow-lg
                                         disabled:opacity-60
+                                        {{ $online ? '' : 'opacity-40 pointer-events-none' }}
                                     "
                                 >
                                     ✅ Завершити замовлення
