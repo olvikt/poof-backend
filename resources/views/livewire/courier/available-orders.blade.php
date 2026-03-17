@@ -1,6 +1,9 @@
 <div class="relative flex-1 overflow-hidden rounded-2xl">
 
-    <div class="relative h-[calc(100dvh-160px)] w-full overflow-hidden rounded-2xl bg-zinc-950">
+    <div
+        class="relative h-[calc(100dvh-160px)] w-full overflow-hidden rounded-2xl bg-zinc-950"
+        data-map-bootstrap='@json($mapBootstrap ?? null)'
+    >
         <div wire:ignore id="map" class="absolute inset-0 rounded-2xl"></div>
     </div>
 

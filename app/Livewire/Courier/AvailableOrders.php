@@ -9,6 +9,8 @@ use Livewire\Component;
 
 class AvailableOrders extends Component
 {
+    private const MAX_CITY_NAVIGATION_DISTANCE_KM = 80;
+
     public bool $online = false;
 
     /**
@@ -113,6 +115,79 @@ class AvailableOrders extends Component
             'geoRequired'  => false,
             'online'       => $this->online,
             'activeOrder'  => $this->activeOrder,
+            'mapBootstrap' => $this->resolveMapBootstrap($courier, $this->activeOrder),
         ])->layout('layouts.courier');
+    }
+
+    private function resolveMapBootstrap(User $courier, ?Order $activeOrder): array
+    {
+        if (! $activeOrder || ! $this->validCoords($activeOrder->lat, $activeOrder->lng)) {
+            return [
+                'orderLat' => null,
+                'orderLng' => null,
+                'courierLat' => null,
+                'courierLng' => null,
+                'courierConfirmed' => false,
+            ];
+        }
+
+        $hasCourier = $this->validCoords($courier->last_lat, $courier->last_lng);
+        $courierConfirmed = false;
+
+        if ($hasCourier) {
+            $distanceKm = $this->haversine(
+                (float) $courier->last_lat,
+                (float) $courier->last_lng,
+                (float) $activeOrder->lat,
+                (float) $activeOrder->lng,
+            );
+
+            $courierConfirmed = $distanceKm <= self::MAX_CITY_NAVIGATION_DISTANCE_KM;
+        }
+
+        return [
+            'orderLat' => (float) $activeOrder->lat,
+            'orderLng' => (float) $activeOrder->lng,
+            'courierLat' => $hasCourier ? (float) $courier->last_lat : null,
+            'courierLng' => $hasCourier ? (float) $courier->last_lng : null,
+            'courierConfirmed' => $courierConfirmed,
+        ];
+    }
+
+    private function validCoords($lat, $lng): bool
+    {
+        if ($lat === null || $lng === null) {
+            return false;
+        }
+
+        if ($lat == 0 && $lng == 0) {
+            return false;
+        }
+
+        if ($lat < -90 || $lat > 90) {
+            return false;
+        }
+
+        if ($lng < -180 || $lng > 180) {
+            return false;
+        }
+
+        return true;
+    }
+
+    private function haversine(float $lat1, float $lon1, float $lat2, float $lon2): float
+    {
+        $earth = 6371;
+
+        $dLat = deg2rad($lat2 - $lat1);
+        $dLon = deg2rad($lon2 - $lon1);
+
+        $a = sin($dLat / 2) * sin($dLat / 2)
+            + cos(deg2rad($lat1))
+            * cos(deg2rad($lat2))
+            * sin($dLon / 2)
+            * sin($dLon / 2);
+
+        return $earth * (2 * atan2(sqrt($a), sqrt(1 - $a)));
     }
 }
