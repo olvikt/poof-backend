@@ -23,7 +23,7 @@ export default function initMap() {
   window.POOF = window.POOF || {}
   const POOF = window.POOF
   const DEBUG_MAP = true
-  const API_BASE = (import.meta.env.VITE_API_URL || '').replace(/\/$/, '')
+  const API_BASE = (import.meta?.env?.VITE_API_URL || '').replace(/\/$/, '')
 
   // ------------------------------------------------------------
   // Shared singleton state
@@ -71,6 +71,9 @@ export default function initMap() {
 
     // tile layer ref (for diagnostics / redraw)
     tiles: null,
+
+    routeLine: null,
+    routeOutline: null,
 
     // prevent mount recursion storms
     mountInFlight: false,
@@ -712,6 +715,57 @@ async function buildRoute(fromLat, fromLng, toLat, toLng) {
     state.__courierCenteredOnce = false
   }
 
+  function clearRouteOverlays() {
+    if (!state.instance) return
+
+    if (state.routeOutline) {
+      try { state.instance.removeLayer(state.routeOutline) } catch (_) {}
+      state.routeOutline = null
+    }
+
+    if (state.routeLine) {
+      try { state.instance.removeLayer(state.routeLine) } catch (_) {}
+      state.routeLine = null
+    }
+  }
+
+  function resetMapStateForNavigation() {
+    clearTimeout(state.reverseDebounceTimer)
+    state.reverseDebounceTimer = null
+    state.reverseRequestId += 1
+    state.addressLocked = false
+    state.pendingPoint = null
+
+    state.debugBootstrapLogged = false
+    state.debugFirstCourierCoordsLogged = false
+    state.debugFirstOrderCoordsLogged = false
+  }
+
+  function teardownMapInstance() {
+    if (state.instance) {
+      clearRouteOverlays()
+      clearCourierOverlays()
+
+      try {
+        state.instance.off()
+        state.instance.remove()
+      } catch (_) {}
+    }
+
+    stopObserveResize()
+
+    state.instance = null
+    state.el = null
+    state.marker = null
+    state.tiles = null
+    state.geoBtnBoundEl = null
+    state.__courierCenteredOnce = false
+    state.lastLat = null
+    state.lastLng = null
+
+    window.POOF.marker = null
+  }
+
   // ------------------------------------------------------------
   // Geo button (optional)
   // ------------------------------------------------------------
@@ -774,24 +828,35 @@ async function buildRoute(fromLat, fromLng, toLat, toLng) {
     const domChanged = state.el && state.el !== el
     if (!state.instance || !domChanged) return
 
+    teardownMapInstance()
+  }
+
+  function applyBootstrapFromDom() {
+    const mapCardEl = document.querySelector('[data-map-bootstrap]')
+    const bootstrapRaw = mapCardEl?.dataset?.mapBootstrap || null
+    if (!bootstrapRaw) return
+
     try {
-      state.instance.off()
-      state.instance.remove()
-    } catch (_) {}
+      const bootstrap = JSON.parse(bootstrapRaw)
+      if (!state.debugBootstrapLogged) {
+        state.debugBootstrapLogged = true
+        debugMapFlow('bootstrap payload', bootstrap)
+      }
 
-    stopObserveResize()
-
-    state.instance = null
-    state.marker = null
-    window.POOF.marker = null
-    state.lastLat = null
-    state.lastLng = null
-    state.el = null
-
-    // --------- ADDED (prod) ---------
-    state.tiles = null
-
-    clearCourierOverlays()
+      if (isValidLatLng(bootstrap?.orderLat, bootstrap?.orderLng) || isValidLatLng(bootstrap?.courierLat, bootstrap?.courierLng)) {
+        setCourierMap({
+          orderLat: bootstrap.orderLat,
+          orderLng: bootstrap.orderLng,
+          courierLat: bootstrap.courierLat,
+          courierLng: bootstrap.courierLng,
+          courierConfirmed: bootstrap.courierConfirmed === true,
+          radiusKm: 5,
+          source: 'bootstrap',
+        })
+      }
+    } catch (error) {
+      console.warn('[POOF] invalid map bootstrap payload', error)
+    }
   }
 
   function mount(mapId = 'map') {
@@ -902,30 +967,7 @@ async function buildRoute(fromLat, fromLng, toLat, toLng) {
       }
     }
 
-    const mapCardEl = document.querySelector('[data-map-bootstrap]')
-    const bootstrapRaw = mapCardEl?.dataset?.mapBootstrap || null
-    if (bootstrapRaw) {
-      try {
-        const bootstrap = JSON.parse(bootstrapRaw)
-        if (!state.debugBootstrapLogged) {
-          state.debugBootstrapLogged = true
-          debugMapFlow('bootstrap payload', bootstrap)
-        }
-        if (bootstrap?.orderLat && bootstrap?.orderLng) {
-          setCourierMap({
-            orderLat: bootstrap.orderLat,
-            orderLng: bootstrap.orderLng,
-            courierLat: bootstrap.courierLat,
-            courierLng: bootstrap.courierLng,
-            courierConfirmed: bootstrap.courierConfirmed === true,
-            radiusKm: 5,
-            source: 'bootstrap',
-          })
-        }
-      } catch (error) {
-        console.warn('[POOF] invalid map bootstrap payload', error)
-      }
-    }
+    applyBootstrapFromDom()
 
     // post-mount invalidate (важно когда карта появляется после toggle)
     requestAnimationFrame(() => {
@@ -1220,6 +1262,8 @@ window.addEventListener('build-route', (e) => {
   }
 
   document.addEventListener('livewire:navigated', () => {
+    resetMapStateForNavigation()
+    teardownMapInstance()
     mountAny()
     try { state.instance?.invalidateSize(true) } catch (_) {}
   })
