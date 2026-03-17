@@ -88,6 +88,8 @@ export default function initMap() {
     debugBootstrapLogged: false,
     debugFirstCourierCoordsLogged: false,
     debugFirstOrderCoordsLogged: false,
+
+    hasActiveOrderBootstrap: false,
   }
 
   const state = POOF.map
@@ -739,6 +741,7 @@ async function buildRoute(fromLat, fromLng, toLat, toLng) {
     state.debugBootstrapLogged = false
     state.debugFirstCourierCoordsLogged = false
     state.debugFirstOrderCoordsLogged = false
+    state.hasActiveOrderBootstrap = false
   }
 
   function teardownMapInstance() {
@@ -831,10 +834,15 @@ async function buildRoute(fromLat, fromLng, toLat, toLng) {
     teardownMapInstance()
   }
 
+  function hasActiveOrderBootstrapPayload(bootstrap = null) {
+    return isValidLatLng(bootstrap?.orderLat, bootstrap?.orderLng)
+  }
+
   function applyBootstrapFromDom() {
     const mapCardEl = document.querySelector('[data-map-bootstrap]')
     const bootstrapRaw = mapCardEl?.dataset?.mapBootstrap || null
-    if (!bootstrapRaw) return
+    state.hasActiveOrderBootstrap = false
+    if (!bootstrapRaw) return false
 
     try {
       const bootstrap = JSON.parse(bootstrapRaw)
@@ -842,6 +850,8 @@ async function buildRoute(fromLat, fromLng, toLat, toLng) {
         state.debugBootstrapLogged = true
         debugMapFlow('bootstrap payload', bootstrap)
       }
+
+      state.hasActiveOrderBootstrap = hasActiveOrderBootstrapPayload(bootstrap)
 
       if (isValidLatLng(bootstrap?.orderLat, bootstrap?.orderLng) || isValidLatLng(bootstrap?.courierLat, bootstrap?.courierLng)) {
         setCourierMap({
@@ -853,10 +863,13 @@ async function buildRoute(fromLat, fromLng, toLat, toLng) {
           radiusKm: 5,
           source: 'bootstrap',
         })
+        return true
       }
     } catch (error) {
       console.warn('[POOF] invalid map bootstrap payload', error)
     }
+
+    return false
   }
 
   function mount(mapId = 'map') {
@@ -882,6 +895,7 @@ async function buildRoute(fromLat, fromLng, toLat, toLng) {
 
     // уже есть карта на этом DOM
     if (state.instance && state.el === el) {
+      applyBootstrapFromDom()
       try { state.instance.invalidateSize(true) } catch (_) {}
       observeMapResize(el, state.instance)
       bindGeoButton()
@@ -1265,6 +1279,7 @@ window.addEventListener('build-route', (e) => {
     resetMapStateForNavigation()
     teardownMapInstance()
     mountAny()
+    applyBootstrapFromDom()
     try { state.instance?.invalidateSize(true) } catch (_) {}
   })
 }
@@ -1308,8 +1323,9 @@ window.addEventListener('build-route', (e) => {
   // ------------------------------------------------------------
   bindGlobalHandlersOnce()
   mountAny()
+  const bootstrapApplied = applyBootstrapFromDom()
 
-  if (navigator.geolocation && !isSavedAddressLocked()) {
+  if (navigator.geolocation && !isSavedAddressLocked() && !bootstrapApplied && !state.hasActiveOrderBootstrap) {
     navigator.geolocation.getCurrentPosition((pos) => {
       const lat = pos.coords.latitude
       const lng = pos.coords.longitude
