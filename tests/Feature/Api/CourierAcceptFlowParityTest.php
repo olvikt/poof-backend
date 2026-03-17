@@ -5,12 +5,15 @@ namespace Tests\Feature\Api;
 use App\Models\Courier;
 use App\Models\Order;
 use App\Models\User;
+use Illuminate\Foundation\Testing\RefreshDatabase;
 use Laravel\Sanctum\Sanctum;
 use Illuminate\Support\Str;
 use Tests\TestCase;
 
 class CourierAcceptFlowParityTest extends TestCase
 {
+    use RefreshDatabase;
+
     public function test_api_refusal_matches_web_domain_result_for_already_taken_order(): void
     {
         $client = $this->createUser(User::ROLE_CLIENT);

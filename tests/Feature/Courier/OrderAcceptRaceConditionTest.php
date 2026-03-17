@@ -47,6 +47,11 @@ class OrderAcceptRaceConditionTest extends TestCase
             unlink($this->sqlitePath);
         }
 
+        Config::set('database.default', 'sqlite');
+        Config::set('database.connections.sqlite.database', ':memory:');
+
+        DB::purge('sqlite');
+
         parent::tearDown();
     }
 
