@@ -8,7 +8,7 @@
 
     <title>{{ $title ?? 'POOF' }}</title>
 
-    @vite(['resources/css/app.css','resources/js/app.js'])
+    @vite(['resources/css/app.css','resources/js/auth.js'])
 </head>
 
 <body class="bg-black overflow-x-hidden overflow-y-auto">
