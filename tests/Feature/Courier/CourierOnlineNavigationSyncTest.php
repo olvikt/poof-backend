@@ -4,6 +4,7 @@ namespace Tests\Feature\Courier;
 
 use App\Livewire\Courier\AvailableOrders;
 use App\Livewire\Courier\MyOrders;
+use App\Livewire\Courier\LocationTracker;
 use App\Livewire\Courier\OnlineToggle;
 use App\Models\Courier;
 use App\Models\Order;
@@ -168,6 +169,28 @@ class CourierOnlineNavigationSyncTest extends TestCase
     }
 
 
+
+    public function test_available_orders_active_order_map_bootstrap_uses_active_order_coords(): void
+    {
+        [$courier] = $this->createCourierWithActiveOrder(Order::STATUS_ACCEPTED, [
+            'last_lat' => 48.4645,
+            'last_lng' => 35.0462,
+            'lat' => 48.4647,
+            'lng' => 35.0464,
+        ]);
+
+        $this->actingAs($courier, 'web');
+
+        $component = Livewire::test(AvailableOrders::class);
+        $html = $component->html();
+
+        $this->assertStringContainsString('data-map-bootstrap=', $html);
+        $this->assertStringContainsString('\"orderLat\":48.4647', $html);
+        $this->assertStringContainsString('\"orderLng\":35.0464', $html);
+        $this->assertStringNotContainsString('\"orderLat\":50.4501', $html);
+        $this->assertStringNotContainsString('\"orderLng\":30.5234', $html);
+    }
+
     public function test_active_order_map_bootstrap_centers_on_order_not_default_city(): void
     {
         [$courier, $order] = $this->createCourierWithActiveOrder(Order::STATUS_ACCEPTED, [
@@ -205,6 +228,54 @@ class CourierOnlineNavigationSyncTest extends TestCase
             ->assertNotDispatched('build-route')
             ->assertDispatched('map:ui-error', message: 'Локація курʼєра не підтверджена')
             ->assertDispatched('notify', type: 'error', message: 'Локація курʼєра не підтверджена');
+    }
+
+
+    public function test_confirmed_tracker_coords_are_persisted_and_used_for_navigation(): void
+    {
+        [$courier, $order] = $this->createCourierWithActiveOrder(Order::STATUS_ACCEPTED, [
+            'last_lat' => 40.7128,
+            'last_lng' => -74.0060,
+            'lat' => 48.4670,
+            'lng' => 35.0500,
+        ]);
+
+        $this->actingAs($courier, 'web');
+
+        Livewire::test(LocationTracker::class)
+            ->call('updateLocation', 48.4647, 35.0462, 15);
+
+        $courier->refresh();
+
+        $this->assertSame(48.4647, (float) $courier->last_lat);
+        $this->assertSame(35.0462, (float) $courier->last_lng);
+
+        Livewire::test(MyOrders::class)
+            ->call('navigate', $order->id)
+            ->assertDispatched('build-route',
+                fromLat: 48.4647,
+                fromLng: 35.0462,
+                toLat: 48.467,
+                toLng: 35.05,
+            );
+    }
+
+    public function test_my_orders_hides_stale_distance_chip_after_confirmed_local_tracker_location(): void
+    {
+        [$courier] = $this->createCourierWithActiveOrder(Order::STATUS_ACCEPTED, [
+            'last_lat' => 40.7128,
+            'last_lng' => -74.0060,
+            'lat' => 48.4670,
+            'lng' => 35.0500,
+        ]);
+
+        $this->actingAs($courier, 'web');
+
+        Livewire::test(LocationTracker::class)
+            ->call('updateLocation', 48.4647, 35.0462, 10);
+
+        Livewire::test(MyOrders::class)
+            ->assertDontSee('12631.7 км', false);
     }
 
     public function test_navigation_uses_only_confirmed_courier_coords(): void

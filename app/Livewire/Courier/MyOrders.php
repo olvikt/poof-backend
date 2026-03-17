@@ -128,22 +128,17 @@ class MyOrders extends Component
 
         if (! $this->validCoords($courier->last_lat, $courier->last_lng)) {
             $this->dispatch('notify', type: 'error', message: 'Локація курʼєра недоступна');
+
             return;
         }
 
         if (! $this->validCoords($order->lat, $order->lng)) {
             $this->dispatch('notify', type: 'error', message: 'Локація замовлення недоступна');
+
             return;
         }
 
-        $distanceKm = $this->haversine(
-            (float) $courier->last_lat,
-            (float) $courier->last_lng,
-            (float) $order->lat,
-            (float) $order->lng
-        );
-
-        if ($distanceKm > self::MAX_CITY_NAVIGATION_DISTANCE_KM) {
+        if (! $this->isCourierLocationConfirmedForOrder($courier, $order)) {
             $this->dispatch('notify', type: 'error', message: 'Локація курʼєра не підтверджена');
             $this->dispatch('map:ui-error', [
                 'message' => 'Локація курʼєра не підтверджена',
@@ -217,18 +212,7 @@ class MyOrders extends Component
         }
 
         $hasCourier = $this->validCoords($courier->last_lat, $courier->last_lng);
-        $courierConfirmed = false;
-
-        if ($hasCourier) {
-            $distanceKm = $this->haversine(
-                (float) $courier->last_lat,
-                (float) $courier->last_lng,
-                (float) $activeOrder->lat,
-                (float) $activeOrder->lng
-            );
-
-            $courierConfirmed = $distanceKm <= self::MAX_CITY_NAVIGATION_DISTANCE_KM;
-        }
+        $courierConfirmed = $this->isCourierLocationConfirmedForOrder($courier, $activeOrder);
 
         $payload = [
             'orderLat' => (float) $activeOrder->lat,
@@ -254,29 +238,45 @@ class MyOrders extends Component
     private function appendDistance(Collection $orders, User $courier): Collection
     {
         return $orders->map(function ($order) use ($courier) {
-
-            if (! $this->validCoords($courier->last_lat, $courier->last_lng)) {
+            if (! $this->isCourierLocationConfirmedForOrder($courier, $order)) {
                 $order->distance_km = null;
-                return $order;
-            }
+                $order->eta_minutes = null;
 
-            if (! $this->validCoords($order->lat, $order->lng)) {
-                $order->distance_km = null;
                 return $order;
             }
 
             $order->distance_km = round(
                 $this->haversine(
-                    (float)$courier->last_lat,
-                    (float)$courier->last_lng,
-                    (float)$order->lat,
-                    (float)$order->lng
+                    (float) $courier->last_lat,
+                    (float) $courier->last_lng,
+                    (float) $order->lat,
+                    (float) $order->lng
                 ),
                 2
             );
 
             return $order;
         });
+    }
+
+    private function isCourierLocationConfirmedForOrder(User $courier, Order $order): bool
+    {
+        if (! $this->validCoords($courier->last_lat, $courier->last_lng)) {
+            return false;
+        }
+
+        if (! $this->validCoords($order->lat, $order->lng)) {
+            return false;
+        }
+
+        $distanceKm = $this->haversine(
+            (float) $courier->last_lat,
+            (float) $courier->last_lng,
+            (float) $order->lat,
+            (float) $order->lng
+        );
+
+        return $distanceKm <= self::MAX_CITY_NAVIGATION_DISTANCE_KM;
     }
 
     private function validCoords($lat, $lng): bool
