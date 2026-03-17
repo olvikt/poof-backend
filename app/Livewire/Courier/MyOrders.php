@@ -22,7 +22,7 @@ class MyOrders extends Component
 
     public function mount(): void
     {
-        $courier = auth()->user();
+        $courier = $this->resolveCourier();
 
         if ($courier instanceof User && $courier->isCourier()) {
             $this->online = $courier->isCourierOnline();
@@ -37,7 +37,7 @@ class MyOrders extends Component
             return;
         }
 
-        $courier = auth()->user();
+        $courier = $this->resolveCourier();
 
         if ($courier instanceof User && $courier->isCourier()) {
             $this->online = $courier->isCourierOnline();
@@ -50,7 +50,7 @@ class MyOrders extends Component
 
     public function start(int $orderId): void
     {
-        $courier = auth()->user();
+        $courier = $this->resolveCourier();
 
         if (! $courier instanceof User || ! $courier->isCourier()) {
             return;
@@ -80,7 +80,7 @@ class MyOrders extends Component
 
     public function complete(int $orderId): void
     {
-        $courier = auth()->user();
+        $courier = $this->resolveCourier();
 
         if (! $courier instanceof User || ! $courier->isCourier()) {
             return;
@@ -112,7 +112,7 @@ class MyOrders extends Component
 
     public function navigate(int $orderId): void
     {
-        $courier = auth()->user();
+        $courier = $this->resolveCourier();
 
         if (! $courier instanceof User || ! $courier->isCourier()) {
             return;
@@ -167,7 +167,7 @@ class MyOrders extends Component
 
     public function render()
     {
-        $courier = auth()->user();
+        $courier = $this->resolveCourier();
 
         if (! $courier instanceof User || ! $courier->isCourier()) {
             return view('livewire.courier.my-orders', [
@@ -303,4 +303,16 @@ class MyOrders extends Component
 
         return $earth * (2 * atan2(sqrt($a), sqrt(1 - $a)));
     }
+
+    private function resolveCourier(): ?User
+    {
+        $user = auth()->user();
+
+        if (! $user instanceof User || ! $user->isCourier()) {
+            return null;
+        }
+
+        return $user->fresh(['courierProfile']);
+    }
+
 }

@@ -29,7 +29,7 @@ class AvailableOrders extends Component
      | ------------------------------------------------- */
     public function mount(): void
     {
-        $user = auth()->user();
+        $user = $this->resolveCourier();
 
         if ($user instanceof User && $user->isCourier()) {
             $this->online = $user->isCourierOnline();
@@ -47,7 +47,7 @@ class AvailableOrders extends Component
             return;
         }
 
-        $user = auth()->user();
+        $user = $this->resolveCourier();
 
         if ($user instanceof User && $user->isCourier()) {
             $this->online = $user->isCourierOnline();
@@ -78,7 +78,7 @@ class AvailableOrders extends Component
      | ------------------------------------------------- */
     public function render()
     {
-        $courier = auth()->user();
+        $courier = $this->resolveCourier();
 
         if (! $courier instanceof User || ! $courier->isCourier()) {
             $this->activeOrder = null;
@@ -117,6 +117,17 @@ class AvailableOrders extends Component
             'activeOrder'  => $this->activeOrder,
             'mapBootstrap' => $this->resolveMapBootstrap($courier, $this->activeOrder),
         ])->layout('layouts.courier');
+    }
+
+    private function resolveCourier(): ?User
+    {
+        $user = auth()->user();
+
+        if (! $user instanceof User || ! $user->isCourier()) {
+            return null;
+        }
+
+        return $user->fresh(['courierProfile']);
     }
 
     private function resolveMapBootstrap(User $courier, ?Order $activeOrder): array

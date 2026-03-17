@@ -1,4 +1,5 @@
 <button
+    wire:poll.10s="syncOnlineState"
     type="button"
     wire:click="toggleOnlineState"
     wire:loading.attr="disabled"
