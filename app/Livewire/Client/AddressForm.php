@@ -3,10 +3,14 @@
 namespace App\Livewire\Client;
 
 use Livewire\Component;
+use App\Actions\Address\PersistClientAddress;
+use App\DTO\Address\AddressFormData;
+use App\DTO\Address\PersistAddressData;
 use App\Models\ClientAddress;
+use App\Services\Address\FilterClientAddressPayload;
+use App\Services\Address\PrepareAddressSavePayload;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
-use Illuminate\Support\Facades\Schema;
 use Illuminate\Validation\ValidationException;
 
 class AddressForm extends Component
@@ -54,8 +58,6 @@ class AddressForm extends Component
     protected bool $houseTouchedManually = false;
     protected bool $updatingHouseFromMap = false;
 
-    protected ?array $addressColumns = null;
-	
 
     /* =========================================================
      | EVENTS
@@ -442,8 +444,8 @@ protected function rules(): array
 
         'search' => 'nullable|string|max:255',
 
-        'lat' => 'required|numeric|between:-90,90',
-        'lng' => 'required|numeric|between:-180,180',
+        'lat' => 'nullable|numeric|between:-90,90',
+        'lng' => 'nullable|numeric|between:-180,180',
 
         'city'   => 'required|string|max:80',
         'region' => 'nullable|string|max:120',
@@ -466,80 +468,36 @@ protected function rules(): array
 
 public function save(): void
 {
-
     try {
-        $isEdit = (bool) $this->addressId;
+        $formData = AddressFormData::fromComponent($this);
+        $payloadPreparer = app(PrepareAddressSavePayload::class);
 
-        // 1) Fallback: street/city из search
-        if (! $this->street && $this->search) {
-            $parts = array_map('trim', explode(',', $this->search));
-            $this->street = $this->normalizeStreet($parts[0] ?? null);
-
-            // не перетираем city, если уже задан
-            if (! $this->city && isset($parts[1])) {
-                $this->city = $parts[1];
-            }
+        foreach ($payloadPreparer->applyFallback($formData) as $field => $value) {
+            $this->{$field} = $value;
         }
 
-        // 2) Базовые правила
         $this->validate();
 
-        // 3) Координаты обязательны всегда
         if ($this->lat === null || $this->lng === null) {
             throw ValidationException::withMessages([
                 'search' => 'Уточніть точку на мапі.',
             ]);
         }
 
-        $payload = [
-            'label'         => $this->label,
-            'title'         => $this->title,
-            'building_type' => $this->building_type,
+        $formData = AddressFormData::fromComponent($this);
+        $payload = $payloadPreparer->execute($formData);
+        $filteredPayload = app(FilterClientAddressPayload::class)->execute($payload->toArray());
 
-            'address_text' => $this->search,
+        app(PersistClientAddress::class)->execute(
+            $formData,
+            new PersistAddressData($filteredPayload),
+            auth()->id(),
+        );
 
-            'city'   => $this->city,
-            'region' => $this->region,
-            'street' => $this->street,
-            'house'  => $this->house,
-
-            'lat' => $this->lat,
-            'lng' => $this->lng,
-
-            'entrance'  => $this->building_type === 'apartment' ? $this->entrance : null,
-            'intercom'  => $this->building_type === 'apartment' ? $this->intercom : null,
-            'floor'     => $this->building_type === 'apartment' ? $this->floor : null,
-            'apartment' => $this->building_type === 'apartment' ? $this->apartment : null,
-
-            'geocode_source'   => 'manual',
-            'geocode_accuracy' => 'exact',
-            'geocoded_at'      => now(),
-        ];
-
-        $data = $this->filterPersistedPayload($payload);
-
-        // 5) Save
-        if ($isEdit) {
-            ClientAddress::where('id', $this->addressId)
-                ->where('user_id', auth()->id())
-                ->firstOrFail()
-                ->update($data);
-        } else {
-            ClientAddress::create($data + [
-                'user_id' => auth()->id(),
-            ]);
-        }		
-
-        // 6) ВАЖНО: Дублируем события “широко”, чтобы точно долетели
-        // - одно для UI/JS/всех слушателей
-        $this->dispatch('address-saved');		
-
-        // - одно конкретно в AddressManager (если у тебя компонент так называется)
+        $this->dispatch('address-saved');
         $this->dispatch('address-saved')->to('client.address-manager');
-		
-		// 7) Закрытие sheet: тоже делаем максимально совместимо
         $this->dispatch('sheet:close', name: 'addressForm');
-        $this->dispatch('sheet:close'); // на случай если твой sheet закрывается без параметров
+        $this->dispatch('sheet:close');
 
     } catch (ValidationException $e) {
         Log::error('Address save failed', [
@@ -587,15 +545,6 @@ public function save(): void
             'floor' => $this->floor,
             'apartment' => $this->apartment,
         ];
-    }
-
-    protected function filterPersistedPayload(array $payload): array
-    {
-        $columns = $this->addressColumns ??= Schema::getColumnListing('client_addresses');
-
-        return collect($payload)
-            ->only($columns)
-            ->all();
     }
 
     /* =========================================================
