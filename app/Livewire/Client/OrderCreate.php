@@ -9,6 +9,8 @@ use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Cache;
+use App\Support\Address\AddressCoordinatePolicy;
+use App\Support\Address\AddressPrecision;
 use Livewire\Attributes\On;
 use Livewire\Component;
 
@@ -49,7 +51,7 @@ class OrderCreate extends Component
 	 * approx — координаты из geocode
 	 * exact  — координаты подтверждены (address book / ручная точка)
 	 */
-	public string $address_precision = 'none';
+	public string $address_precision = AddressPrecision::None->value;
 
 	/** debounce token для отложенного geocode */
 	protected ?string $geocodeToken = null;
@@ -247,7 +249,7 @@ class OrderCreate extends Component
 		$this->suppressAddressHooks = true;
 
 		$this->coordsFromAddressBook = true;
-		$this->address_precision = 'exact';
+		$this->address_precision = AddressCoordinatePolicy::precisionForAddressBook($address->lat, $address->lng)->value;
 
 		// UI
 		$this->address_text = $address->address_text ?? $address->full_address;
@@ -272,7 +274,7 @@ class OrderCreate extends Component
 		// 🔔 карта
 		if ($this->lat && $this->lng) {
 			$this->dispatch('map:set-marker', lat: $this->lat, lng: $this->lng);
-			$this->dispatch('map:set-marker-precision', precision: 'exact');
+			$this->dispatch('map:set-marker-precision', precision: AddressPrecision::Exact->value);
 		}
 	}
 
@@ -304,9 +306,7 @@ class OrderCreate extends Component
 			$this->lng = $order->lng;
 
 			$this->coordsFromAddressBook = true; // 🔑 доверяем координатам из истории
-			$this->address_precision = ($this->lat && $this->lng)
-				? 'exact'
-				: 'none';
+			$this->address_precision = AddressCoordinatePolicy::precisionForAddressBook($this->lat, $this->lng)->value;
 
 		} finally {
 			$this->suppressAddressHooks = false;
@@ -320,7 +320,7 @@ class OrderCreate extends Component
 		// 🔔 карта
 		if ($this->lat && $this->lng) {
 			$this->dispatch('map:set-marker', lat: $this->lat, lng: $this->lng);
-			$this->dispatch('map:set-marker-precision', precision: 'approx');
+			$this->dispatch('map:set-marker-precision', precision: AddressPrecision::Approx->value);
 		}
 	}
 	
@@ -383,7 +383,7 @@ class OrderCreate extends Component
 				}
 			}
 
-			$this->address_precision = 'approx';
+			$this->address_precision = AddressCoordinatePolicy::precisionForFieldGeocode($this->lat, $this->lng)->value;
 
 		} catch (\Throwable $e) {
 			// тихо
@@ -442,9 +442,7 @@ class OrderCreate extends Component
 			$this->coordsFromAddressBook = true;
 
 			// 🔑 точность адреса
-			$this->address_precision = ($this->lat !== null && $this->lng !== null)
-				? 'exact'
-				: 'none';
+			$this->address_precision = AddressCoordinatePolicy::precisionForAddressBook($this->lat, $this->lng)->value;
 
 			// 🔒 сбрасываем возможный отложенный geocode
 			$this->geocodeToken = null;
@@ -454,7 +452,7 @@ class OrderCreate extends Component
 		}
 
 		// двигаем маркер ТОЛЬКО если координаты есть
-		if ($this->address_precision === 'exact') {
+		if (AddressPrecision::fromNullable($this->address_precision)->isExact()) {
 			$this->pushMarkerToMap();
 		}
 
@@ -477,14 +475,14 @@ class OrderCreate extends Component
 
     public function updatedAddressText(): void
     {
-        if ($this->suppressAddressHooks) {
+        if (! AddressCoordinatePolicy::shouldRunHooksForProgrammaticUpdate($this->suppressAddressHooks)) {
             return;
         }
 
         // пользователь начал править вручную — это уже не адрес из книги
 		$this->address_id = null;
 		$this->coordsFromAddressBook = false;
-		$this->address_precision = 'none';
+		$this->address_precision = AddressPrecision::None->value;
 
         // НЕ трогаем lat/lng тут — координаты “истина”
         $this->syncStreetFromAddressText();
@@ -492,13 +490,13 @@ class OrderCreate extends Component
 
     public function updatedStreet(): void
     {
-        if ($this->suppressAddressHooks) {
+        if (! AddressCoordinatePolicy::shouldRunHooksForProgrammaticUpdate($this->suppressAddressHooks)) {
             return;
         }
 
         $this->coordsFromAddressBook = false;
         $this->address_id = null;
-		$this->address_precision = 'none';
+		$this->address_precision = AddressPrecision::None->value;
 		
 
         $this->syncAddressText();
@@ -508,14 +506,14 @@ class OrderCreate extends Component
     public function updatedHouse(): void
     {
         // 1) программное изменение (selectAddress / reverseGeocode)
-        if ($this->suppressAddressHooks) {
+        if (! AddressCoordinatePolicy::shouldRunHooksForProgrammaticUpdate($this->suppressAddressHooks)) {
             return;
         }
 
         // 2) пользователь начал править адрес вручную
 		$this->coordsFromAddressBook = false;
 		$this->address_id = null;
-		$this->address_precision = 'none';
+		$this->address_precision = AddressPrecision::None->value;
 
         // 3) теперь geocode разрешён
         $this->syncAddressText();
@@ -532,7 +530,7 @@ class OrderCreate extends Component
 		$this->lat = $lat;
 		$this->lng = $lng;
 
-		$this->address_precision = 'exact';
+		$this->address_precision = AddressCoordinatePolicy::precisionForManualPointSelection($lat, $lng)->value;
 		$this->coordsFromAddressBook = false;
 		$this->address_id = null;
 
@@ -691,7 +689,7 @@ class OrderCreate extends Component
 		}
 
 		// ❗ точные координаты никогда не перезаписываем
-		if ($this->address_precision === 'exact') {
+		if (AddressPrecision::fromNullable($this->address_precision)->isExact()) {
 			return;
 		}
 
@@ -714,7 +712,7 @@ class OrderCreate extends Component
 		$this->lng = (float) $location['lng'];
 
 		// ⚠️ это приблизительная точка
-		$this->address_precision = 'approx';
+		$this->address_precision = AddressCoordinatePolicy::precisionForFieldGeocode($this->lat, $this->lng)->value;
 
 		$this->pushMarkerToMap();
 	}
@@ -953,7 +951,7 @@ class OrderCreate extends Component
 		// - координаты не из адресной книги
 		// - и адрес не подтверждён
 		if (
-			$this->address_precision === 'approx'
+			AddressPrecision::fromNullable($this->address_precision)->isApprox()
 			&& ! $this->coordsFromAddressBook
 		) {
 			$this->addError(

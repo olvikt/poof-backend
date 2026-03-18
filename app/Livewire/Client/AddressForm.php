@@ -13,6 +13,8 @@ use App\Services\Address\FilterClientAddressPayload;
 use App\Services\Address\PrepareAddressSavePayload;
 use App\Services\Address\ResolveAddressFromPoint;
 use App\Services\Address\ResolveAddressPointFromFields;
+use App\Support\Address\AddressCoordinatePolicy;
+use App\Support\Address\AddressPrecision;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Validation\ValidationException;
 use Livewire\Component;
@@ -47,6 +49,8 @@ class AddressForm extends Component
     public ?string $street = null;
     public ?string $house = null;
 
+    public string $addressPrecision = AddressPrecision::None->value;
+
     protected bool $houseTouchedManually = false;
     protected bool $updatingHouseFromMap = false;
 
@@ -69,7 +73,7 @@ class AddressForm extends Component
 
     public function updatedHouse(): void
     {
-        if ($this->updatingHouseFromMap) {
+        if (! AddressCoordinatePolicy::shouldRunHooksForProgrammaticUpdate($this->updatingHouseFromMap)) {
             return;
         }
 
@@ -88,8 +92,13 @@ class AddressForm extends Component
             return;
         }
 
+        if (! AddressCoordinatePolicy::shouldAcceptFieldGeocode(AddressPrecision::fromNullable($this->addressPrecision))) {
+            return;
+        }
+
         $this->lat = $resolvedPoint->lat;
         $this->lng = $resolvedPoint->lng;
+        $this->addressPrecision = AddressCoordinatePolicy::precisionForFieldGeocode($this->lat, $this->lng)->value;
 
         $this->syncMarker();
     }
@@ -197,6 +206,7 @@ class AddressForm extends Component
         $this->search = $this->normalizeSearch($item['label'] ?? $item['line1'] ?? null);
         $this->lat = isset($item['lat']) ? (float) $item['lat'] : null;
         $this->lng = isset($item['lng']) ? (float) $item['lng'] : null;
+        $this->addressPrecision = AddressCoordinatePolicy::precisionForFieldGeocode($this->lat, $this->lng)->value;
         $this->street = $item['street'] ?? $this->street;
         $this->house = $item['house'] ?? $this->house;
         $this->city = $item['city'] ?? $this->city;
@@ -214,6 +224,9 @@ class AddressForm extends Component
     {
         $this->lat = $lat;
         $this->lng = $lng;
+        $this->addressPrecision = $source === 'map'
+            ? AddressCoordinatePolicy::precisionForManualPointSelection($lat, $lng)->value
+            : AddressCoordinatePolicy::precisionForFieldGeocode($lat, $lng)->value;
         $this->place_id = null;
         $this->clearSuggestions();
 
@@ -329,6 +342,7 @@ class AddressForm extends Component
             'region' => $address->region,
             'street' => $address->street,
             'house' => $address->house,
+            'addressPrecision' => AddressCoordinatePolicy::precisionForAddressBook($address->lat, $address->lng)->value,
         ]);
 
         $this->clearSuggestions();
@@ -352,7 +366,7 @@ class AddressForm extends Component
 
         $this->search = $resolved->search;
 
-        if ($this->houseTouchedManually) {
+        if (! AddressCoordinatePolicy::shouldReverseFillHouse($this->houseTouchedManually)) {
             return;
         }
 
@@ -419,10 +433,12 @@ class AddressForm extends Component
             'region',
             'street',
             'house',
+            'addressPrecision',
         ]);
 
         $this->label = 'home';
         $this->building_type = 'apartment';
+        $this->addressPrecision = AddressPrecision::None->value;
         $this->clearSuggestions();
         $this->houseTouchedManually = false;
         $this->updatingHouseFromMap = false;
