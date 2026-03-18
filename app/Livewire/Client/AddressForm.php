@@ -5,10 +5,13 @@ namespace App\Livewire\Client;
 use Livewire\Component;
 use App\Actions\Address\PersistClientAddress;
 use App\DTO\Address\AddressFormData;
+use App\DTO\Address\AddressPointData;
+use App\DTO\Address\ResolvedAddressData;
 use App\DTO\Address\PersistAddressData;
 use App\Models\ClientAddress;
 use App\Services\Address\FilterClientAddressPayload;
 use App\Services\Address\PrepareAddressSavePayload;
+use App\Services\Address\ResolveAddressFromPoint;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Validation\ValidationException;
@@ -339,97 +342,65 @@ public function updatedHouse(): void
      |=========================================================*/
 
     public function setCoords(float $lat, float $lng, ?string $source = null): void
-{
-    $this->lat = $lat;
-    $this->lng = $lng;
+    {
+        $this->lat = $lat;
+        $this->lng = $lng;
 
-    $this->place_id = null;
-    $this->suggestions = [];
-    $this->activeSuggestionIndex = -1;
-    $this->suggestionsMessage = null;
+        $this->place_id = null;
+        $this->suggestions = [];
+        $this->activeSuggestionIndex = -1;
+        $this->suggestionsMessage = null;
 
-    // reverse только если источник — карта
-    if ($source !== 'map') {
-        return;
-    }
+        // reverse только если источник — карта
+        if ($source !== 'map') {
+            return;
+        }
 
         try {
-        $result = Http::timeout(10)
-            ->acceptJson()
-            ->withHeaders([
-                'User-Agent' => config('app.name', 'Poof') . '/1.0',
-            ])
-            ->get('https://nominatim.openstreetmap.org/reverse', [
-                'format' => 'json',
-                'lat' => $lat,
-                'lon' => $lng,
-                'addressdetails' => 1,
-            ]);
+            $resolved = app(ResolveAddressFromPoint::class)->execute(new AddressPointData(
+                lat: $lat,
+                lng: $lng,
+                source: $source,
+            ));
 
-        if (! $result->successful()) {
-            return;
-        }
-
-        $payload = $result->json();
-
-        if (!is_array($payload)) {
-            return;
-        }
-
-        $address = $payload['address'] ?? [];
-        $street = $this->normalizeStreet(
-            $address['road'] ?? $address['pedestrian'] ?? $address['street'] ?? null
-        );
-        $house  = $this->normalizeHouse($address['house_number'] ?? null);
-        $city   = $address['city'] ?? $address['town'] ?? $address['village'] ?? null;
-        $region = $address['state'] ?? $address['region'] ?? null;
-
-        if ($street) {
-            $this->street = $street;
-        }
-
-        if ($city) {
-            $this->city = trim((string) $city);
-        }
-
-        if ($region) {
-            $this->region = trim((string) $region);
-        }
-
-        $line1 = trim(implode(' ', array_filter([$street, $house])));
-        $line2 = trim(implode(', ', array_filter([$this->city, $this->region])));
-        $this->search = $this->normalizeSearch($payload['label'] ?? trim(implode(', ', array_filter([$line1, $line2]))));
-
-        // -------------------------------------------------
-        // 3) АВТОЗАПОЛНЕНИЕ ДОМА (ПРАВИЛЬНО)
-        // -------------------------------------------------
-        if (! $this->houseTouchedManually) {
-
-            // 🔇 тихий режим (чтобы updatedHouse не сработал)
-            $this->updatingHouseFromMap = true;
-
-            if ($house) {
-                $this->house = $house;
+            if ($resolved === null) {
+                return;
             }
 
-            if (! $this->house && ! empty($payload['display_name'])) {
-                // fallback из строки адреса
-                if (preg_match(
-                    '/,\s*([0-9]+[0-9A-Za-zА-Яа-яІЇЄієї\-\/]*)\b/u',
-                    (string) $payload['display_name'],
-                    $m
-                )) {
-                    $this->house = $this->normalizeHouse($m[1]);
-                }
-            }
-
-            $this->updatingHouseFromMap = false;
+            $this->applyResolvedAddress($resolved);
+        } catch (\Throwable $e) {
+            // тихо
         }
-
-    } catch (\Throwable $e) {
-        // тихо
     }
-}
+
+    protected function applyResolvedAddress(ResolvedAddressData $resolved): void
+    {
+        if ($resolved->street) {
+            $this->street = $resolved->street;
+        }
+
+        if ($resolved->city) {
+            $this->city = $resolved->city;
+        }
+
+        if ($resolved->region) {
+            $this->region = $resolved->region;
+        }
+
+        $this->search = $resolved->search;
+
+        if ($this->houseTouchedManually) {
+            return;
+        }
+
+        $this->updatingHouseFromMap = true;
+
+        if ($resolved->house) {
+            $this->house = $resolved->house;
+        }
+
+        $this->updatingHouseFromMap = false;
+    }
 
     /* =========================================================
      | VALIDATION
