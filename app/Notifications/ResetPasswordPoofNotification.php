@@ -2,17 +2,28 @@
 
 namespace App\Notifications;
 
-use Illuminate\Auth\Notifications\ResetPassword;
 use Illuminate\Bus\Queueable;
+use Illuminate\Contracts\Auth\CanResetPassword;
+use Illuminate\Notifications\Notification;
 use Illuminate\Notifications\Messages\MailMessage;
 
-class ResetPasswordPoofNotification extends ResetPassword
+class ResetPasswordPoofNotification extends Notification
 {
     use Queueable;
 
     public const SUBJECT = 'Скидання пароля в POOF';
 
-    public function toMail(object $notifiable): MailMessage
+    public function __construct(
+        public string $token,
+    ) {
+    }
+
+    public function via($notifiable): array
+    {
+        return ['mail'];
+    }
+
+    public function toMail($notifiable): MailMessage
     {
         return (new MailMessage)
             ->subject($this->subjectLine())
@@ -29,7 +40,7 @@ class ResetPasswordPoofNotification extends ResetPassword
         return self::SUBJECT;
     }
 
-    public function resetUrl(object $notifiable): string
+    public function resetUrl(CanResetPassword $notifiable): string
     {
         return url(route('password.reset', [
             'token' => $this->token,
