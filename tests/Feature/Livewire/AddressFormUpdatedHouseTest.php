@@ -68,6 +68,25 @@ class AddressFormUpdatedHouseTest extends TestCase
         Http::assertNothingSent();
     }
 
+
+    public function test_exact_manual_point_is_not_overwritten_by_forward_geocode(): void
+    {
+        Http::fake([
+            'http://localhost/api/geocode*' => Http::response([
+                ['lat' => '49.8397', 'lng' => '24.0297'],
+            ]),
+        ]);
+
+        Livewire::test(AddressForm::class)
+            ->call('setCoords', 50.45, 30.52, 'map')
+            ->set('street', 'Main Street')
+            ->set('city', 'Kyiv')
+            ->set('house', '7A')
+            ->assertSet('lat', 50.45)
+            ->assertSet('lng', 30.52)
+            ->assertSet('addressPrecision', 'exact');
+    }
+
     public function test_unsuccessful_geocode_response_does_not_break_existing_state(): void
     {
         Http::fake([
