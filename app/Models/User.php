@@ -12,6 +12,7 @@ use Illuminate\Notifications\Notifiable;
 use Laravel\Sanctum\HasApiTokens;
 use Illuminate\Support\Facades\Storage;
 use App\Models\OrderOffer;
+use App\Notifications\ResetPasswordPoofNotification;
 
 class User extends Authenticatable implements FilamentUser
 {
@@ -418,6 +419,12 @@ class User extends Authenticatable implements FilamentUser
             ?? self::SESSION_OFFLINE;
     }
 	
+
+
+    public function sendPasswordResetNotification($token): void
+    {
+        $this->notify(new ResetPasswordPoofNotification($token));
+    }
 
     /* =========================================================
      |  RELATIONS
