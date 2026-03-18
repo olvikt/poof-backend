@@ -35,10 +35,42 @@ class PasswordResetTest extends TestCase
             'email' => $user->email,
         ]);
 
+        $response->assertStatus(302);
         $response->assertRedirect();
         $response->assertSessionHas('status', __((string) Password::RESET_LINK_SENT));
 
         Notification::assertSentTo($user, ResetPasswordPoofNotification::class);
+    }
+
+    public function test_forgot_password_post_does_not_fail_with_500_and_builds_existing_reset_route(): void
+    {
+        Notification::fake();
+
+        $user = User::factory()->create([
+            'email' => 'route-check@example.com',
+        ]);
+
+        $response = $this->post('/forgot-password', [
+            'email' => $user->email,
+        ]);
+
+        $response->assertStatus(302);
+        $this->assertNotSame(500, $response->getStatusCode());
+
+        Notification::assertSentTo($user, ResetPasswordPoofNotification::class, function (ResetPasswordPoofNotification $notification) use ($user): bool {
+            $resetUrl = $notification->resetUrl($user);
+            $path = parse_url($resetUrl, PHP_URL_PATH);
+            $query = parse_url($resetUrl, PHP_URL_QUERY);
+
+            parse_str($query ?? '', $parameters);
+
+            return $resetUrl === route('password.reset', [
+                'token' => $notification->token,
+                'email' => $user->email,
+            ])
+                && $path === '/reset-password/'.$notification->token
+                && ($parameters['email'] ?? null) === $user->email;
+        });
     }
 
     public function test_reset_password_notification_uses_ukrainian_subject_and_contains_reset_url(): void
