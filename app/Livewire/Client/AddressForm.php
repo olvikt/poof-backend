@@ -4,15 +4,16 @@ namespace App\Livewire\Client;
 
 use Livewire\Component;
 use App\Actions\Address\PersistClientAddress;
+use App\DTO\Address\AddressFieldsData;
 use App\DTO\Address\AddressFormData;
 use App\DTO\Address\AddressPointData;
 use App\DTO\Address\ResolvedAddressData;
+use App\Services\Address\ResolveAddressPointFromFields;
 use App\DTO\Address\PersistAddressData;
 use App\Models\ClientAddress;
 use App\Services\Address\FilterClientAddressPayload;
 use App\Services\Address\PrepareAddressSavePayload;
 use App\Services\Address\ResolveAddressFromPoint;
-use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Validation\ValidationException;
 
@@ -140,81 +141,30 @@ public function open(?int $addressId = null): void
      |=========================================================*/
 public function updatedHouse(): void
 {
-    // ---------------------------------------------------------
-    // 1) Если дом меняется ИЗ КАРТЫ — игнорируем
-    //    (programmatic update не считаем ручным вводом)
-    // ---------------------------------------------------------
     if ($this->updatingHouseFromMap) {
         return;
     }
 
-    // ---------------------------------------------------------
-    // 2) Пользователь реально трогал поле "Дом"
-    // ---------------------------------------------------------
     $this->houseTouchedManually = true;
 
-    $house = trim((string) $this->house);
-    if ($house === '') {
+    $resolvedPoint = app(ResolveAddressPointFromFields::class)->execute(new AddressFieldsData(
+        street: $this->street,
+        house: $this->house,
+        city: $this->city,
+        search: $this->search,
+        lat: $this->lat,
+        lng: $this->lng,
+    ));
+
+    if ($resolvedPoint === null) {
         return;
     }
 
-    // ---------------------------------------------------------
-    // 3) Собираем улицу / город
-    // ---------------------------------------------------------
-    $street = trim((string) $this->street);
-    $city   = trim((string) $this->city);
+    $this->lat = $resolvedPoint->lat;
+    $this->lng = $resolvedPoint->lng;
 
-    // fallback из search
-    if ($street === '' && $this->search) {
-        $parts = array_map('trim', explode(',', $this->search));
-        $street = $parts[0] ?? '';
-        if ($city === '' && isset($parts[1])) {
-            $city = $parts[1];
-        }
-    }
-
-    if ($street === '') {
-        return;
-    }
-
-    // ---------------------------------------------------------
-    // 4) Forward-geocode: улица + дом (+ город)
-    // ---------------------------------------------------------
-    $query = $street . ', ' . $house;
-    if ($city !== '') {
-        $query .= ', ' . $city;
-    }
-
-    try {
-        $response = Http::timeout(8)
-            ->acceptJson()
-            ->get(url('/api/geocode'), [
-                'q' => $query,
-                'lat' => $this->lat,
-                'lng' => $this->lng,
-            ]);
-
-        if (! $response->successful()) {
-            return;
-        }
-
-        $item = $response->json('0');
-        if (!is_array($item)) {
-            return;
-        }
-
-        if (!isset($item['lat'], $item['lng'])) {
-            return;
-        }
-
-        $this->lat = (float) $item['lat'];
-        $this->lng = (float) $item['lng'];
-
-        $this->dispatch('map:set-marker', lat: $this->lat, lng: $this->lng);
-    } catch (\Throwable $e) {
-        // молча — UX важнее
-    }
-} 
+    $this->dispatch('map:set-marker', lat: $this->lat, lng: $this->lng);
+}
 
     public function updatedSearch($value = null): void
     {
