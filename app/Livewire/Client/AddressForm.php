@@ -2,27 +2,23 @@
 
 namespace App\Livewire\Client;
 
-use Livewire\Component;
 use App\Actions\Address\PersistClientAddress;
 use App\DTO\Address\AddressFieldsData;
 use App\DTO\Address\AddressFormData;
 use App\DTO\Address\AddressPointData;
-use App\DTO\Address\ResolvedAddressData;
-use App\Services\Address\ResolveAddressPointFromFields;
 use App\DTO\Address\PersistAddressData;
+use App\DTO\Address\ResolvedAddressData;
 use App\Models\ClientAddress;
 use App\Services\Address\FilterClientAddressPayload;
 use App\Services\Address\PrepareAddressSavePayload;
 use App\Services\Address\ResolveAddressFromPoint;
+use App\Services\Address\ResolveAddressPointFromFields;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Validation\ValidationException;
+use Livewire\Component;
 
 class AddressForm extends Component
 {
-    /* =========================================================
-     | STATE
-     |=========================================================*/
-
     public ?int $addressId = null;
 
     /** apartment | house */
@@ -31,140 +27,72 @@ class AddressForm extends Component
     public string $label = 'home';
     public ?string $title = null;
 
-    // UI
     public ?string $search = null;
     public array $suggestions = [];
     public int $activeSuggestionIndex = -1;
     public ?string $suggestionsMessage = null;
 
-    // Координаты — ИСТИНА
     public ?float $lat = null;
     public ?float $lng = null;
 
-    // Google meta
     public ?string $place_id = null;
 
-    // Детали (для apartment)
     public ?string $entrance = null;
     public ?string $intercom = null;
     public ?string $floor = null;
     public ?string $apartment = null;
 
-    // Адрес
     public ?string $city = null;
     public ?string $region = null;
     public ?string $street = null;
     public ?string $house = null;
-	
-	 // -----------------------------
-    // INTERNAL FLAGS (НЕ UI)
-    // -----------------------------
+
     protected bool $houseTouchedManually = false;
     protected bool $updatingHouseFromMap = false;
 
-
-    /* =========================================================
-     | EVENTS
-     |=========================================================*/
-
     protected $listeners = [
-        'address:open'       => 'open',
+        'address:open' => 'open',
         'address:set-coords' => 'setCoords',
     ];
 
-    /* =========================================================
-     | OPEN / LOAD
-     |=========================================================*/
-
-public function open(?int $addressId = null): void
-{
-    $this->addressId = $addressId;
-
-    if ($addressId) {
-        $this->loadAddress($addressId);
-    } else {
-        $this->resetForm();
-    }
-
-    // открываем sheet
-    $this->dispatch('sheet:open', name: 'addressForm');
-
-    // 🔒 СТРАХОВКА:
-    // если координаты уже есть — повторно синхронизируем маркер
-    // (карта к этому моменту уже смонтируется)
-    if ($this->lat !== null && $this->lng !== null) {
-        $this->dispatch('map:set-marker', lat: $this->lat, lng: $this->lng);
-    }
-}
-
-    protected function loadAddress(int $id): void
+    public function open(?int $addressId = null): void
     {
-        $address = ClientAddress::where('user_id', auth()->id())
-            ->findOrFail($id);
+        $this->addressId = $addressId;
 
-        $this->fill([
-            'label'         => $address->label,
-            'title'         => $address->title,
-            'building_type' => $address->building_type ?? 'apartment',
+        $addressId
+            ? $this->loadAddress($addressId)
+            : $this->resetForm();
 
-            'search'        => $this->normalizeSearch($address->address_text),
-
-            'lat'           => $address->lat,
-            'lng'           => $address->lng,
-            'place_id'      => $address->place_id,
-
-            'entrance'      => $address->entrance,
-            'intercom'      => $address->intercom,
-            'floor'         => $address->floor,
-            'apartment'     => $address->apartment,
-
-            'city'          => $address->city,
-            'region'        => $address->region,
-            'street'        => $address->street,
-            'house'         => $address->house,
-        ]);
-
-        $this->suggestions = [];
-        $this->activeSuggestionIndex = -1;
-        $this->suggestionsMessage = null;
-
-        // 👉 координаты передаём в JS,
-        // map.js сам поставит маркер, когда карта будет готова
-		 if ($this->lat && $this->lng) {
-			$this->dispatch('map:set-marker', lat: $this->lat, lng: $this->lng);
-		}
+        $this->dispatch('sheet:open', name: 'addressForm');
+        $this->syncMarker();
     }
 
+    public function updatedHouse(): void
+    {
+        if ($this->updatingHouseFromMap) {
+            return;
+        }
 
-    /* =========================================================
-     | AUTOCOMPLETE
-     |=========================================================*/
-public function updatedHouse(): void
-{
-    if ($this->updatingHouseFromMap) {
-        return;
+        $this->houseTouchedManually = true;
+
+        $resolvedPoint = app(ResolveAddressPointFromFields::class)->execute(new AddressFieldsData(
+            street: $this->street,
+            house: $this->house,
+            city: $this->city,
+            search: $this->search,
+            lat: $this->lat,
+            lng: $this->lng,
+        ));
+
+        if ($resolvedPoint === null) {
+            return;
+        }
+
+        $this->lat = $resolvedPoint->lat;
+        $this->lng = $resolvedPoint->lng;
+
+        $this->syncMarker();
     }
-
-    $this->houseTouchedManually = true;
-
-    $resolvedPoint = app(ResolveAddressPointFromFields::class)->execute(new AddressFieldsData(
-        street: $this->street,
-        house: $this->house,
-        city: $this->city,
-        search: $this->search,
-        lat: $this->lat,
-        lng: $this->lng,
-    ));
-
-    if ($resolvedPoint === null) {
-        return;
-    }
-
-    $this->lat = $resolvedPoint->lat;
-    $this->lng = $resolvedPoint->lng;
-
-    $this->dispatch('map:set-marker', lat: $this->lat, lng: $this->lng);
-}
 
     public function updatedSearch($value = null): void
     {
@@ -175,9 +103,7 @@ public function updatedHouse(): void
         }
 
         if (mb_strlen(trim((string) $this->search)) < 3) {
-            $this->suggestions = [];
-            $this->activeSuggestionIndex = -1;
-            $this->suggestionsMessage = null;
+            $this->clearSuggestions();
         }
     }
 
@@ -186,7 +112,7 @@ public function updatedHouse(): void
         $this->suggestions = is_array($items)
             ? collect($items)
                 ->map(function ($item): ?array {
-                    if (!is_array($item)) {
+                    if (! is_array($item)) {
                         return null;
                     }
 
@@ -215,8 +141,8 @@ public function updatedHouse(): void
             : [];
 
         $this->activeSuggestionIndex = -1;
-        $this->suggestionsMessage = is_string($message) || is_null($message)
-            ? (is_string($message) && trim($message) !== '' ? trim($message) : null)
+        $this->suggestionsMessage = is_string($message) && trim($message) !== ''
+            ? trim($message)
             : null;
     }
 
@@ -262,24 +188,21 @@ public function updatedHouse(): void
     public function selectSuggestion(int $index): void
     {
         $item = $this->suggestions[$index] ?? null;
-        if (!is_array($item)) {
+
+        if (! is_array($item)) {
             return;
         }
 
         $this->place_id = null;
         $this->search = $this->normalizeSearch($item['label'] ?? $item['line1'] ?? null);
-
         $this->lat = isset($item['lat']) ? (float) $item['lat'] : null;
         $this->lng = isset($item['lng']) ? (float) $item['lng'] : null;
-
         $this->street = $item['street'] ?? $this->street;
         $this->house = $item['house'] ?? $this->house;
         $this->city = $item['city'] ?? $this->city;
         $this->region = $item['region'] ?? $this->region;
 
-        $this->suggestions = [];
-        $this->activeSuggestionIndex = -1;
-        $this->suggestionsMessage = null;
+        $this->clearSuggestions();
 
         if ($this->lat !== null && $this->lng !== null) {
             $this->dispatch('map:set-location', lat: $this->lat, lng: $this->lng, source: 'autocomplete', zoom: 17);
@@ -287,40 +210,130 @@ public function updatedHouse(): void
         }
     }
 
-    /* =========================================================
-     | MAP → FORM
-     |=========================================================*/
-
     public function setCoords(float $lat, float $lng, ?string $source = null): void
     {
         $this->lat = $lat;
         $this->lng = $lng;
-
         $this->place_id = null;
-        $this->suggestions = [];
-        $this->activeSuggestionIndex = -1;
-        $this->suggestionsMessage = null;
+        $this->clearSuggestions();
 
-        // reverse только если источник — карта
         if ($source !== 'map') {
             return;
         }
 
-        try {
-            $resolved = app(ResolveAddressFromPoint::class)->execute(new AddressPointData(
-                lat: $lat,
-                lng: $lng,
-                source: $source,
-            ));
+        $resolved = app(ResolveAddressFromPoint::class)->execute(new AddressPointData(
+            lat: $lat,
+            lng: $lng,
+            source: $source,
+        ));
 
-            if ($resolved === null) {
-                return;
+        if ($resolved !== null) {
+            $this->applyResolvedAddress($resolved);
+        }
+    }
+
+    protected function rules(): array
+    {
+        return [
+            'label' => 'required|in:home,work,other',
+            'title' => 'nullable|string|max:50',
+            'building_type' => 'required|in:apartment,house',
+            'search' => 'nullable|string|max:255',
+            'lat' => 'nullable|numeric|between:-90,90',
+            'lng' => 'nullable|numeric|between:-180,180',
+            'city' => 'required|string|max:80',
+            'region' => 'nullable|string|max:120',
+            'street' => 'required|string|min:2|max:120',
+            'house' => 'required|string|max:20',
+            'entrance' => 'nullable|string|max:10',
+            'floor' => 'nullable|string|max:10',
+            'intercom' => 'nullable|string|max:10',
+            'apartment' => 'nullable|string|max:10',
+        ];
+    }
+
+    public function save(): void
+    {
+        try {
+            $formData = AddressFormData::fromComponent($this);
+            $payloadPreparer = app(PrepareAddressSavePayload::class);
+
+            foreach ($payloadPreparer->applyFallback($formData) as $field => $value) {
+                $this->{$field} = $value;
             }
 
-            $this->applyResolvedAddress($resolved);
+            $this->validate();
+            $this->ensureCoordinatesArePresent();
+
+            $formData = AddressFormData::fromComponent($this);
+            $payload = $payloadPreparer->execute($formData);
+            $filteredPayload = app(FilterClientAddressPayload::class)->execute($payload->toArray());
+
+            app(PersistClientAddress::class)->execute(
+                $formData,
+                new PersistAddressData($filteredPayload),
+                auth()->id(),
+            );
+
+            $this->dispatch('address-saved');
+            $this->dispatch('address-saved')->to('client.address-manager');
+            $this->dispatch('sheet:close', name: 'addressForm');
+            $this->dispatch('sheet:close');
+        } catch (ValidationException $e) {
+            Log::error('Address save failed', [
+                'user_id' => auth()->id(),
+                'payload' => $this->payloadForLogs(),
+                'errors' => $e->errors(),
+            ]);
+
+            throw $e;
         } catch (\Throwable $e) {
-            // тихо
+            report($e);
+
+            $this->addError('search', 'Сталася помилка при збереженні. Перевірте поля та спробуйте ще раз.');
+
+            Log::error('Address save exception', [
+                'user_id' => auth()->id(),
+                'payload' => $this->payloadForLogs(),
+                'errors' => $this->getErrorBag()->toArray(),
+                'message' => $e->getMessage(),
+                'trace' => $e->getTraceAsString(),
+            ]);
         }
+    }
+
+    public function render()
+    {
+        return view('livewire.client.address-form');
+    }
+
+    protected function loadAddress(int $id): void
+    {
+        $address = ClientAddress::query()
+            ->where('user_id', auth()->id())
+            ->findOrFail($id);
+
+        $this->fill([
+            'label' => $address->label,
+            'title' => $address->title,
+            'building_type' => $address->building_type ?? 'apartment',
+            'search' => $this->normalizeSearch($address->address_text),
+            'lat' => $address->lat,
+            'lng' => $address->lng,
+            'place_id' => $address->place_id,
+            'entrance' => $address->entrance,
+            'intercom' => $address->intercom,
+            'floor' => $address->floor,
+            'apartment' => $address->apartment,
+            'city' => $address->city,
+            'region' => $address->region,
+            'street' => $address->street,
+            'house' => $address->house,
+        ]);
+
+        $this->clearSuggestions();
+        $this->houseTouchedManually = false;
+        $this->updatingHouseFromMap = false;
     }
 
     protected function applyResolvedAddress(ResolvedAddressData $resolved): void
@@ -352,100 +365,16 @@ public function updatedHouse(): void
         $this->updatingHouseFromMap = false;
     }
 
-    /* =========================================================
-     | VALIDATION
-     |=========================================================*/
-
-protected function rules(): array
-{
-    return [
-        'label'         => 'required|in:home,work,other',
-        'title'         => 'nullable|string|max:50',
-        'building_type' => 'required|in:apartment,house',
-
-        'search' => 'nullable|string|max:255',
-
-        'lat' => 'nullable|numeric|between:-90,90',
-        'lng' => 'nullable|numeric|between:-180,180',
-
-        'city'   => 'required|string|max:80',
-        'region' => 'nullable|string|max:120',
-        'street' => 'required|string|min:2|max:120',
-
-        'house' => 'required|string|max:20',
-
-        'entrance' => 'nullable|string|max:10',
-
-        'floor' => 'nullable|string|max:10',
-
-        'intercom'  => 'nullable|string|max:10',
-        'apartment' => 'nullable|string|max:10',
-    ];
-}
-
-    /* =========================================================
-     | SAVE
-     |=========================================================*/
-
-public function save(): void
-{
-    try {
-        $formData = AddressFormData::fromComponent($this);
-        $payloadPreparer = app(PrepareAddressSavePayload::class);
-
-        foreach ($payloadPreparer->applyFallback($formData) as $field => $value) {
-            $this->{$field} = $value;
+    protected function ensureCoordinatesArePresent(): void
+    {
+        if ($this->lat !== null && $this->lng !== null) {
+            return;
         }
 
-        $this->validate();
-
-        if ($this->lat === null || $this->lng === null) {
-            throw ValidationException::withMessages([
-                'search' => 'Уточніть точку на мапі.',
-            ]);
-        }
-
-        $formData = AddressFormData::fromComponent($this);
-        $payload = $payloadPreparer->execute($formData);
-        $filteredPayload = app(FilterClientAddressPayload::class)->execute($payload->toArray());
-
-        app(PersistClientAddress::class)->execute(
-            $formData,
-            new PersistAddressData($filteredPayload),
-            auth()->id(),
-        );
-
-        $this->dispatch('address-saved');
-        $this->dispatch('address-saved')->to('client.address-manager');
-        $this->dispatch('sheet:close', name: 'addressForm');
-        $this->dispatch('sheet:close');
-
-    } catch (ValidationException $e) {
-        Log::error('Address save failed', [
-            'user_id' => auth()->id(),
-            'payload' => $this->payloadForLogs(),
-            'errors' => $e->errors(),
-        ]);
-
-        // покажет ошибки в форме (как обычно)
-        throw $e;
-
-    } catch (\Throwable $e) {
-        report($e);
-
-        // чтобы не “молчало”
-        $this->addError('search', 'Сталася помилка при збереженні. Перевірте поля та спробуйте ще раз.');
-
-        // лог для отладки (быстро поймешь, где упало)
-        Log::error('Address save exception', [
-            'user_id' => auth()->id(),
-            'payload' => $this->payloadForLogs(),
-            'errors' => $this->getErrorBag()->toArray(),
-            'message' => $e->getMessage(),
-            'trace' => $e->getTraceAsString(),
+        throw ValidationException::withMessages([
+            'search' => 'Уточніть точку на мапі.',
         ]);
     }
-}
 
     protected function payloadForLogs(): array
     {
@@ -467,10 +396,6 @@ public function save(): void
             'apartment' => $this->apartment,
         ];
     }
-
-    /* =========================================================
-     | HELPERS
-     |=========================================================*/
 
     protected function resetForm(): void
     {
@@ -498,26 +423,25 @@ public function save(): void
 
         $this->label = 'home';
         $this->building_type = 'apartment';
+        $this->clearSuggestions();
+        $this->houseTouchedManually = false;
+        $this->updatingHouseFromMap = false;
+    }
+
+    protected function clearSuggestions(): void
+    {
         $this->suggestions = [];
         $this->activeSuggestionIndex = -1;
         $this->suggestionsMessage = null;
     }
 
-    protected function normalizeStreet(?string $street): ?string
+    protected function syncMarker(): void
     {
-        $street = trim((string) $street);
-        if ($street === '') {
-            return null;
+        if ($this->lat === null || $this->lng === null) {
+            return;
         }
 
-        return preg_replace('/^\s*\d+[\dA-Za-zА-Яа-яІЇЄієї\-\/]*\s*,\s*/u', '', $street) ?: null;
-    }
-
-    protected function normalizeHouse(?string $house): ?string
-    {
-        $house = trim((string) $house);
-
-        return $house !== '' ? $house : null;
+        $this->dispatch('map:set-marker', lat: $this->lat, lng: $this->lng);
     }
 
     protected function normalizeSearch($value): string
@@ -531,10 +455,5 @@ public function save(): void
         }
 
         return trim((string) $value);
-    }
-
-    public function render()
-    {
-        return view('livewire.client.address-form');
     }
 }

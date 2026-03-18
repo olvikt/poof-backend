@@ -13,7 +13,7 @@ class AddressFormSaveTest extends TestCase
 {
     use RefreshDatabase;
 
-    public function test_it_creates_an_address_via_save_flow(): void
+    public function test_it_creates_an_address_via_save_flow_and_keeps_dispatch_contracts(): void
     {
         $user = User::factory()->create();
         $this->actingAs($user);
@@ -35,6 +35,7 @@ class AddressFormSaveTest extends TestCase
             ->set('apartment', '15')
             ->call('save')
             ->assertDispatched('address-saved')
+            ->assertDispatched('sheet:close', name: 'addressForm')
             ->assertDispatched('sheet:close');
 
         $this->assertDatabaseHas('client_addresses', [
@@ -51,6 +52,40 @@ class AddressFormSaveTest extends TestCase
             'geocode_source' => 'manual',
             'geocode_accuracy' => 'exact',
         ]);
+    }
+
+    public function test_it_opens_existing_address_for_edit_and_dispatches_sheet_and_marker_events(): void
+    {
+        $user = User::factory()->create();
+        $this->actingAs($user);
+
+        $address = ClientAddress::create([
+            'user_id' => $user->id,
+            'label' => 'work',
+            'title' => 'Office',
+            'building_type' => 'house',
+            'address_text' => 'Updated Street 9B, Kyiv',
+            'city' => 'Kyiv',
+            'region' => 'Kyiv region',
+            'street' => 'Updated Street',
+            'house' => '9B',
+            'lat' => 50.46,
+            'lng' => 30.53,
+        ]);
+
+        Livewire::test(AddressForm::class)
+            ->call('open', $address->id)
+            ->assertSet('addressId', $address->id)
+            ->assertSet('label', 'work')
+            ->assertSet('title', 'Office')
+            ->assertSet('building_type', 'house')
+            ->assertSet('search', 'Updated Street 9B, Kyiv')
+            ->assertSet('street', 'Updated Street')
+            ->assertSet('house', '9B')
+            ->assertSet('lat', 50.46)
+            ->assertSet('lng', 30.53)
+            ->assertDispatched('sheet:open', name: 'addressForm')
+            ->assertDispatched('map:set-marker', lat: 50.46, lng: 30.53);
     }
 
     public function test_it_updates_only_the_authenticated_users_address_via_save_flow(): void
@@ -97,7 +132,7 @@ class AddressFormSaveTest extends TestCase
             ->set('lng', 30.53)
             ->call('save')
             ->assertDispatched('address-saved')
-            ->assertDispatched('sheet:close');
+            ->assertDispatched('sheet:close', name: 'addressForm');
 
         $this->assertDatabaseHas('client_addresses', [
             'id' => $address->id,

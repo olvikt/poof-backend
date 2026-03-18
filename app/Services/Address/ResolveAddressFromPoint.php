@@ -10,52 +10,56 @@ class ResolveAddressFromPoint
 {
     public function execute(AddressPointData $point): ?ResolvedAddressData
     {
-        $result = Http::timeout(10)
-            ->acceptJson()
-            ->withHeaders([
-                'User-Agent' => config('app.name', 'Poof') . '/1.0',
-            ])
-            ->get('https://nominatim.openstreetmap.org/reverse', [
-                'format' => 'json',
-                'lat' => $point->lat,
-                'lon' => $point->lng,
-                'addressdetails' => 1,
-            ]);
+        try {
+            $result = Http::timeout(10)
+                ->acceptJson()
+                ->withHeaders([
+                    'User-Agent' => config('app.name', 'Poof') . '/1.0',
+                ])
+                ->get('https://nominatim.openstreetmap.org/reverse', [
+                    'format' => 'json',
+                    'lat' => $point->lat,
+                    'lon' => $point->lng,
+                    'addressdetails' => 1,
+                ]);
 
-        if (! $result->successful()) {
+            if (! $result->successful()) {
+                return null;
+            }
+
+            $payload = $result->json();
+
+            if (! is_array($payload)) {
+                return null;
+            }
+
+            $address = $payload['address'] ?? null;
+
+            if (! is_array($address)) {
+                return null;
+            }
+
+            $street = $this->normalizeStreet(
+                $address['road'] ?? $address['pedestrian'] ?? $address['street'] ?? null
+            );
+            $house = $this->normalizeHouse($address['house_number'] ?? null);
+            $city = $this->normalizeString($address['city'] ?? $address['town'] ?? $address['village'] ?? null);
+            $region = $this->normalizeString($address['state'] ?? $address['region'] ?? null);
+
+            if ($house === null) {
+                $house = $this->extractHouseFromDisplayName($payload['display_name'] ?? null);
+            }
+
+            return new ResolvedAddressData(
+                street: $street,
+                house: $house,
+                city: $city,
+                region: $region,
+                search: $this->buildSearch($street, $house, $city, $region, $payload['label'] ?? null),
+            );
+        } catch (\Throwable) {
             return null;
         }
-
-        $payload = $result->json();
-
-        if (! is_array($payload)) {
-            return null;
-        }
-
-        $address = $payload['address'] ?? null;
-
-        if (! is_array($address)) {
-            return null;
-        }
-
-        $street = $this->normalizeStreet(
-            $address['road'] ?? $address['pedestrian'] ?? $address['street'] ?? null
-        );
-        $house = $this->normalizeHouse($address['house_number'] ?? null);
-        $city = $this->normalizeString($address['city'] ?? $address['town'] ?? $address['village'] ?? null);
-        $region = $this->normalizeString($address['state'] ?? $address['region'] ?? null);
-
-        if ($house === null) {
-            $house = $this->extractHouseFromDisplayName($payload['display_name'] ?? null);
-        }
-
-        return new ResolvedAddressData(
-            street: $street,
-            house: $house,
-            city: $city,
-            region: $region,
-            search: $this->buildSearch($street, $house, $city, $region, $payload['label'] ?? null),
-        );
     }
 
     public function buildSearch(
@@ -91,6 +95,7 @@ class ResolveAddressFromPoint
     private function normalizeStreet(?string $street): ?string
     {
         $street = trim((string) $street);
+
         if ($street === '') {
             return null;
         }
