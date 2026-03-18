@@ -4,9 +4,9 @@
 
 @php
     $styles = match ($type) {
-        'success' => 'border-emerald-400/40 bg-emerald-500/15 text-emerald-100',
-        'error' => 'border-rose-400/45 bg-rose-500/15 text-rose-50',
-        default => 'border-sky-400/40 bg-sky-500/15 text-sky-50',
+        'success' => 'border-lime-400/60 bg-lime-500/20 text-lime-200',
+        'error' => 'border-orange-400/60 bg-orange-500/20 text-orange-100',
+        default => 'border-sky-400/50 bg-sky-500/20 text-sky-100',
     };
 @endphp
 

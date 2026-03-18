@@ -22,7 +22,7 @@
             @endif
 
             @if ($rateLimitErrors !== [])
-                <x-auth.alert class="mb-4">
+                <x-auth.alert type="error" class="mb-4">
                     <ul class="space-y-1">
                         @foreach ($rateLimitErrors as $error)
                             <li>{{ $error }}</li>
