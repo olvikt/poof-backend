@@ -3,7 +3,7 @@
 namespace Tests\Feature\Auth;
 
 use App\Models\User;
-use Illuminate\Auth\Notifications\ResetPassword;
+use App\Notifications\ResetPasswordPoofNotification;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Notification;
@@ -38,7 +38,30 @@ class PasswordResetTest extends TestCase
         $response->assertRedirect();
         $response->assertSessionHas('status', __((string) Password::RESET_LINK_SENT));
 
-        Notification::assertSentTo($user, ResetPassword::class);
+        Notification::assertSentTo($user, ResetPasswordPoofNotification::class);
+    }
+
+    public function test_reset_password_notification_uses_ukrainian_subject_and_contains_reset_url(): void
+    {
+        Notification::fake();
+
+        $user = User::factory()->create([
+            'email' => 'mail-check@example.com',
+        ]);
+
+        $this->post('/forgot-password', [
+            'email' => $user->email,
+        ])->assertRedirect();
+
+        Notification::assertSentTo($user, ResetPasswordPoofNotification::class, function (ResetPasswordPoofNotification $notification) use ($user): bool {
+            $mail = $notification->toMail($user);
+            $resetUrl = $notification->resetUrl($user);
+
+            return $notification->subjectLine() === 'Скидання пароля в POOF'
+                && $mail->subject === 'Скидання пароля в POOF'
+                && str_contains($resetUrl, '/reset-password/')
+                && str_contains($resetUrl, 'email='.urlencode($user->email));
+        });
     }
 
 
@@ -96,10 +119,12 @@ class PasswordResetTest extends TestCase
 
         $token = null;
 
-        Notification::assertSentTo($user, ResetPassword::class, function (ResetPassword $notification) use (&$token): bool {
+        Notification::assertSentTo($user, ResetPasswordPoofNotification::class, function (ResetPasswordPoofNotification $notification) use ($user, &$token): bool {
             $token = $notification->token;
 
-            return true;
+            return $notification->subjectLine() === 'Скидання пароля в POOF'
+                && str_contains($notification->resetUrl($user), '/reset-password/')
+                && str_contains($notification->resetUrl($user), 'email='.urlencode($user->email));
         });
 
         $response = $this->post('/reset-password', [
