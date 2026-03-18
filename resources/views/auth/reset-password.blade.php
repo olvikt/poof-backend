@@ -8,7 +8,17 @@
         />
 
         <x-auth.card>
-            <form method="POST" action="{{ url('/reset-password') }}" class="space-y-4">
+            @if ($errors->any())
+                <div class="mb-4 rounded-xl border border-red-400/30 bg-red-500/10 px-4 py-3 text-sm text-red-200">
+                    <ul class="space-y-1">
+                        @foreach ($errors->all() as $error)
+                            <li>{{ $error }}</li>
+                        @endforeach
+                    </ul>
+                </div>
+            @endif
+
+            <form method="POST" action="{{ route('password.update') }}" class="space-y-4">
                 @csrf
                 <input type="hidden" name="token" value="{{ $token ?? request()->route('token') }}">
 

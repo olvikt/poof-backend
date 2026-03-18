@@ -3,6 +3,8 @@
 use Illuminate\Support\Facades\Route;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Http\Request;
+use App\Http\Controllers\Auth\NewPasswordController;
+use App\Http\Controllers\Auth\PasswordResetLinkController;
 use App\Http\Controllers\Auth\RegisterController;
 use App\Http\Controllers\ProfileController;
 
@@ -46,9 +48,17 @@ Route::view('/forgot-password', 'auth.forgot-password')
     ->middleware('guest')
     ->name('password.request');
 
+Route::post('/forgot-password', [PasswordResetLinkController::class, 'store'])
+    ->middleware(['guest', 'throttle:3,1'])
+    ->name('password.email');
+
 Route::view('/reset-password/{token}', 'auth.reset-password')
     ->middleware('guest')
     ->name('password.reset');
+
+Route::post('/reset-password', [NewPasswordController::class, 'store'])
+    ->middleware('guest')
+    ->name('password.update');
 
 Route::view('/verify-email', 'auth.verify-email')
     ->middleware('auth')
