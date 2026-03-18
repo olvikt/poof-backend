@@ -8,20 +8,37 @@
         />
 
         <x-auth.card>
+            @php
+                $throttleMessage = __('passwords.throttled');
+                $throttleErrors = $errors->getMessages()['email'] ?? [];
+                $rateLimitErrors = array_values(array_filter($throttleErrors, fn (string $message): bool => $message === $throttleMessage));
+                $formErrors = array_values(array_filter($errors->all(), fn (string $message): bool => $message !== $throttleMessage));
+            @endphp
+
             @if (session('status'))
-                <div class="mb-4 rounded-xl border border-emerald-400/30 bg-emerald-500/10 px-4 py-3 text-sm text-emerald-200">
+                <x-auth.alert type="success" class="mb-4">
                     {{ session('status') }}
-                </div>
+                </x-auth.alert>
             @endif
 
-            @if ($errors->any())
-                <div class="mb-4 rounded-xl border border-red-400/30 bg-red-500/10 px-4 py-3 text-sm text-red-200">
+            @if ($rateLimitErrors !== [])
+                <x-auth.alert class="mb-4">
                     <ul class="space-y-1">
-                        @foreach ($errors->all() as $error)
+                        @foreach ($rateLimitErrors as $error)
                             <li>{{ $error }}</li>
                         @endforeach
                     </ul>
-                </div>
+                </x-auth.alert>
+            @endif
+
+            @if ($formErrors !== [])
+                <x-auth.alert type="error" class="mb-4">
+                    <ul class="space-y-1">
+                        @foreach ($formErrors as $error)
+                            <li>{{ $error }}</li>
+                        @endforeach
+                    </ul>
+                </x-auth.alert>
             @endif
 
             <form method="POST" action="{{ route('password.email') }}" class="space-y-4">

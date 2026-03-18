@@ -14,6 +14,7 @@ class PasswordResetTest extends TestCase
 {
     use RefreshDatabase;
 
+
     public function test_forgot_password_page_opens(): void
     {
         $this->get('/forgot-password')
@@ -38,6 +39,36 @@ class PasswordResetTest extends TestCase
         $response->assertSessionHas('status', __((string) Password::RESET_LINK_SENT));
 
         Notification::assertSentTo($user, ResetPassword::class);
+    }
+
+
+    public function test_forgot_password_throttle_redirects_back_with_localized_message_and_keeps_email(): void
+    {
+        Notification::fake();
+
+        $user = User::factory()->create([
+            'email' => 'throttle@example.com',
+        ]);
+
+        for ($attempt = 0; $attempt < 3; $attempt++) {
+            $this->from('/forgot-password')->post('/forgot-password', [
+                'email' => $user->email,
+            ])->assertRedirect('/forgot-password');
+        }
+
+        $response = $this->from('/forgot-password')->post('/forgot-password', [
+            'email' => $user->email,
+        ]);
+
+        $response->assertRedirect('/forgot-password');
+        $response->assertSessionHasErrors([
+            'email' => __('passwords.throttled'),
+        ]);
+        $response->assertSessionHasInput('email', $user->email);
+
+        $this->followRedirects($response)
+            ->assertSee(__('passwords.throttled'))
+            ->assertSee('value="'.$user->email.'"', false);
     }
 
     public function test_reset_password_page_opens_with_token(): void
