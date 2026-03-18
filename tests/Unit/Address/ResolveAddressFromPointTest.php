@@ -51,4 +51,24 @@ class ResolveAddressFromPointTest extends TestCase
         $this->assertSame('15B', $resolved->house);
         $this->assertSame('Shevchenka Street 15B, Lviv, Lviv region', $resolved->search);
     }
+
+    public function test_it_returns_null_for_bad_or_malformed_reverse_geocode_payloads(): void
+    {
+        $service = app(ResolveAddressFromPoint::class);
+
+        Http::fake([
+            'https://nominatim.openstreetmap.org/reverse*' => Http::response([], 500),
+        ]);
+        $this->assertNull($service->execute(new AddressPointData(50.45, 30.52, 'map')));
+
+        Http::fake([
+            'https://nominatim.openstreetmap.org/reverse*' => Http::response(['unexpected' => 'payload']),
+        ]);
+        $this->assertNull($service->execute(new AddressPointData(50.45, 30.52, 'map')));
+
+        Http::fake([
+            'https://nominatim.openstreetmap.org/reverse*' => fn () => throw new \RuntimeException('boom'),
+        ]);
+        $this->assertNull($service->execute(new AddressPointData(50.45, 30.52, 'map')));
+    }
 }
