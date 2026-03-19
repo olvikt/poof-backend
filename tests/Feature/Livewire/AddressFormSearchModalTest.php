@@ -13,10 +13,11 @@ class AddressFormSearchModalTest extends TestCase
 {
     use RefreshDatabase;
 
-    public function test_primary_ui_uses_single_address_entrypoint_without_visible_city_or_region_fields(): void
+    public function test_primary_ui_uses_compact_status_row_and_single_address_entrypoint_without_visible_city_or_region_fields(): void
     {
         Livewire::test(AddressForm::class)
-            ->assertSee('Пошук адреси')
+            ->assertSee('Адреса')
+            ->assertSee('Будь ласка, уточніть точку на мапі')
             ->assertSee('Введіть адресу, будинок або виберіть точку на мапі')
             ->assertDontSee('Місто')
             ->assertDontSee('Область')
@@ -181,6 +182,19 @@ class AddressFormSearchModalTest extends TestCase
             ->assertSee('Поверх')
             ->assertSee('Кв./офіс')
             ->assertSee('Домофон');
+    }
+
+
+    public function test_compact_search_entrypoint_keeps_overlay_controls_and_lightweight_sheet_styling(): void
+    {
+        Livewire::test(AddressForm::class)
+            ->assertSee('Назад')
+            ->assertSee('Моя локація')
+            ->assertSeeHtml('data-address-search-trigger')
+            ->assertSeeHtml('bg-white px-4 py-4 pr-12 text-left')
+            ->assertSeeHtml('absolute right-4 top-4 inline-flex h-8 w-8')
+            ->assertDontSeeHtml('border border-yellow-400/30')
+            ->assertDontSeeHtml('bg-yellow-400 text-3xl leading-none text-black');
     }
 
 }

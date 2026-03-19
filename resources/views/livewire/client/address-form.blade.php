@@ -39,48 +39,50 @@
         </div>
     </section>
 
-    <section class="space-y-4 px-4">
-        <div class="rounded-2xl border border-neutral-800 bg-neutral-950/80 px-4 py-3 shadow-[0_18px_60px_-32px_rgba(0,0,0,0.95)]">
-            @if($lat && $lng)
-                <p class="text-xs text-green-400">✔ Точка підтверджена</p>
-            @else
-                <p class="text-xs text-yellow-400">⚠ Будь ласка, уточніть точку на мапі</p>
-            @endif
-
-            @error('lat')
-                <p class="mt-1 text-xs text-red-400">{{ $message }}</p>
-            @enderror
-
-            @error('lng')
-                <p class="mt-1 text-xs text-red-400">{{ $message }}</p>
-            @enderror
+    <section class="space-y-3 px-4">
+        <div class="flex items-start justify-between gap-4 border-b border-neutral-800/80 px-1 pb-3 pt-1">
+            <div>
+                <p class="text-xs font-semibold uppercase tracking-[0.2em] text-neutral-400">Адреса</p>
+            </div>
+            <div class="text-right">
+                @if($lat && $lng)
+                    <p class="text-xs font-medium text-green-400">Точка підтверджена</p>
+                @else
+                    <p class="text-xs font-medium text-yellow-400">Будь ласка, уточніть точку на мапі</p>
+                @endif
+            </div>
         </div>
 
-        <div class="space-y-2">
-            <label class="block text-xs text-gray-400">Адреса</label>
+        @error('lat')
+            <p class="text-xs text-red-400">{{ $message }}</p>
+        @enderror
 
+        @error('lng')
+            <p class="text-xs text-red-400">{{ $message }}</p>
+        @enderror
+
+        <div class="space-y-2">
             <button
                 type="button"
                 wire:click="openAddressSearch"
                 x-on:click="openAddressSearch()"
-                class="w-full rounded-[2rem] border border-yellow-400/30 bg-neutral-900 px-5 py-5 text-left shadow-[0_24px_80px_-40px_rgba(250,204,21,0.65)] transition hover:border-yellow-300/50 hover:bg-neutral-900/95"
+                class="relative w-full rounded-[1.75rem] bg-white px-4 py-4 pr-12 text-left shadow-[0_18px_50px_-30px_rgba(0,0,0,0.8)] transition hover:bg-neutral-50"
                 data-address-search-trigger
             >
-                <div class="flex items-center gap-4">
-                    <span class="inline-flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-yellow-400/10 text-2xl text-yellow-400">🔎</span>
-                    <div class="min-w-0 flex-1">
-                        <p class="text-xs uppercase tracking-[0.24em] text-neutral-500">Пошук адреси</p>
-                        @if(filled($search))
-                            <p class="mt-1 truncate text-base font-semibold text-white">{{ $search }}</p>
-                            <p class="mt-1 text-xs text-neutral-400">
-                                {{ collect([$street ? trim($street . ' ' . $house) : null, $city, $region])->filter()->join(' • ') }}
-                            </p>
-                        @else
-                            <p class="mt-1 text-base font-semibold text-neutral-100">Введіть адресу, будинок або виберіть точку на мапі</p>
-                            <p class="mt-1 text-xs text-neutral-500">Один пошук замість окремих полів вулиці, міста та області</p>
-                        @endif
-                    </div>
-                    <span class="flex h-12 w-12 shrink-0 items-center justify-center self-center rounded-full bg-yellow-400 text-3xl leading-none text-black">›</span>
+                <span class="absolute right-4 top-4 inline-flex h-8 w-8 items-center justify-center rounded-full bg-neutral-100 text-base text-neutral-700">
+                    🔎
+                </span>
+
+                <div class="min-w-0 pr-2">
+                    @if(filled($search))
+                        <p class="truncate text-[15px] font-semibold text-neutral-900">{{ $search }}</p>
+                        <p class="mt-1 truncate text-xs text-neutral-500">
+                            {{ collect([$street ? trim($street . ' ' . $house) : null, $city, $region])->filter()->join(' • ') }}
+                        </p>
+                    @else
+                        <p class="pr-6 text-[15px] font-semibold text-neutral-900">Введіть адресу, будинок або виберіть точку на мапі</p>
+                        <p class="mt-1 text-xs text-neutral-500">Пошук адреси</p>
+                    @endif
                 </div>
             </button>
 
