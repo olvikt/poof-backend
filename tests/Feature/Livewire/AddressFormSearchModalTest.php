@@ -3,6 +3,7 @@
 namespace Tests\Feature\Livewire;
 
 use App\Livewire\Client\AddressForm;
+use App\Models\ClientAddress;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Livewire\Livewire;
@@ -100,5 +101,45 @@ class AddressFormSearchModalTest extends TestCase
             'lat' => 50.45,
             'lng' => 30.52,
         ]);
+    }
+
+    public function test_recent_address_payload_fields_stay_available_when_saved_address_is_reopened(): void
+    {
+        $user = User::factory()->create();
+        $this->actingAs($user);
+
+        Livewire::test(AddressForm::class)
+            ->set('label', 'home')
+            ->set('building_type', 'apartment')
+            ->call('openAddressSearch')
+            ->set('suggestions', [[
+                'label' => 'Мандриківська 173, Дніпро',
+                'line1' => 'Мандриківська 173',
+                'line2' => 'Дніпро, Дніпропетровська область',
+                'street' => 'Мандриківська',
+                'house' => '173',
+                'city' => 'Дніпро',
+                'region' => 'Дніпропетровська область',
+                'lat' => 48.4647,
+                'lng' => 35.0462,
+            ]])
+            ->call('selectSuggestion', 0)
+            ->call('save')
+            ->assertHasNoErrors()
+            ->assertDispatched('address-saved');
+
+        $addressId = ClientAddress::query()
+            ->where('user_id', $user->id)
+            ->value('id');
+
+        Livewire::test(AddressForm::class)
+            ->call('open', $addressId)
+            ->assertSet('search', 'Мандриківська 173, Дніпро')
+            ->assertSet('street', 'Мандриківська')
+            ->assertSet('house', '173')
+            ->assertSet('city', 'Дніпро')
+            ->assertSet('region', 'Дніпропетровська область')
+            ->assertSet('lat', 48.4647)
+            ->assertSet('lng', 35.0462);
     }
 }

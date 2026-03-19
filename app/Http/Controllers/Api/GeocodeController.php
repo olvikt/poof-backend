@@ -12,7 +12,7 @@ use Illuminate\Support\Facades\Http;
 
 class GeocodeController extends Controller
 {
-    private const PHOTON_CACHE_VERSION = 'v5';
+    private const PHOTON_CACHE_VERSION = 'v6';
 
     private const UKRAINE_BBOX = '22.0,44.0,40.0,53.0';
 
@@ -290,10 +290,29 @@ class GeocodeController extends Controller
                 'lng' => $featureLon,
             ];
 
+            $scoreData = $this->scoreSuggestion($suggestion, $parsedQuery, $distance);
             $suggestion['_distance_km'] = $distance;
-            $suggestion['_rank_score'] = $this->scoreSuggestion($suggestion, $parsedQuery, $distance);
+            $suggestion['_rank_score'] = $scoreData['score'];
+            $suggestion['_street_overlap'] = $scoreData['street_overlap'];
+            $suggestion['_overall_overlap'] = $scoreData['overall_overlap'];
+            $suggestion['_city_normalized'] = $scoreData['city'];
+            $suggestion['_region_normalized'] = $scoreData['region'];
 
             $suggestions[] = $suggestion;
+        }
+
+        if ($lat !== null && $lng !== null && $this->isShortAmbiguousPrefixQuery($parsedQuery)) {
+            $localContext = $this->resolveLocalBiasContext($suggestions);
+
+            if ($localContext !== null) {
+                foreach ($suggestions as &$suggestion) {
+                    $suggestion['_rank_score'] += $this->shortPrefixLocalityAdjustment(
+                        $suggestion,
+                        $localContext
+                    );
+                }
+                unset($suggestion);
+            }
         }
 
         $suggestions = array_values(array_filter($suggestions, function (array $suggestion) use ($parsedQuery, $lat, $lng) {
@@ -351,7 +370,14 @@ class GeocodeController extends Controller
             }
 
             $seen[$key] = true;
-            unset($suggestion['_distance_km'], $suggestion['_rank_score']);
+            unset(
+                $suggestion['_distance_km'],
+                $suggestion['_rank_score'],
+                $suggestion['_street_overlap'],
+                $suggestion['_overall_overlap'],
+                $suggestion['_city_normalized'],
+                $suggestion['_region_normalized']
+            );
             $unique[] = $suggestion;
 
             if (count($unique) >= 10) {
@@ -406,7 +432,7 @@ class GeocodeController extends Controller
         return $base;
     }
 
-    private function scoreSuggestion(array $suggestion, array $parsedQuery, ?float $distanceKm): float
+    private function scoreSuggestion(array $suggestion, array $parsedQuery, ?float $distanceKm): array
     {
         $label = $this->normalizeSearchText((string) ($suggestion['label'] ?? ''));
         $street = $this->normalizeSearchText((string) ($suggestion['street'] ?? $suggestion['name'] ?? ''));
@@ -545,7 +571,112 @@ class GeocodeController extends Controller
             $score += 8;
         }
 
-        return $score;
+        return [
+            'score' => $score,
+            'street_overlap' => $streetOverlap,
+            'overall_overlap' => $overallOverlap,
+            'city' => $city,
+            'region' => $region,
+        ];
+    }
+
+    private function isShortAmbiguousPrefixQuery(array $parsedQuery): bool
+    {
+        if (($parsedQuery['has_house_intent'] ?? false) || ($parsedQuery['house'] ?? null) !== null) {
+            return false;
+        }
+
+        $streetTokens = array_values(array_filter($parsedQuery['street_tokens'] ?? []));
+        $normalized = (string) ($parsedQuery['normalized'] ?? '');
+
+        if ($streetTokens === [] || count($streetTokens) > 2) {
+            return false;
+        }
+
+        $maxTokenLength = max(array_map(static fn (string $token): int => mb_strlen($token), $streetTokens));
+
+        return mb_strlen($normalized) <= 12 && $maxTokenLength <= 8;
+    }
+
+    private function resolveLocalBiasContext(array $suggestions): ?array
+    {
+        $candidates = array_values(array_filter($suggestions, function (array $suggestion): bool {
+            $distance = $suggestion['_distance_km'] ?? null;
+            $streetOverlap = (float) ($suggestion['_street_overlap'] ?? 0.0);
+            $overallOverlap = (float) ($suggestion['_overall_overlap'] ?? 0.0);
+
+            return $distance !== null
+                && $distance <= 120
+                && $streetOverlap >= 0.55
+                && $overallOverlap >= 0.45;
+        }));
+
+        if ($candidates === []) {
+            return null;
+        }
+
+        usort($candidates, function (array $a, array $b): int {
+            $aDistance = (float) ($a['_distance_km'] ?? INF);
+            $bDistance = (float) ($b['_distance_km'] ?? INF);
+
+            if ($aDistance !== $bDistance) {
+                return $aDistance <=> $bDistance;
+            }
+
+            return (float) ($b['_rank_score'] ?? 0.0) <=> (float) ($a['_rank_score'] ?? 0.0);
+        });
+
+        $anchor = $candidates[0];
+
+        return [
+            'city' => $this->normalizeSearchText((string) ($anchor['_city_normalized'] ?? '')),
+            'region' => $this->normalizeSearchText((string) ($anchor['_region_normalized'] ?? '')),
+            'distance_km' => (float) ($anchor['_distance_km'] ?? 0.0),
+        ];
+    }
+
+    private function shortPrefixLocalityAdjustment(array $suggestion, array $localContext): float
+    {
+        $distanceKm = isset($suggestion['_distance_km']) ? (float) $suggestion['_distance_km'] : null;
+
+        if ($distanceKm === null) {
+            return 0.0;
+        }
+
+        $candidateCity = $this->normalizeSearchText((string) ($suggestion['_city_normalized'] ?? ''));
+        $candidateRegion = $this->normalizeSearchText((string) ($suggestion['_region_normalized'] ?? ''));
+        $localCity = $this->normalizeSearchText((string) ($localContext['city'] ?? ''));
+        $localRegion = $this->normalizeSearchText((string) ($localContext['region'] ?? ''));
+
+        $adjustment = 0.0;
+
+        if ($distanceKm <= 3) {
+            $adjustment += 18;
+        } elseif ($distanceKm <= 12) {
+            $adjustment += 12;
+        } elseif ($distanceKm <= 35) {
+            $adjustment += 6;
+        } elseif ($distanceKm > 90) {
+            $adjustment -= min(28, 10 + ($distanceKm / 20));
+        }
+
+        if ($localCity !== '' && $candidateCity === $localCity) {
+            $adjustment += 22;
+        } elseif ($localCity !== '' && $candidateCity !== '' && $distanceKm > 40) {
+            $adjustment -= 12;
+        }
+
+        if ($localRegion !== '' && $candidateRegion === $localRegion) {
+            $adjustment += 10;
+        } elseif ($localRegion !== '' && $candidateRegion !== '' && $distanceKm > 40) {
+            $adjustment -= 20;
+        }
+
+        if ($distanceKm > 180 && $candidateRegion !== '' && $localRegion !== '' && $candidateRegion !== $localRegion) {
+            $adjustment -= 16;
+        }
+
+        return $adjustment;
     }
 
     private function normalizeSearchText(string $value): string

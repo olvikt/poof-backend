@@ -447,6 +447,101 @@ class GeocodeControllerTest extends TestCase
         Http::assertSentCount(2);
     }
 
+    public function test_short_russian_prefix_near_dnipro_prefers_local_result_over_kyiv_region_noise(): void
+    {
+        Http::fake([
+            'https://photon.komoot.io/api*' => function ($request) {
+                $query = $request['q'];
+
+                if ($query === 'косми') {
+                    return Http::response([
+                        'features' => [
+                            [
+                                'properties' => [
+                                    'street' => 'Космична вулиця',
+                                    'city' => 'Буча',
+                                    'state' => 'Київська область',
+                                    'countrycode' => 'UA',
+                                ],
+                                'geometry' => [
+                                    'coordinates' => [30.2128, 50.5432],
+                                ],
+                            ],
+                        ],
+                    ]);
+                }
+
+                if ($query === 'космі') {
+                    return Http::response([
+                        'features' => [
+                            [
+                                'properties' => [
+                                    'street' => 'Космічна вулиця',
+                                    'city' => 'Дніпро',
+                                    'state' => 'Дніпропетровська область',
+                                    'countrycode' => 'UA',
+                                ],
+                                'geometry' => [
+                                    'coordinates' => [35.0463, 48.4649],
+                                ],
+                            ],
+                        ],
+                    ]);
+                }
+
+                return Http::response(['features' => []]);
+            },
+        ]);
+
+        $this->getJson('/api/geocode?q=Косми&lat=48.4647&lng=35.0462')
+            ->assertOk()
+            ->assertJsonPath('0.street', 'Космічна вулиця')
+            ->assertJsonPath('0.city', 'Дніпро')
+            ->assertJsonPath('1.city', 'Буча')
+            ->assertJsonPath('1.region', 'Київська область');
+
+        Http::assertSentCount(2);
+    }
+
+    public function test_short_ukrainian_prefix_near_dnipro_prefers_local_result_over_cross_region_noise(): void
+    {
+        Http::fake([
+            'https://photon.komoot.io/api*' => Http::response([
+                'features' => [
+                    [
+                        'properties' => [
+                            'street' => 'Космічна вулиця',
+                            'city' => 'Буча',
+                            'state' => 'Київська область',
+                            'countrycode' => 'UA',
+                        ],
+                        'geometry' => [
+                            'coordinates' => [30.2128, 50.5432],
+                        ],
+                    ],
+                    [
+                        'properties' => [
+                            'street' => 'Космічна вулиця',
+                            'city' => 'Дніпро',
+                            'state' => 'Дніпропетровська область',
+                            'countrycode' => 'UA',
+                        ],
+                        'geometry' => [
+                            'coordinates' => [35.0463, 48.4649],
+                        ],
+                    ],
+                ],
+            ]),
+        ]);
+
+        $this->getJson('/api/geocode?q=Космі&lat=48.4647&lng=35.0462')
+            ->assertOk()
+            ->assertJsonPath('0.city', 'Дніпро')
+            ->assertJsonPath('0.region', 'Дніпропетровська область')
+            ->assertJsonPath('1.city', 'Буча')
+            ->assertJsonPath('1.region', 'Київська область');
+    }
+
     public function test_russian_orthography_query_with_house_intent_prefers_local_house_result(): void
     {
         Http::fake([
