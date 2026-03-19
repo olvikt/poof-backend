@@ -33,118 +33,126 @@
             </button>
         </div>
 
-        <div class="flex gap-2 pt-1">
-            @foreach (['home' => 'Дім', 'work' => 'Робота', 'other' => 'Інше'] as $key => $text)
+        <div class="rounded-2xl border border-neutral-800 bg-neutral-950/70 px-4 py-3">
+            @if($lat && $lng)
+                <p class="text-xs text-green-400">✔ Точка підтверджена</p>
+            @else
+                <p class="text-xs text-yellow-400">⚠ Будь ласка, уточніть точку на мапі</p>
+            @endif
+
+            @error('lat')
+                <p class="mt-1 text-xs text-red-400">{{ $message }}</p>
+            @enderror
+
+            @error('lng')
+                <p class="mt-1 text-xs text-red-400">{{ $message }}</p>
+            @enderror
+        </div>
+
+        <div class="space-y-2">
+            <label class="text-xs text-gray-400 block">Адреса</label>
+
+            <button
+                type="button"
+                wire:click="openAddressSearch"
+                x-on:click="openAddressSearch()"
+                class="w-full rounded-3xl border border-neutral-700 bg-neutral-900/60 px-4 py-4 text-left shadow-sm transition hover:border-neutral-500 hover:bg-neutral-900"
+                data-address-search-trigger
+            >
+                <div class="flex items-start gap-3">
+                    <span class="mt-0.5 text-lg text-yellow-400">🔎</span>
+                    <div class="min-w-0 flex-1">
+                        <p class="text-xs uppercase tracking-[0.24em] text-neutral-500">Пошук адреси</p>
+                        @if(filled($search))
+                            <p class="mt-1 truncate text-sm font-medium text-white">{{ $search }}</p>
+                            <p class="mt-1 text-xs text-neutral-400">
+                                {{ collect([$street ? trim($street . ' ' . $house) : null, $city, $region])->filter()->join(' • ') }}
+                            </p>
+                        @else
+                            <p class="mt-1 text-sm text-neutral-300">Введіть адресу, будинок або виберіть точку на мапі</p>
+                            <p class="mt-1 text-xs text-neutral-500">Один пошук замість окремих полів вулиці, міста та області</p>
+                        @endif
+                    </div>
+                    <span class="mt-1 text-neutral-500">›</span>
+                </div>
+            </button>
+
+            @error('search')
+                <p class="mt-1 text-xs text-red-400">{{ $message }}</p>
+            @enderror
+
+            @error('street')
+                <p class="mt-1 text-xs text-red-400">{{ $message }}</p>
+            @enderror
+
+            @error('house')
+                <p class="mt-1 text-xs text-red-400">{{ $message }}</p>
+            @enderror
+        </div>
+    </div>
+
+    <div class="space-y-4 rounded-2xl bg-neutral-900/30 p-3">
+        <div class="space-y-2">
+            <label class="text-xs text-gray-400 mb-2 block">Тип адреси</label>
+
+            <div class="flex gap-2 pt-1">
+                @foreach (['home' => 'Дім', 'work' => 'Робота', 'other' => 'Інше'] as $key => $text)
+                    <button
+                        type="button"
+                        wire:click="$set('label','{{ $key }}')"
+                        class="px-4 py-2 rounded-xl text-sm font-semibold transition
+                            {{ $label === $key
+                                ? 'bg-yellow-400 text-black'
+                                : 'bg-neutral-800 text-gray-300 hover:bg-neutral-700' }}"
+                    >
+                        {{ $text }}
+                    </button>
+                @endforeach
+            </div>
+
+            @if($label === 'other')
+                <div>
+                    <label class="text-xs text-gray-400">Назва (опційно)</label>
+                    <input
+                        type="text"
+                        wire:model.defer="title"
+                        placeholder="Напр. Дім, Офіс"
+                        class="poof-input w-full"
+                    >
+                    @error('title')
+                        <p class="mt-1 text-xs text-red-400">{{ $message }}</p>
+                    @enderror
+                </div>
+            @endif
+        </div>
+
+        <div>
+            <label class="text-xs text-gray-400 mb-2 block">Тип будівлі</label>
+
+            <div class="flex gap-2">
                 <button
                     type="button"
-                    wire:click="$set('label','{{ $key }}')"
+                    wire:click="$set('building_type','apartment')"
                     class="px-4 py-2 rounded-xl text-sm font-semibold transition
-                        {{ $label === $key
+                        {{ $building_type === 'apartment'
                             ? 'bg-yellow-400 text-black'
                             : 'bg-neutral-800 text-gray-300 hover:bg-neutral-700' }}"
                 >
-                    {{ $text }}
+                    🏢 Квартира
                 </button>
-            @endforeach
-        </div>
 
-        @if($label === 'other')
-            <div>
-                <label class="text-xs text-gray-400">Назва (опційно)</label>
-                <input
-                    type="text"
-                    wire:model.defer="title"
-                    placeholder="Напр. Дім, Офіс"
-                    class="poof-input w-full"
+                <button
+                    type="button"
+                    wire:click="$set('building_type','house')"
+                    class="px-4 py-2 rounded-xl text-sm font-semibold transition
+                        {{ $building_type === 'house'
+                            ? 'bg-yellow-400 text-black'
+                            : 'bg-neutral-800 text-gray-300 hover:bg-neutral-700' }}"
                 >
-                @error('title')
-                    <p class="mt-1 text-xs text-red-400">{{ $message }}</p>
-                @enderror
+                    🏠 Приватний будинок
+                </button>
             </div>
-        @endif
-
-        @if($lat && $lng)
-            <p class="mt-2 text-xs text-green-400">✔ Точка підтверджена</p>
-        @else
-            <p class="mt-2 text-xs text-yellow-400">⚠ Будь ласка, уточніть точку на мапі</p>
-        @endif
-
-        @error('lat')
-            <p class="mt-1 text-xs text-red-400">{{ $message }}</p>
-        @enderror
-
-        @error('lng')
-            <p class="mt-1 text-xs text-red-400">{{ $message }}</p>
-        @enderror
-    </div>
-
-    <div>
-        <label class="text-xs text-gray-400 mb-2 block">Тип будівлі</label>
-
-        <div class="flex gap-2">
-            <button
-                type="button"
-                wire:click="$set('building_type','apartment')"
-                class="px-4 py-2 rounded-xl text-sm font-semibold transition
-                    {{ $building_type === 'apartment'
-                        ? 'bg-yellow-400 text-black'
-                        : 'bg-neutral-800 text-gray-300 hover:bg-neutral-700' }}"
-            >
-                🏢 Квартира
-            </button>
-
-            <button
-                type="button"
-                wire:click="$set('building_type','house')"
-                class="px-4 py-2 rounded-xl text-sm font-semibold transition
-                    {{ $building_type === 'house'
-                        ? 'bg-yellow-400 text-black'
-                        : 'bg-neutral-800 text-gray-300 hover:bg-neutral-700' }}"
-            >
-                🏠 Приватний будинок
-            </button>
         </div>
-    </div>
-
-    <div class="space-y-2">
-        <label class="text-xs text-gray-400 block">Адреса</label>
-
-        <button
-            type="button"
-            wire:click="openAddressSearch"
-            x-on:click="openAddressSearch()"
-            class="w-full rounded-3xl border border-neutral-700 bg-neutral-900/60 px-4 py-4 text-left shadow-sm transition hover:border-neutral-500 hover:bg-neutral-900"
-            data-address-search-trigger
-        >
-            <div class="flex items-start gap-3">
-                <span class="mt-0.5 text-lg text-yellow-400">🔎</span>
-                <div class="min-w-0 flex-1">
-                    <p class="text-xs uppercase tracking-[0.24em] text-neutral-500">Пошук адреси</p>
-                    @if(filled($search))
-                        <p class="mt-1 truncate text-sm font-medium text-white">{{ $search }}</p>
-                        <p class="mt-1 text-xs text-neutral-400">
-                            {{ collect([$street ? trim($street . ' ' . $house) : null, $city, $region])->filter()->join(' • ') }}
-                        </p>
-                    @else
-                        <p class="mt-1 text-sm text-neutral-300">Введіть адресу, будинок або виберіть точку на мапі</p>
-                        <p class="mt-1 text-xs text-neutral-500">Один пошук замість окремих полів вулиці, міста та області</p>
-                    @endif
-                </div>
-                <span class="mt-1 text-neutral-500">›</span>
-            </div>
-        </button>
-
-        @error('search')
-            <p class="mt-1 text-xs text-red-400">{{ $message }}</p>
-        @enderror
-
-        @error('street')
-            <p class="mt-1 text-xs text-red-400">{{ $message }}</p>
-        @enderror
-
-        @error('house')
-            <p class="mt-1 text-xs text-red-400">{{ $message }}</p>
-        @enderror
     </div>
 
     <input type="hidden" wire:model.live="search" data-address-search>
@@ -302,33 +310,37 @@
     </div>
 
     @if($building_type === 'apartment')
-        <div class="mt-3 flex gap-2">
-            <div class="address-mini-input">
-                <x-poof.input-floating label="Підʼїзд" model="entrance" center inputmode="numeric" pattern="[0-9]*" />
-                @error('entrance')
-                    <p class="mt-1 text-xs text-red-400">{{ $message }}</p>
-                @enderror
-            </div>
+        <div class="space-y-2">
+            <label class="text-xs text-gray-400 block">Деталізація</label>
 
-            <div class="address-mini-input">
-                <x-poof.input-floating label="Поверх" model="floor" center inputmode="numeric" pattern="[0-9]*" />
-                @error('floor')
-                    <p class="mt-1 text-xs text-red-400">{{ $message }}</p>
-                @enderror
-            </div>
+            <div class="mt-3 flex gap-2">
+                <div class="address-mini-input">
+                    <x-poof.input-floating label="Підʼїзд" model="entrance" center inputmode="numeric" pattern="[0-9]*" />
+                    @error('entrance')
+                        <p class="mt-1 text-xs text-red-400">{{ $message }}</p>
+                    @enderror
+                </div>
 
-            <div class="address-mini-input">
-                <x-poof.input-floating label="Кв./офіс" model="apartment" center inputmode="numeric" pattern="[0-9]*" />
-                @error('apartment')
-                    <p class="mt-1 text-xs text-red-400">{{ $message }}</p>
-                @enderror
-            </div>
+                <div class="address-mini-input">
+                    <x-poof.input-floating label="Поверх" model="floor" center inputmode="numeric" pattern="[0-9]*" />
+                    @error('floor')
+                        <p class="mt-1 text-xs text-red-400">{{ $message }}</p>
+                    @enderror
+                </div>
 
-            <div class="address-mini-input">
-                <x-poof.input-floating label="Домофон" model="intercom" center inputmode="numeric" pattern="[0-9]*" />
-                @error('intercom')
-                    <p class="mt-1 text-xs text-red-400">{{ $message }}</p>
-                @enderror
+                <div class="address-mini-input">
+                    <x-poof.input-floating label="Кв./офіс" model="apartment" center inputmode="numeric" pattern="[0-9]*" />
+                    @error('apartment')
+                        <p class="mt-1 text-xs text-red-400">{{ $message }}</p>
+                    @enderror
+                </div>
+
+                <div class="address-mini-input">
+                    <x-poof.input-floating label="Домофон" model="intercom" center inputmode="numeric" pattern="[0-9]*" />
+                    @error('intercom')
+                        <p class="mt-1 text-xs text-red-400">{{ $message }}</p>
+                    @enderror
+                </div>
             </div>
         </div>
     @endif
