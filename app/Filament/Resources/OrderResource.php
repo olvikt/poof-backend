@@ -69,6 +69,8 @@ class OrderResource extends Resource
         Select::make('status')
             ->label('Статус')
             ->options(Order::STATUS_LABELS)
+            ->disabled()
+            ->dehydrated(false)
             ->required(),
 
         /* ================= COURIER ================= */
@@ -77,6 +79,8 @@ class OrderResource extends Resource
             ->label('Курʼєр')
             ->relationship('courier', 'name')
             ->searchable()
+            ->disabled()
+            ->dehydrated(false)
             ->nullable(),
 
         /* ================= PRICE ================= */
@@ -254,4 +258,3 @@ class OrderResource extends Resource
         ];
     }
 }
-
