@@ -12,6 +12,10 @@ use Illuminate\Support\Facades\Http;
 
 class GeocodeController extends Controller
 {
+    private const PHOTON_CACHE_VERSION = 'v2';
+
+    private const UKRAINE_BBOX = '22.0,44.0,40.0,53.0';
+
     public function search(Request $request): JsonResponse
     {
         $query = (string) $request->query('q', '');
@@ -45,7 +49,7 @@ class GeocodeController extends Controller
             return response()->json([]);
         }
 
-        $cacheKey = 'geocode:photon:' . md5($normalizedQuery . '|' . ($lat ?? 'null') . '|' . ($lng ?? 'null'));
+        $cacheKey = 'geocode:photon:' . self::PHOTON_CACHE_VERSION . ':' . md5($normalizedQuery . '|' . ($lat ?? 'null') . '|' . ($lng ?? 'null'));
 
         try {
             $suggestions = Cache::get($cacheKey);
@@ -59,9 +63,7 @@ class GeocodeController extends Controller
 
                 $suggestions = $this->fetchPhotonSuggestions($normalizedQuery, $lat, $lng);
 
-                if (! empty($suggestions)) {
-                    Cache::put($cacheKey, $suggestions, now()->addMinutes(30));
-                }
+                Cache::put($cacheKey, $suggestions, now()->addMinutes(30));
             }
         } catch (\Throwable $e) {
             logger()->error('Photon request failed', [
@@ -145,8 +147,8 @@ class GeocodeController extends Controller
             'q' => $query,
             'limit' => 15,
             'lang' => 'uk',
-            'countrycode' => 'UA',
             'layer' => 'street',
+            'bbox' => self::UKRAINE_BBOX,
         ];
 
         if ($lat !== null && $lng !== null) {
@@ -226,6 +228,10 @@ class GeocodeController extends Controller
                 continue;
             }
 
+            if (! $this->isWithinUkraineScope($props, $featureLat, $featureLon)) {
+                continue;
+            }
+
             if ($lat !== null && $lng !== null) {
                 $distance = $this->distance($lat, $lng, $featureLat, $featureLon);
 
@@ -248,8 +254,11 @@ class GeocodeController extends Controller
                 ?? $props['county']
                 ?? $props['state']
                 ?? null;
+            $region = $props['state'] ?? $props['region'] ?? null;
+            $line1 = trim(implode(' ', array_filter([$street, $house])));
+            $line2 = trim(implode(', ', array_filter([$city, $region])));
             $label = trim(implode(', ', array_filter([
-                trim(implode(' ', array_filter([$street, $house]))),
+                $line1,
                 $city,
             ])));
 
@@ -264,6 +273,9 @@ class GeocodeController extends Controller
                 'house' => $house,
                 'housenumber' => $house,
                 'city' => $city,
+                'region' => $region,
+                'line1' => $line1 !== '' ? $line1 : null,
+                'line2' => $line2 !== '' ? $line2 : null,
                 'state' => $props['state'] ?? null,
                 'country' => $props['country'] ?? null,
                 'lat' => $featureLat,
@@ -342,6 +354,19 @@ class GeocodeController extends Controller
         }
 
         return round($coordinate, 6);
+    }
+
+    private function isWithinUkraineScope(array $properties, float $lat, float $lng): bool
+    {
+        $countryCode = mb_strtolower(trim((string) ($properties['countrycode'] ?? '')));
+
+        if ($countryCode !== '') {
+            return $countryCode === 'ua';
+        }
+
+        [$minLng, $minLat, $maxLng, $maxLat] = array_map('floatval', explode(',', self::UKRAINE_BBOX));
+
+        return $lat >= $minLat && $lat <= $maxLat && $lng >= $minLng && $lng <= $maxLng;
     }
 
     private function distance(float $lat1, float $lon1, float $lat2, float $lon2): float

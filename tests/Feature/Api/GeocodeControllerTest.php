@@ -28,6 +28,7 @@ class GeocodeControllerTest extends TestCase
                             'housenumber' => '23',
                             'city' => 'Дніпро',
                             'state' => 'Дніпропетровська область',
+                            'countrycode' => 'UA',
                         ],
                         'geometry' => [
                             'coordinates' => [35.0308, 48.4572],
@@ -45,7 +46,11 @@ class GeocodeControllerTest extends TestCase
                 [
                     'label' => 'Мандриківська 23',
                     'street' => 'Мандриківська',
+                    'house' => '23',
                     'city' => 'Дніпро',
+                    'region' => 'Дніпропетровська область',
+                    'line1' => 'Мандриківська 23',
+                    'line2' => 'Дніпро, Дніпропетровська область',
                     'lat' => 48.4572,
                     'lng' => 35.0308,
                 ],
@@ -62,6 +67,7 @@ class GeocodeControllerTest extends TestCase
                         'properties' => [
                             'name' => 'Київ',
                             'city' => 'Київ',
+                            'countrycode' => 'UA',
                         ],
                         'geometry' => [
                             'coordinates' => [30.5241361, 50.4500336],
@@ -71,6 +77,7 @@ class GeocodeControllerTest extends TestCase
                         'properties' => [
                             'name' => 'Київ',
                             'city' => 'Київ',
+                            'countrycode' => 'UA',
                         ],
                         'geometry' => [
                             'coordinates' => [30.5241361, 50.4500336],
@@ -79,6 +86,7 @@ class GeocodeControllerTest extends TestCase
                     [
                         'properties' => [
                             'city' => 'Львів',
+                            'countrycode' => 'UA',
                         ],
                         'geometry' => [
                             'coordinates' => [24.0315921, 49.842957],
@@ -110,6 +118,7 @@ class GeocodeControllerTest extends TestCase
                         'properties' => [
                             'name' => 'Січових Стрільців',
                             'city' => 'Київ',
+                            'countrycode' => 'UA',
                         ],
                         'geometry' => [
                             'coordinates' => [30.52, 50.45],
@@ -150,7 +159,17 @@ class GeocodeControllerTest extends TestCase
         $this->getJson('/api/geocode?q=набережна&lat=48.42&lng=35.05')->assertOk();
 
         Http::assertSent(function ($request) {
-            return $request->url() === 'https://photon.komoot.io/api/?q=%D0%BD%D0%B0%D0%B1%D0%B5%D1%80%D0%B5%D0%B6%D0%BD%D0%B0&lat=48.42&lon=35.05&limit=15&bbox=22.0%2C44.0%2C40.0%2C53.0&lang=uk';
+            $data = $request->data();
+
+            return $request->method() === 'GET'
+                && ($data['q'] ?? null) === 'набережна'
+                && ($data['lat'] ?? null) === '48.42'
+                && ($data['lon'] ?? null) === '35.05'
+                && ($data['limit'] ?? null) === '15'
+                && ($data['lang'] ?? null) === 'uk'
+                && ($data['layer'] ?? null) === 'street'
+                && ($data['bbox'] ?? null) === '22.0,44.0,40.0,53.0'
+                && ! array_key_exists('countrycode', $data);
         });
     }
 
@@ -163,6 +182,7 @@ class GeocodeControllerTest extends TestCase
                         'properties' => [
                             'name' => 'Набережна',
                             'city' => 'Дніпро',
+                            'countrycode' => 'UA',
                         ],
                         'geometry' => [
                             'coordinates' => [27.56, 53.9],
@@ -176,6 +196,86 @@ class GeocodeControllerTest extends TestCase
             ->assertOk()
             ->assertJsonCount(1)
             ->assertJsonPath('0.label', 'Набережна, Дніпро');
+    }
+
+    public function test_it_filters_non_ukrainian_results_without_using_unsupported_countrycode_param(): void
+    {
+        Http::fake([
+            'https://photon.komoot.io/api*' => Http::response([
+                'features' => [
+                    [
+                        'properties' => [
+                            'name' => 'Centralna',
+                            'city' => 'Warszawa',
+                            'countrycode' => 'PL',
+                        ],
+                        'geometry' => [
+                            'coordinates' => [21.0122, 52.2297],
+                        ],
+                    ],
+                    [
+                        'properties' => [
+                            'name' => 'Центральна',
+                            'city' => 'Дніпро',
+                            'countrycode' => 'UA',
+                        ],
+                        'geometry' => [
+                            'coordinates' => [35.0462, 48.4647],
+                        ],
+                    ],
+                ],
+            ]),
+        ]);
+
+        $this->getJson('/api/geocode?q=центральна')
+            ->assertOk()
+            ->assertJsonCount(1)
+            ->assertJsonPath('0.label', 'Центральна, Дніпро')
+            ->assertJsonPath('0.city', 'Дніпро');
+    }
+
+    public function test_it_keeps_reverse_geocode_path_working(): void
+    {
+        Http::fake([
+            'https://nominatim.openstreetmap.org/reverse*' => Http::response([
+                'display_name' => 'Тестова 7, Дніпро, Дніпропетровська область, Україна',
+                'address' => [
+                    'road' => 'Тестова',
+                    'house_number' => '7',
+                    'city' => 'Дніпро',
+                    'state' => 'Дніпропетровська область',
+                ],
+            ]),
+        ]);
+
+        $this->getJson('/api/geocode?lat=48.4647&lng=35.0462')
+            ->assertOk()
+            ->assertJson([
+                [
+                    'label' => 'Тестова 7',
+                    'street' => 'Тестова',
+                    'house' => '7',
+                    'city' => 'Дніпро',
+                    'region' => 'Дніпропетровська область',
+                    'line1' => 'Тестова 7',
+                    'line2' => 'Дніпро, Дніпропетровська область',
+                    'lat' => 48.4647,
+                    'lng' => 35.0462,
+                ],
+            ]);
+    }
+
+    public function test_it_degrades_safely_when_photon_upstream_fails(): void
+    {
+        Http::fake([
+            'https://photon.komoot.io/api*' => Http::response([
+                'message' => "Unknown query parameter 'countrycode'",
+            ], 400),
+        ]);
+
+        $this->getJson('/api/geocode?q=центральна')
+            ->assertOk()
+            ->assertExactJson([]);
     }
 
 }
