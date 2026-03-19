@@ -234,6 +234,123 @@ class GeocodeControllerTest extends TestCase
             ->assertJsonPath('0.city', 'Дніпро');
     }
 
+
+    public function test_house_number_query_prefers_nearby_matching_street_over_distant_street_only_noise(): void
+    {
+        Http::fake([
+            'https://photon.komoot.io/api*' => Http::response([
+                'features' => [
+                    [
+                        'properties' => [
+                            'street' => 'Мандриківська вулиця',
+                            'housenumber' => '173',
+                            'city' => 'Дніпро',
+                            'state' => 'Дніпропетровська область',
+                            'countrycode' => 'UA',
+                        ],
+                        'geometry' => [
+                            'coordinates' => [35.0462, 48.4647],
+                        ],
+                    ],
+                    [
+                        'properties' => [
+                            'street' => 'Мандриківська вулиця',
+                            'city' => 'Кривий Ріг',
+                            'state' => 'Дніпропетровська область',
+                            'countrycode' => 'UA',
+                        ],
+                        'geometry' => [
+                            'coordinates' => [33.3918, 47.9105],
+                        ],
+                    ],
+                ],
+            ]),
+        ]);
+
+        $this->getJson('/api/geocode?q=мандриківська вулиця 173&lat=48.4647&lng=35.0462')
+            ->assertOk()
+            ->assertJsonPath('0.label', 'Мандриківська вулиця 173, Дніпро')
+            ->assertJsonPath('1.label', 'Мандриківська вулиця, Кривий Ріг');
+    }
+
+    public function test_house_number_match_ranks_above_candidate_without_house_match(): void
+    {
+        Http::fake([
+            'https://photon.komoot.io/api*' => Http::response([
+                'features' => [
+                    [
+                        'properties' => [
+                            'street' => 'Землеробський провулок',
+                            'city' => 'Дніпро',
+                            'state' => 'Дніпропетровська область',
+                            'countrycode' => 'UA',
+                        ],
+                        'geometry' => [
+                            'coordinates' => [35.047, 48.465],
+                        ],
+                    ],
+                    [
+                        'properties' => [
+                            'street' => 'Землеробський провулок',
+                            'housenumber' => '25',
+                            'city' => 'Дніпро',
+                            'state' => 'Дніпропетровська область',
+                            'countrycode' => 'UA',
+                        ],
+                        'geometry' => [
+                            'coordinates' => [35.0469, 48.4649],
+                        ],
+                    ],
+                ],
+            ]),
+        ]);
+
+        $this->getJson('/api/geocode?q=землеробський провулок 25&lat=48.4647&lng=35.0462')
+            ->assertOk()
+            ->assertJsonPath('0.house', '25')
+            ->assertJsonPath('1.house', null);
+    }
+
+    public function test_distant_noisy_results_remain_but_rank_below_relevant_matches_without_bias(): void
+    {
+        Http::fake([
+            'https://photon.komoot.io/api*' => Http::response([
+                'features' => [
+                    [
+                        'properties' => [
+                            'street' => 'Мандриківська вулиця',
+                            'city' => 'Кривий Ріг',
+                            'state' => 'Дніпропетровська область',
+                            'countrycode' => 'UA',
+                        ],
+                        'geometry' => [
+                            'coordinates' => [33.3918, 47.9105],
+                        ],
+                    ],
+                    [
+                        'properties' => [
+                            'street' => 'Мандриківська вулиця',
+                            'housenumber' => '173',
+                            'city' => 'Дніпро',
+                            'state' => 'Дніпропетровська область',
+                            'countrycode' => 'UA',
+                        ],
+                        'geometry' => [
+                            'coordinates' => [35.0462, 48.4647],
+                        ],
+                    ],
+                ],
+            ]),
+        ]);
+
+        $this->getJson('/api/geocode?q=мандриківська вулиця 173')
+            ->assertOk()
+            ->assertJsonPath('0.city', 'Дніпро')
+            ->assertJsonPath('0.house', '173')
+            ->assertJsonPath('1.city', 'Кривий Ріг')
+            ->assertJsonPath('1.house', null);
+    }
+
     public function test_it_keeps_reverse_geocode_path_working(): void
     {
         Http::fake([

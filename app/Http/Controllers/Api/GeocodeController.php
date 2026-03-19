@@ -208,14 +208,13 @@ class GeocodeController extends Controller
             ]);
         }
 
+        $parsedQuery = $this->parseSearchQuery($query);
         $suggestions = [];
 
         foreach ($features as $feature) {
             $props = $feature['properties'] ?? [];
             $coords = $feature['geometry']['coordinates'] ?? null;
 
-            // Photon `properties.type` can vary (e.g. `street`, `residential`) and
-            // should not be used as a hard filter for autocomplete suggestions.
             if (! is_array($coords) || count($coords) < 2) {
                 continue;
             }
@@ -230,6 +229,8 @@ class GeocodeController extends Controller
             if (! $this->isWithinUkraineScope($props, $featureLat, $featureLon)) {
                 continue;
             }
+
+            $distance = null;
 
             if ($lat !== null && $lng !== null) {
                 $distance = $this->distance($lat, $lng, $featureLat, $featureLon);
@@ -265,7 +266,7 @@ class GeocodeController extends Controller
                 $label = $street ?? $props['name'] ?? 'Unknown address';
             }
 
-            $suggestions[] = [
+            $suggestion = [
                 'label' => $label,
                 'name' => $street,
                 'street' => $street,
@@ -280,24 +281,41 @@ class GeocodeController extends Controller
                 'lat' => $featureLat,
                 'lng' => $featureLon,
             ];
+
+            $suggestion['_distance_km'] = $distance;
+            $suggestion['_rank_score'] = $this->scoreSuggestion($suggestion, $parsedQuery, $distance);
+
+            $suggestions[] = $suggestion;
         }
 
-        usort($suggestions, function ($a, $b) use ($query, $lat, $lng) {
-            $aScore = similar_text(mb_strtolower((string) ($a['label'] ?? '')), mb_strtolower($query));
-            $bScore = similar_text(mb_strtolower((string) ($b['label'] ?? '')), mb_strtolower($query));
+        $suggestions = array_values(array_filter($suggestions, function (array $suggestion) use ($parsedQuery, $lat, $lng) {
+            $distance = $suggestion['_distance_km'] ?? null;
+            $score = (float) ($suggestion['_rank_score'] ?? 0.0);
+            $hasHouse = $this->nullableString($suggestion['house'] ?? $suggestion['housenumber'] ?? null) !== null;
+
+            if ($lat !== null && $lng !== null && $distance !== null && $distance > 250 && $score < 10 && ! $hasHouse && $parsedQuery['house'] !== null) {
+                return false;
+            }
+
+            return true;
+        }));
+
+        usort($suggestions, function ($a, $b) {
+            $aScore = (float) ($a['_rank_score'] ?? 0.0);
+            $bScore = (float) ($b['_rank_score'] ?? 0.0);
 
             if ($aScore !== $bScore) {
                 return $bScore <=> $aScore;
             }
 
-            if ($lat !== null && $lng !== null) {
-                $da = sqrt(pow(((float) ($a['lat'] ?? 0)) - $lat, 2) + pow(((float) ($a['lng'] ?? 0)) - $lng, 2));
-                $db = sqrt(pow(((float) ($b['lat'] ?? 0)) - $lat, 2) + pow(((float) ($b['lng'] ?? 0)) - $lng, 2));
+            $aDistance = $a['_distance_km'] ?? INF;
+            $bDistance = $b['_distance_km'] ?? INF;
 
-                return $da <=> $db;
+            if ($aDistance !== $bDistance) {
+                return $aDistance <=> $bDistance;
             }
 
-            return 0;
+            return strcmp((string) ($a['label'] ?? ''), (string) ($b['label'] ?? ''));
         });
 
         $unique = [];
@@ -319,6 +337,7 @@ class GeocodeController extends Controller
             }
 
             $seen[$key] = true;
+            unset($suggestion['_distance_km'], $suggestion['_rank_score']);
             $unique[] = $suggestion;
 
             if (count($unique) >= 10) {
@@ -331,6 +350,139 @@ class GeocodeController extends Controller
         ]);
 
         return $unique;
+    }
+
+    private function parseSearchQuery(string $query): array
+    {
+        $normalized = $this->normalizeSearchText($query);
+        preg_match('/(?<!\pL)(\d{1,5}[\pL\/-]?)(?!\pL)/u', $normalized, $houseMatches);
+        $house = isset($houseMatches[1]) ? trim($houseMatches[1]) : null;
+        $tokens = $this->tokenizeSearchText($normalized);
+        $streetTokens = array_values(array_filter($tokens, function (string $token) use ($house) {
+            return $house === null || $token !== $house;
+        }));
+
+        return [
+            'normalized' => $normalized,
+            'tokens' => $tokens,
+            'street_tokens' => $streetTokens,
+            'house' => $house,
+        ];
+    }
+
+    private function scoreSuggestion(array $suggestion, array $parsedQuery, ?float $distanceKm): float
+    {
+        $label = $this->normalizeSearchText((string) ($suggestion['label'] ?? ''));
+        $street = $this->normalizeSearchText((string) ($suggestion['street'] ?? $suggestion['name'] ?? ''));
+        $city = $this->normalizeSearchText((string) ($suggestion['city'] ?? ''));
+        $house = $this->normalizeSearchText((string) ($suggestion['house'] ?? $suggestion['housenumber'] ?? ''));
+        $candidateTokens = array_unique(array_merge(
+            $this->tokenizeSearchText($label),
+            $this->tokenizeSearchText($street),
+            $this->tokenizeSearchText($city)
+        ));
+
+        $streetOverlap = $this->tokenOverlapRatio($parsedQuery['street_tokens'], $this->tokenizeSearchText($street));
+        $overallOverlap = $this->tokenOverlapRatio($parsedQuery['tokens'], $candidateTokens);
+        $cityOverlap = $this->tokenOverlapRatio($parsedQuery['tokens'], $this->tokenizeSearchText($city));
+
+        similar_text($label, $parsedQuery['normalized'], $labelSimilarity);
+        similar_text($street, implode(' ', $parsedQuery['street_tokens']), $streetSimilarity);
+
+        $score = 0.0;
+        $score += $streetOverlap * 40;
+        $score += $overallOverlap * 20;
+        $score += $streetSimilarity * 0.3;
+        $score += $labelSimilarity * 0.1;
+
+        if ($street !== '' && implode(' ', $parsedQuery['street_tokens']) !== '' && str_contains($street, implode(' ', $parsedQuery['street_tokens']))) {
+            $score += 18;
+        }
+
+        if ($parsedQuery['house'] !== null) {
+            if ($house !== '') {
+                if ($house === $parsedQuery['house']) {
+                    $score += 35;
+                } elseif (str_starts_with($house, $parsedQuery['house']) || str_starts_with($parsedQuery['house'], $house)) {
+                    $score += 18;
+                }
+            } else {
+                $score -= 14;
+            }
+
+            if ($distanceKm !== null && $distanceKm > 40 && $house === '') {
+                $score -= min(20, 6 + ($distanceKm / 30));
+            }
+        }
+
+        if ($city !== '' && $cityOverlap > 0) {
+            $score += $cityOverlap * 12;
+        }
+
+        if ($distanceKm !== null) {
+            if ($distanceKm <= 5) {
+                $score += 18;
+            } elseif ($distanceKm <= 25) {
+                $score += 12;
+            } elseif ($distanceKm <= 75) {
+                $score += 6;
+            } elseif ($distanceKm >= 150) {
+                $score -= min(18, ($distanceKm - 150) / 25);
+            }
+        }
+
+        if ($overallOverlap < 0.45) {
+            $score -= 18;
+        }
+
+        if ($streetOverlap < 0.5) {
+            $score -= 12;
+        }
+
+        return $score;
+    }
+
+    private function normalizeSearchText(string $value): string
+    {
+        $value = mb_strtolower(trim($value));
+        $value = preg_replace('/[,.]+/u', ' ', $value) ?? $value;
+        $value = preg_replace('/\s+/u', ' ', $value) ?? $value;
+
+        return trim($value);
+    }
+
+    private function tokenizeSearchText(string $value): array
+    {
+        if ($value === '') {
+            return [];
+        }
+
+        return array_values(array_filter(preg_split('/[^\pL\pN\/-]+/u', $value) ?: [], function (string $token) {
+            return $token !== '';
+        }));
+    }
+
+    private function tokenOverlapRatio(array $needles, array $haystack): float
+    {
+        $needles = array_values(array_unique(array_filter($needles)));
+        $haystack = array_values(array_unique(array_filter($haystack)));
+
+        if ($needles === [] || $haystack === []) {
+            return 0.0;
+        }
+
+        $matches = 0;
+
+        foreach ($needles as $needle) {
+            foreach ($haystack as $token) {
+                if ($token === $needle || str_contains($token, $needle) || str_contains($needle, $token)) {
+                    $matches++;
+                    break;
+                }
+            }
+        }
+
+        return $matches / count($needles);
     }
 
     private function nullableString(mixed $value): ?string
