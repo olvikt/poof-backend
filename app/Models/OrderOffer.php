@@ -219,6 +219,34 @@ class OrderOffer extends Model
         ]);
     }
 
+
+    /**
+     * Accept offer through the canonical order accept flow.
+     */
+    public function acceptBy(User $courier): bool
+    {
+        $offer = self::query()->find($this->getKey());
+
+        if (! $offer || (int) $offer->courier_id !== (int) $courier->getKey() || ! $offer->isAlive()) {
+            return false;
+        }
+
+        $order = $offer->order;
+
+        if (! $order || ! $order->acceptBy($courier)) {
+            return false;
+        }
+
+        self::query()
+            ->whereKey($offer->getKey())
+            ->where('status', self::STATUS_PENDING)
+            ->update([
+                'status' => self::STATUS_ACCEPTED,
+            ]);
+
+        return true;
+    }
+
     public function markAccepted(): void
     {
         if ($this->isFinal()) {
