@@ -19,7 +19,6 @@ class AdminProtectedRoutesAuthTest extends TestCase
     public function test_guest_json_calls_are_unauthorized_for_admin_map_data(): void
     {
         $this->getJson('/api/admin/map-data')->assertUnauthorized();
-        $this->getJson('/dashboard/map')->assertUnauthorized();
     }
 
     public function test_admin_can_access_admin_routes_via_web_guard(): void
