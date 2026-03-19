@@ -2,8 +2,8 @@
 set -euo pipefail
 
 APP_DIR="${APP_DIR:-/var/www/poof}"
-API_BASE_URL="${API_BASE_URL:-http://api.poof.com.ua}"
-HEALTHCHECK_URL="${HEALTHCHECK_URL:-${API_BASE_URL%/}/health}"
+API_BASE_URL="${API_BASE_URL:-https://api.poof.com.ua}"
+HEALTHCHECK_URL="${HEALTHCHECK_URL:-https://api.poof.com.ua/up}"
 PHP_BIN="${PHP_BIN:-php}"
 SUPERVISORCTL_BIN="${SUPERVISORCTL_BIN:-supervisorctl}"
 REDIS_CLI_BIN="${REDIS_CLI_BIN:-redis-cli}"

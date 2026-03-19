@@ -41,7 +41,7 @@ Canonical deploy path до изменений: GitHub workflow `.github/workflow
 - `php artisan migrate --force`;
 - cache clear/optimize;
 - restart воркеров через Supervisor;
-- health check через `curl -f http://localhost/health || true`.
+- health check через `curl -f https://api.poof.com.ua/up || true`.
 
 Hard-fail шаги уже были:
 
@@ -112,9 +112,9 @@ Blocking during deploy:
 - frontend manifest verification;
 - DB migrations;
 - Laravel cache rebuild;
-- blocking health-check against `/health`.
+- blocking health-check against `https://api.poof.com.ua/up`.
 
-Health gate теперь считается обязательным: если `/health` не отвечает успешно после ограниченного числа retries, deploy завершается с non-zero exit code.
+Health gate теперь считается обязательным: если `https://api.poof.com.ua/up` не отвечает успешно после ограниченного числа retries, deploy завершается с non-zero exit code.
 
 ### Post-deploy smoke — mandatory contract
 
@@ -123,7 +123,7 @@ Canonical smoke runner: `scripts/check-server.sh`.
 Обязательный smoke набор:
 
 1. base HTTP response (`curl -I $API_BASE_URL`);
-2. health endpoint (`curl $HEALTHCHECK_URL`);
+2. canonical health endpoint (`curl https://api.poof.com.ua/up` via `$HEALTHCHECK_URL`);
 3. `php artisan schedule:list`;
 4. `supervisorctl status`;
 5. `redis-cli ping`;

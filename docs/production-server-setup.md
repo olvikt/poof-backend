@@ -4,6 +4,10 @@
 Путь: `/var/www/poof`  
 Домен API: `api.poof.com.ua`
 
+
+Канонический health/smoke target для production: `https://api.poof.com.ua/up`.
+Не используйте `/health` и не проверяйте `localhost` на сервере: на этом хосте `localhost` указывает на default nginx site, а не на production API.
+
 ## 1) Nginx (virtual host)
 
 ### Рекомендуемый конфиг `/etc/nginx/sites-available/poof-api`
@@ -161,4 +165,4 @@ git config --global --add safe.directory /var/www/poof
 cd /var/www/poof && bash scripts/check-server.sh
 ```
 
-Release не считается завершённым, пока этот smoke-run не прошёл без blocking failures.
+Release не считается завершённым, пока этот smoke-run не прошёл без blocking failures. Скрипт использует канонический health target `https://api.poof.com.ua/up`.
