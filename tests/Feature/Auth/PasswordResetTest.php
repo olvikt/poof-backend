@@ -5,6 +5,7 @@ namespace Tests\Feature\Auth;
 use App\Models\User;
 use App\Notifications\ResetPasswordPoofNotification;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Notification;
 use Illuminate\Support\Facades\Password;
@@ -14,6 +15,12 @@ class PasswordResetTest extends TestCase
 {
     use RefreshDatabase;
 
+    protected function setUp(): void
+    {
+        parent::setUp();
+
+        Cache::flush();
+    }
 
     public function test_forgot_password_page_opens(): void
     {

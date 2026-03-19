@@ -19,7 +19,7 @@ class OrderAcceptRaceConditionTest extends TestCase
     {
         parent::setUp();
 
-        $this->sqlitePath = database_path('testing-race-condition.sqlite');
+        $this->sqlitePath = database_path('testing-race-condition-' . Str::uuid() . '.sqlite');
 
         if (file_exists($this->sqlitePath)) {
             unlink($this->sqlitePath);
