@@ -89,6 +89,44 @@ class CourierRuntimeStateSyncTest extends TestCase
         $this->assertSame(User::SESSION_READY, $courier->session_state);
     }
 
+    public function test_cancel_from_accepted_restores_free_online_runtime_state(): void
+    {
+        [$courier, $order] = $this->createCourierWithActiveOrder(Order::STATUS_ACCEPTED);
+
+        $courier->markBusy();
+
+        $this->assertTrue($order->fresh()->cancel());
+
+        $courier->refresh();
+        $order->refresh();
+
+        $this->assertSame(Order::STATUS_CANCELLED, $order->status);
+        $this->assertSame(Courier::STATUS_ONLINE, $courier->courierProfile->status);
+        $this->assertTrue((bool) $courier->is_online);
+        $this->assertFalse((bool) $courier->is_busy);
+        $this->assertSame(User::SESSION_READY, $courier->session_state);
+        $this->assertFalse($courier->hasActiveCourierOrder());
+    }
+
+    public function test_cancel_from_in_progress_is_blocked_without_mutating_runtime_state(): void
+    {
+        [$courier, $order] = $this->createCourierWithActiveOrder(Order::STATUS_IN_PROGRESS);
+
+        $courier->markDelivering();
+
+        $this->assertFalse($order->fresh()->cancel());
+
+        $courier->refresh();
+        $order->refresh();
+
+        $this->assertSame(Order::STATUS_IN_PROGRESS, $order->status);
+        $this->assertSame(Courier::STATUS_DELIVERING, $courier->courierProfile->status);
+        $this->assertTrue((bool) $courier->is_online);
+        $this->assertTrue((bool) $courier->is_busy);
+        $this->assertSame(User::SESSION_IN_PROGRESS, $courier->session_state);
+        $this->assertTrue($courier->hasActiveCourierOrder());
+    }
+
     public function test_legacy_desynced_state_is_self_healed_by_runtime_api(): void
     {
         [$courier, $order] = $this->createCourierWithActiveOrder(Order::STATUS_ACCEPTED);
@@ -276,6 +314,7 @@ class CourierRuntimeStateSyncTest extends TestCase
             'address_text' => 'вул. Активна, 11',
             'price' => 100,
             'accepted_at' => now(),
+            'started_at' => $orderStatus === Order::STATUS_IN_PROGRESS ? now() : null,
         ]);
 
         return [$courier, $order];

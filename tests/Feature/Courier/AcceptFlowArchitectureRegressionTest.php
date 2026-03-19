@@ -51,4 +51,25 @@ class AcceptFlowArchitectureRegressionTest extends TestCase
         $this->assertNotFalse($orderLockPosition);
         $this->assertLessThan($orderLockPosition, $courierLockPosition);
     }
+
+    public function test_legacy_start_and_complete_delegate_to_canonical_by_methods(): void
+    {
+        $orderModel = file_get_contents(base_path('app/Models/Order.php'));
+
+        $this->assertIsString($orderModel);
+        $this->assertStringContainsString('return $this->startBy($courier);', $orderModel);
+        $this->assertStringContainsString('return $this->completeBy($courier);', $orderModel);
+    }
+
+    public function test_cancel_uses_canonical_runtime_transition_instead_of_scattered_flag_writes(): void
+    {
+        $orderModel = file_get_contents(base_path('app/Models/Order.php'));
+
+        $this->assertIsString($orderModel);
+        $this->assertStringContainsString('->canBeCancelled()', $orderModel);
+        $this->assertStringContainsString('$courier->markFree();', $orderModel);
+        $this->assertStringNotContainsString("'is_busy' => false", $orderModel);
+        $this->assertStringNotContainsString("'is_online' => false", $orderModel);
+        $this->assertStringNotContainsString("'session_state' =>", $orderModel);
+    }
 }
