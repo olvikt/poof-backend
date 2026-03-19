@@ -166,7 +166,7 @@ class GeocodeControllerTest extends TestCase
                 && ($data['lat'] ?? null) === '48.42'
                 && ($data['lon'] ?? null) === '35.05'
                 && ($data['limit'] ?? null) === '15'
-                && ($data['lang'] ?? null) === 'uk'
+                && ! array_key_exists('lang', $data)
                 && ($data['layer'] ?? null) === 'street'
                 && ($data['bbox'] ?? null) === '22.0,44.0,40.0,53.0'
                 && ! array_key_exists('countrycode', $data);
@@ -269,7 +269,7 @@ class GeocodeControllerTest extends TestCase
     {
         Http::fake([
             'https://photon.komoot.io/api*' => Http::response([
-                'message' => "Unknown query parameter 'countrycode'",
+                'message' => 'Language is not supported. Supported are: default, de, en, fr',
             ], 400),
         ]);
 
