@@ -21,7 +21,14 @@
 			<livewire:client.profile-form />
 		</x-poof.ui.bottom-sheet>
 		<template x-teleport="body">
-			<x-poof.ui.bottom-sheet name="addressForm" title="Адреса">
+			<x-poof.ui.bottom-sheet
+				name="addressForm"
+				title="Адреса"
+				:hide-header="true"
+				body-class="px-0 pb-0"
+				panel-class="overflow-hidden"
+				actions-class="border-t border-neutral-800 bg-neutral-900/95 p-4 backdrop-blur"
+			>
 				<livewire:client.address-form wire:key="address-form" />
 
 				<x-slot:actions>

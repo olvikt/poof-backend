@@ -1,6 +1,10 @@
 @props([
     'name',
     'title' => null,
+    'hideHeader' => false,
+    'bodyClass' => 'px-4 pb-6',
+    'panelClass' => 'rounded-t-2xl',
+    'actionsClass' => 'border-t border-neutral-800 bg-neutral-900 p-4',
 ])
 
 <div
@@ -24,30 +28,33 @@
 
             <div
                 x-ref="sheet"
-                class="absolute inset-x-0 bottom-0 h-[100dvh] bg-neutral-900 rounded-t-2xl flex flex-col"
+                class="absolute inset-x-0 bottom-0 flex h-[100dvh] flex-col bg-neutral-900 {{ $panelClass }}"
             >
-                <div class="flex items-center justify-between px-3 py-3 border-b border-neutral-800">
-                    <h2 class="text-sm font-semibold text-white">
-                        {{ $title }}
-                    </h2>
+                @unless($hideHeader)
+                    <div class="flex items-center justify-between border-b border-neutral-800 px-3 py-3">
+                        <h2 class="text-sm font-semibold text-white">
+                            {{ $title }}
+                        </h2>
 
-                    <button
-                        type="button"
-                        @click="close()"
-                        class="text-neutral-400 hover:text-white"
-                    >
-                        ✕
-                    </button>
-                </div>
+                        <button
+                            type="button"
+                            @click="close()"
+                            class="text-neutral-400 hover:text-white"
+                        >
+                            ✕
+                        </button>
+                    </div>
+                @endunless
 
-
-                <div class="flex-1 overflow-y-auto overflow-x-hidden px-4 pb-6">
+                <div class="flex-1 overflow-y-auto overflow-x-hidden {{ $bodyClass }}">
                     {{ $slot }}
                 </div>
 
-                <div class="border-t border-neutral-800 bg-neutral-900 p-4">
-                    {{ $actions ?? '' }}
-                </div>
+                @if(isset($actions))
+                    <div class="{{ $actionsClass }}">
+                        {{ $actions }}
+                    </div>
+                @endif
             </div>
         </div>
     </template>
