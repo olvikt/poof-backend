@@ -30,6 +30,7 @@ class AddressForm extends Component
     public ?string $title = null;
 
     public ?string $search = null;
+    public bool $isAddressSearchOpen = false;
     public array $suggestions = [];
     public int $activeSuggestionIndex = -1;
     public ?string $suggestionsMessage = null;
@@ -68,6 +69,7 @@ class AddressForm extends Component
             : $this->resetForm();
 
         $this->dispatch('sheet:open', name: 'addressForm');
+        $this->closeAddressSearch();
         $this->syncMarker();
     }
 
@@ -114,6 +116,23 @@ class AddressForm extends Component
         if (mb_strlen(trim((string) $this->search)) < 3) {
             $this->clearSuggestions();
         }
+    }
+
+    public function openAddressSearch(): void
+    {
+        $this->isAddressSearchOpen = true;
+    }
+
+    public function closeAddressSearch(): void
+    {
+        $this->isAddressSearchOpen = false;
+        $this->clearSuggestions();
+    }
+
+    public function clearSearch(): void
+    {
+        $this->search = null;
+        $this->clearSuggestions();
     }
 
     public function setPhotonSuggestions($items, $message = null): void
@@ -212,9 +231,11 @@ class AddressForm extends Component
         $this->city = $item['city'] ?? $this->city;
         $this->region = $item['region'] ?? $this->region;
 
+        $this->isAddressSearchOpen = false;
         $this->clearSuggestions();
 
         if ($this->lat !== null && $this->lng !== null) {
+            $this->syncMarker();
             $this->dispatch('map:set-location', lat: $this->lat, lng: $this->lng, source: 'autocomplete', zoom: 17);
             $this->dispatch('map:update', lat: $this->lat, lng: $this->lng, zoom: 17);
         }
@@ -419,6 +440,7 @@ class AddressForm extends Component
             'title',
             'building_type',
             'search',
+            'isAddressSearchOpen',
             'suggestions',
             'activeSuggestionIndex',
             'suggestionsMessage',
