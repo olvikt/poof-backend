@@ -34,6 +34,32 @@ class AddressFormSearchModalTest extends TestCase
             ->assertSee('Очистити');
     }
 
+    public function test_manual_clear_resets_search_and_suggestions_without_closing_modal(): void
+    {
+        Livewire::test(AddressForm::class)
+            ->call('openAddressSearch')
+            ->set('search', 'Космічна')
+            ->set('suggestions', [[
+                'label' => 'Космічна, Дніпро',
+                'line1' => 'Космічна',
+                'line2' => 'Дніпро, Дніпропетровська область',
+                'street' => 'Космічна',
+                'house' => null,
+                'city' => 'Дніпро',
+                'region' => 'Дніпропетровська область',
+                'lat' => 48.4647,
+                'lng' => 35.0462,
+            ]])
+            ->set('suggestionsMessage', 'test')
+            ->call('clearSearch')
+            ->assertSet('isAddressSearchOpen', true)
+            ->assertSet('search', null)
+            ->assertSet('suggestions', [])
+            ->assertSet('suggestionsMessage', null)
+            ->assertSee('Поточна локація на мапі')
+            ->assertSee('Нещодавні адреси');
+    }
+
     public function test_selecting_suggestion_closes_modal_updates_internal_state_and_keeps_map_sync(): void
     {
         Livewire::test(AddressForm::class)
