@@ -1,4 +1,6 @@
 const API_BASE = (import.meta.env.VITE_API_URL || '').replace(/\/$/, '')
+const RECENT_ADDRESSES_KEY = 'poof:recent-addresses:v1'
+const RECENT_ADDRESSES_LIMIT = 5
 
 function safeString(value) {
   if (value === null || value === undefined) return ''
@@ -13,14 +15,12 @@ function safeString(value) {
   return ''
 }
 
-function buildAddressLabel(item) {
-  const parts = [
-    safeString(item.street),
-    safeString(item.house || item.housenumber),
-    safeString(item.city),
-  ].filter(Boolean)
-
-  return parts.join(', ')
+function canUseLocalStorage() {
+  try {
+    return typeof window !== 'undefined' && typeof window.localStorage !== 'undefined'
+  } catch (_) {
+    return false
+  }
 }
 
 export default function addressAutocomplete() {
@@ -33,6 +33,7 @@ export default function addressAutocomplete() {
     city: null,
     suggestions: [],
     suggestionsMessage: null,
+    recentAddresses: [],
     abortController: null,
     requestId: 0,
     isLoadingSuggestions: false,
@@ -68,6 +69,118 @@ export default function addressAutocomplete() {
       return String(value ?? '').trim()
     },
 
+    buildDisplayLabel(item = {}) {
+      const line1 = [safeString(item.street), safeString(item.house || item.housenumber)].filter(Boolean).join(' ').trim()
+      const line2 = [safeString(item.city), safeString(item.region)].filter(Boolean).join(', ').trim()
+
+      return safeString(item.label) || [line1, safeString(item.city)].filter(Boolean).join(', ') || line1 || line2 || safeString(item.name)
+    },
+
+    normalizeSuggestion(item) {
+      if (!item || typeof item !== 'object') {
+        return null
+      }
+
+      if (!Number.isFinite(Number(item.lat)) || !Number.isFinite(Number(item.lng))) {
+        return null
+      }
+
+      const street = safeString(item.street)
+      const house = safeString(item.housenumber || item.house)
+      const city = safeString(item.city)
+      const region = safeString(item.region)
+      const name = safeString(item.name)
+      const line1 = this.normalizeText(item.line1) || [street, house].filter(Boolean).join(' ').trim() || null
+      const line2 = this.normalizeText(item.line2) || [city, region].filter(Boolean).join(', ').trim() || null
+      const label = this.buildDisplayLabel({ ...item, street, house, city, region, line1, line2 }) || name || line1
+
+      return {
+        ...item,
+        lat: Number(item.lat),
+        lng: Number(item.lng),
+        street: street || null,
+        house: house || null,
+        city: city || null,
+        region: region || null,
+        line1: line1 || null,
+        line2: line2 || null,
+        label,
+        value: label,
+      }
+    },
+
+    normalizeRecentItem(item) {
+      const normalized = this.normalizeSuggestion(item)
+      if (!normalized) return null
+
+      return {
+        label: normalized.label,
+        line1: normalized.line1,
+        line2: normalized.line2,
+        street: normalized.street,
+        house: normalized.house,
+        city: normalized.city,
+        region: normalized.region,
+        lat: normalized.lat,
+        lng: normalized.lng,
+      }
+    },
+
+    getRecentStorageKey() {
+      const userId = document.documentElement?.dataset?.userId || 'guest'
+      return `${RECENT_ADDRESSES_KEY}:${userId}`
+    },
+
+    loadRecentAddresses() {
+      if (!canUseLocalStorage()) {
+        this.recentAddresses = []
+        return
+      }
+
+      try {
+        const raw = window.localStorage.getItem(this.getRecentStorageKey())
+        const items = JSON.parse(raw || '[]')
+
+        this.recentAddresses = Array.isArray(items)
+          ? items.map((item) => this.normalizeRecentItem(item)).filter(Boolean).slice(0, RECENT_ADDRESSES_LIMIT)
+          : []
+      } catch (_) {
+        this.recentAddresses = []
+      }
+    },
+
+    persistRecentAddresses() {
+      if (!canUseLocalStorage()) return
+
+      window.localStorage.setItem(this.getRecentStorageKey(), JSON.stringify(this.recentAddresses.slice(0, RECENT_ADDRESSES_LIMIT)))
+    },
+
+    rememberRecentAddress(item) {
+      const normalized = this.normalizeRecentItem(item)
+      if (!normalized) return
+
+      const nextItems = [normalized, ...this.recentAddresses.filter((existing) => {
+        const existingKey = [existing.street, existing.house, existing.city, existing.lat, existing.lng].map((part) => this.normalizeText(part).toLowerCase()).join('|')
+        const nextKey = [normalized.street, normalized.house, normalized.city, normalized.lat, normalized.lng].map((part) => this.normalizeText(part).toLowerCase()).join('|')
+        return existingKey !== nextKey
+      })]
+
+      this.recentAddresses = nextItems.slice(0, RECENT_ADDRESSES_LIMIT)
+      this.persistRecentAddresses()
+    },
+
+    clearRecentAddresses() {
+      this.recentAddresses = []
+
+      if (canUseLocalStorage()) {
+        window.localStorage.removeItem(this.getRecentStorageKey())
+      }
+    },
+
+    shouldShowRecent() {
+      return !this.isLoadingSuggestions && this.normalizeText(this.search) === '' && this.recentAddresses.length > 0
+    },
+
     init() {
       this.search = this.$wire.entangle('search', true)
       this.lat = this.$wire.entangle('lat')
@@ -78,10 +191,11 @@ export default function addressAutocomplete() {
       this.isAddressSearchOpen = this.$wire.entangle('isAddressSearchOpen')
       this.suggestions = this.$wire.entangle('suggestions', true)
       this.suggestionsMessage = this.$wire.entangle('suggestionsMessage', true)
-
+      this.loadRecentAddresses()
 
       this.openAddressSearch = () => {
         this.isAddressSearchOpen = true
+        this.loadRecentAddresses()
 
         this.$nextTick(() => {
           this.$refs.addressSearchInput?.focus?.()
@@ -117,30 +231,19 @@ export default function addressAutocomplete() {
         if (regionInput) regionInput.value = this.safe(item?.region)
       }
 
-      const applyAddressItem = (item) => {
+      const applyAddressItem = (item, options = {}) => {
         if (!item || typeof item !== 'object') return
 
-        const street = safeString(item.street)
-        const house = safeString(item.housenumber ?? item.house)
-        const city = safeString(item.city)
-
-        const label =
-          safeString(item.label) ||
-          [street, house].filter(Boolean).join(' ') ||
-          street ||
-          safeString(item.name)
-
-        const lat = Number(item.lat)
-        const lng = Number(item.lng)
+        const normalizedItem = this.normalizeRecentItem(item)
+        if (!normalizedItem) return
 
         this.isApplyingSelection = true
-        this.search = label
-        this.street = street
-        this.house = house
-        this.city = city
-
-        this.lat = Number.isFinite(lat) ? lat : null
-        this.lng = Number.isFinite(lng) ? lng : null
+        this.search = normalizedItem.label
+        this.street = normalizedItem.street
+        this.house = normalizedItem.house
+        this.city = normalizedItem.city
+        this.lat = normalizedItem.lat
+        this.lng = normalizedItem.lng
 
         this.suggestions = []
         this.suggestionsMessage = null
@@ -149,10 +252,15 @@ export default function addressAutocomplete() {
         this.$wire.set('street', this.street)
         this.$wire.set('house', this.house)
         this.$wire.set('city', this.city)
+        this.$wire.set('region', normalizedItem.region)
         this.$wire.set('lat', this.lat)
         this.$wire.set('lng', this.lng)
         this.$wire.set('suggestions', [])
         this.$wire.set('suggestionsMessage', null)
+
+        if (options.remember !== false) {
+          this.rememberRecentAddress(normalizedItem)
+        }
 
         this.$nextTick(() => {
           this.isApplyingSelection = false
@@ -208,6 +316,8 @@ export default function addressAutocomplete() {
 
       this.$watch('isAddressSearchOpen', (value) => {
         if (value) {
+          this.loadRecentAddresses()
+
           this.$nextTick(() => {
             this.$refs.addressSearchInput?.focus?.()
             this.$refs.addressSearchInput?.select?.()
@@ -283,7 +393,7 @@ export default function addressAutocomplete() {
       const { lat, lng } = this.getBiasCoordinates()
 
       try {
-        const response = await fetch(`/api/geocode?q=${encodeURIComponent(normalizedQuery)}&lat=${lat}&lng=${lng}`, {
+        const response = await fetch(`${API_BASE || ''}/api/geocode?q=${encodeURIComponent(normalizedQuery)}&lat=${lat}&lng=${lng}`, {
           signal: this.abortController.signal,
         })
 
@@ -339,64 +449,21 @@ export default function addressAutocomplete() {
       }
     },
 
-    normalizeSuggestion(item) {
-      if (!item || typeof item !== 'object') {
-        return null
-      }
-
-      if (!Number.isFinite(Number(item.lat)) || !Number.isFinite(Number(item.lng))) {
-        return null
-      }
-
-      const street = safeString(item.street)
-      const house = safeString(item.housenumber || item.house)
-      const city = safeString(item.city)
-      const name = safeString(item.name)
-      const line1 = this.normalizeText(item.line1)
-      const line2 = this.normalizeText(item.line2)
-
-      const streetLabel = [street, house].filter(Boolean).join(' ').trim()
-
-      const labelParts = []
-
-      if (streetLabel) labelParts.push(streetLabel)
-      else if (street) labelParts.push(street)
-
-      if (city) labelParts.push(city)
-
-      const label =
-        labelParts.join(', ') ||
-        safeString(item.label) ||
-        name ||
-        line1
-
-      return {
-        ...item,
-        lat: Number(item.lat),
-        lng: Number(item.lng),
-        street: street || null,
-        house: house || null,
-        city: city || null,
-        line1: line1 || null,
-        line2: line2 || null,
-        label,
-        value: label,
-      }
-    },
-
     selectSuggestion(item) {
       if (!item || typeof item !== 'object') {
         return
       }
 
-      this.search = safeString(item.label) || safeString(item.street)
-      this.isApplyingSelection = true
-      this.street = safeString(item.street)
-      this.house = safeString(item.house || item.housenumber)
-      this.city = safeString(item.city)
+      const normalizedItem = this.normalizeRecentItem(item)
+      if (!normalizedItem) return
 
-      this.lat = Number.isFinite(Number(item.lat)) ? Number(item.lat) : null
-      this.lng = Number.isFinite(Number(item.lng)) ? Number(item.lng) : null
+      this.search = normalizedItem.label || safeString(item.street)
+      this.isApplyingSelection = true
+      this.street = normalizedItem.street
+      this.house = normalizedItem.house
+      this.city = normalizedItem.city
+      this.lat = normalizedItem.lat
+      this.lng = normalizedItem.lng
 
       this.suggestions = []
       this.suggestionsMessage = null
@@ -405,13 +472,15 @@ export default function addressAutocomplete() {
       this.$wire.set('street', this.street)
       this.$wire.set('house', this.house)
       this.$wire.set('city', this.city)
-      this.$wire.set('region', this.normalizeText(item.region) || null)
+      this.$wire.set('region', normalizedItem.region)
       this.$wire.set('lat', this.lat ?? null)
       this.$wire.set('lng', this.lng ?? null)
       this.$wire.set('suggestions', [])
       this.$wire.set('suggestionsMessage', null)
       this.$wire.set('activeSuggestionIndex', -1)
       this.isAddressSearchOpen = false
+
+      this.rememberRecentAddress(normalizedItem)
 
       this.addressLocked = true
       window.dispatchEvent(new CustomEvent('address:lock', {
