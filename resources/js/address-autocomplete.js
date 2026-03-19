@@ -40,6 +40,7 @@ export default function addressAutocomplete() {
     _debounceTimer: null,
     addressLocked: false,
     isApplyingSelection: false,
+    isAddressSearchOpen: false,
 
     safe(value) {
       if (typeof value === 'string') return value
@@ -74,8 +75,33 @@ export default function addressAutocomplete() {
       this.street = this.$wire.entangle('street')
       this.house = this.$wire.entangle('house')
       this.city = this.$wire.entangle('city')
+      this.isAddressSearchOpen = this.$wire.entangle('isAddressSearchOpen')
       this.suggestions = this.$wire.entangle('suggestions', true)
       this.suggestionsMessage = this.$wire.entangle('suggestionsMessage', true)
+
+
+      this.openAddressSearch = () => {
+        this.isAddressSearchOpen = true
+
+        this.$nextTick(() => {
+          this.$refs.addressSearchInput?.focus?.()
+          this.$refs.addressSearchInput?.select?.()
+        })
+      }
+
+      this.closeAddressSearch = () => {
+        this.isAddressSearchOpen = false
+      }
+
+      this.clearSearch = () => {
+        this.search = ''
+        this.suggestions = []
+        this.suggestionsMessage = null
+        this.$wire.call('clearSearch')
+        this.$nextTick(() => {
+          this.$refs.addressSearchInput?.focus?.()
+        })
+      }
 
       const syncAddressInputs = (item) => {
         const streetInput = document.querySelector('[data-address-street]')
@@ -179,6 +205,15 @@ export default function addressAutocomplete() {
         this.addressLocked = false
       })
       let lastQuery = ''
+
+      this.$watch('isAddressSearchOpen', (value) => {
+        if (value) {
+          this.$nextTick(() => {
+            this.$refs.addressSearchInput?.focus?.()
+            this.$refs.addressSearchInput?.select?.()
+          })
+        }
+      })
 
       this.$watch('search', (value) => {
         if (typeof value === 'object' && value !== null) {
@@ -376,6 +411,7 @@ export default function addressAutocomplete() {
       this.$wire.set('suggestions', [])
       this.$wire.set('suggestionsMessage', null)
       this.$wire.set('activeSuggestionIndex', -1)
+      this.isAddressSearchOpen = false
 
       this.addressLocked = true
       window.dispatchEvent(new CustomEvent('address:lock', {
