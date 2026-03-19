@@ -42,6 +42,8 @@ export default function addressAutocomplete() {
     addressLocked: false,
     isApplyingSelection: false,
     isAddressSearchOpen: false,
+    manualClearActive: false,
+    manualClearCoordinates: null,
 
     safe(value) {
       if (typeof value === 'string') return value
@@ -181,6 +183,20 @@ export default function addressAutocomplete() {
       return !this.isLoadingSuggestions && this.normalizeText(this.search) === '' && this.recentAddresses.length > 0
     },
 
+    shouldShowCurrentLocationAction() {
+      return !this.isLoadingSuggestions && this.normalizeText(this.search) === '' && this.hasBiasCoordinates()
+    },
+
+    hasBiasCoordinates() {
+      const mapCenter = window.POOF?.map?.instance?.getCenter?.()
+
+      if (mapCenter && Number.isFinite(mapCenter.lat) && Number.isFinite(mapCenter.lng)) {
+        return true
+      }
+
+      return Number.isFinite(Number(this.lat)) && Number.isFinite(Number(this.lng))
+    },
+
     init() {
       this.search = this.$wire.entangle('search', true)
       this.lat = this.$wire.entangle('lat')
@@ -208,13 +224,71 @@ export default function addressAutocomplete() {
       }
 
       this.clearSearch = () => {
+        const mapCenter = window.POOF?.map?.instance?.getCenter?.()
+        const lat = mapCenter?.lat ?? this.lat
+        const lng = mapCenter?.lng ?? this.lng
+
+        this.manualClearActive = true
+        this.manualClearCoordinates = Number.isFinite(Number(lat)) && Number.isFinite(Number(lng))
+          ? { lat: Number(lat), lng: Number(lng) }
+          : null
+
         this.search = ''
         this.suggestions = []
         this.suggestionsMessage = null
+        this.requestId += 1
+
+        if (this.abortController) {
+          this.abortController.abort()
+          this.abortController = null
+        }
+
+        this.isLoadingSuggestions = false
         this.$wire.call('clearSearch')
         this.$nextTick(() => {
           this.$refs.addressSearchInput?.focus?.()
         })
+      }
+
+      this.selectCurrentLocation = async () => {
+        const coords = this.manualClearCoordinates ?? this.getBiasCoordinates()
+        const lat = Number(coords?.lat)
+        const lng = Number(coords?.lng)
+
+        if (!Number.isFinite(lat) || !Number.isFinite(lng)) {
+          return
+        }
+
+        this.manualClearActive = false
+        this.manualClearCoordinates = null
+        this.isLoadingSuggestions = true
+        this.suggestions = []
+        this.suggestionsMessage = null
+        this.$wire.set('suggestions', [])
+        this.$wire.set('suggestionsMessage', null)
+
+        try {
+          const response = await fetch(`${API_BASE || ''}/api/geocode?lat=${lat}&lng=${lng}`)
+
+          if (!response.ok) {
+            return
+          }
+
+          const data = await response.json()
+          const item = Array.isArray(data) ? this.normalizeSuggestion(data[0]) : null
+
+          if (!item) {
+            return
+          }
+
+          this.selectSuggestion(item)
+        } catch (error) {
+          if (error?.name !== 'AbortError') {
+            console.error('[POOF autocomplete] current-location reverse geocode failed', error)
+          }
+        } finally {
+          this.isLoadingSuggestions = false
+        }
       }
 
       const syncAddressInputs = (item) => {
@@ -237,6 +311,8 @@ export default function addressAutocomplete() {
         const normalizedItem = this.normalizeRecentItem(item)
         if (!normalizedItem) return
 
+        this.manualClearActive = false
+        this.manualClearCoordinates = null
         this.isApplyingSelection = true
         this.search = normalizedItem.label
         this.street = normalizedItem.street
@@ -268,7 +344,7 @@ export default function addressAutocomplete() {
       }
 
       window.addEventListener('address:reverse-geocoded', (e) => {
-        if (this.addressLocked) return
+        if (this.addressLocked || this.manualClearActive) return
 
         const item = e.detail?.item
         if (!item) return
@@ -287,7 +363,7 @@ export default function addressAutocomplete() {
       })
 
       window.addEventListener('map:set-address', (event) => {
-        if (this.addressLocked) return
+        if (this.addressLocked || this.manualClearActive) return
 
         const item = event.detail?.item ?? event.detail
         if (!item || typeof item !== 'object') {
@@ -367,7 +443,11 @@ export default function addressAutocomplete() {
         return
       }
 
-      const cacheKey = normalizedQuery.toLowerCase()
+      const { lat, lng } = this.getBiasCoordinates()
+      const locationKey = Number.isFinite(Number(lat)) && Number.isFinite(Number(lng))
+        ? `${Number(lat).toFixed(2)}:${Number(lng).toFixed(2)}`
+        : 'no-bias'
+      const cacheKey = `${normalizedQuery.toLowerCase()}@${locationKey}`
 
       if (this.prefixCache[cacheKey]) {
         this.suggestions = this.prefixCache[cacheKey]
@@ -390,7 +470,6 @@ export default function addressAutocomplete() {
         console.log('Geocode query:', normalizedQuery)
       }
 
-      const { lat, lng } = this.getBiasCoordinates()
 
       try {
         const response = await fetch(`${API_BASE || ''}/api/geocode?q=${encodeURIComponent(normalizedQuery)}&lat=${lat}&lng=${lng}`, {
@@ -458,6 +537,8 @@ export default function addressAutocomplete() {
       if (!normalizedItem) return
 
       this.search = normalizedItem.label || safeString(item.street)
+      this.manualClearActive = false
+      this.manualClearCoordinates = null
       this.isApplyingSelection = true
       this.street = normalizedItem.street
       this.house = normalizedItem.house

@@ -207,6 +207,25 @@
                 <div class="flex-1 overflow-y-auto px-2 py-2">
                     <div x-show="isLoadingSuggestions" class="px-4 py-4 text-sm text-gray-300">Пошук адреси…</div>
 
+
+                    <div
+                        x-show="shouldShowCurrentLocationAction()"
+                        x-cloak
+                        class="px-2 pb-2"
+                    >
+                        <button
+                            type="button"
+                            x-on:click="selectCurrentLocation()"
+                            class="flex w-full items-start gap-3 rounded-2xl px-4 py-4 text-left transition hover:bg-neutral-900"
+                        >
+                            <span class="mt-0.5 text-yellow-400">📡</span>
+                            <span class="min-w-0 flex-1">
+                                <span class="block truncate text-sm font-semibold text-white">Поточна локація на мапі</span>
+                                <span class="mt-1 block truncate text-xs text-neutral-400">Окремо підставити адресу для поточного центру мапи.</span>
+                            </span>
+                        </button>
+                    </div>
+
                     <div
                         x-show="shouldShowRecent()"
                         x-cloak
