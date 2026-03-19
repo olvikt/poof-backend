@@ -351,6 +351,47 @@ class GeocodeControllerTest extends TestCase
             ->assertJsonPath('1.house', null);
     }
 
+
+    public function test_local_street_result_stays_above_cross_region_noise_when_exact_house_is_missing(): void
+    {
+        Http::fake([
+            'https://photon.komoot.io/api*' => Http::response([
+                'features' => [
+                    [
+                        'properties' => [
+                            'street' => 'Соборна вулиця',
+                            'city' => 'Дніпро',
+                            'state' => 'Дніпропетровська область',
+                            'countrycode' => 'UA',
+                        ],
+                        'geometry' => [
+                            'coordinates' => [35.0464, 48.4648],
+                        ],
+                    ],
+                    [
+                        'properties' => [
+                            'street' => 'Соборна вулиця',
+                            'housenumber' => '14',
+                            'city' => 'Буча',
+                            'state' => 'Київська область',
+                            'countrycode' => 'UA',
+                        ],
+                        'geometry' => [
+                            'coordinates' => [30.2128, 50.5432],
+                        ],
+                    ],
+                ],
+            ]),
+        ]);
+
+        $this->getJson('/api/geocode?q=соборна вулиця 12&lat=48.4647&lng=35.0462')
+            ->assertOk()
+            ->assertJsonPath('0.city', 'Дніпро')
+            ->assertJsonPath('0.house', null)
+            ->assertJsonPath('1.city', 'Буча')
+            ->assertJsonPath('1.region', 'Київська область');
+    }
+
     public function test_it_keeps_reverse_geocode_path_working(): void
     {
         Http::fake([

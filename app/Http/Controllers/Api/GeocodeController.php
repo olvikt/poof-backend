@@ -12,7 +12,7 @@ use Illuminate\Support\Facades\Http;
 
 class GeocodeController extends Controller
 {
-    private const PHOTON_CACHE_VERSION = 'v3';
+    private const PHOTON_CACHE_VERSION = 'v4';
 
     private const UKRAINE_BBOX = '22.0,44.0,40.0,53.0';
 
@@ -293,8 +293,14 @@ class GeocodeController extends Controller
             $score = (float) ($suggestion['_rank_score'] ?? 0.0);
             $hasHouse = $this->nullableString($suggestion['house'] ?? $suggestion['housenumber'] ?? null) !== null;
 
-            if ($lat !== null && $lng !== null && $distance !== null && $distance > 250 && $score < 10 && ! $hasHouse && $parsedQuery['house'] !== null) {
-                return false;
+            if ($lat !== null && $lng !== null && $distance !== null && $parsedQuery['house'] !== null) {
+                if ($distance > 250 && $score < 10 && ! $hasHouse) {
+                    return false;
+                }
+
+                if ($distance > 75 && ! $hasHouse && $score < 35) {
+                    return false;
+                }
             }
 
             return true;
@@ -367,6 +373,7 @@ class GeocodeController extends Controller
             'tokens' => $tokens,
             'street_tokens' => $streetTokens,
             'house' => $house,
+            'has_house_intent' => $house !== null,
         ];
     }
 
@@ -375,43 +382,63 @@ class GeocodeController extends Controller
         $label = $this->normalizeSearchText((string) ($suggestion['label'] ?? ''));
         $street = $this->normalizeSearchText((string) ($suggestion['street'] ?? $suggestion['name'] ?? ''));
         $city = $this->normalizeSearchText((string) ($suggestion['city'] ?? ''));
+        $region = $this->normalizeSearchText((string) ($suggestion['region'] ?? $suggestion['state'] ?? ''));
         $house = $this->normalizeSearchText((string) ($suggestion['house'] ?? $suggestion['housenumber'] ?? ''));
         $candidateTokens = array_unique(array_merge(
             $this->tokenizeSearchText($label),
             $this->tokenizeSearchText($street),
-            $this->tokenizeSearchText($city)
+            $this->tokenizeSearchText($city),
+            $this->tokenizeSearchText($region)
         ));
 
+        $streetQuery = implode(' ', $parsedQuery['street_tokens']);
         $streetOverlap = $this->tokenOverlapRatio($parsedQuery['street_tokens'], $this->tokenizeSearchText($street));
         $overallOverlap = $this->tokenOverlapRatio($parsedQuery['tokens'], $candidateTokens);
         $cityOverlap = $this->tokenOverlapRatio($parsedQuery['tokens'], $this->tokenizeSearchText($city));
+        $regionOverlap = $this->tokenOverlapRatio($parsedQuery['tokens'], $this->tokenizeSearchText($region));
+        $hasHouseIntent = (bool) ($parsedQuery['has_house_intent'] ?? false);
+        $hasHouse = $house !== '';
 
         similar_text($label, $parsedQuery['normalized'], $labelSimilarity);
-        similar_text($street, implode(' ', $parsedQuery['street_tokens']), $streetSimilarity);
+        similar_text($street, $streetQuery, $streetSimilarity);
 
         $score = 0.0;
-        $score += $streetOverlap * 40;
+        $score += $streetOverlap * 46;
         $score += $overallOverlap * 20;
         $score += $streetSimilarity * 0.3;
         $score += $labelSimilarity * 0.1;
 
-        if ($street !== '' && implode(' ', $parsedQuery['street_tokens']) !== '' && str_contains($street, implode(' ', $parsedQuery['street_tokens']))) {
+        if ($street !== '' && $streetQuery !== '' && str_contains($street, $streetQuery)) {
             $score += 18;
         }
 
-        if ($parsedQuery['house'] !== null) {
-            if ($house !== '') {
+        if ($hasHouse) {
+            $score += 8;
+        }
+
+        if ($hasHouseIntent) {
+            if ($hasHouse) {
                 if ($house === $parsedQuery['house']) {
-                    $score += 35;
+                    $score += 55;
                 } elseif (str_starts_with($house, $parsedQuery['house']) || str_starts_with($parsedQuery['house'], $house)) {
-                    $score += 18;
+                    $score += 26;
+                } else {
+                    $score += 10;
                 }
             } else {
-                $score -= 14;
+                $score -= 26;
+
+                if ($streetOverlap >= 0.75) {
+                    $score -= 10;
+                }
             }
 
-            if ($distanceKm !== null && $distanceKm > 40 && $house === '') {
-                $score -= min(20, 6 + ($distanceKm / 30));
+            if ($distanceKm !== null && $distanceKm > 15) {
+                $score -= min($hasHouse ? 28 : 42, 8 + ($distanceKm / ($hasHouse ? 10 : 7)));
+            }
+
+            if (! $hasHouse && $distanceKm !== null && $distanceKm > 40) {
+                $score -= min(32, 10 + ($distanceKm / 12));
             }
         }
 
@@ -419,24 +446,34 @@ class GeocodeController extends Controller
             $score += $cityOverlap * 12;
         }
 
+        if ($region !== '' && $regionOverlap > 0) {
+            $score += $regionOverlap * 6;
+        }
+
         if ($distanceKm !== null) {
-            if ($distanceKm <= 5) {
+            if ($distanceKm <= 2) {
+                $score += 24;
+            } elseif ($distanceKm <= 10) {
                 $score += 18;
             } elseif ($distanceKm <= 25) {
                 $score += 12;
             } elseif ($distanceKm <= 75) {
-                $score += 6;
-            } elseif ($distanceKm >= 150) {
-                $score -= min(18, ($distanceKm - 150) / 25);
+                $score += 4;
+            } elseif ($distanceKm <= 150) {
+                $score -= 8;
+            } elseif ($distanceKm <= 300) {
+                $score -= 22;
+            } else {
+                $score -= 36;
             }
         }
 
         if ($overallOverlap < 0.45) {
-            $score -= 18;
+            $score -= $hasHouseIntent ? 24 : 18;
         }
 
         if ($streetOverlap < 0.5) {
-            $score -= 12;
+            $score -= $hasHouseIntent ? 18 : 12;
         }
 
         return $score;
