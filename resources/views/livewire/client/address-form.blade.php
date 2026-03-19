@@ -175,7 +175,6 @@
                         </button>
                         <div class="min-w-0 flex-1">
                             <p class="text-sm font-semibold text-white">Оберіть адресу</p>
-                            <p class="text-xs text-neutral-400">Bolt / Uber style fullscreen пошук з автодоповненням</p>
                         </div>
                     </div>
 
@@ -284,50 +283,30 @@
     </div>
 
     @if($building_type === 'apartment')
-        <div class="flex gap-2 mt-3">
+        <div class="mt-3 flex gap-2">
             <div class="address-mini-input">
-                <input
-                    type="text"
-                    wire:model.defer="entrance"
-                    placeholder="Підʼїзд"
-                    class="poof-input w-full text-center"
-                >
+                <x-poof.input-floating label="Підʼїзд" model="entrance" center inputmode="numeric" pattern="[0-9]*" />
                 @error('entrance')
                     <p class="mt-1 text-xs text-red-400">{{ $message }}</p>
                 @enderror
             </div>
 
             <div class="address-mini-input">
-                <input
-                    type="text"
-                    wire:model.defer="floor"
-                    placeholder="Поверх"
-                    class="poof-input w-full text-center"
-                >
+                <x-poof.input-floating label="Поверх" model="floor" center inputmode="numeric" pattern="[0-9]*" />
                 @error('floor')
                     <p class="mt-1 text-xs text-red-400">{{ $message }}</p>
                 @enderror
             </div>
 
             <div class="address-mini-input">
-                <input
-                    type="text"
-                    wire:model.defer="apartment"
-                    placeholder="Кв./офіс"
-                    class="poof-input w-full text-center"
-                >
+                <x-poof.input-floating label="Кв./офіс" model="apartment" center inputmode="numeric" pattern="[0-9]*" />
                 @error('apartment')
                     <p class="mt-1 text-xs text-red-400">{{ $message }}</p>
                 @enderror
             </div>
 
             <div class="address-mini-input">
-                <input
-                    type="text"
-                    wire:model.defer="intercom"
-                    placeholder="Домофон"
-                    class="poof-input w-full text-center"
-                >
+                <x-poof.input-floating label="Домофон" model="intercom" center inputmode="numeric" pattern="[0-9]*" />
                 @error('intercom')
                     <p class="mt-1 text-xs text-red-400">{{ $message }}</p>
                 @enderror

@@ -142,4 +142,19 @@ class AddressFormSearchModalTest extends TestCase
             ->assertSet('lat', 48.4647)
             ->assertSet('lng', 35.0462);
     }
+
+    public function test_modal_header_is_clean_and_apartment_inputs_use_floating_numeric_friendly_markup(): void
+    {
+        Livewire::test(AddressForm::class)
+            ->call('openAddressSearch')
+            ->assertSee('Оберіть адресу')
+            ->assertDontSee('Bolt / Uber style fullscreen пошук з автодоповненням')
+            ->assertSeeHtml('inputmode="numeric"')
+            ->assertSeeHtml('pattern="[0-9]*"')
+            ->assertSee('Підʼїзд')
+            ->assertSee('Поверх')
+            ->assertSee('Кв./офіс')
+            ->assertSee('Домофон');
+    }
+
 }

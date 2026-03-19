@@ -12,7 +12,7 @@ use Illuminate\Support\Facades\Http;
 
 class GeocodeController extends Controller
 {
-    private const PHOTON_CACHE_VERSION = 'v6';
+    private const PHOTON_CACHE_VERSION = 'v7';
 
     private const UKRAINE_BBOX = '22.0,44.0,40.0,53.0';
 
@@ -314,6 +314,8 @@ class GeocodeController extends Controller
                 unset($suggestion);
             }
         }
+
+        $suggestions = $this->filterForeignNoiseSuggestions($suggestions, $parsedQuery, $lat, $lng);
 
         $suggestions = array_values(array_filter($suggestions, function (array $suggestion) use ($parsedQuery, $lat, $lng) {
             $distance = $suggestion['_distance_km'] ?? null;
@@ -677,6 +679,69 @@ class GeocodeController extends Controller
         }
 
         return $adjustment;
+    }
+
+    private function filterForeignNoiseSuggestions(array $suggestions, array $parsedQuery, ?float $lat, ?float $lng): array
+    {
+        if ($suggestions === []) {
+            return [];
+        }
+
+        $hasStrongUkrainianCandidate = collect($suggestions)->contains(function (array $suggestion) use ($parsedQuery, $lat, $lng): bool {
+            $score = (float) ($suggestion['_rank_score'] ?? 0.0);
+            $streetOverlap = (float) ($suggestion['_street_overlap'] ?? 0.0);
+            $overallOverlap = (float) ($suggestion['_overall_overlap'] ?? 0.0);
+            $distanceKm = $suggestion['_distance_km'] ?? null;
+
+            if ($this->isRussianOrthographySuggestion($suggestion)) {
+                return false;
+            }
+
+            if ($score < 35 || $streetOverlap < 0.55 || $overallOverlap < 0.45) {
+                return false;
+            }
+
+            return $lat === null || $lng === null || $distanceKm === null || $distanceKm <= 250;
+        });
+
+        if (! $hasStrongUkrainianCandidate) {
+            return $suggestions;
+        }
+
+        return array_values(array_filter($suggestions, function (array $suggestion) use ($parsedQuery, $lat, $lng): bool {
+            if (! $this->isRussianOrthographySuggestion($suggestion)) {
+                return true;
+            }
+
+            $score = (float) ($suggestion['_rank_score'] ?? 0.0);
+            $streetOverlap = (float) ($suggestion['_street_overlap'] ?? 0.0);
+            $overallOverlap = (float) ($suggestion['_overall_overlap'] ?? 0.0);
+            $distanceKm = $suggestion['_distance_km'] ?? null;
+            $hasHouse = $this->nullableString($suggestion['house'] ?? $suggestion['housenumber'] ?? null) !== null;
+
+            if (($parsedQuery['contains_ru_address_signals'] ?? false) && $hasHouse && $score >= 80 && $streetOverlap >= 0.85) {
+                return true;
+            }
+
+            if ($distanceKm !== null && $distanceKm <= 25 && $score >= 60 && $streetOverlap >= 0.75 && $overallOverlap >= 0.65) {
+                return true;
+            }
+
+            return false;
+        }));
+    }
+
+    private function isRussianOrthographySuggestion(array $suggestion): bool
+    {
+        $text = trim(implode(' ', array_filter([
+            $suggestion['label'] ?? null,
+            $suggestion['street'] ?? $suggestion['name'] ?? null,
+            $suggestion['city'] ?? null,
+            $suggestion['region'] ?? $suggestion['state'] ?? null,
+            $suggestion['country'] ?? null,
+        ], fn ($value) => is_string($value) && trim($value) !== '')));
+
+        return $text !== '' && $this->containsRussianAddressSignals($this->normalizeSearchText($text));
     }
 
     private function normalizeSearchText(string $value): string
