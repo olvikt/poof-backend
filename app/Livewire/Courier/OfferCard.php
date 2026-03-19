@@ -51,19 +51,12 @@ class OfferCard extends Component
         $offer = OrderOffer::query()->find($this->offer->id);
         $order = $offer?->order;
 
-        if (! $offer || ! $order || $offer->status !== OrderOffer::STATUS_PENDING) {
+        if (! $offer || ! $order) {
             $ok = false;
         } else {
-            $ok = $order->acceptBy($courier);
+            $ok = $offer->acceptBy($courier);
 
             if ($ok) {
-                OrderOffer::query()
-                    ->whereKey($offer->id)
-                    ->where('status', OrderOffer::STATUS_PENDING)
-                    ->update([
-                        'status' => OrderOffer::STATUS_ACCEPTED,
-                    ]);
-
                 $this->dispatch('map:courier-update', [
                     'courierLat' => $courier->last_lat,
                     'courierLng' => $courier->last_lng,

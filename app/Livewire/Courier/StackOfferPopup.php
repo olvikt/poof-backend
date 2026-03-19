@@ -44,15 +44,9 @@ class StackOfferPopup extends Component
     {
         if (! $this->offer) return;
 
-        $order = $this->offer->order;
-
-        if (! $order || ! $order->acceptBy(auth()->user())) {
+        if (! $this->offer->acceptBy(auth()->user())) {
             return;
         }
-
-        $this->offer->update([
-            'status' => OrderOffer::STATUS_ACCEPTED,
-        ]);
 
         $this->dispatch('offer-accepted');
         $this->refreshOffer();

@@ -104,19 +104,21 @@ class OrderAcceptRaceConditionTest extends TestCase
         @unlink($resultA);
         @unlink($resultB);
 
-        $pidA = $this->spawnAcceptProcess($order->id, $courierA->id, $barrier, $resultA);
-        $pidB = $this->spawnAcceptProcess($order->id, $courierB->id, $barrier, $resultB);
+        $pidA = $this->spawnAcceptProcess($barrier, $resultA, [
+            'mode' => 'order',
+            'order_id' => $order->id,
+            'courier_id' => $courierA->id,
+        ]);
+        $pidB = $this->spawnAcceptProcess($barrier, $resultB, [
+            'mode' => 'order',
+            'order_id' => $order->id,
+            'courier_id' => $courierB->id,
+        ]);
 
-        file_put_contents($barrier, 'go');
+        $this->releaseBarrierAndAssertChildren($barrier, $pidA, $pidB, $statusA, $statusB);
 
-        pcntl_waitpid($pidA, $statusA);
-        pcntl_waitpid($pidB, $statusB);
-
-        $this->assertSame(0, pcntl_wexitstatus($statusA));
-        $this->assertSame(0, pcntl_wexitstatus($statusB));
-
-        $outA = json_decode((string) file_get_contents($resultA), true, 512, JSON_THROW_ON_ERROR);
-        $outB = json_decode((string) file_get_contents($resultB), true, 512, JSON_THROW_ON_ERROR);
+        $outA = $this->readRaceResult($resultA);
+        $outB = $this->readRaceResult($resultB);
 
         $successes = array_filter([$outA['ok'], $outB['ok']]);
 
@@ -138,6 +140,154 @@ class OrderAcceptRaceConditionTest extends TestCase
         @unlink($barrier);
         @unlink($resultA);
         @unlink($resultB);
+    }
+
+    public function test_mixed_entry_points_same_order_allow_exactly_one_winner_without_bypass(): void
+    {
+        if (! function_exists('pcntl_fork')) {
+            $this->markTestSkipped('pcntl extension is required for concurrent accept race test.');
+        }
+
+        [$order, $courierA, $courierB] = $this->seedOrderAndTwoOnlineCouriers();
+
+        $offer = \App\Models\OrderOffer::query()->create([
+            'order_id' => $order->id,
+            'courier_id' => $courierA->id,
+            'type' => \App\Models\OrderOffer::TYPE_PRIMARY,
+            'sequence' => 1,
+            'status' => \App\Models\OrderOffer::STATUS_PENDING,
+            'expires_at' => now()->addMinute(),
+        ]);
+
+        [$barrier, $resultA, $resultB] = $this->makeRaceArtifacts('mixed-order');
+
+        $pidA = $this->spawnAcceptProcess($barrier, $resultA, [
+            'mode' => 'offer',
+            'offer_id' => $offer->id,
+            'courier_id' => $courierA->id,
+        ]);
+
+        $pidB = $this->spawnAcceptProcess($barrier, $resultB, [
+            'mode' => 'order',
+            'order_id' => $order->id,
+            'courier_id' => $courierB->id,
+        ]);
+
+        $this->releaseBarrierAndAssertChildren($barrier, $pidA, $pidB, $statusA, $statusB);
+
+        $outA = $this->readRaceResult($resultA);
+        $outB = $this->readRaceResult($resultB);
+
+        $this->assertCount(1, array_filter([$outA['ok'], $outB['ok']]));
+
+        $order->refresh();
+        $offer->refresh();
+
+        $this->assertSame(Order::STATUS_ACCEPTED, $order->status);
+        $this->assertContains((int) $order->courier_id, [$courierA->id, $courierB->id]);
+
+        if ((int) $order->courier_id === $courierA->id) {
+            $this->assertSame(\App\Models\OrderOffer::STATUS_ACCEPTED, $offer->status);
+        } else {
+            $this->assertSame(\App\Models\OrderOffer::STATUS_PENDING, $offer->status);
+        }
+
+        $this->cleanupRaceArtifacts($barrier, $resultA, $resultB);
+    }
+
+    public function test_busy_courier_gets_business_refusal_across_mixed_entry_points(): void
+    {
+        if (! function_exists('pcntl_fork')) {
+            $this->markTestSkipped('pcntl extension is required for concurrent accept race test.');
+        }
+
+        $client = User::factory()->create([
+            'role' => User::ROLE_CLIENT,
+            'is_active' => true,
+        ]);
+
+        $courier = User::factory()->create([
+            'role' => User::ROLE_COURIER,
+            'is_active' => true,
+            'is_busy' => false,
+        ]);
+
+        Courier::query()->create([
+            'user_id' => $courier->id,
+            'status' => Courier::STATUS_ONLINE,
+        ]);
+
+        $firstOrder = Order::query()->create([
+            'client_id' => $client->id,
+            'status' => Order::STATUS_SEARCHING,
+            'payment_status' => Order::PAY_PAID,
+            'address' => 'вул. Перша, 1',
+            'address_text' => 'вул. Перша, 1',
+            'price' => 100,
+        ]);
+
+        $secondOrder = Order::query()->create([
+            'client_id' => $client->id,
+            'status' => Order::STATUS_SEARCHING,
+            'payment_status' => Order::PAY_PAID,
+            'address' => 'вул. Друга, 2',
+            'address_text' => 'вул. Друга, 2',
+            'price' => 120,
+        ]);
+
+        $offer = \App\Models\OrderOffer::query()->create([
+            'order_id' => $firstOrder->id,
+            'courier_id' => $courier->id,
+            'type' => \App\Models\OrderOffer::TYPE_PRIMARY,
+            'sequence' => 1,
+            'status' => \App\Models\OrderOffer::STATUS_PENDING,
+            'expires_at' => now()->addMinute(),
+        ]);
+
+        [$barrier, $resultA, $resultB] = $this->makeRaceArtifacts('mixed-busy');
+
+        $pidA = $this->spawnAcceptProcess($barrier, $resultA, [
+            'mode' => 'offer',
+            'offer_id' => $offer->id,
+            'courier_id' => $courier->id,
+        ]);
+
+        $pidB = $this->spawnAcceptProcess($barrier, $resultB, [
+            'mode' => 'order',
+            'order_id' => $secondOrder->id,
+            'courier_id' => $courier->id,
+        ]);
+
+        $this->releaseBarrierAndAssertChildren($barrier, $pidA, $pidB, $statusA, $statusB);
+
+        $outA = $this->readRaceResult($resultA);
+        $outB = $this->readRaceResult($resultB);
+
+        $this->assertCount(1, array_filter([$outA['ok'], $outB['ok']]));
+
+        $firstOrder->refresh();
+        $secondOrder->refresh();
+        $courier->refresh();
+        $offer->refresh();
+
+        $acceptedOrderIds = collect([$firstOrder, $secondOrder])
+            ->filter(fn (Order $order) => $order->status === Order::STATUS_ACCEPTED)
+            ->pluck('id')
+            ->all();
+
+        $this->assertCount(1, $acceptedOrderIds);
+        $this->assertTrue($courier->isBusyForAccept());
+        $this->assertSame(Courier::STATUS_ASSIGNED, $courier->courierProfile->status);
+
+        if (in_array($firstOrder->id, $acceptedOrderIds, true)) {
+            $this->assertSame(\App\Models\OrderOffer::STATUS_ACCEPTED, $offer->status);
+            $this->assertSame(Order::STATUS_SEARCHING, $secondOrder->status);
+        } else {
+            $this->assertSame(\App\Models\OrderOffer::STATUS_PENDING, $offer->status);
+            $this->assertSame(Order::STATUS_SEARCHING, $firstOrder->status);
+        }
+
+        $this->cleanupRaceArtifacts($barrier, $resultA, $resultB);
     }
 
     public function test_busy_courier_cannot_accept_second_order(): void
@@ -200,7 +350,7 @@ class OrderAcceptRaceConditionTest extends TestCase
         $this->assertSame(Courier::STATUS_ASSIGNED, $courier->courierProfile->status);
     }
 
-    private function spawnAcceptProcess(int $orderId, int $courierId, string $barrierPath, string $resultPath): int
+    private function spawnAcceptProcess(string $barrierPath, string $resultPath, array $payload): int
     {
         $pid = pcntl_fork();
 
@@ -217,20 +367,64 @@ class OrderAcceptRaceConditionTest extends TestCase
                 usleep(5000);
             }
 
-            $order = Order::query()->findOrFail($orderId);
-            $courier = User::query()->findOrFail($courierId);
+            $courier = User::query()->findOrFail($payload['courier_id']);
 
-            $ok = $order->acceptBy($courier);
+            $ok = match ($payload['mode']) {
+                'offer' => \App\Models\OrderOffer::query()->findOrFail($payload['offer_id'])->acceptBy($courier),
+                default => Order::query()->findOrFail($payload['order_id'])->acceptBy($courier),
+            };
 
             file_put_contents($resultPath, json_encode([
                 'ok' => $ok,
-                'courier_id' => $courierId,
+                'mode' => $payload['mode'],
+                'courier_id' => $payload['courier_id'],
             ], JSON_THROW_ON_ERROR));
 
             exit(0);
         }
 
         return $pid;
+    }
+
+
+    private function makeRaceArtifacts(string $prefix): array
+    {
+        if (! is_dir(storage_path('framework/testing'))) {
+            mkdir(storage_path('framework/testing'), 0777, true);
+        }
+
+        $barrier = storage_path('framework/testing/' . $prefix . '-' . \Illuminate\Support\Str::uuid() . '.barrier');
+        $resultA = storage_path('framework/testing/' . $prefix . '-' . \Illuminate\Support\Str::uuid() . '.json');
+        $resultB = storage_path('framework/testing/' . $prefix . '-' . \Illuminate\Support\Str::uuid() . '.json');
+
+        @unlink($barrier);
+        @unlink($resultA);
+        @unlink($resultB);
+
+        return [$barrier, $resultA, $resultB];
+    }
+
+    private function releaseBarrierAndAssertChildren(string $barrier, int $pidA, int $pidB, ?int &$statusA, ?int &$statusB): void
+    {
+        file_put_contents($barrier, 'go');
+
+        pcntl_waitpid($pidA, $statusA);
+        pcntl_waitpid($pidB, $statusB);
+
+        $this->assertSame(0, pcntl_wexitstatus($statusA));
+        $this->assertSame(0, pcntl_wexitstatus($statusB));
+    }
+
+    private function readRaceResult(string $path): array
+    {
+        return json_decode((string) file_get_contents($path), true, 512, JSON_THROW_ON_ERROR);
+    }
+
+    private function cleanupRaceArtifacts(string ...$paths): void
+    {
+        foreach ($paths as $path) {
+            @unlink($path);
+        }
     }
 
     private function seedOrderAndTwoOnlineCouriers(): array
