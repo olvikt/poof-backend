@@ -253,55 +253,64 @@ public function markAsPaid(): void
             && (int) $this->courier_id === (int) $courier->id;
     }
 
+
+    public function canBeCancelled(): bool
+    {
+        return in_array($this->status, [
+            self::STATUS_NEW,
+            self::STATUS_SEARCHING,
+            self::STATUS_ACCEPTED,
+        ], true);
+    }
+
     /**
      * Прийняти замовлення курʼєром (атомарно)
      */
-public function acceptBy(User $courier): bool
-{
-    return (bool) DB::transaction(function () use ($courier) {
+    public function acceptBy(User $courier): bool
+    {
+        return (bool) DB::transaction(function () use ($courier) {
+            $courier = User::query()
+                ->whereKey($courier->getKey())
+                ->lockForUpdate()
+                ->first();
 
-        $courier = User::query()
-            ->whereKey($courier->getKey())
-            ->lockForUpdate()
-            ->first();
+            if (! $courier || ! $courier->isCourier()) {
+                return false;
+            }
 
-        if (! $courier || ! $courier->isCourier()) {
-            return false;
-        }
+            $order = self::query()
+                ->whereKey($this->getKey())
+                ->lockForUpdate()
+                ->first();
 
-        $order = self::query()
-            ->whereKey($this->getKey())
-            ->lockForUpdate()
-            ->first();
+            if (! $order || ! $order->canBeAccepted()) {
+                return false;
+            }
 
-        if (! $order || ! $order->canBeAccepted()) {
-            return false;
-        }
+            if ($courier->isBusyForAccept() || ! $courier->canAcceptOrders()) {
+                return false;
+            }
 
-        if ($courier->isBusyForAccept() || ! $courier->canAcceptOrders()) {
-            return false;
-        }
-
-        // 1️⃣ Назначаем заказ
-        $order->update([
-            'status'      => self::STATUS_ACCEPTED,
-            'courier_id'  => $courier->id,
-            'accepted_at' => now(),
-        ]);
-
-        $courier->markBusy();
-
-        // 🔥 3️⃣ ВАЖНО: убиваем все остальные pending этого курьера
-        \App\Models\OrderOffer::where('courier_id', $courier->id)
-            ->where('status', \App\Models\OrderOffer::STATUS_PENDING)
-            ->where('order_id', '!=', $order->id)
-            ->update([
-                'status' => \App\Models\OrderOffer::STATUS_EXPIRED,
+            // 1️⃣ Назначаем заказ
+            $order->update([
+                'status'      => self::STATUS_ACCEPTED,
+                'courier_id'  => $courier->id,
+                'accepted_at' => now(),
             ]);
 
-        return true;
-    });
-}
+            $courier->markBusy();
+
+            // 🔥 3️⃣ ВАЖНО: убиваем все остальные pending этого курьера
+            \App\Models\OrderOffer::where('courier_id', $courier->id)
+                ->where('status', \App\Models\OrderOffer::STATUS_PENDING)
+                ->where('order_id', '!=', $order->id)
+                ->update([
+                    'status' => \App\Models\OrderOffer::STATUS_EXPIRED,
+                ]);
+
+            return true;
+        });
+    }
 
     /**
      * Почати виконання (курʼєр-safe)
@@ -365,50 +374,57 @@ public function acceptBy(User $courier): bool
      */
     public function start(): bool
     {
-        if ($this->status !== self::STATUS_ACCEPTED) {
+        $courier = $this->courier;
+
+        if (! $courier instanceof User) {
             return false;
         }
 
-        $updated = $this->update([
-            'status'     => self::STATUS_IN_PROGRESS,
-            'started_at' => $this->started_at ?? now(),
-        ]);
-
-        if (! $updated) {
-            return false;
-        }
-
-        $this->courier?->markDelivering();
-
-        return true;
+        return $this->startBy($courier);
     }
 
     public function complete(): bool
     {
-        if ($this->status !== self::STATUS_IN_PROGRESS) {
+        $courier = $this->courier;
+
+        if (! $courier instanceof User) {
             return false;
         }
 
-        $updated = $this->update([
-            'status'       => self::STATUS_DONE,
-            'completed_at' => $this->completed_at ?? now(),
-        ]);
-
-        if (! $updated) {
-            return false;
-        }
-
-        $this->courier?->markFree();
-
-        return true;
+        return $this->completeBy($courier);
     }
 
     public function cancel(): bool
     {
-        return in_array($this->status, [
-            self::STATUS_NEW,
-            self::STATUS_SEARCHING,
-        ], true) && $this->update(['status' => self::STATUS_CANCELLED]);
+        return (bool) DB::transaction(function () {
+            $order = self::query()
+                ->whereKey($this->getKey())
+                ->lockForUpdate()
+                ->first();
+
+            if (! $order || ! $order->canBeCancelled()) {
+                return false;
+            }
+
+            $courier = null;
+
+            if ($order->courier_id !== null) {
+                $courier = User::query()
+                    ->whereKey($order->courier_id)
+                    ->lockForUpdate()
+                    ->first();
+            }
+
+            $order->update([
+                'status' => self::STATUS_CANCELLED,
+            ]);
+
+            if ($courier instanceof User && $courier->isCourier()) {
+                $courier->markFree();
+            }
+
+            return true;
+        });
     }
 
     /* =========================================================
@@ -424,12 +440,4 @@ public function acceptBy(User $courier): bool
         return $this->status === self::STATUS_IN_PROGRESS;
     }
 
-    public function canBeCancelled(): bool
-    {
-        return in_array($this->status, [
-            self::STATUS_NEW,
-            self::STATUS_SEARCHING,
-            self::STATUS_ACCEPTED,
-        ], true);
-    }
 }
