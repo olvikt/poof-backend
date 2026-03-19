@@ -10,6 +10,8 @@ class ClientAddressController extends Controller
 {
     public function index(Request $request)
     {
+        abort_if(! $request->user()?->isClient(), 403);
+
         return response()->json(
             $request->user()->clientProfile->addresses
         );
@@ -17,6 +19,8 @@ class ClientAddressController extends Controller
 
     public function store(Request $request)
     {
+        abort_if(! $request->user()?->isClient(), 403);
+
         $data = $request->validate([
             'city' => 'required|string|max:255',
             'street' => 'required|string|max:255',
@@ -41,6 +45,8 @@ class ClientAddressController extends Controller
 
     public function update(Request $request, ClientAddress $address)
     {
+        abort_if(! $request->user()?->isClient(), 403);
+
         $this->authorizeAddress($request, $address);
 
         $data = $request->validate([
@@ -63,6 +69,8 @@ class ClientAddressController extends Controller
 
     public function destroy(Request $request, ClientAddress $address)
     {
+        abort_if(! $request->user()?->isClient(), 403);
+
         $this->authorizeAddress($request, $address);
 
         $address->delete();
@@ -74,6 +82,8 @@ class ClientAddressController extends Controller
 
     public function setDefault(Request $request, ClientAddress $address)
     {
+        abort_if(! $request->user()?->isClient(), 403);
+
         $this->authorizeAddress($request, $address);
 
         $profile = $request->user()->clientProfile;
