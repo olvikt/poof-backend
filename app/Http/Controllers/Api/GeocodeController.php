@@ -12,7 +12,7 @@ use Illuminate\Support\Facades\Http;
 
 class GeocodeController extends Controller
 {
-    private const PHOTON_CACHE_VERSION = 'v4';
+    private const PHOTON_CACHE_VERSION = 'v5';
 
     private const UKRAINE_BBOX = '22.0,44.0,40.0,53.0';
 
@@ -20,6 +20,7 @@ class GeocodeController extends Controller
     {
         $query = (string) $request->query('q', '');
         $normalizedQuery = mb_strtolower(trim(preg_replace('/\s+/u', ' ', $query) ?? ''));
+        $queryProfile = $this->buildSearchQueryProfile($normalizedQuery);
         $lat = $this->normalizedCoordinate($request->query('lat'), -90, 90);
         $lng = $this->normalizedCoordinate(
             $request->query('lng', $request->query('lon')),
@@ -49,19 +50,25 @@ class GeocodeController extends Controller
             return response()->json([]);
         }
 
-        $cacheKey = 'geocode:photon:' . self::PHOTON_CACHE_VERSION . ':' . md5($normalizedQuery . '|' . ($lat ?? 'null') . '|' . ($lng ?? 'null'));
+        $cacheKey = 'geocode:photon:' . self::PHOTON_CACHE_VERSION . ':' . md5(
+            json_encode([
+                'query' => $queryProfile['cache_key'],
+                'lat' => $lat,
+                'lng' => $lng,
+            ], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES)
+        );
 
         try {
             $suggestions = Cache::get($cacheKey);
 
             if (! is_array($suggestions)) {
                 \Log::debug('Photon cache miss', [
-                    'query' => $normalizedQuery,
+                    'query' => $queryProfile['primary'],
                     'lat' => $lat,
                     'lng' => $lng,
                 ]);
 
-                $suggestions = $this->fetchPhotonSuggestions($normalizedQuery, $lat, $lng);
+                $suggestions = $this->fetchPhotonSuggestions($queryProfile, $lat, $lng);
 
                 Cache::put($cacheKey, $suggestions, now()->addMinutes(30));
             }
@@ -141,74 +148,75 @@ class GeocodeController extends Controller
         ]];
     }
 
-    private function fetchPhotonSuggestions(string $query, ?float $lat, ?float $lng): array
+    private function fetchPhotonSuggestions(array $queryProfile, ?float $lat, ?float $lng): array
     {
-        $params = [
-            'q' => $query,
-            'limit' => 15,
-            'layer' => 'street',
-            'bbox' => self::UKRAINE_BBOX,
-        ];
+        $features = collect();
 
-        if ($lat !== null && $lng !== null) {
-            $params['lat'] = $lat;
-            $params['lon'] = $lng;
-        }
+        foreach ($queryProfile['variants'] as $variant) {
+            $params = [
+                'q' => $variant,
+                'limit' => 15,
+                'layer' => 'street',
+                'bbox' => self::UKRAINE_BBOX,
+            ];
 
-        try {
-            $response = Http::timeout(8)
-                ->retry(1, 100)
-                ->acceptJson()
-                ->get('https://photon.komoot.io/api/', $params);
-        } catch (\Throwable $e) {
-            logger()->error('Photon request failed', [
-                'query' => $query,
-                'error' => $e->getMessage(),
+            if ($lat !== null && $lng !== null) {
+                $params['lat'] = $lat;
+                $params['lon'] = $lng;
+            }
+
+            try {
+                $response = Http::timeout(8)
+                    ->retry(1, 100)
+                    ->acceptJson()
+                    ->get('https://photon.komoot.io/api/', $params);
+            } catch (\Throwable $e) {
+                logger()->error('Photon request failed', [
+                    'query' => $variant,
+                    'error' => $e->getMessage(),
+                ]);
+
+                continue;
+            }
+
+            if (! $response->successful()) {
+                logger()->error('Photon request failed', [
+                    'status' => $response->status(),
+                    'body' => $response->body(),
+                    'query' => $variant,
+                ]);
+
+                continue;
+            }
+
+            $data = $response->json();
+
+            logger()->debug('Photon features', [
+                'query' => $variant,
+                'features' => count($data['features'] ?? []),
             ]);
 
-            return [];
+            $features = $features->merge($data['features'] ?? []);
         }
 
-        if (! $response->successful()) {
-            logger()->error('Photon request failed', [
-                'status' => $response->status(),
-                'body' => $response->body(),
-                'query' => $query,
-            ]);
-
-            return [];
-        }
-
-        $data = $response->json();
-
-        logger()->debug('Photon features', [
-            'query' => $query,
-            'features' => count($data['features'] ?? []),
-        ]);
-
-        logger()->debug('PHOTON RAW', [
-            'query' => $query,
-            'features' => $data['features'] ?? [],
-        ]);
-
-        $features = collect($data['features'] ?? [])
+        $features = $features
             ->values()
             ->all();
 
         logger()->debug('Photon results', [
-            'query' => $query,
+            'query' => $queryProfile['primary'],
             'features' => count($features),
         ]);
 
         if (empty($features)) {
             logger()->debug('Photon returned empty result', [
-                'query' => $query,
+                'query' => $queryProfile['primary'],
                 'lat' => $lat,
                 'lng' => $lng,
             ]);
         }
 
-        $parsedQuery = $this->parseSearchQuery($query);
+        $parsedQuery = $this->parseSearchQueryProfile($queryProfile);
         $suggestions = [];
 
         foreach ($features as $feature) {
@@ -377,6 +385,27 @@ class GeocodeController extends Controller
         ];
     }
 
+    private function parseSearchQueryProfile(array $queryProfile): array
+    {
+        $base = $this->parseSearchQuery((string) ($queryProfile['primary'] ?? ''));
+        $variants = [];
+
+        foreach ($queryProfile['variants'] ?? [] as $variant) {
+            $variant = $this->normalizeSearchText((string) $variant);
+
+            if ($variant === '') {
+                continue;
+            }
+
+            $variants[] = $this->parseSearchQuery($variant);
+        }
+
+        $base['variants'] = $variants;
+        $base['contains_ru_address_signals'] = (bool) ($queryProfile['contains_ru_address_signals'] ?? false);
+
+        return $base;
+    }
+
     private function scoreSuggestion(array $suggestion, array $parsedQuery, ?float $distanceKm): float
     {
         $label = $this->normalizeSearchText((string) ($suggestion['label'] ?? ''));
@@ -391,16 +420,49 @@ class GeocodeController extends Controller
             $this->tokenizeSearchText($region)
         ));
 
+        $queryVariants = $parsedQuery['variants'] ?? [$parsedQuery];
         $streetQuery = implode(' ', $parsedQuery['street_tokens']);
-        $streetOverlap = $this->tokenOverlapRatio($parsedQuery['street_tokens'], $this->tokenizeSearchText($street));
-        $overallOverlap = $this->tokenOverlapRatio($parsedQuery['tokens'], $candidateTokens);
-        $cityOverlap = $this->tokenOverlapRatio($parsedQuery['tokens'], $this->tokenizeSearchText($city));
-        $regionOverlap = $this->tokenOverlapRatio($parsedQuery['tokens'], $this->tokenizeSearchText($region));
+        $streetOverlap = 0.0;
+        $overallOverlap = 0.0;
+        $cityOverlap = 0.0;
+        $regionOverlap = 0.0;
+        $labelSimilarity = 0.0;
+        $streetSimilarity = 0.0;
+        $bestVariant = $parsedQuery;
+
+        foreach ($queryVariants as $variant) {
+            $variantStreetQuery = implode(' ', $variant['street_tokens']);
+            $variantStreetOverlap = $this->tokenOverlapRatio($variant['street_tokens'], $this->tokenizeSearchText($street));
+            $variantOverallOverlap = $this->tokenOverlapRatio($variant['tokens'], $candidateTokens);
+            $variantCityOverlap = $this->tokenOverlapRatio($variant['tokens'], $this->tokenizeSearchText($city));
+            $variantRegionOverlap = $this->tokenOverlapRatio($variant['tokens'], $this->tokenizeSearchText($region));
+            similar_text($label, $variant['normalized'], $variantLabelSimilarity);
+            similar_text($street, $variantStreetQuery, $variantStreetSimilarity);
+
+            $variantComposite = ($variantStreetOverlap * 3)
+                + ($variantOverallOverlap * 2)
+                + ($variantStreetSimilarity * 0.01)
+                + ($variantLabelSimilarity * 0.005);
+
+            $bestComposite = ($streetOverlap * 3)
+                + ($overallOverlap * 2)
+                + ($streetSimilarity * 0.01)
+                + ($labelSimilarity * 0.005);
+
+            if ($variantComposite >= $bestComposite) {
+                $bestVariant = $variant;
+                $streetQuery = $variantStreetQuery;
+                $streetOverlap = $variantStreetOverlap;
+                $overallOverlap = $variantOverallOverlap;
+                $cityOverlap = $variantCityOverlap;
+                $regionOverlap = $variantRegionOverlap;
+                $labelSimilarity = $variantLabelSimilarity;
+                $streetSimilarity = $variantStreetSimilarity;
+            }
+        }
+
         $hasHouseIntent = (bool) ($parsedQuery['has_house_intent'] ?? false);
         $hasHouse = $house !== '';
-
-        similar_text($label, $parsedQuery['normalized'], $labelSimilarity);
-        similar_text($street, $streetQuery, $streetSimilarity);
 
         $score = 0.0;
         $score += $streetOverlap * 46;
@@ -418,9 +480,12 @@ class GeocodeController extends Controller
 
         if ($hasHouseIntent) {
             if ($hasHouse) {
-                if ($house === $parsedQuery['house']) {
+                if ($house === $bestVariant['house']) {
                     $score += 55;
-                } elseif (str_starts_with($house, $parsedQuery['house']) || str_starts_with($parsedQuery['house'], $house)) {
+                } elseif (
+                    $bestVariant['house'] !== null
+                    && (str_starts_with($house, $bestVariant['house']) || str_starts_with($bestVariant['house'], $house))
+                ) {
                     $score += 26;
                 } else {
                     $score += 10;
@@ -476,6 +541,10 @@ class GeocodeController extends Controller
             $score -= $hasHouseIntent ? 18 : 12;
         }
 
+        if (($parsedQuery['contains_ru_address_signals'] ?? false) && $streetOverlap >= 0.7) {
+            $score += 8;
+        }
+
         return $score;
     }
 
@@ -486,6 +555,76 @@ class GeocodeController extends Controller
         $value = preg_replace('/\s+/u', ' ', $value) ?? $value;
 
         return trim($value);
+    }
+
+    private function buildSearchQueryProfile(string $query): array
+    {
+        $primary = $this->normalizeSearchText($query);
+        $variants = [$primary];
+        $fallback = $this->buildUkrainianAddressFallback($primary);
+
+        if ($fallback !== null && $fallback !== $primary) {
+            $variants[] = $fallback;
+        }
+
+        return [
+            'primary' => $primary,
+            'variants' => array_values(array_unique(array_filter($variants))),
+            'cache_key' => implode('|', array_values(array_unique(array_filter($variants)))),
+            'contains_ru_address_signals' => $this->containsRussianAddressSignals($primary),
+        ];
+    }
+
+    private function buildUkrainianAddressFallback(string $query): ?string
+    {
+        if ($query === '' || ! preg_match('/\p{Cyrillic}/u', $query) || ! $this->containsRussianAddressSignals($query)) {
+            return null;
+        }
+
+        $converted = strtr($query, [
+            'ё' => 'йо',
+            'ы' => 'и',
+            'э' => 'е',
+            'ъ' => '',
+            'и' => 'і',
+        ]);
+
+        $patterns = [
+            '/овская\b/u' => 'івська',
+            '/евская\b/u' => 'івська',
+            '/ская\b/u' => 'ська',
+            '/ского\b/u' => 'ського',
+            '/ский\b/u' => 'ський',
+            '/ческих\b/u' => 'чних',
+            '/ческая\b/u' => 'чна',
+            '/ческое\b/u' => 'чне',
+            '/ческий\b/u' => 'чний',
+            '/ческ\b/u' => 'чн',
+            '/ическая\b/u' => 'ічна',
+            '/ический\b/u' => 'ічний',
+            '/ическое\b/u' => 'ічне',
+            '/иковская\b/u' => 'иківська',
+        ];
+
+        foreach ($patterns as $pattern => $replacement) {
+            $converted = preg_replace($pattern, $replacement, $converted) ?? $converted;
+        }
+
+        $converted = preg_replace('/\s+/u', ' ', $converted) ?? $converted;
+        $converted = trim($converted);
+
+        return $converted !== '' ? $converted : null;
+    }
+
+    private function containsRussianAddressSignals(string $query): bool
+    {
+        if ($query === '') {
+            return false;
+        }
+
+        return preg_match('/[ыэёъ]/u', $query) === 1
+            || preg_match('/(ская|ского|ский|ческ|ическ|иковск|овск|евск)/u', $query) === 1
+            || (preg_match('/\p{Cyrillic}/u', $query) === 1 && preg_match('/и/u', $query) === 1 && preg_match('/[іїєґ]/u', $query) !== 1);
     }
 
     private function tokenizeSearchText(string $value): array
