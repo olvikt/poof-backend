@@ -3,6 +3,8 @@
     'model',
     'center' => false,
     'live' => false,
+    'inputmode' => null,
+    'pattern' => null,
 ])
 
 @php
@@ -14,21 +16,21 @@
     <input
         {{ $wireModelAttr }}="{{ $model }}"
         placeholder=" "
-        class="
-            peer
-            poof-input
-            w-full
-            text-sm
-            pt-5
-            border
-            transition-all duration-200
-
-            {{ $center ? 'text-center' : '' }}
-
-            border-gray-700
-            focus:border-yellow-400
-            focus:ring-1 focus:ring-yellow-400/40
-        "
+        @if($inputmode) inputmode="{{ $inputmode }}" @endif
+        @if($pattern) pattern="{{ $pattern }}" @endif
+        {{ $attributes->class([
+            'peer',
+            'poof-input',
+            'w-full',
+            'text-sm',
+            'pt-5',
+            'border',
+            'transition-all duration-200',
+            'text-center' => $center,
+            'border-gray-700',
+            'focus:border-yellow-400',
+            'focus:ring-1 focus:ring-yellow-400/40',
+        ]) }}
     >
 
     <label

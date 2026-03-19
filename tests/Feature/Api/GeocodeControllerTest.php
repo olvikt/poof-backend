@@ -440,9 +440,9 @@ class GeocodeControllerTest extends TestCase
 
         $this->getJson('/api/geocode?q=Космич&lat=48.4647&lng=35.0462')
             ->assertOk()
+            ->assertJsonCount(1)
             ->assertJsonPath('0.street', 'Космічна')
-            ->assertJsonPath('0.city', 'Дніпро')
-            ->assertJsonPath('1.city', 'Севастополь');
+            ->assertJsonPath('0.city', 'Дніпро');
 
         Http::assertSentCount(2);
     }
@@ -591,10 +591,68 @@ class GeocodeControllerTest extends TestCase
 
         $this->getJson('/api/geocode?q=Мандриковская 173&lat=48.4647&lng=35.0462')
             ->assertOk()
+            ->assertJsonCount(1)
             ->assertJsonPath('0.street', 'Мандриківська')
             ->assertJsonPath('0.house', '173')
+            ->assertJsonPath('0.city', 'Дніпро');
+    }
+
+
+    public function test_it_filters_russian_orthography_noise_when_local_ukrainian_result_exists(): void
+    {
+        Http::fake([
+            'https://photon.komoot.io/api*' => function ($request) {
+                $query = $request['q'];
+
+                if ($query === 'космич') {
+                    return Http::response([
+                        'features' => [
+                            [
+                                'properties' => [
+                                    'street' => 'Космическая улица',
+                                    'city' => 'Севастополь',
+                                    'state' => 'АР Крим',
+                                    'countrycode' => 'UA',
+                                ],
+                                'geometry' => [
+                                    'coordinates' => [33.5254, 44.6166],
+                                ],
+                            ],
+                        ],
+                    ]);
+                }
+
+                if ($query === 'косміч') {
+                    return Http::response([
+                        'features' => [
+                            [
+                                'properties' => [
+                                    'street' => 'Космічна',
+                                    'city' => 'Дніпро',
+                                    'state' => 'Дніпропетровська область',
+                                    'countrycode' => 'UA',
+                                ],
+                                'geometry' => [
+                                    'coordinates' => [35.0462, 48.4647],
+                                ],
+                            ],
+                        ],
+                    ]);
+                }
+
+                return Http::response(['features' => []]);
+            },
+        ]);
+
+        $this->getJson('/api/geocode?q=Космич&lat=48.4647&lng=35.0462')
+            ->assertOk()
+            ->assertJsonCount(1)
+            ->assertJsonPath('0.street', 'Космічна')
             ->assertJsonPath('0.city', 'Дніпро')
-            ->assertJsonPath('1.city', 'Севастополь');
+            ->assertJsonMissing([
+                'street' => 'Космическая улица',
+                'city' => 'Севастополь',
+            ]);
     }
 
     public function test_it_keeps_reverse_geocode_path_working(): void
