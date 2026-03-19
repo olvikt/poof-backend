@@ -150,15 +150,15 @@ git config --global --add safe.directory /var/www/poof
 
 - `scripts/deploy.sh` — стандартный деплой
 - `scripts/rollback.sh <git-ref>` — откат на предыдущий commit/tag
-- `scripts/check-server.sh` — быстрый health-check подключений и сервисов
+- `scripts/check-server.sh` — канонический post-deploy smoke-runner
+- `docs/release-gates.md` — канонический CI/deploy/smoke contract
 
-## 9) Минимальный smoke-check после деплоя
+## 9) Mandatory smoke-check after deploy
+
+Канонический post-deploy contract описан в `docs/release-gates.md`. Базовый запуск:
 
 ```bash
-curl -I http://api.poof.com.ua/
-cd /var/www/poof && php artisan schedule:list
-sudo supervisorctl status
-redis-cli ping
-tail -n 50 /var/www/poof/storage/logs/worker.log
-tail -n 100 /var/www/poof/storage/logs/laravel.log
+cd /var/www/poof && bash scripts/check-server.sh
 ```
+
+Release не считается завершённым, пока этот smoke-run не прошёл без blocking failures.
