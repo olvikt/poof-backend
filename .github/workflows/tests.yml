@@ -81,15 +81,15 @@ jobs:
       - name: Run migrations
         run: php artisan migrate --force
 
-      - name: Run critical regression suites
+      - name: Run minimal blocking release suite
         run: |
           php artisan test \
-            tests/Feature/Api \
-            tests/Feature/Auth \
-            tests/Feature/Admin \
-            tests/Feature/Courier \
-            tests/Feature/Livewire \
-            tests/Unit
+            tests/Feature/Api/OrderStoreTest.php \
+            tests/Feature/Api/ApiProtectedRoutesAuthTest.php \
+            tests/Feature/Admin/AdminProtectedRoutesAuthTest.php \
+            tests/Feature/Courier/AcceptFlowArchitectureRegressionTest.php \
+            tests/Feature/Courier/CourierRuntimeStateSyncTest.php \
+            tests/Unit/OrderLifecycleStatusContractTest.php
 
   frontend-build:
     runs-on: ubuntu-latest

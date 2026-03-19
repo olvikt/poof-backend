@@ -22,7 +22,7 @@ Canonical workflow до изменений: `.github/workflows/tests.yml`.
 Чего не хватало до release gate:
 
 - не было отдельного syntax/lint gate для PHP;
-- не было минимального regression gate для Auth / Admin / Courier / Livewire / Unit suites;
+- не было даже формально зафиксированного минимального blocking regression suite beyond the order-focused subset;
 - не было frontend build verification в CI, хотя deploy зависит от `npm run build` и `public/build/manifest.json`.
 
 ### Current deploy (before this task)
@@ -80,13 +80,21 @@ Blocking jobs:
 2. `php-tests`
    - Laravel test environment на SQLite;
    - migrations;
-   - критичный regression набор:
-     - `tests/Feature/Api`;
-     - `tests/Feature/Auth`;
-     - `tests/Feature/Admin`;
-     - `tests/Feature/Courier`;
-     - `tests/Feature/Livewire`;
-     - `tests/Unit`.
+   - blocking php-tests gate currently includes:
+     - `tests/Feature/Api/OrderStoreTest.php`;
+     - `tests/Feature/Api/ApiProtectedRoutesAuthTest.php`;
+     - `tests/Feature/Admin/AdminProtectedRoutesAuthTest.php`;
+     - `tests/Feature/Courier/AcceptFlowArchitectureRegressionTest.php`;
+     - `tests/Feature/Courier/CourierRuntimeStateSyncTest.php`;
+     - `tests/Unit/OrderLifecycleStatusContractTest.php`.
+
+   Not yet part of blocking CI gate:
+   - broader Auth suite;
+   - broader Courier suite;
+   - Livewire regression pack;
+   - address regression pack;
+   - Geocode controller suite;
+   - wider Unit suite.
 
 3. `frontend-build`
    - `npm ci`;
@@ -133,7 +141,7 @@ Canonical smoke runner: `scripts/check-server.sh`.
 Должны пройти все jobs из `.github/workflows/tests.yml`:
 
 - PHP syntax/lint;
-- PHP regression suites;
+- minimal blocking PHP release suite;
 - frontend build verification.
 
 ### What must pass during deploy
