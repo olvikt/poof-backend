@@ -1,39 +1,46 @@
 <form
     id="address-form"
     wire:submit.prevent="save"
-    class="space-y-5"
+    class="space-y-5 pb-2"
     x-data="addressAutocomplete()"
     x-init="init()"
     @keydown.escape.window="if (isAddressSearchOpen) { closeAddressSearch() }"
 >
 
-    <div class="space-y-3 rounded-2xl bg-neutral-900/40 p-3">
-        <div class="w-full h-[320px] rounded-2xl overflow-hidden border border-neutral-700 bg-neutral-800">
-            <div class="relative w-full h-full" wire:ignore>
+    <section class="-mt-px">
+        <div class="relative w-full overflow-hidden bg-neutral-950">
+            <div class="h-[43vh] min-h-[320px] w-full" wire:ignore>
                 <div
                     id="map"
-                    class="map-container w-full h-full"
+                    class="map-container h-full w-full"
                 ></div>
-
-                <div class="pointer-events-none absolute inset-0 flex items-center justify-center">
-                    <div class="text-yellow-400 text-3xl drop-shadow-lg">📍</div>
-                </div>
             </div>
-        </div>
 
-        <div class="flex items-center justify-between mt-3 gap-3">
-            <span class="text-sm text-neutral-300">Точка адреси</span>
+            <div class="pointer-events-none absolute inset-0 flex items-center justify-center">
+                <div class="text-4xl text-yellow-400 drop-shadow-lg">📍</div>
+            </div>
+
+            <button
+                type="button"
+                x-on:click="$dispatch('sheet:close', { name: 'addressForm' })"
+                class="absolute left-4 top-[max(env(safe-area-inset-top),1rem)] inline-flex h-12 w-12 items-center justify-center rounded-full border border-white/10 bg-neutral-950/85 text-2xl text-white shadow-lg backdrop-blur transition hover:bg-neutral-900"
+                aria-label="Назад"
+            >
+                ←
+            </button>
 
             <button
                 type="button"
                 id="use-location-btn"
-                class="inline-flex items-center gap-2 font-semibold rounded-xl px-3 py-1.5 bg-yellow-400 text-black active:scale-95"
+                class="absolute right-4 top-[max(env(safe-area-inset-top),1rem)] inline-flex items-center gap-2 rounded-full border border-yellow-300/30 bg-neutral-950/85 px-4 py-3 text-sm font-semibold text-yellow-300 shadow-lg backdrop-blur transition active:scale-95"
             >
                 📍 Моя локація
             </button>
         </div>
+    </section>
 
-        <div class="rounded-2xl border border-neutral-800 bg-neutral-950/70 px-4 py-3">
+    <section class="space-y-4 px-4">
+        <div class="rounded-2xl border border-neutral-800 bg-neutral-950/80 px-4 py-3 shadow-[0_18px_60px_-32px_rgba(0,0,0,0.95)]">
             @if($lat && $lng)
                 <p class="text-xs text-green-400">✔ Точка підтверджена</p>
             @else
@@ -50,30 +57,30 @@
         </div>
 
         <div class="space-y-2">
-            <label class="text-xs text-gray-400 block">Адреса</label>
+            <label class="block text-xs text-gray-400">Адреса</label>
 
             <button
                 type="button"
                 wire:click="openAddressSearch"
                 x-on:click="openAddressSearch()"
-                class="w-full rounded-3xl border border-neutral-700 bg-neutral-900/60 px-4 py-4 text-left shadow-sm transition hover:border-neutral-500 hover:bg-neutral-900"
+                class="w-full rounded-[2rem] border border-yellow-400/30 bg-neutral-900 px-5 py-5 text-left shadow-[0_24px_80px_-40px_rgba(250,204,21,0.65)] transition hover:border-yellow-300/50 hover:bg-neutral-900/95"
                 data-address-search-trigger
             >
-                <div class="flex items-start gap-3">
-                    <span class="mt-0.5 text-lg text-yellow-400">🔎</span>
+                <div class="flex items-center gap-4">
+                    <span class="inline-flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-yellow-400/10 text-2xl text-yellow-400">🔎</span>
                     <div class="min-w-0 flex-1">
                         <p class="text-xs uppercase tracking-[0.24em] text-neutral-500">Пошук адреси</p>
                         @if(filled($search))
-                            <p class="mt-1 truncate text-sm font-medium text-white">{{ $search }}</p>
+                            <p class="mt-1 truncate text-base font-semibold text-white">{{ $search }}</p>
                             <p class="mt-1 text-xs text-neutral-400">
                                 {{ collect([$street ? trim($street . ' ' . $house) : null, $city, $region])->filter()->join(' • ') }}
                             </p>
                         @else
-                            <p class="mt-1 text-sm text-neutral-300">Введіть адресу, будинок або виберіть точку на мапі</p>
+                            <p class="mt-1 text-base font-semibold text-neutral-100">Введіть адресу, будинок або виберіть точку на мапі</p>
                             <p class="mt-1 text-xs text-neutral-500">Один пошук замість окремих полів вулиці, міста та області</p>
                         @endif
                     </div>
-                    <span class="mt-1 text-neutral-500">›</span>
+                    <span class="flex h-12 w-12 shrink-0 items-center justify-center self-center rounded-full bg-yellow-400 text-3xl leading-none text-black">›</span>
                 </div>
             </button>
 
@@ -89,9 +96,9 @@
                 <p class="mt-1 text-xs text-red-400">{{ $message }}</p>
             @enderror
         </div>
-    </div>
+    </section>
 
-    <div class="space-y-4 rounded-2xl bg-neutral-900/30 p-3">
+    <section class="mx-4 space-y-4 rounded-2xl bg-neutral-900/30 px-4 py-3">
         <div class="space-y-2">
             <label class="text-xs text-gray-400 mb-2 block">Тип адреси</label>
 
@@ -153,7 +160,7 @@
                 </button>
             </div>
         </div>
-    </div>
+    </section>
 
     <input type="hidden" wire:model.live="search" data-address-search>
     <input type="hidden" wire:model.live="street" data-address-street>
