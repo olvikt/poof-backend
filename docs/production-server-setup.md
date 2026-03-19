@@ -152,10 +152,32 @@ git config --global --add safe.directory /var/www/poof
 
 См.:
 
-- `scripts/deploy.sh` — стандартный деплой
-- `scripts/rollback.sh <git-ref>` — откат на предыдущий commit/tag
+- `scripts/deploy.sh [release-ref]` — стандартный деплой; по умолчанию fallback на `origin/main`, но рекомендуемый путь — explicit release tag/ref
+- `DEPLOY_REF=<release-ref> bash scripts/deploy.sh` — эквивалентный explicit deploy contract
+- `scripts/rollback.sh <release-ref>` — откат на previous known-good release ref/tag
 - `scripts/check-server.sh` — канонический post-deploy smoke-runner
 - `docs/release-gates.md` — канонический CI/deploy/smoke contract
+- `docs/versioned-releases.md` — минимальная versioned release model и operator contract
+
+Recommended release workflow:
+
+```bash
+cd /var/www/poof
+git fetch --prune --tags origin
+bash scripts/deploy.sh release-YYYYMMDD-HHMM
+cat storage/app/current-release.json
+bash scripts/check-server.sh
+```
+
+Recommended rollback workflow:
+
+```bash
+cd /var/www/poof
+git tag --list 'release-*' --sort=-creatordate
+bash scripts/rollback.sh release-YYYYMMDD-HHMM
+cat storage/app/current-release.json
+bash scripts/check-server.sh
+```
 
 ## 9) Mandatory smoke-check after deploy
 

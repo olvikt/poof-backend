@@ -43,6 +43,13 @@ Canonical deploy path до изменений: GitHub workflow `.github/workflow
 - restart воркеров через Supervisor;
 - health check через `curl -f https://api.poof.com.ua/up || true`.
 
+Versioned-release audit для Task 4.8:
+
+- deploy source был branch-based: `origin/main`;
+- release identity была implicit: “текущий commit на main”;
+- rollback path уже принимал explicit `<git-ref>`, но operator contract ещё не требовал откатываться именно к previous release ref/tag;
+- traceability того, что именно сейчас задеплоено, не была формализована.
+
 Hard-fail шаги уже были:
 
 - install/build/migrate/cache steps из-за `set -euo pipefail`;
@@ -107,11 +114,13 @@ Canonical deploy script: `scripts/deploy.sh`.
 
 Blocking during deploy:
 
+- git fetch + explicit ref resolution (`DEPLOY_REF` / positional ref / fallback `origin/main`);
 - dependency install;
 - frontend build;
 - frontend manifest verification;
 - DB migrations;
 - Laravel cache rebuild;
+- release state recording;
 - blocking health-check against `https://api.poof.com.ua/up`.
 
 Health gate теперь считается обязательным: если `https://api.poof.com.ua/up` не отвечает успешно после ограниченного числа retries, deploy завершается с non-zero exit code.
@@ -146,10 +155,12 @@ Canonical smoke runner: `scripts/check-server.sh`.
 
 `scripts/deploy.sh` должен успешно завершить:
 
+- fetch и resolve выбранного release ref (`DEPLOY_REF` / positional ref / fallback `origin/main`);
 - dependency installation;
 - frontend build + manifest verification;
 - migrations;
 - Laravel cache rebuild;
+- запись release state (`storage/app/current-release.json`);
 - blocking health-check.
 
 Failure любого из этих шагов = deploy failed.
@@ -172,6 +183,11 @@ bash scripts/check-server.sh
 - Исполнитель деплоя (или on-call engineer) запускает `scripts/check-server.sh` сразу после релиза.
 - Release считается закрытым только после успешного smoke-run без blocking failures.
 
-## 4. Notes for later tasks
+## 4. Versioned release note
 
-Task 4.8 (versioned releases) остаётся отдельной задачей, потому что здесь gate формализован поверх текущего branch-based deploy процесса без введения tag/version/promote модели.
+Task 4.8 вводит минимальную versioned-release discipline поверх существующего deploy path без большого infra rewrite:
+
+- deploy допускает explicit release ref/tag;
+- rollback должен использовать explicit previous release ref/tag;
+- production host хранит минимальный traceability state в `storage/app/current-release.json`;
+- детальный operator flow описан в [`docs/versioned-releases.md`](./versioned-releases.md).
