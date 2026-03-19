@@ -12,6 +12,8 @@ class AdminMapController extends Controller
 {
     public function index(): JsonResponse
     {
+        abort_if(! auth()->user()?->isAdmin(), 403);
+
         $couriers = Courier::query()
             ->activeOnMap()
             ->whereHas('user', function ($query) {
