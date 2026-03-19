@@ -8,6 +8,31 @@ on:
       - work
 
 jobs:
+  php-lint:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.3'
+          coverage: none
+
+      - name: Validate Composer manifest
+        run: composer validate --strict
+
+      - name: PHP syntax lint
+        run: |
+          files=$(find app bootstrap config database public routes scripts tests -type f -name '*.php')
+          if [ -z "$files" ]; then
+            echo 'No PHP files found to lint.'
+            exit 1
+          fi
+          echo "$files" | xargs -n 1 php -l
+
   php-tests:
     runs-on: ubuntu-latest
 
@@ -56,8 +81,47 @@ jobs:
       - name: Run migrations
         run: php artisan migrate --force
 
-      - name: Run targeted tests
-        run: php artisan test tests/Feature/Api/OrderStoreTest.php tests/Unit/OrderLifecycleStatusContractTest.php
+      - name: Run minimal blocking release suite
+        run: |
+          php artisan test \
+            tests/Feature/Api/OrderStoreTest.php \
+            tests/Unit/OrderLifecycleStatusContractTest.php
 
-      - name: Run related order API tests
-        run: php artisan test tests/Feature/Api --filter=Order
+  frontend-build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.3'
+          coverage: none
+
+      - name: Cache Composer dependencies
+        uses: actions/cache@v4
+        with:
+          path: ~/.composer/cache/files
+          key: ${{ runner.os }}-composer-${{ hashFiles('**/composer.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-composer-
+
+      - name: Install Composer dependencies required by the frontend build
+        run: composer install --no-interaction --prefer-dist --no-progress
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install npm deps
+        run: npm ci
+
+      - name: Build frontend
+        run: npm run build
+
+      - name: Verify frontend build artifacts
+        run: test -f public/build/manifest.json

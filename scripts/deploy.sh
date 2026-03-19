@@ -5,6 +5,9 @@ APP_DIR="${APP_DIR:-/var/www/poof}"
 PHP_BIN="${PHP_BIN:-php}"
 COMPOSER_BIN="${COMPOSER_BIN:-composer}"
 SUPERVISORCTL_BIN="${SUPERVISORCTL_BIN:-supervisorctl}"
+HEALTHCHECK_URL="${HEALTHCHECK_URL:-http://localhost/health}"
+HEALTHCHECK_ATTEMPTS="${HEALTHCHECK_ATTEMPTS:-10}"
+HEALTHCHECK_DELAY="${HEALTHCHECK_DELAY:-3}"
 
 cd "$APP_DIR"
 
@@ -41,7 +44,19 @@ echo "[deploy] optimizing Laravel caches"
 echo "[deploy] restarting workers"
 "$SUPERVISORCTL_BIN" restart poof-worker:* || true
 
-echo "[deploy] running health check"
-curl -f http://localhost/health || true
+echo "[deploy] running blocking health check (${HEALTHCHECK_ATTEMPTS} attempts, ${HEALTHCHECK_DELAY}s delay)"
+for attempt in $(seq 1 "$HEALTHCHECK_ATTEMPTS"); do
+  if curl --fail --silent --show-error "$HEALTHCHECK_URL" > /dev/null; then
+    echo "[deploy] health check passed on attempt $attempt"
+    echo "[deploy] done"
+    exit 0
+  fi
 
-echo "[deploy] done"
+  if [ "$attempt" -eq "$HEALTHCHECK_ATTEMPTS" ]; then
+    echo "[deploy] health check failed after $attempt attempts"
+    exit 1
+  fi
+
+  echo "[deploy] health check attempt $attempt failed; retrying in ${HEALTHCHECK_DELAY}s"
+  sleep "$HEALTHCHECK_DELAY"
+done
