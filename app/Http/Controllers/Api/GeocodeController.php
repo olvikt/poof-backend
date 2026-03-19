@@ -12,7 +12,7 @@ use Illuminate\Support\Facades\Http;
 
 class GeocodeController extends Controller
 {
-    private const PHOTON_CACHE_VERSION = 'v2';
+    private const PHOTON_CACHE_VERSION = 'v3';
 
     private const UKRAINE_BBOX = '22.0,44.0,40.0,53.0';
 
@@ -146,7 +146,6 @@ class GeocodeController extends Controller
         $params = [
             'q' => $query,
             'limit' => 15,
-            'lang' => 'uk',
             'layer' => 'street',
             'bbox' => self::UKRAINE_BBOX,
         ];
