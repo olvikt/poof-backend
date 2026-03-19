@@ -72,4 +72,29 @@ class AcceptFlowArchitectureRegressionTest extends TestCase
         $this->assertStringNotContainsString("'is_online' => false", $orderModel);
         $this->assertStringNotContainsString("'session_state' =>", $orderModel);
     }
+
+    public function test_manual_admin_order_flows_do_not_expose_direct_lifecycle_writes_in_forms(): void
+    {
+        $orderResource = file_get_contents(base_path('app/Filament/Resources/OrderResource.php'));
+
+        $this->assertIsString($orderResource);
+        $this->assertStringContainsString("Select::make('status')", $orderResource);
+        $this->assertStringContainsString("->disabled()", $orderResource);
+        $this->assertStringContainsString("->dehydrated(false)", $orderResource);
+        $this->assertStringContainsString("Select::make('courier_id')", $orderResource);
+        $this->assertStringContainsString("->relationship('courier', 'name')", $orderResource);
+        $this->assertStringContainsString("->dehydrated(false)", $orderResource);
+    }
+
+    public function test_manual_admin_courier_flow_cannot_mutate_runtime_state_directly_on_edit(): void
+    {
+        $courierResource = file_get_contents(base_path('app/Filament/Resources/CourierResource.php'));
+
+        $this->assertIsString($courierResource);
+        $this->assertStringContainsString("Select::make('status')", $courierResource);
+        $this->assertStringContainsString("Courier::STATUS_ASSIGNED", $courierResource);
+        $this->assertStringContainsString("Courier::STATUS_DELIVERING", $courierResource);
+        $this->assertStringContainsString("->disabled(fn (?Courier \$record) => \$record !== null)", $courierResource);
+        $this->assertStringContainsString("->dehydrated(fn (?Courier \$record) => \$record === null)", $courierResource);
+    }
 }

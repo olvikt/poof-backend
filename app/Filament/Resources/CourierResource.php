@@ -47,11 +47,14 @@ class CourierResource extends Resource
 
         Select::make('status')
             ->options([
-                'offline' => 'Offline',
-                'online'  => 'Online',
-                'busy'    => 'Busy',
+                Courier::STATUS_OFFLINE => 'Offline',
+                Courier::STATUS_ONLINE => 'Online',
+                Courier::STATUS_ASSIGNED => 'Assigned',
+                Courier::STATUS_DELIVERING => 'Delivering',
             ])
-            ->default('offline')
+            ->default(Courier::STATUS_OFFLINE)
+            ->disabled(fn (?Courier $record) => $record !== null)
+            ->dehydrated(fn (?Courier $record) => $record === null)
             ->required(),
 
         TextInput::make('city')
