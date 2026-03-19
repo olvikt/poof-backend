@@ -1,5 +1,7 @@
 # Release Gates Contract
 
+Related review contract: [`docs/architecture-rules.md`](./architecture-rules.md).
+
 Этот документ фиксирует канонический release gate для Poof API: что обязательно должно пройти **до деплоя**, **во время деплоя** и **сразу после деплоя**.
 
 ## 1. Current gate audit
