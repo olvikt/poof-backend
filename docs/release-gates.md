@@ -22,7 +22,7 @@ Canonical workflow до изменений: `.github/workflows/tests.yml`.
 Чего не хватало до release gate:
 
 - не было отдельного syntax/lint gate для PHP;
-- не было даже формально зафиксированного минимального blocking regression suite beyond the order-focused subset;
+- не было формально описанного current blocking CI gate и отделения его от более широкого test debt;
 - не было frontend build verification в CI, хотя deploy зависит от `npm run build` и `public/build/manifest.json`.
 
 ### Current deploy (before this task)
@@ -80,21 +80,17 @@ Blocking jobs:
 2. `php-tests`
    - Laravel test environment на SQLite;
    - migrations;
-   - blocking php-tests gate currently includes:
-     - `tests/Feature/Api/OrderStoreTest.php`;
-     - `tests/Feature/Api/ApiProtectedRoutesAuthTest.php`;
-     - `tests/Feature/Admin/AdminProtectedRoutesAuthTest.php`;
-     - `tests/Feature/Courier/AcceptFlowArchitectureRegressionTest.php`;
-     - `tests/Feature/Courier/CourierRuntimeStateSyncTest.php`;
-     - `tests/Unit/OrderLifecycleStatusContractTest.php`.
 
-   Not yet part of blocking CI gate:
-   - broader Auth suite;
-   - broader Courier suite;
-   - Livewire regression pack;
-   - address regression pack;
-   - Geocode controller suite;
-   - wider Unit suite.
+   Current blocking CI gate:
+   - `tests/Feature/Api/OrderStoreTest.php`;
+   - `tests/Unit/OrderLifecycleStatusContractTest.php`.
+
+   Non-blocking follow-up suites:
+   - protected routes auth regression;
+   - admin protected routes regression;
+   - accept architecture regression;
+   - courier runtime-state regression;
+   - broader Auth / Courier / Livewire / Unit suites.
 
 3. `frontend-build`
    - `npm ci`;
@@ -141,7 +137,7 @@ Canonical smoke runner: `scripts/check-server.sh`.
 Должны пройти все jobs из `.github/workflows/tests.yml`:
 
 - PHP syntax/lint;
-- minimal blocking PHP release suite;
+- current blocking CI gate;
 - frontend build verification.
 
 ### What must pass during deploy

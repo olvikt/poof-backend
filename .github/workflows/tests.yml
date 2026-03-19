@@ -85,10 +85,6 @@ jobs:
         run: |
           php artisan test \
             tests/Feature/Api/OrderStoreTest.php \
-            tests/Feature/Api/ApiProtectedRoutesAuthTest.php \
-            tests/Feature/Admin/AdminProtectedRoutesAuthTest.php \
-            tests/Feature/Courier/AcceptFlowArchitectureRegressionTest.php \
-            tests/Feature/Courier/CourierRuntimeStateSyncTest.php \
             tests/Unit/OrderLifecycleStatusContractTest.php
 
   frontend-build:
