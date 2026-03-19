@@ -28,7 +28,9 @@ class AddressFormSearchModalTest extends TestCase
             ->assertSet('isAddressSearchOpen', false)
             ->call('openAddressSearch')
             ->assertSet('isAddressSearchOpen', true)
-            ->assertSee('Оберіть адресу');
+            ->assertSee('Оберіть адресу')
+            ->assertSee('Нещодавні адреси')
+            ->assertSee('Очистити');
     }
 
     public function test_selecting_suggestion_closes_modal_updates_internal_state_and_keeps_map_sync(): void
