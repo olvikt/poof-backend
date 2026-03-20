@@ -21,6 +21,6 @@ class ClientProfile extends Model
 
     public function addresses()
     {
-        return $this->hasMany(ClientAddress::class);
+        return $this->hasMany(ClientAddress::class, 'user_id', 'user_id');
     }
 }
