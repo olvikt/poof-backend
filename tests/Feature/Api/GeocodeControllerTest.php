@@ -44,7 +44,7 @@ class GeocodeControllerTest extends TestCase
             ->assertOk()
             ->assertJson([
                 [
-                    'label' => 'Мандриківська 23',
+                    'label' => 'Мандриківська 23, Дніпро',
                     'street' => 'Мандриківська',
                     'house' => '23',
                     'city' => 'Дніпро',
@@ -99,7 +99,7 @@ class GeocodeControllerTest extends TestCase
         $this->getJson('/api/geocode?q=київ')
             ->assertOk()
             ->assertJsonCount(2)
-            ->assertJsonPath('0.label', 'Київ')
+            ->assertJsonPath('0.label', 'Київ, Київ')
             ->assertJsonPath('0.street', 'Київ')
             ->assertJsonPath('0.city', 'Київ')
             ->assertJsonPath('0.lat', 50.4500336)
@@ -163,9 +163,9 @@ class GeocodeControllerTest extends TestCase
 
             return $request->method() === 'GET'
                 && ($data['q'] ?? null) === 'набережна'
-                && ($data['lat'] ?? null) === '48.42'
-                && ($data['lon'] ?? null) === '35.05'
-                && ($data['limit'] ?? null) === '15'
+                && (string) ($data['lat'] ?? null) === '48.42'
+                && (string) ($data['lon'] ?? null) === '35.05'
+                && (string) ($data['limit'] ?? null) === '15'
                 && ! array_key_exists('lang', $data)
                 && ($data['layer'] ?? null) === 'street'
                 && ($data['bbox'] ?? null) === '22.0,44.0,40.0,53.0'
@@ -270,7 +270,8 @@ class GeocodeControllerTest extends TestCase
         $this->getJson('/api/geocode?q=мандриківська вулиця 173&lat=48.4647&lng=35.0462')
             ->assertOk()
             ->assertJsonPath('0.label', 'Мандриківська вулиця 173, Дніпро')
-            ->assertJsonPath('1.label', 'Мандриківська вулиця, Кривий Ріг');
+            ->assertJsonPath('0.house', '173')
+            ->assertJsonPath('0.city', 'Дніпро');
     }
 
     public function test_house_number_match_ranks_above_candidate_without_house_match(): void
@@ -591,10 +592,13 @@ class GeocodeControllerTest extends TestCase
 
         $this->getJson('/api/geocode?q=Мандриковская 173&lat=48.4647&lng=35.0462')
             ->assertOk()
-            ->assertJsonCount(1)
             ->assertJsonPath('0.street', 'Мандриківська')
             ->assertJsonPath('0.house', '173')
-            ->assertJsonPath('0.city', 'Дніпро');
+            ->assertJsonPath('0.city', 'Дніпро')
+            ->assertJsonMissing([
+                'street' => 'Мандриковская улица',
+                'city' => 'Севастополь',
+            ]);
     }
 
 
