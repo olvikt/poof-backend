@@ -191,6 +191,15 @@ Run this checklist after deploy and after any change to `public/sw.js`, `public/
 9. HTML is revalidated so the browser does not keep serving stale markup that references removed hashed assets.
 10. Offline/repeat-visit behavior still preserves a basic landing load/install surface without breaking the page shell.
 
+## E. Address picker top chrome limitation note
+
+- The client address picker intentionally extends the map into the safe-area using `viewport-fit=cover`, safe-area offsets, and an overdrawn map container.
+- If a dark strip still remains at the very top on mobile, treat it as browser/system chrome first, not as proof of a local picker gap.
+- Ordinary in-browser mode and standalone PWA mode can paint the top area differently:
+  - browser mode may still reserve/tint address-bar chrome outside page CSS control;
+  - standalone mode can follow manifest/meta theme colors, but that still does not guarantee true transparent status-bar rendering on every platform/browser combination.
+- In this project, the safe fallback is to keep maximum map continuity under the top area, tune `theme-color` close to the map hero, and use a soft fade rather than risky layout rewrites chasing true transparency.
+
 ### When to bump `CACHE_VERSION`
 
 Bump `CACHE_VERSION` before deployment when:
