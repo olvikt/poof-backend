@@ -369,10 +369,7 @@
         </div>
     </div>
 
-
-</form>
-
-<style>
+    <style>
     #address-form {
         --address-sheet-bg: linear-gradient(180deg, rgba(24, 24, 27, 0.985) 0%, rgba(12, 12, 14, 0.99) 100%);
         --address-sheet-border: rgba(255, 255, 255, 0.07);
@@ -512,4 +509,5 @@
             grid-template-columns: repeat(2, minmax(0, 1fr));
         }
     }
-</style>
+    </style>
+</form>
