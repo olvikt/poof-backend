@@ -349,7 +349,7 @@ class User extends Authenticatable implements FilamentUser
         $allowed = [
             Courier::STATUS_OFFLINE => [Courier::STATUS_ONLINE],
             Courier::STATUS_ONLINE => [Courier::STATUS_ASSIGNED, Courier::STATUS_OFFLINE],
-            Courier::STATUS_ASSIGNED => [Courier::STATUS_DELIVERING],
+            Courier::STATUS_ASSIGNED => [Courier::STATUS_DELIVERING, Courier::STATUS_ONLINE],
             Courier::STATUS_DELIVERING => [Courier::STATUS_ONLINE],
         ];
 
