@@ -719,7 +719,11 @@ class GeocodeController extends Controller
             $distanceKm = $suggestion['_distance_km'] ?? null;
             $hasHouse = $this->nullableString($suggestion['house'] ?? $suggestion['housenumber'] ?? null) !== null;
 
-            if (($parsedQuery['contains_ru_address_signals'] ?? false) && $hasHouse && $score >= 80 && $streetOverlap >= 0.85) {
+            if (($parsedQuery['contains_ru_address_signals'] ?? false)
+                && $hasHouse
+                && $score >= 80
+                && $streetOverlap >= 0.85
+                && ($distanceKm === null || $distanceKm <= 25)) {
                 return true;
             }
 
