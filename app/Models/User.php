@@ -431,6 +431,14 @@ class User extends Authenticatable implements FilamentUser
      | ========================================================= */
 
     /**
+     * Профиль клиента для API / web client surfaces.
+     */
+    public function clientProfile(): HasOne
+    {
+        return $this->hasOne(ClientProfile::class, 'user_id');
+    }
+
+    /**
      * Профиль курьера (если будет расширение)
      */
     public function courierProfile(): HasOne
