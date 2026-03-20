@@ -8,10 +8,10 @@
 >
 
     <section class="address-picker-hero -mt-px">
-        <div class="address-picker-map-shell relative w-full overflow-hidden bg-neutral-950">
+        <div class="address-picker-map-shell relative w-full overflow-hidden">
             <div class="address-picker-status-fade pointer-events-none absolute inset-x-0 top-0 z-[2] h-24"></div>
 
-            <div class="h-[45vh] min-h-[340px] w-full" wire:ignore>
+            <div class="address-picker-map-frame h-[45vh] min-h-[340px] w-full" wire:ignore>
                 <div
                     id="map"
                     class="map-container h-full w-full"
@@ -381,7 +381,17 @@
     }
 
     #address-form .address-picker-hero {
-        margin-top: calc(env(safe-area-inset-top) * -1);
+        margin-top: calc((env(safe-area-inset-top) + 1px) * -1);
+    }
+
+    #address-form .address-picker-map-shell {
+        background: transparent;
+    }
+
+    #address-form .address-picker-map-frame {
+        min-height: calc(340px + env(safe-area-inset-top));
+        padding-top: env(safe-area-inset-top);
+        box-sizing: border-box;
     }
 
     #address-form .address-picker-map-overlay {
@@ -389,7 +399,7 @@
     }
 
     #address-form .address-picker-status-fade {
-        background: linear-gradient(180deg, rgba(8, 8, 8, 0.28) 0%, rgba(8, 8, 8, 0.12) 34%, rgba(8, 8, 8, 0) 100%);
+        background: linear-gradient(180deg, rgba(8, 8, 8, 0.12) 0%, rgba(8, 8, 8, 0.05) 32%, rgba(8, 8, 8, 0) 100%);
     }
 
     #address-form .address-picker-map-shell .leaflet-control-container,
