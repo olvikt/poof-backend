@@ -9,7 +9,7 @@
 
     <section class="address-picker-hero -mt-px">
         <div class="address-picker-map-shell relative w-full overflow-hidden">
-            <div class="address-picker-status-fade pointer-events-none absolute inset-x-0 top-0 z-[2] h-24"></div>
+            <div class="address-picker-status-fade pointer-events-none absolute inset-x-0 top-0 z-[2] h-28"></div>
 
             <div class="address-picker-map-frame h-[45vh] min-h-[340px] w-full" wire:ignore>
                 <div
@@ -390,8 +390,8 @@
 
     #address-form .address-picker-map-shell {
         background:
-            radial-gradient(circle at top center, rgba(255, 255, 255, 0.12) 0%, rgba(255, 255, 255, 0.04) 18%, rgba(255, 255, 255, 0) 44%),
-            linear-gradient(180deg, rgba(10, 10, 12, 0.045) 0%, rgba(10, 10, 12, 0.012) 20%, rgba(10, 10, 12, 0) 34%);
+            radial-gradient(circle at top center, rgba(247, 208, 96, 0.16) 0%, rgba(255, 255, 255, 0.06) 18%, rgba(255, 255, 255, 0) 46%),
+            linear-gradient(180deg, rgba(20, 20, 24, 0.12) 0%, rgba(20, 20, 24, 0.045) 18%, rgba(20, 20, 24, 0) 38%);
         isolation: isolate;
     }
 
@@ -403,11 +403,13 @@
         padding-top: var(--address-safe-top);
         overflow: hidden;
         box-sizing: border-box;
+        background: linear-gradient(180deg, rgba(24, 25, 31, 0.94) 0%, rgba(24, 25, 31, 0.35) 22%, rgba(24, 25, 31, 0) 45%);
     }
 
     #address-form .address-picker-map-frame .map-container {
         top: calc(var(--address-safe-top) * -1);
         height: calc(100% + var(--address-safe-top));
+        transform: translateZ(0);
     }
 
     #address-form .address-picker-map-overlay {
@@ -415,10 +417,12 @@
     }
 
     #address-form .address-picker-status-fade {
-        height: calc(4.75rem + var(--address-safe-top));
-        background: linear-gradient(180deg, rgba(8, 8, 8, 0.018) 0%, rgba(8, 8, 8, 0.008) 32%, rgba(8, 8, 8, 0) 100%);
-        mix-blend-mode: soft-light;
-        opacity: 0.72;
+        height: calc(5.75rem + var(--address-safe-top));
+        background:
+            linear-gradient(180deg, rgba(24, 25, 31, 0.26) 0%, rgba(24, 25, 31, 0.11) 36%, rgba(24, 25, 31, 0) 100%),
+            radial-gradient(circle at top center, rgba(247, 208, 96, 0.10) 0%, rgba(247, 208, 96, 0.04) 28%, rgba(247, 208, 96, 0) 58%);
+        mix-blend-mode: normal;
+        opacity: 1;
     }
 
     #address-form .address-picker-map-shell .leaflet-control-container,

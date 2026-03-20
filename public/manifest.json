@@ -11,8 +11,8 @@
   "display_override": ["standalone", "minimal-ui"],
   "orientation": "portrait",
 
-  "background_color": "#000000",
-  "theme_color": "#000000",
+  "background_color": "#18191f",
+  "theme_color": "#18191f",
 
   "categories": [
     "business",
