@@ -92,6 +92,7 @@ Blocking jobs:
 
    Current blocking CI gate:
    - `tests/Feature/Api/OrderStoreTest.php`;
+   - `tests/Feature/Api/GeocodeControllerTest.php`;
    - `tests/Unit/OrderLifecycleStatusContractTest.php`;
    - `tests/Feature/Admin/AdminProtectedRoutesAuthTest.php`;
    - `tests/Feature/Api/ApiProtectedRoutesAuthTest.php`;
@@ -99,7 +100,8 @@ Blocking jobs:
    - `tests/Feature/Courier/CourierRuntimeStateSyncTest.php`.
 
    Non-blocking follow-up suites:
-   - broader Auth / Courier / Livewire / Unit suites.
+   - broader Auth / Courier / Livewire / Unit suites;
+   - wider address-picker / recent-address / fullscreen-search UI regressions and manual-clear behavior, which remain outside the blocking PHP gate in this PR.
 
 3. `frontend-build`
    - `npm ci`;
