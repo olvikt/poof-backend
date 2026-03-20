@@ -1,15 +1,17 @@
 <form
     id="address-form"
     wire:submit.prevent="save"
-    class="space-y-5 pb-2"
+    class="address-picker-screen space-y-0 pb-6"
     x-data="addressAutocomplete()"
     x-init="init()"
     @keydown.escape.window="if (isAddressSearchOpen) { closeAddressSearch() }"
 >
 
-    <section class="-mt-px">
+    <section class="address-picker-hero -mt-px">
         <div class="address-picker-map-shell relative w-full overflow-hidden bg-neutral-950">
-            <div class="h-[43vh] min-h-[320px] w-full" wire:ignore>
+            <div class="address-picker-status-fade pointer-events-none absolute inset-x-0 top-0 z-[2] h-24"></div>
+
+            <div class="h-[45vh] min-h-[340px] w-full" wire:ignore>
                 <div
                     id="map"
                     class="map-container h-full w-full"
@@ -34,7 +36,7 @@
             <button
                 type="button"
                 id="use-location-btn"
-                class="address-picker-map-overlay absolute right-4 top-[max(env(safe-area-inset-top),1rem)] inline-flex items-center gap-2 rounded-full border border-black/10 bg-white px-4 py-3 text-sm font-semibold text-neutral-950 shadow-[0_18px_45px_-24px_rgba(15,23,42,0.5)] backdrop-blur-sm transition active:scale-95"
+                class="address-picker-map-overlay absolute bottom-28 right-4 inline-flex items-center gap-2 rounded-full border border-black/10 bg-white/95 px-4 py-3 text-sm font-semibold text-neutral-950 shadow-[0_18px_45px_-24px_rgba(15,23,42,0.5)] backdrop-blur-md transition active:scale-95 sm:bottom-32"
             >
                 <svg aria-hidden="true" viewBox="0 0 20 20" class="h-4 w-4 text-neutral-950" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round">
                     <path d="M10 2.5v2.2M10 15.3v2.2M17.5 10h-2.2M4.7 10H2.5" />
@@ -45,8 +47,8 @@
         </div>
     </section>
 
-    <section class="address-picker-section-stack space-y-3">
-        <div class="flex items-start justify-between gap-4 border-b border-neutral-800/80 px-1 pb-3 pt-1">
+    <section class="address-picker-bottom-sheet address-picker-section-stack space-y-5">
+        <div class="flex items-start justify-between gap-4 border-b border-white/8 px-1 pb-4 pt-1">
             <div>
                 <p class="text-xs font-semibold uppercase tracking-[0.2em] text-neutral-400">Адреса</p>
             </div>
@@ -67,16 +69,16 @@
             <p class="text-xs text-red-400">{{ $message }}</p>
         @enderror
 
-        <div class="space-y-2">
+        <div class="space-y-3">
             <button
                 type="button"
                 wire:click="openAddressSearch"
                 x-on:click="openAddressSearch()"
-                class="relative w-full rounded-[1.75rem] border border-white/6 bg-neutral-800 px-4 py-4 pr-12 text-left shadow-[0_24px_60px_-36px_rgba(0,0,0,0.9)] transition hover:bg-neutral-700/90"
+                class="relative w-full rounded-[1.75rem] border border-[#666666] bg-neutral-800/95 px-4 py-4 pr-14 text-left shadow-[0_24px_60px_-36px_rgba(0,0,0,0.9)] transition hover:border-neutral-500 hover:bg-neutral-700/90"
                 data-address-search-trigger
             >
-                <span class="absolute right-4 top-4 inline-flex items-center justify-center text-neutral-200">
-                    <svg aria-hidden="true" viewBox="0 0 20 20" class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                <span class="absolute right-4 top-1/2 inline-flex -translate-y-1/2 items-center justify-center text-neutral-200">
+                    <svg aria-hidden="true" viewBox="0 0 20 20" class="h-8 w-8" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
                         <circle cx="8.5" cy="8.5" r="4.75" />
                         <path d="M12 12l4.25 4.25" />
                     </svg>
@@ -109,19 +111,19 @@
         </div>
     </section>
 
-    <section class="address-picker-section-stack mx-4 space-y-5 rounded-[1.75rem] border border-white/5 bg-neutral-900/40 px-4 py-4">
+    <section class="address-picker-section-stack address-picker-sheet-section space-y-5 px-1 pb-1">
         <div class="space-y-2">
             <label class="text-xs text-gray-400 mb-2 block">Тип адреси</label>
 
-            <div class="flex flex-wrap gap-2 pt-1">
+            <div class="grid grid-cols-3 gap-2 pt-1">
                 @foreach (['home' => 'Дім', 'work' => 'Робота', 'other' => 'Інше'] as $key => $text)
                     <button
                         type="button"
                         wire:click="$set('label','{{ $key }}')"
-                        class="px-4 py-2 rounded-xl text-sm font-semibold transition
+                        class="min-w-0 rounded-2xl px-3 py-3 text-center text-sm font-semibold transition sm:px-4
                             {{ $label === $key
-                                ? 'bg-yellow-400 text-black'
-                                : 'bg-neutral-800 text-gray-300 hover:bg-neutral-700' }}"
+                                ? 'bg-yellow-400 text-black shadow-[0_14px_30px_-18px_rgba(250,204,21,0.9)]'
+                                : 'bg-neutral-800/95 text-gray-300 hover:bg-neutral-700' }}"
                     >
                         {{ $text }}
                     </button>
@@ -147,14 +149,14 @@
         <div>
             <label class="text-xs text-gray-400 mb-2 block">Тип будівлі</label>
 
-            <div class="flex flex-wrap gap-2">
+            <div class="grid grid-cols-2 gap-2">
                 <button
                     type="button"
                     wire:click="$set('building_type','apartment')"
-                    class="px-4 py-2 rounded-xl text-sm font-semibold transition
+                    class="min-w-0 rounded-2xl px-3 py-3 text-center text-sm font-semibold leading-tight transition sm:px-4
                         {{ $building_type === 'apartment'
-                            ? 'bg-yellow-400 text-black'
-                            : 'bg-neutral-800 text-gray-300 hover:bg-neutral-700' }}"
+                            ? 'bg-yellow-400 text-black shadow-[0_14px_30px_-18px_rgba(250,204,21,0.9)]'
+                            : 'bg-neutral-800/95 text-gray-300 hover:bg-neutral-700' }}"
                 >
                     🏢 Квартира
                 </button>
@@ -162,10 +164,10 @@
                 <button
                     type="button"
                     wire:click="$set('building_type','house')"
-                    class="px-4 py-2 rounded-xl text-sm font-semibold transition
+                    class="min-w-0 rounded-2xl px-3 py-3 text-center text-sm font-semibold leading-tight transition sm:px-4
                         {{ $building_type === 'house'
-                            ? 'bg-yellow-400 text-black'
-                            : 'bg-neutral-800 text-gray-300 hover:bg-neutral-700' }}"
+                            ? 'bg-yellow-400 text-black shadow-[0_14px_30px_-18px_rgba(250,204,21,0.9)]'
+                            : 'bg-neutral-800/95 text-gray-300 hover:bg-neutral-700' }}"
                 >
                     🏠 Приватний будинок
                 </button>
@@ -328,10 +330,10 @@
     </div>
 
     @if($building_type === 'apartment')
-        <section class="address-picker-section-stack mx-4 space-y-3 rounded-[1.75rem] border border-white/5 bg-neutral-900/40 px-4 py-4">
+        <section class="address-picker-section-stack address-picker-sheet-section space-y-3 px-1 pb-1">
             <label class="text-xs text-gray-400 block">Деталізація</label>
 
-            <div class="mt-3 flex flex-wrap gap-2">
+            <div class="address-detail-grid mt-3">
                 <div class="address-mini-input">
                     <x-poof.input-floating label="Підʼїзд" model="entrance" center inputmode="numeric" pattern="[0-9]*" />
                     @error('entrance')
@@ -366,8 +368,17 @@
 </form>
 
 <style>
+    #address-form {
+        --address-sheet-bg: linear-gradient(180deg, rgba(24, 24, 27, 0.98) 0%, rgba(10, 10, 10, 0.98) 100%);
+        position: relative;
+    }
+
     #address-form .address-picker-map-overlay {
         z-index: 1200;
+    }
+
+    #address-form .address-picker-status-fade {
+        background: linear-gradient(180deg, rgba(10, 10, 10, 0.5) 0%, rgba(10, 10, 10, 0.18) 38%, rgba(10, 10, 10, 0) 100%);
     }
 
     #address-form .address-picker-map-shell .leaflet-control-container,
@@ -382,11 +393,54 @@
         margin-inline: 1rem;
     }
 
-    #address-form .address-picker-section-stack + .address-picker-section-stack {
-        margin-top: 1rem;
+    #address-form .address-picker-bottom-sheet {
+        position: relative;
+        z-index: 5;
+        margin-top: -2.75rem;
+        padding: 1.35rem 1rem 0.35rem;
+        border-radius: 2rem 2rem 0 0;
+        background: var(--address-sheet-bg);
+        border: 1px solid rgba(255, 255, 255, 0.06);
+        box-shadow: 0 -12px 40px -24px rgba(0, 0, 0, 0.8);
     }
 
-    .address-mini-input {
-        width: 72px;
+    #address-form .address-picker-sheet-section {
+        position: relative;
+        z-index: 5;
+        margin-top: 0;
+        padding-top: 0.4rem;
+        background: var(--address-sheet-bg);
+        border-inline: 1px solid rgba(255, 255, 255, 0.06);
+    }
+
+    #address-form .address-picker-sheet-section:last-of-type {
+        padding-bottom: 1.25rem;
+        border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+        border-radius: 0 0 2rem 2rem;
+    }
+
+    #address-form .address-picker-section-stack + .address-picker-section-stack {
+        margin-top: 0;
+    }
+
+    #address-form .address-detail-grid {
+        display: grid;
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+        gap: 0.65rem;
+    }
+
+    #address-form .address-mini-input {
+        min-width: 0;
+    }
+
+    @media (max-width: 420px) {
+        #address-form .address-picker-bottom-sheet {
+            margin-top: -2.25rem;
+            padding-top: 1.15rem;
+        }
+
+        #address-form .address-detail-grid {
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+        }
     }
 </style>
