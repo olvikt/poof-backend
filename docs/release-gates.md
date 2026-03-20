@@ -94,10 +94,10 @@ Blocking jobs:
    - `tests/Feature/Api/OrderStoreTest.php`;
    - `tests/Unit/OrderLifecycleStatusContractTest.php`;
    - `tests/Feature/Admin/AdminProtectedRoutesAuthTest.php`;
-   - `tests/Feature/Api/ApiProtectedRoutesAuthTest.php`.
+   - `tests/Feature/Api/ApiProtectedRoutesAuthTest.php`;
+   - `tests/Feature/Courier/AcceptFlowArchitectureRegressionTest.php`.
 
    Non-blocking follow-up suites:
-   - accept architecture regression;
    - courier runtime-state regression;
    - broader Auth / Courier / Livewire / Unit suites.
 

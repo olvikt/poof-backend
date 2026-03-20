@@ -87,7 +87,8 @@ jobs:
             tests/Feature/Api/OrderStoreTest.php \
             tests/Unit/OrderLifecycleStatusContractTest.php \
             tests/Feature/Admin/AdminProtectedRoutesAuthTest.php \
-            tests/Feature/Api/ApiProtectedRoutesAuthTest.php
+            tests/Feature/Api/ApiProtectedRoutesAuthTest.php \
+            tests/Feature/Courier/AcceptFlowArchitectureRegressionTest.php
 
   frontend-build:
     runs-on: ubuntu-latest
