@@ -47,28 +47,7 @@
         </div>
     </section>
 
-    <section class="address-picker-bottom-sheet address-picker-section-stack space-y-5">
-        <div class="flex items-start justify-between gap-4 border-b border-white/8 px-1 pb-4 pt-1">
-            <div>
-                <p class="text-xs font-semibold uppercase tracking-[0.2em] text-neutral-400">Адреса</p>
-            </div>
-            <div class="text-right">
-                @if($lat && $lng)
-                    <p class="text-xs font-medium text-green-400">Точка підтверджена</p>
-                @else
-                    <p class="text-xs font-medium text-yellow-400">Будь ласка, уточніть точку на мапі</p>
-                @endif
-            </div>
-        </div>
-
-        @error('lat')
-            <p class="text-xs text-red-400">{{ $message }}</p>
-        @enderror
-
-        @error('lng')
-            <p class="text-xs text-red-400">{{ $message }}</p>
-        @enderror
-
+    <section class="address-picker-bottom-sheet space-y-5">
         <div class="space-y-3">
             <button
                 type="button"
@@ -109,6 +88,27 @@
                 <p class="mt-1 text-xs text-red-400">{{ $message }}</p>
             @enderror
         </div>
+
+        <div class="flex items-start justify-between gap-4 border-b border-neutral-800/80 px-1 pb-4 pt-1">
+            <div>
+                <p class="text-xs font-semibold uppercase tracking-[0.2em] text-neutral-400">Адреса</p>
+            </div>
+            <div class="text-right">
+                @if($lat && $lng)
+                    <p class="text-xs font-medium text-green-400">Точка підтверджена</p>
+                @else
+                    <p class="text-xs font-medium text-yellow-400">Будь ласка, уточніть точку на мапі</p>
+                @endif
+            </div>
+        </div>
+
+        @error('lat')
+            <p class="text-xs text-red-400">{{ $message }}</p>
+        @enderror
+
+        @error('lng')
+            <p class="text-xs text-red-400">{{ $message }}</p>
+        @enderror
     </section>
 
     <section class="address-picker-section-stack address-picker-sheet-section space-y-5 px-1 pb-1">
@@ -158,7 +158,7 @@
                             ? 'bg-yellow-400 text-black shadow-[0_14px_30px_-18px_rgba(250,204,21,0.9)]'
                             : 'bg-neutral-800/95 text-gray-300 hover:bg-neutral-700' }}"
                 >
-                    🏢 Квартира
+                    Квартира
                 </button>
 
                 <button
@@ -169,7 +169,7 @@
                             ? 'bg-yellow-400 text-black shadow-[0_14px_30px_-18px_rgba(250,204,21,0.9)]'
                             : 'bg-neutral-800/95 text-gray-300 hover:bg-neutral-700' }}"
                 >
-                    🏠 Приватний будинок
+                    Приватний будинок
                 </button>
             </div>
         </div>
@@ -396,9 +396,11 @@
     #address-form .address-picker-bottom-sheet {
         position: relative;
         z-index: 5;
+        width: calc(100% - 2rem);
+        margin-inline: 1rem;
         margin-top: -2.75rem;
         padding: 1.35rem 1rem 0.35rem;
-        border-radius: 2rem 2rem 0 0;
+        border-radius: 1.5rem 1.5rem 0 0;
         background: var(--address-sheet-bg);
         border: 1px solid rgba(255, 255, 255, 0.06);
         box-shadow: 0 -12px 40px -24px rgba(0, 0, 0, 0.8);
