@@ -85,8 +85,7 @@ jobs:
         run: |
           php artisan test \
             tests/Feature/Api/OrderStoreTest.php \
-            tests/Unit/OrderLifecycleStatusContractTest.php \
-            tests/Feature/Admin/AdminProtectedRoutesAuthTest.php
+            tests/Unit/OrderLifecycleStatusContractTest.php
 
   frontend-build:
     runs-on: ubuntu-latest

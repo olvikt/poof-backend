@@ -13,7 +13,7 @@ class AdminProtectedRoutesAuthTest extends TestCase
     public function test_guest_is_redirected_from_admin_web_protected_routes(): void
     {
         $this->get('/api/admin/map-data')->assertRedirect('/login');
-        $this->get('/dashboard/map')->assertRedirect('/login');
+        $this->get('/api/dashboard/map')->assertRedirect('/login');
     }
 
     public function test_guest_json_calls_are_unauthorized_for_admin_map_data(): void
@@ -34,7 +34,7 @@ class AdminProtectedRoutesAuthTest extends TestCase
             ->assertJsonStructure(['couriers', 'orders']);
 
         $this->actingAs($admin, 'web')
-            ->get('/dashboard/map')
+            ->get('/api/dashboard/map')
             ->assertOk();
     }
 
@@ -50,7 +50,7 @@ class AdminProtectedRoutesAuthTest extends TestCase
             ->assertForbidden();
 
         $this->actingAs($courier, 'web')
-            ->get('/dashboard/map')
+            ->get('/api/dashboard/map')
             ->assertForbidden();
     }
 }
