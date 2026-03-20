@@ -904,8 +904,10 @@ async function buildRoute(fromLat, fromLng, toLat, toLng) {
 
     state.el = el
 
+    const isAddressPickerFlow = Boolean(el.closest('#address-form'))
+
     state.instance = window.L.map(el, {
-      zoomControl: true,
+      zoomControl: !isAddressPickerFlow,
       attributionControl: true,
     }).setView([50.4501, 30.5234], 16)
 
