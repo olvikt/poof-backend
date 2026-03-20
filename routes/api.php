@@ -2,6 +2,7 @@
 
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\Auth\RegisterController;
+use App\Http\Middleware\AdminOnly;
 
 // CLIENT
 use App\Http\Controllers\Api\Client\ClientProfileController;
@@ -53,8 +54,8 @@ Route::middleware('auth:sanctum')->group(function () {
 });
 
 
-Route::middleware(['web', 'auth'])
+Route::middleware(['web', 'auth:web', AdminOnly::class])
     ->get('/admin/map-data', [AdminMapController::class, 'index']);
 
-Route::middleware(['web', 'auth'])
+Route::middleware(['web', 'auth:web', AdminOnly::class])
     ->get('/dashboard/map', [AdminMapController::class, 'index']);
