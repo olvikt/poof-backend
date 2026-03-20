@@ -36,9 +36,9 @@
             <button
                 type="button"
                 id="use-location-btn"
-                class="address-picker-map-overlay address-picker-location-action absolute right-4 top-[calc(max(env(safe-area-inset-top),1rem)+3.75rem)] inline-flex items-center gap-2 rounded-full border border-white/15 bg-neutral-950/88 px-4 py-3 text-sm font-semibold text-white shadow-[0_22px_50px_-26px_rgba(0,0,0,0.78)] backdrop-blur-md transition hover:bg-neutral-900/92 active:scale-95"
+                class="address-picker-map-overlay address-picker-location-action absolute bottom-4 right-4 inline-flex items-center gap-2 rounded-full border border-black/5 bg-white px-4 py-3 text-sm font-semibold text-neutral-950 shadow-[0_16px_40px_-20px_rgba(15,23,42,0.45)] backdrop-blur-sm transition hover:bg-neutral-50 active:scale-95"
             >
-                <svg aria-hidden="true" viewBox="0 0 20 20" class="h-4 w-4 text-white" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round">
+                <svg aria-hidden="true" viewBox="0 0 20 20" class="h-6 w-6 text-black" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round">
                     <path d="M10 2.5v2.2M10 15.3v2.2M17.5 10h-2.2M4.7 10H2.5" />
                     <circle cx="10" cy="10" r="3.2" />
                 </svg>
@@ -374,7 +374,7 @@
     }
 
     #address-form .address-picker-map-overlay {
-        z-index: 1200;
+        z-index: 70;
     }
 
     #address-form .address-picker-status-fade {
@@ -390,8 +390,8 @@
 
     #address-form .address-picker-section-stack,
     #address-form .address-picker-bottom-sheet {
-        width: calc(100% - 1.5rem);
-        margin-inline: 0.75rem;
+        width: calc(100% - 0rem);
+        margin-inline: 0rem;
     }
 
     #address-form .address-picker-bottom-sheet {
@@ -450,8 +450,7 @@
         }
 
         #address-form .address-picker-location-action {
-            top: auto;
-            bottom: 5.5rem;
+            bottom: 5rem;
         }
 
         #address-form .building-type-grid,
