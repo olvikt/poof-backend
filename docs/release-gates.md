@@ -97,10 +97,12 @@ Blocking jobs:
    - `tests/Feature/Api/ApiProtectedRoutesAuthTest.php`;
    - `tests/Feature/Courier/AcceptFlowArchitectureRegressionTest.php`;
    - `tests/Feature/Courier/CourierRuntimeStateSyncTest.php`;
-   - `tests/Feature/Api/GeocodeControllerTest.php`.
+   - `tests/Feature/Api/GeocodeControllerTest.php`;
+   - `tests/Feature/Livewire/AddressFormSetCoordsTest.php`.
 
    Non-blocking follow-up suites:
-   - broader Auth / Courier / Livewire / Unit suites.
+   - broader Auth / Courier / Livewire / Unit suites, including `AddressFormUpdatedHouseTest`, `AddressFormSaveTest`, and `AddressFormSearchModalTest`;
+   - wider JS picker / recent-address / manual-clear / fullscreen-search behavior remains intentionally outside the blocking gate for now.
 
 3. `frontend-build`
    - `npm ci`;
