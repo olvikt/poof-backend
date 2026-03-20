@@ -95,10 +95,10 @@ Blocking jobs:
    - `tests/Unit/OrderLifecycleStatusContractTest.php`;
    - `tests/Feature/Admin/AdminProtectedRoutesAuthTest.php`;
    - `tests/Feature/Api/ApiProtectedRoutesAuthTest.php`;
-   - `tests/Feature/Courier/AcceptFlowArchitectureRegressionTest.php`;
-   - `tests/Feature/Courier/CourierRuntimeStateSyncTest.php`.
+   - `tests/Feature/Courier/AcceptFlowArchitectureRegressionTest.php`.
 
    Non-blocking follow-up suites:
+   - courier runtime-state regression;
    - broader Auth / Courier / Livewire / Unit suites.
 
 3. `frontend-build`
