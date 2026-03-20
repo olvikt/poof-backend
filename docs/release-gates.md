@@ -96,10 +96,12 @@ Blocking jobs:
    - `tests/Feature/Admin/AdminProtectedRoutesAuthTest.php`;
    - `tests/Feature/Api/ApiProtectedRoutesAuthTest.php`;
    - `tests/Feature/Courier/AcceptFlowArchitectureRegressionTest.php`;
-   - `tests/Feature/Courier/CourierRuntimeStateSyncTest.php`.
+   - `tests/Feature/Courier/CourierRuntimeStateSyncTest.php`;
+   - `tests/Feature/Api/GeocodeControllerTest.php`.
 
    Non-blocking follow-up suites:
-   - broader Auth / Courier / Livewire / Unit suites.
+   - broader Auth / Courier / Livewire / Unit suites;
+   - wider address-picker / recent-address / fullscreen-search / manual-clear UI surfaces remain explicitly out of scope for this gate.
 
 3. `frontend-build`
    - `npm ci`;
