@@ -2,47 +2,52 @@
 
 namespace Tests\Feature\Livewire;
 
+use App\DTO\Address\ResolvedAddressData;
 use App\Livewire\Client\AddressForm;
+use App\Services\Address\ResolveAddressFromPoint;
 use Illuminate\Support\Facades\Http;
 use Livewire\Livewire;
 use Tests\TestCase;
 
 class AddressFormSetCoordsTest extends TestCase
 {
-    public function test_it_updates_address_fields_from_map_reverse_geocode(): void
+    public function test_it_applies_reverse_geocode_result_for_map_source(): void
     {
-        Http::fake([
-            'https://nominatim.openstreetmap.org/reverse*' => Http::response([
-                'address' => [
-                    'road' => '12, Main Street',
-                    'house_number' => '7A',
-                    'city' => 'Kyiv',
-                    'state' => 'Kyiv region',
-                ],
-            ]),
-        ]);
+        $this->mock(ResolveAddressFromPoint::class)
+            ->shouldReceive('execute')
+            ->once()
+            ->andReturn(new ResolvedAddressData(
+                street: 'Main Street',
+                house: '7A',
+                city: 'Kyiv',
+                region: 'Kyiv region',
+                search: 'Main Street 7A, Kyiv, Kyiv region',
+            ));
 
         Livewire::test(AddressForm::class)
             ->call('setCoords', 50.45, 30.52, 'map')
+            ->assertSet('lat', 50.45)
+            ->assertSet('lng', 30.52)
             ->assertSet('street', 'Main Street')
             ->assertSet('house', '7A')
             ->assertSet('city', 'Kyiv')
             ->assertSet('region', 'Kyiv region')
-            ->assertSet('search', 'Main Street 7A, Kyiv, Kyiv region');
+            ->assertSet('search', 'Main Street 7A, Kyiv, Kyiv region')
+            ->assertSet('addressPrecision', 'exact');
     }
 
-    public function test_it_uses_display_name_house_fallback_when_house_number_is_missing(): void
+    public function test_it_applies_house_fallbacks_resolved_by_reverse_geocode_service(): void
     {
-        Http::fake([
-            'https://nominatim.openstreetmap.org/reverse*' => Http::response([
-                'display_name' => 'Ukraine, Kyiv, Main Street, 15B, district',
-                'address' => [
-                    'street' => 'Main Street',
-                    'city' => 'Kyiv',
-                    'state' => 'Kyiv region',
-                ],
-            ]),
-        ]);
+        $this->mock(ResolveAddressFromPoint::class)
+            ->shouldReceive('execute')
+            ->once()
+            ->andReturn(new ResolvedAddressData(
+                street: 'Main Street',
+                house: '15B',
+                city: 'Kyiv',
+                region: 'Kyiv region',
+                search: 'Main Street 15B, Kyiv, Kyiv region',
+            ));
 
         Livewire::test(AddressForm::class)
             ->call('setCoords', 50.45, 30.52, 'map')
@@ -53,16 +58,19 @@ class AddressFormSetCoordsTest extends TestCase
     public function test_it_keeps_manual_house_when_user_has_already_touched_it(): void
     {
         Http::fake([
-            'https://nominatim.openstreetmap.org/reverse*' => Http::response([
-                'address' => [
-                    'road' => 'Main Street',
-                    'house_number' => '99',
-                    'city' => 'Kyiv',
-                    'state' => 'Kyiv region',
-                ],
-            ]),
             'http://localhost/api/geocode*' => Http::response([], 500),
         ]);
+
+        $this->mock(ResolveAddressFromPoint::class)
+            ->shouldReceive('execute')
+            ->once()
+            ->andReturn(new ResolvedAddressData(
+                street: 'Main Street',
+                house: '99',
+                city: 'Kyiv',
+                region: 'Kyiv region',
+                search: 'Main Street 99, Kyiv, Kyiv region',
+            ));
 
         Livewire::test(AddressForm::class)
             ->set('street', 'Manual Street')
@@ -77,7 +85,8 @@ class AddressFormSetCoordsTest extends TestCase
 
     public function test_non_map_sources_only_update_coordinates_without_reverse_fill(): void
     {
-        Http::fake();
+        $this->mock(ResolveAddressFromPoint::class)
+            ->shouldNotReceive('execute');
 
         Livewire::test(AddressForm::class)
             ->set('street', 'Existing Street')
@@ -86,18 +95,18 @@ class AddressFormSetCoordsTest extends TestCase
             ->call('setCoords', 50.45, 30.52, 'autocomplete')
             ->assertSet('lat', 50.45)
             ->assertSet('lng', 30.52)
+            ->assertSet('addressPrecision', 'approx')
             ->assertSet('street', 'Existing Street')
             ->assertSet('city', 'Existing City')
             ->assertSet('house', '5');
-
-        Http::assertNothingSent();
     }
 
-    public function test_it_does_not_break_existing_state_on_unsuccessful_reverse_geocode(): void
+    public function test_it_preserves_existing_text_fields_when_reverse_geocode_returns_no_result(): void
     {
-        Http::fake([
-            'https://nominatim.openstreetmap.org/reverse*' => Http::response([], 500),
-        ]);
+        $this->mock(ResolveAddressFromPoint::class)
+            ->shouldReceive('execute')
+            ->once()
+            ->andReturn(null);
 
         Livewire::test(AddressForm::class)
             ->set('street', 'Existing Street')
@@ -106,18 +115,22 @@ class AddressFormSetCoordsTest extends TestCase
             ->set('house', '5')
             ->set('search', 'Existing Street 5, Existing City')
             ->call('setCoords', 50.45, 30.52, 'map')
+            ->assertSet('lat', 50.45)
+            ->assertSet('lng', 30.52)
             ->assertSet('street', 'Existing Street')
             ->assertSet('city', 'Existing City')
             ->assertSet('region', 'Existing Region')
             ->assertSet('house', '5')
-            ->assertSet('search', 'Existing Street 5, Existing City');
+            ->assertSet('search', 'Existing Street 5, Existing City')
+            ->assertSet('addressPrecision', 'exact');
     }
 
-    public function test_reverse_geocode_exceptions_do_not_corrupt_existing_state(): void
+    public function test_service_level_reverse_geocode_failures_bubble_up_as_null_results_without_corrupting_state(): void
     {
-        Http::fake([
-            'https://nominatim.openstreetmap.org/reverse*' => fn () => throw new \RuntimeException('boom'),
-        ]);
+        $this->mock(ResolveAddressFromPoint::class)
+            ->shouldReceive('execute')
+            ->once()
+            ->andReturn(null);
 
         Livewire::test(AddressForm::class)
             ->set('street', 'Existing Street')
@@ -125,9 +138,12 @@ class AddressFormSetCoordsTest extends TestCase
             ->set('house', '5')
             ->set('search', 'Existing Street 5, Existing City')
             ->call('setCoords', 50.45, 30.52, 'map')
+            ->assertSet('lat', 50.45)
+            ->assertSet('lng', 30.52)
             ->assertSet('street', 'Existing Street')
             ->assertSet('city', 'Existing City')
             ->assertSet('house', '5')
-            ->assertSet('search', 'Existing Street 5, Existing City');
+            ->assertSet('search', 'Existing Street 5, Existing City')
+            ->assertSet('addressPrecision', 'exact');
     }
 }
