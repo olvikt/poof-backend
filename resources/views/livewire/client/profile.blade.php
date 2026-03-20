@@ -25,8 +25,8 @@
 				name="addressForm"
 				title="Адреса"
 				:hide-header="true"
-				body-class="px-0 pb-0"
-				panel-class="overflow-hidden"
+				body-class="overflow-visible px-0 pb-0"
+				panel-class="overflow-hidden bg-transparent"
 				actions-class="border-t border-neutral-800 bg-neutral-900/95 p-4 backdrop-blur"
 			>
 				<livewire:client.address-form wire:key="address-form" />

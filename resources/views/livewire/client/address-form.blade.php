@@ -1,7 +1,7 @@
 <form
     id="address-form"
     wire:submit.prevent="save"
-    class="address-picker-screen space-y-0 pb-8"
+    class="address-picker-screen h-full space-y-0 overflow-y-auto overflow-x-hidden pb-8"
     x-data="addressAutocomplete()"
     x-init="init()"
     @keydown.escape.window="if (isAddressSearchOpen) { closeAddressSearch() }"
@@ -136,7 +136,7 @@
                                 ? 'bg-yellow-400 text-black shadow-[0_14px_30px_-18px_rgba(250,204,21,0.9)]'
                                 : 'bg-neutral-800/95 text-gray-300 hover:bg-neutral-700' }}"
                     >
-                        <span class="block whitespace-nowrap">Приватний будинок</span>
+                        <span class="block whitespace-nowrap">Приват будинок</span>
                     </button>
                 </div>
             </div>
@@ -379,15 +379,19 @@
         --address-safe-top: max(env(safe-area-inset-top), 0px);
         position: relative;
         padding-top: 0;
+        overscroll-behavior: contain;
     }
 
     #address-form .address-picker-hero {
-        margin-top: calc((var(--address-safe-top) + 1px) * -1);
-        padding-top: 0;
+        position: relative;
+        margin-top: calc(var(--address-safe-top) * -1);
+        padding-top: var(--address-safe-top);
     }
 
     #address-form .address-picker-map-shell {
-        background: linear-gradient(180deg, rgba(10, 10, 12, 0.12) 0%, rgba(10, 10, 12, 0) 28%);
+        background:
+            radial-gradient(circle at top center, rgba(255, 255, 255, 0.12) 0%, rgba(255, 255, 255, 0.04) 18%, rgba(255, 255, 255, 0) 44%),
+            linear-gradient(180deg, rgba(10, 10, 12, 0.08) 0%, rgba(10, 10, 12, 0.02) 22%, rgba(10, 10, 12, 0) 34%);
         isolation: isolate;
     }
 
@@ -395,14 +399,13 @@
         position: relative;
         min-height: calc(340px + var(--address-safe-top));
         height: calc(45vh + var(--address-safe-top));
-        margin-top: calc(var(--address-safe-top) * -1);
         overflow: hidden;
         box-sizing: border-box;
     }
 
     #address-form .address-picker-map-frame .map-container {
-        top: calc(var(--address-safe-top) * -1);
-        height: calc(100% + var(--address-safe-top));
+        top: calc(var(--address-safe-top) * -0.55);
+        height: calc(100% + (var(--address-safe-top) * 0.55));
     }
 
     #address-form .address-picker-map-overlay {
@@ -410,8 +413,10 @@
     }
 
     #address-form .address-picker-status-fade {
-        height: calc(4.5rem + var(--address-safe-top));
-        background: linear-gradient(180deg, rgba(8, 8, 8, 0.08) 0%, rgba(8, 8, 8, 0.03) 38%, rgba(8, 8, 8, 0) 100%);
+        height: calc(4.75rem + var(--address-safe-top));
+        background: linear-gradient(180deg, rgba(8, 8, 8, 0.03) 0%, rgba(8, 8, 8, 0.015) 34%, rgba(8, 8, 8, 0) 100%);
+        mix-blend-mode: soft-light;
+        opacity: 0.92;
     }
 
     #address-form .address-picker-map-shell .leaflet-control-container,
