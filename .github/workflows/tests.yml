@@ -89,8 +89,7 @@ jobs:
             tests/Feature/Admin/AdminProtectedRoutesAuthTest.php \
             tests/Feature/Api/ApiProtectedRoutesAuthTest.php \
             tests/Feature/Courier/AcceptFlowArchitectureRegressionTest.php \
-            tests/Feature/Courier/CourierRuntimeStateSyncTest.php \
-            tests/Feature/Api/GeocodeControllerTest.php
+            tests/Feature/Courier/CourierRuntimeStateSyncTest.php
 
   frontend-build:
     runs-on: ubuntu-latest

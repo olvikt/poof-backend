@@ -786,7 +786,6 @@ class GeocodeController extends Controller
             'ы' => 'и',
             'э' => 'е',
             'ъ' => '',
-            'и' => 'і',
         ]);
 
         $patterns = [
@@ -809,6 +808,8 @@ class GeocodeController extends Controller
         foreach ($patterns as $pattern => $replacement) {
             $converted = preg_replace($pattern, $replacement, $converted) ?? $converted;
         }
+
+        $converted = preg_replace('/(?<!р)и/u', 'і', $converted) ?? $converted;
 
         $converted = preg_replace('/\s+/u', ' ', $converted) ?? $converted;
         $converted = trim($converted);
