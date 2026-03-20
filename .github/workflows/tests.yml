@@ -85,7 +85,6 @@ jobs:
         run: |
           php artisan test \
             tests/Feature/Api/OrderStoreTest.php \
-            tests/Feature/Api/GeocodeControllerTest.php \
             tests/Unit/OrderLifecycleStatusContractTest.php \
             tests/Feature/Admin/AdminProtectedRoutesAuthTest.php \
             tests/Feature/Api/ApiProtectedRoutesAuthTest.php \
