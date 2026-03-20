@@ -47,132 +47,172 @@
         </div>
     </section>
 
-    <section class="address-picker-bottom-sheet space-y-5">
-        <div class="space-y-3">
-            <button
-                type="button"
-                wire:click="openAddressSearch"
-                x-on:click="openAddressSearch()"
-                class="relative w-full rounded-[1.75rem] border border-[#666666] bg-neutral-800/95 px-5 py-4 pr-16 text-left shadow-[0_24px_60px_-36px_rgba(0,0,0,0.9)] transition hover:border-[#7a7a7a] hover:bg-neutral-800"
-                data-address-search-trigger
-            >
-                <span class="absolute right-4 top-1/2 inline-flex -translate-y-1/2 items-center justify-center text-neutral-200">
-                    <svg aria-hidden="true" viewBox="0 0 20 20" class="h-8 w-8" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
-                        <circle cx="8.5" cy="8.5" r="4.75" />
-                        <path d="M12 12l4.25 4.25" />
-                    </svg>
-                </span>
+    <section class="address-picker-bottom-sheet">
+        <div class="address-picker-sheet-block space-y-5">
+            <div class="space-y-3">
+                <button
+                    type="button"
+                    wire:click="openAddressSearch"
+                    x-on:click="openAddressSearch()"
+                    class="relative w-full rounded-[1.75rem] border border-[#666666] bg-neutral-800/95 px-5 py-4 pr-16 text-left shadow-[0_24px_60px_-36px_rgba(0,0,0,0.9)] transition hover:border-[#7a7a7a] hover:bg-neutral-800"
+                    data-address-search-trigger
+                >
+                    <span class="absolute right-4 top-1/2 inline-flex -translate-y-1/2 items-center justify-center text-neutral-200">
+                        <svg aria-hidden="true" viewBox="0 0 20 20" class="h-8 w-8" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                            <circle cx="8.5" cy="8.5" r="4.75" />
+                            <path d="M12 12l4.25 4.25" />
+                        </svg>
+                    </span>
 
-                <div class="min-w-0 pr-2">
-                    @if(filled($search))
-                        <p class="truncate text-[15px] font-semibold text-white">{{ $search }}</p>
-                        <p class="mt-1 truncate text-xs text-neutral-400">
-                            {{ collect([$street ? trim($street . ' ' . $house) : null, $city, $region])->filter()->join(' • ') }}
-                        </p>
+                    <div class="min-w-0 pr-2">
+                        @if(filled($search))
+                            <p class="truncate text-[15px] font-semibold text-white">{{ $search }}</p>
+                            <p class="mt-1 truncate text-xs text-neutral-400">
+                                {{ collect([$street ? trim($street . ' ' . $house) : null, $city, $region])->filter()->join(' • ') }}
+                            </p>
+                        @else
+                            <p class="pr-6 text-[15px] font-semibold text-white">Введіть адресу, будинок або виберіть точку на мапі</p>
+                            <p class="mt-1 text-xs text-neutral-400">Пошук адреси</p>
+                        @endif
+                    </div>
+                </button>
+
+                @error('search')
+                    <p class="mt-1 text-xs text-red-400">{{ $message }}</p>
+                @enderror
+
+                @error('street')
+                    <p class="mt-1 text-xs text-red-400">{{ $message }}</p>
+                @enderror
+
+                @error('house')
+                    <p class="mt-1 text-xs text-red-400">{{ $message }}</p>
+                @enderror
+            </div>
+
+            <div class="flex items-start justify-between gap-4 border-b border-neutral-800/80 px-1 pb-4 pt-1">
+                <div>
+                    <p class="text-xs font-semibold uppercase tracking-[0.2em] text-neutral-400">Адреса</p>
+                </div>
+                <div class="text-right">
+                    @if($lat && $lng)
+                        <p class="text-xs font-medium text-green-400">Точка підтверджена</p>
                     @else
-                        <p class="pr-6 text-[15px] font-semibold text-white">Введіть адресу, будинок або виберіть точку на мапі</p>
-                        <p class="mt-1 text-xs text-neutral-400">Пошук адреси</p>
+                        <p class="text-xs font-medium text-yellow-400">Будь ласка, уточніть точку на мапі</p>
                     @endif
                 </div>
-            </button>
+            </div>
 
-            @error('search')
-                <p class="mt-1 text-xs text-red-400">{{ $message }}</p>
+            @error('lat')
+                <p class="text-xs text-red-400">{{ $message }}</p>
             @enderror
 
-            @error('street')
-                <p class="mt-1 text-xs text-red-400">{{ $message }}</p>
-            @enderror
-
-            @error('house')
-                <p class="mt-1 text-xs text-red-400">{{ $message }}</p>
+            @error('lng')
+                <p class="text-xs text-red-400">{{ $message }}</p>
             @enderror
         </div>
 
-        <div class="flex items-start justify-between gap-4 border-b border-neutral-800/80 px-1 pb-4 pt-1">
+        <section class="address-picker-section-stack address-picker-sheet-section space-y-5 px-1 pb-1">
             <div>
-                <p class="text-xs font-semibold uppercase tracking-[0.2em] text-neutral-400">Адреса</p>
-            </div>
-            <div class="text-right">
-                @if($lat && $lng)
-                    <p class="text-xs font-medium text-green-400">Точка підтверджена</p>
-                @else
-                    <p class="text-xs font-medium text-yellow-400">Будь ласка, уточніть точку на мапі</p>
-                @endif
-            </div>
-        </div>
+                <label class="text-xs text-gray-400 mb-2 block">Тип будівлі</label>
 
-        @error('lat')
-            <p class="text-xs text-red-400">{{ $message }}</p>
-        @enderror
-
-        @error('lng')
-            <p class="text-xs text-red-400">{{ $message }}</p>
-        @enderror
-    </section>
-
-    <section class="address-picker-section-stack address-picker-sheet-section space-y-5 px-1 pb-1">
-        <div class="space-y-3">
-            <label class="text-xs text-gray-400 mb-2 block">Тип адреси</label>
-
-            <div class="grid grid-cols-3 gap-2 pt-1">
-                @foreach (['home' => 'Дім', 'work' => 'Робота', 'other' => 'Інше'] as $key => $text)
+                <div class="building-type-grid grid grid-cols-2 gap-3">
                     <button
                         type="button"
-                        wire:click="$set('label','{{ $key }}')"
-                        class="min-w-0 rounded-2xl px-3 py-3 text-center text-sm font-semibold transition sm:px-4
-                            {{ $label === $key
+                        wire:click="$set('building_type','apartment')"
+                        class="min-w-0 rounded-2xl px-4 py-3.5 text-center text-sm font-semibold leading-tight transition
+                            {{ $building_type === 'apartment'
                                 ? 'bg-yellow-400 text-black shadow-[0_14px_30px_-18px_rgba(250,204,21,0.9)]'
                                 : 'bg-neutral-800/95 text-gray-300 hover:bg-neutral-700' }}"
                     >
-                        {{ $text }}
+                        Квартира
                     </button>
-                @endforeach
-            </div>
 
-            @if($label === 'other')
-                <div>
-                    <label class="text-xs text-gray-400">Назва (опційно)</label>
-                    <input
-                        type="text"
-                        wire:model.defer="title"
-                        placeholder="Напр. Дім, Офіс"
-                        class="poof-input w-full"
+                    <button
+                        type="button"
+                        wire:click="$set('building_type','house')"
+                        class="min-w-0 rounded-2xl px-4 py-3.5 text-center text-sm font-semibold leading-tight transition
+                            {{ $building_type === 'house'
+                                ? 'bg-yellow-400 text-black shadow-[0_14px_30px_-18px_rgba(250,204,21,0.9)]'
+                                : 'bg-neutral-800/95 text-gray-300 hover:bg-neutral-700' }}"
                     >
-                    @error('title')
-                        <p class="mt-1 text-xs text-red-400">{{ $message }}</p>
-                    @enderror
+                        Приватний будинок
+                    </button>
                 </div>
-            @endif
-        </div>
-
-        <div>
-            <label class="text-xs text-gray-400 mb-2 block">Тип будівлі</label>
-
-            <div class="building-type-grid grid grid-cols-2 gap-2.5">
-                <button
-                    type="button"
-                    wire:click="$set('building_type','apartment')"
-                    class="min-w-0 rounded-2xl px-3.5 py-3.5 text-center text-sm font-semibold leading-tight transition sm:px-4
-                        {{ $building_type === 'apartment'
-                            ? 'bg-yellow-400 text-black shadow-[0_14px_30px_-18px_rgba(250,204,21,0.9)]'
-                            : 'bg-neutral-800/95 text-gray-300 hover:bg-neutral-700' }}"
-                >
-                    Квартира
-                </button>
-
-                <button
-                    type="button"
-                    wire:click="$set('building_type','house')"
-                    class="min-w-0 rounded-2xl px-3.5 py-3.5 text-center text-sm font-semibold leading-tight transition sm:px-4
-                        {{ $building_type === 'house'
-                            ? 'bg-yellow-400 text-black shadow-[0_14px_30px_-18px_rgba(250,204,21,0.9)]'
-                            : 'bg-neutral-800/95 text-gray-300 hover:bg-neutral-700' }}"
-                >
-                    Приватний будинок
-                </button>
             </div>
-        </div>
+        </section>
+
+        @if($building_type === 'apartment')
+            <section class="address-picker-section-stack address-picker-sheet-section space-y-5 px-4 pb-1">
+                <label class="text-xs text-gray-400 block">Деталізація</label>
+
+                <div class="address-detail-grid mt-3">
+                    <div class="address-mini-input">
+                        <x-poof.input-floating label="Підʼїзд" model="entrance" center inputmode="numeric" pattern="[0-9]*" />
+                        @error('entrance')
+                            <p class="mt-1 text-xs text-red-400">{{ $message }}</p>
+                        @enderror
+                    </div>
+
+                    <div class="address-mini-input">
+                        <x-poof.input-floating label="Поверх" model="floor" center inputmode="numeric" pattern="[0-9]*" />
+                        @error('floor')
+                            <p class="mt-1 text-xs text-red-400">{{ $message }}</p>
+                        @enderror
+                    </div>
+
+                    <div class="address-mini-input">
+                        <x-poof.input-floating label="Кв./офіс" model="apartment" center inputmode="numeric" pattern="[0-9]*" />
+                        @error('apartment')
+                            <p class="mt-1 text-xs text-red-400">{{ $message }}</p>
+                        @enderror
+                    </div>
+
+                    <div class="address-mini-input">
+                        <x-poof.input-floating label="Домофон" model="intercom" center inputmode="numeric" pattern="[0-9]*" />
+                        @error('intercom')
+                            <p class="mt-1 text-xs text-red-400">{{ $message }}</p>
+                        @enderror
+                    </div>
+                </div>
+            </section>
+        @endif
+
+        <section class="address-picker-section-stack address-picker-sheet-section space-y-5 px-4 pb-1">
+            <div class="space-y-3">
+                <label class="text-xs text-gray-400 mb-2 block">Тип адреси</label>
+
+                <div class="grid grid-cols-3 gap-2.5 pt-1">
+                    @foreach (['home' => 'Дім', 'work' => 'Робота', 'other' => 'Інше'] as $key => $text)
+                        <button
+                            type="button"
+                            wire:click="$set('label','{{ $key }}')"
+                            class="min-w-0 rounded-2xl px-3 py-3 text-center text-sm font-semibold transition sm:px-4
+                                {{ $label === $key
+                                    ? 'bg-yellow-400 text-black shadow-[0_14px_30px_-18px_rgba(250,204,21,0.9)]'
+                                    : 'bg-neutral-800/95 text-gray-300 hover:bg-neutral-700' }}"
+                        >
+                            {{ $text }}
+                        </button>
+                    @endforeach
+                </div>
+
+                @if($label === 'other')
+                    <div>
+                        <label class="text-xs text-gray-400">Назва (опційно)</label>
+                        <input
+                            type="text"
+                            wire:model.defer="title"
+                            placeholder="Напр. Дім, Офіс"
+                            class="poof-input w-full"
+                        >
+                        @error('title')
+                            <p class="mt-1 text-xs text-red-400">{{ $message }}</p>
+                        @enderror
+                    </div>
+                @endif
+            </div>
+        </section>
     </section>
 
     <input type="hidden" wire:model.live="search" data-address-search>
@@ -329,48 +369,15 @@
         </div>
     </div>
 
-    @if($building_type === 'apartment')
-        <section class="address-picker-section-stack address-picker-sheet-section space-y-3 px-1 pb-1">
-            <label class="text-xs text-gray-400 block">Деталізація</label>
-
-            <div class="address-detail-grid mt-3">
-                <div class="address-mini-input">
-                    <x-poof.input-floating label="Підʼїзд" model="entrance" center inputmode="numeric" pattern="[0-9]*" />
-                    @error('entrance')
-                        <p class="mt-1 text-xs text-red-400">{{ $message }}</p>
-                    @enderror
-                </div>
-
-                <div class="address-mini-input">
-                    <x-poof.input-floating label="Поверх" model="floor" center inputmode="numeric" pattern="[0-9]*" />
-                    @error('floor')
-                        <p class="mt-1 text-xs text-red-400">{{ $message }}</p>
-                    @enderror
-                </div>
-
-                <div class="address-mini-input">
-                    <x-poof.input-floating label="Кв./офіс" model="apartment" center inputmode="numeric" pattern="[0-9]*" />
-                    @error('apartment')
-                        <p class="mt-1 text-xs text-red-400">{{ $message }}</p>
-                    @enderror
-                </div>
-
-                <div class="address-mini-input">
-                    <x-poof.input-floating label="Домофон" model="intercom" center inputmode="numeric" pattern="[0-9]*" />
-                    @error('intercom')
-                        <p class="mt-1 text-xs text-red-400">{{ $message }}</p>
-                    @enderror
-                </div>
-            </div>
-        </section>
-    @endif
 
 </form>
 
 <style>
     #address-form {
         --address-sheet-bg: linear-gradient(180deg, rgba(24, 24, 27, 0.985) 0%, rgba(12, 12, 14, 0.99) 100%);
+        --address-sheet-border: rgba(255, 255, 255, 0.07);
         position: relative;
+        padding-top: max(env(safe-area-inset-top), 0.75rem);
     }
 
     #address-form .address-picker-map-overlay {
@@ -378,7 +385,7 @@
     }
 
     #address-form .address-picker-status-fade {
-        background: linear-gradient(180deg, rgba(10, 10, 10, 0.56) 0%, rgba(10, 10, 10, 0.22) 38%, rgba(10, 10, 10, 0) 100%);
+        background: linear-gradient(180deg, rgba(8, 8, 8, 0.28) 0%, rgba(8, 8, 8, 0.12) 34%, rgba(8, 8, 8, 0) 100%);
     }
 
     #address-form .address-picker-map-shell .leaflet-control-container,
@@ -397,39 +404,46 @@
     #address-form .address-picker-bottom-sheet {
         position: relative;
         z-index: 5;
-        margin-top: -3.5rem;
-        padding: 1rem 1rem 0.5rem;
-        border-radius: 1.75rem 1.75rem 0 0;
+        margin-top: -2.9rem;
+        padding: 0 0 1.5rem;
+        border-radius: 2rem 2rem 0 0;
         background: var(--address-sheet-bg);
-        border: 1px solid rgba(255, 255, 255, 0.07);
-        border-bottom: 0;
+        border: 1px solid var(--address-sheet-border);
         box-shadow: 0 -16px 45px -28px rgba(0, 0, 0, 0.9), 0 28px 64px -34px rgba(0, 0, 0, 0.86);
         backdrop-filter: blur(18px);
+        overflow: hidden;
+    }
+
+    #address-form .address-picker-sheet-block {
+        padding: 1rem 1rem 0.5rem;
     }
 
     #address-form .address-picker-sheet-section {
         position: relative;
         z-index: 5;
         margin-top: 0;
-        padding-top: 0.65rem;
-        background: var(--address-sheet-bg);
-        border-inline: 1px solid rgba(255, 255, 255, 0.07);
+        padding-top: 0.9rem;
+        background: transparent;
+        border-inline: 0;
     }
 
     #address-form .address-picker-sheet-section:last-of-type {
         padding-bottom: 1.5rem;
-        border-bottom: 1px solid rgba(255, 255, 255, 0.07);
-        border-radius: 0 0 2rem 2rem;
-        box-shadow: 0 28px 60px -38px rgba(0, 0, 0, 0.9);
     }
 
     #address-form .address-picker-section-stack + .address-picker-section-stack {
         margin-top: 0;
+        border-top: 1px solid rgba(255, 255, 255, 0.06);
+        padding-top: 1rem;
     }
 
     #address-form .building-type-grid {
         grid-template-columns: repeat(2, minmax(0, 1fr));
         align-items: stretch;
+    }
+
+    #address-form .building-type-grid > * {
+        min-height: 3.5rem;
     }
 
     #address-form .address-detail-grid {
@@ -445,7 +459,10 @@
 
     @media (max-width: 420px) {
         #address-form .address-picker-bottom-sheet {
-            margin-top: -3rem;
+            margin-top: -2.5rem;
+        }
+
+        #address-form .address-picker-sheet-block {
             padding-top: 0.85rem;
         }
 
