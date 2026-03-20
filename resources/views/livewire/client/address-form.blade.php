@@ -14,7 +14,7 @@
             <div class="address-picker-map-frame h-[45vh] min-h-[340px] w-full" wire:ignore>
                 <div
                     id="map"
-                    class="map-container h-full w-full"
+                    class="map-container absolute inset-x-0 bottom-0 w-full"
                 ></div>
             </div>
 
@@ -131,12 +131,12 @@
                     <button
                         type="button"
                         wire:click="$set('building_type','house')"
-                        class="min-w-0 rounded-2xl px-4 py-3.5 text-center text-sm font-semibold leading-tight transition
+                        class="min-w-0 rounded-2xl px-2 py-3.5 text-center text-sm font-semibold leading-tight transition
                             {{ $building_type === 'house'
                                 ? 'bg-yellow-400 text-black shadow-[0_14px_30px_-18px_rgba(250,204,21,0.9)]'
                                 : 'bg-neutral-800/95 text-gray-300 hover:bg-neutral-700' }}"
                     >
-                        Приватний будинок
+                        <span class="block whitespace-nowrap">Приватний будинок</span>
                     </button>
                 </div>
             </div>
@@ -376,22 +376,33 @@
     #address-form {
         --address-sheet-bg: linear-gradient(180deg, rgba(24, 24, 27, 0.985) 0%, rgba(12, 12, 14, 0.99) 100%);
         --address-sheet-border: rgba(255, 255, 255, 0.07);
+        --address-safe-top: max(env(safe-area-inset-top), 0px);
         position: relative;
         padding-top: 0;
     }
 
     #address-form .address-picker-hero {
-        margin-top: calc((env(safe-area-inset-top) + 1px) * -1);
+        margin-top: calc((var(--address-safe-top) + 1px) * -1);
+        padding-top: 0;
     }
 
     #address-form .address-picker-map-shell {
-        background: transparent;
+        background: linear-gradient(180deg, rgba(10, 10, 12, 0.12) 0%, rgba(10, 10, 12, 0) 28%);
+        isolation: isolate;
     }
 
     #address-form .address-picker-map-frame {
-        min-height: calc(340px + env(safe-area-inset-top));
-        padding-top: env(safe-area-inset-top);
+        position: relative;
+        min-height: calc(340px + var(--address-safe-top));
+        height: calc(45vh + var(--address-safe-top));
+        margin-top: calc(var(--address-safe-top) * -1);
+        overflow: hidden;
         box-sizing: border-box;
+    }
+
+    #address-form .address-picker-map-frame .map-container {
+        top: calc(var(--address-safe-top) * -1);
+        height: calc(100% + var(--address-safe-top));
     }
 
     #address-form .address-picker-map-overlay {
@@ -399,7 +410,8 @@
     }
 
     #address-form .address-picker-status-fade {
-        background: linear-gradient(180deg, rgba(8, 8, 8, 0.12) 0%, rgba(8, 8, 8, 0.05) 32%, rgba(8, 8, 8, 0) 100%);
+        height: calc(4.5rem + var(--address-safe-top));
+        background: linear-gradient(180deg, rgba(8, 8, 8, 0.08) 0%, rgba(8, 8, 8, 0.03) 38%, rgba(8, 8, 8, 0) 100%);
     }
 
     #address-form .address-picker-map-shell .leaflet-control-container,
