@@ -97,13 +97,10 @@ Blocking jobs:
    - `tests/Feature/Api/ApiProtectedRoutesAuthTest.php`;
    - `tests/Feature/Courier/AcceptFlowArchitectureRegressionTest.php`;
    - `tests/Feature/Courier/CourierRuntimeStateSyncTest.php`;
-   - `tests/Feature/Api/GeocodeControllerTest.php`;
-   - `tests/Feature/Livewire/AddressFormSetCoordsTest.php`.
+   - `tests/Feature/Api/GeocodeControllerTest.php`.
 
    Non-blocking follow-up suites:
-   - broader Auth / Courier suites;
-   - remaining Livewire follow-up coverage, including `AddressFormUpdatedHouseTest`, `AddressFormSaveTest`, and `AddressFormSearchModalTest`;
-   - broader Unit suites, including lower-level reverse-geocode parsing/fallback coverage in `tests/Unit/Address/ResolveAddressFromPointTest.php`.
+   - broader Auth / Courier / Livewire / Unit suites.
 
 3. `frontend-build`
    - `npm ci`;
