@@ -1,7 +1,7 @@
 <form
     id="address-form"
     wire:submit.prevent="save"
-    class="address-picker-screen space-y-0 pb-6"
+    class="address-picker-screen space-y-0 pb-8"
     x-data="addressAutocomplete()"
     x-init="init()"
     @keydown.escape.window="if (isAddressSearchOpen) { closeAddressSearch() }"
@@ -36,9 +36,9 @@
             <button
                 type="button"
                 id="use-location-btn"
-                class="address-picker-map-overlay absolute bottom-28 right-4 inline-flex items-center gap-2 rounded-full border border-black/10 bg-white/95 px-4 py-3 text-sm font-semibold text-neutral-950 shadow-[0_18px_45px_-24px_rgba(15,23,42,0.5)] backdrop-blur-md transition active:scale-95 sm:bottom-32"
+                class="address-picker-map-overlay address-picker-location-action absolute right-4 top-[calc(max(env(safe-area-inset-top),1rem)+3.75rem)] inline-flex items-center gap-2 rounded-full border border-white/15 bg-neutral-950/88 px-4 py-3 text-sm font-semibold text-white shadow-[0_22px_50px_-26px_rgba(0,0,0,0.78)] backdrop-blur-md transition hover:bg-neutral-900/92 active:scale-95"
             >
-                <svg aria-hidden="true" viewBox="0 0 20 20" class="h-4 w-4 text-neutral-950" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round">
+                <svg aria-hidden="true" viewBox="0 0 20 20" class="h-4 w-4 text-white" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round">
                     <path d="M10 2.5v2.2M10 15.3v2.2M17.5 10h-2.2M4.7 10H2.5" />
                     <circle cx="10" cy="10" r="3.2" />
                 </svg>
@@ -53,7 +53,7 @@
                 type="button"
                 wire:click="openAddressSearch"
                 x-on:click="openAddressSearch()"
-                class="relative w-full rounded-[1.75rem] border border-[#666666] bg-neutral-800/95 px-4 py-4 pr-14 text-left shadow-[0_24px_60px_-36px_rgba(0,0,0,0.9)] transition hover:border-neutral-500 hover:bg-neutral-700/90"
+                class="relative w-full rounded-[1.75rem] border border-[#666666] bg-neutral-800/95 px-5 py-4 pr-16 text-left shadow-[0_24px_60px_-36px_rgba(0,0,0,0.9)] transition hover:border-[#7a7a7a] hover:bg-neutral-800"
                 data-address-search-trigger
             >
                 <span class="absolute right-4 top-1/2 inline-flex -translate-y-1/2 items-center justify-center text-neutral-200">
@@ -112,7 +112,7 @@
     </section>
 
     <section class="address-picker-section-stack address-picker-sheet-section space-y-5 px-1 pb-1">
-        <div class="space-y-2">
+        <div class="space-y-3">
             <label class="text-xs text-gray-400 mb-2 block">Тип адреси</label>
 
             <div class="grid grid-cols-3 gap-2 pt-1">
@@ -149,11 +149,11 @@
         <div>
             <label class="text-xs text-gray-400 mb-2 block">Тип будівлі</label>
 
-            <div class="grid grid-cols-2 gap-2">
+            <div class="building-type-grid grid grid-cols-2 gap-2.5">
                 <button
                     type="button"
                     wire:click="$set('building_type','apartment')"
-                    class="min-w-0 rounded-2xl px-3 py-3 text-center text-sm font-semibold leading-tight transition sm:px-4
+                    class="min-w-0 rounded-2xl px-3.5 py-3.5 text-center text-sm font-semibold leading-tight transition sm:px-4
                         {{ $building_type === 'apartment'
                             ? 'bg-yellow-400 text-black shadow-[0_14px_30px_-18px_rgba(250,204,21,0.9)]'
                             : 'bg-neutral-800/95 text-gray-300 hover:bg-neutral-700' }}"
@@ -164,7 +164,7 @@
                 <button
                     type="button"
                     wire:click="$set('building_type','house')"
-                    class="min-w-0 rounded-2xl px-3 py-3 text-center text-sm font-semibold leading-tight transition sm:px-4
+                    class="min-w-0 rounded-2xl px-3.5 py-3.5 text-center text-sm font-semibold leading-tight transition sm:px-4
                         {{ $building_type === 'house'
                             ? 'bg-yellow-400 text-black shadow-[0_14px_30px_-18px_rgba(250,204,21,0.9)]'
                             : 'bg-neutral-800/95 text-gray-300 hover:bg-neutral-700' }}"
@@ -369,7 +369,7 @@
 
 <style>
     #address-form {
-        --address-sheet-bg: linear-gradient(180deg, rgba(24, 24, 27, 0.98) 0%, rgba(10, 10, 10, 0.98) 100%);
+        --address-sheet-bg: linear-gradient(180deg, rgba(24, 24, 27, 0.985) 0%, rgba(12, 12, 14, 0.99) 100%);
         position: relative;
     }
 
@@ -378,7 +378,7 @@
     }
 
     #address-form .address-picker-status-fade {
-        background: linear-gradient(180deg, rgba(10, 10, 10, 0.5) 0%, rgba(10, 10, 10, 0.18) 38%, rgba(10, 10, 10, 0) 100%);
+        background: linear-gradient(180deg, rgba(10, 10, 10, 0.56) 0%, rgba(10, 10, 10, 0.22) 38%, rgba(10, 10, 10, 0) 100%);
     }
 
     #address-form .address-picker-map-shell .leaflet-control-container,
@@ -388,47 +388,55 @@
         z-index: 1 !important;
     }
 
-    #address-form .address-picker-section-stack {
-        width: calc(100% - 2rem);
-        margin-inline: 1rem;
+    #address-form .address-picker-section-stack,
+    #address-form .address-picker-bottom-sheet {
+        width: calc(100% - 1.5rem);
+        margin-inline: 0.75rem;
     }
 
     #address-form .address-picker-bottom-sheet {
         position: relative;
         z-index: 5;
-        width: calc(100% - 2rem);
-        margin-inline: 1rem;
-        margin-top: -2.75rem;
-        padding: 1.35rem 1rem 0.35rem;
-        border-radius: 1.5rem 1.5rem 0 0;
+        margin-top: -3.5rem;
+        padding: 1rem 1rem 0.5rem;
+        border-radius: 1.75rem 1.75rem 0 0;
         background: var(--address-sheet-bg);
-        border: 1px solid rgba(255, 255, 255, 0.06);
-        box-shadow: 0 -12px 40px -24px rgba(0, 0, 0, 0.8);
+        border: 1px solid rgba(255, 255, 255, 0.07);
+        border-bottom: 0;
+        box-shadow: 0 -16px 45px -28px rgba(0, 0, 0, 0.9), 0 28px 64px -34px rgba(0, 0, 0, 0.86);
+        backdrop-filter: blur(18px);
     }
 
     #address-form .address-picker-sheet-section {
         position: relative;
         z-index: 5;
         margin-top: 0;
-        padding-top: 0.4rem;
+        padding-top: 0.65rem;
         background: var(--address-sheet-bg);
-        border-inline: 1px solid rgba(255, 255, 255, 0.06);
+        border-inline: 1px solid rgba(255, 255, 255, 0.07);
     }
 
     #address-form .address-picker-sheet-section:last-of-type {
-        padding-bottom: 1.25rem;
-        border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+        padding-bottom: 1.5rem;
+        border-bottom: 1px solid rgba(255, 255, 255, 0.07);
         border-radius: 0 0 2rem 2rem;
+        box-shadow: 0 28px 60px -38px rgba(0, 0, 0, 0.9);
     }
 
     #address-form .address-picker-section-stack + .address-picker-section-stack {
         margin-top: 0;
     }
 
+    #address-form .building-type-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        align-items: stretch;
+    }
+
     #address-form .address-detail-grid {
         display: grid;
         grid-template-columns: repeat(4, minmax(0, 1fr));
-        gap: 0.65rem;
+        gap: 0.75rem;
+        align-items: start;
     }
 
     #address-form .address-mini-input {
@@ -437,10 +445,16 @@
 
     @media (max-width: 420px) {
         #address-form .address-picker-bottom-sheet {
-            margin-top: -2.25rem;
-            padding-top: 1.15rem;
+            margin-top: -3rem;
+            padding-top: 0.85rem;
         }
 
+        #address-form .address-picker-location-action {
+            top: auto;
+            bottom: 5.5rem;
+        }
+
+        #address-form .building-type-grid,
         #address-form .address-detail-grid {
             grid-template-columns: repeat(2, minmax(0, 1fr));
         }
