@@ -391,7 +391,7 @@
     #address-form .address-picker-map-shell {
         background:
             radial-gradient(circle at top center, rgba(255, 255, 255, 0.12) 0%, rgba(255, 255, 255, 0.04) 18%, rgba(255, 255, 255, 0) 44%),
-            linear-gradient(180deg, rgba(10, 10, 12, 0.08) 0%, rgba(10, 10, 12, 0.02) 22%, rgba(10, 10, 12, 0) 34%);
+            linear-gradient(180deg, rgba(10, 10, 12, 0.045) 0%, rgba(10, 10, 12, 0.012) 20%, rgba(10, 10, 12, 0) 34%);
         isolation: isolate;
     }
 
@@ -399,13 +399,15 @@
         position: relative;
         min-height: calc(340px + var(--address-safe-top));
         height: calc(45vh + var(--address-safe-top));
+        margin-top: calc(var(--address-safe-top) * -1);
+        padding-top: var(--address-safe-top);
         overflow: hidden;
         box-sizing: border-box;
     }
 
     #address-form .address-picker-map-frame .map-container {
-        top: calc(var(--address-safe-top) * -0.55);
-        height: calc(100% + (var(--address-safe-top) * 0.55));
+        top: calc(var(--address-safe-top) * -1);
+        height: calc(100% + var(--address-safe-top));
     }
 
     #address-form .address-picker-map-overlay {
@@ -414,9 +416,9 @@
 
     #address-form .address-picker-status-fade {
         height: calc(4.75rem + var(--address-safe-top));
-        background: linear-gradient(180deg, rgba(8, 8, 8, 0.03) 0%, rgba(8, 8, 8, 0.015) 34%, rgba(8, 8, 8, 0) 100%);
+        background: linear-gradient(180deg, rgba(8, 8, 8, 0.018) 0%, rgba(8, 8, 8, 0.008) 32%, rgba(8, 8, 8, 0) 100%);
         mix-blend-mode: soft-light;
-        opacity: 0.92;
+        opacity: 0.72;
     }
 
     #address-form .address-picker-map-shell .leaflet-control-container,

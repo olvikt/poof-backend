@@ -3,7 +3,7 @@
     'title' => null,
     'hideHeader' => false,
     'bodyClass' => 'px-4 pb-6',
-    'panelClass' => 'rounded-t-2xl',
+    'panelClass' => 'rounded-t-2xl bg-neutral-900',
     'actionsClass' => 'border-t border-neutral-800 bg-neutral-900 p-4',
 ])
 
@@ -28,7 +28,7 @@
 
             <div
                 x-ref="sheet"
-                class="absolute inset-x-0 bottom-0 flex h-[100dvh] flex-col bg-neutral-900 {{ $panelClass }}"
+                class="absolute inset-x-0 bottom-0 flex h-[100dvh] flex-col {{ $panelClass }}"
             >
                 @unless($hideHeader)
                     <div class="flex items-center justify-between border-b border-neutral-800 px-3 py-3">
