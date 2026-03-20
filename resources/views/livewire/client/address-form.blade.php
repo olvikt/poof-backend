@@ -8,7 +8,7 @@
 >
 
     <section class="-mt-px">
-        <div class="relative w-full overflow-hidden bg-neutral-950">
+        <div class="address-picker-map-shell relative w-full overflow-hidden bg-neutral-950">
             <div class="h-[43vh] min-h-[320px] w-full" wire:ignore>
                 <div
                     id="map"
@@ -23,23 +23,29 @@
             <button
                 type="button"
                 x-on:click="$dispatch('sheet:close', { name: 'addressForm' })"
-                class="absolute left-4 top-[max(env(safe-area-inset-top),1rem)] inline-flex h-12 w-12 items-center justify-center rounded-full border border-white/10 bg-neutral-950/85 text-2xl text-white shadow-lg backdrop-blur transition hover:bg-neutral-900"
+                class="address-picker-map-overlay absolute left-4 top-[max(env(safe-area-inset-top),1rem)] inline-flex h-12 w-12 items-center justify-center rounded-full border border-black/5 bg-white text-neutral-950 shadow-[0_16px_40px_-20px_rgba(15,23,42,0.45)] backdrop-blur-sm transition hover:bg-neutral-50"
                 aria-label="Назад"
             >
-                ←
+                <svg aria-hidden="true" viewBox="0 0 24 24" class="h-5 w-5" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M15 18l-6-6 6-6" />
+                </svg>
             </button>
 
             <button
                 type="button"
                 id="use-location-btn"
-                class="absolute right-4 top-[max(env(safe-area-inset-top),1rem)] inline-flex items-center gap-2 rounded-full border border-yellow-300/30 bg-neutral-950/85 px-4 py-3 text-sm font-semibold text-yellow-300 shadow-lg backdrop-blur transition active:scale-95"
+                class="address-picker-map-overlay absolute right-4 top-[max(env(safe-area-inset-top),1rem)] inline-flex items-center gap-2 rounded-full border border-black/10 bg-white px-4 py-3 text-sm font-semibold text-neutral-950 shadow-[0_18px_45px_-24px_rgba(15,23,42,0.5)] backdrop-blur-sm transition active:scale-95"
             >
-                📍 Моя локація
+                <svg aria-hidden="true" viewBox="0 0 20 20" class="h-4 w-4 text-neutral-950" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M10 2.5v2.2M10 15.3v2.2M17.5 10h-2.2M4.7 10H2.5" />
+                    <circle cx="10" cy="10" r="3.2" />
+                </svg>
+                <span>Моя локація</span>
             </button>
         </div>
     </section>
 
-    <section class="space-y-3 px-4">
+    <section class="address-picker-section-stack space-y-3">
         <div class="flex items-start justify-between gap-4 border-b border-neutral-800/80 px-1 pb-3 pt-1">
             <div>
                 <p class="text-xs font-semibold uppercase tracking-[0.2em] text-neutral-400">Адреса</p>
@@ -66,22 +72,25 @@
                 type="button"
                 wire:click="openAddressSearch"
                 x-on:click="openAddressSearch()"
-                class="relative w-full rounded-[1.75rem] bg-white px-4 py-4 pr-12 text-left shadow-[0_18px_50px_-30px_rgba(0,0,0,0.8)] transition hover:bg-neutral-50"
+                class="relative w-full rounded-[1.75rem] border border-white/6 bg-neutral-800 px-4 py-4 pr-12 text-left shadow-[0_24px_60px_-36px_rgba(0,0,0,0.9)] transition hover:bg-neutral-700/90"
                 data-address-search-trigger
             >
-                <span class="absolute right-4 top-4 inline-flex h-8 w-8 items-center justify-center rounded-full bg-neutral-100 text-base text-neutral-700">
-                    🔎
+                <span class="absolute right-4 top-4 inline-flex items-center justify-center text-neutral-200">
+                    <svg aria-hidden="true" viewBox="0 0 20 20" class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                        <circle cx="8.5" cy="8.5" r="4.75" />
+                        <path d="M12 12l4.25 4.25" />
+                    </svg>
                 </span>
 
                 <div class="min-w-0 pr-2">
                     @if(filled($search))
-                        <p class="truncate text-[15px] font-semibold text-neutral-900">{{ $search }}</p>
-                        <p class="mt-1 truncate text-xs text-neutral-500">
+                        <p class="truncate text-[15px] font-semibold text-white">{{ $search }}</p>
+                        <p class="mt-1 truncate text-xs text-neutral-400">
                             {{ collect([$street ? trim($street . ' ' . $house) : null, $city, $region])->filter()->join(' • ') }}
                         </p>
                     @else
-                        <p class="pr-6 text-[15px] font-semibold text-neutral-900">Введіть адресу, будинок або виберіть точку на мапі</p>
-                        <p class="mt-1 text-xs text-neutral-500">Пошук адреси</p>
+                        <p class="pr-6 text-[15px] font-semibold text-white">Введіть адресу, будинок або виберіть точку на мапі</p>
+                        <p class="mt-1 text-xs text-neutral-400">Пошук адреси</p>
                     @endif
                 </div>
             </button>
@@ -100,11 +109,11 @@
         </div>
     </section>
 
-    <section class="mx-4 space-y-4 rounded-2xl bg-neutral-900/30 px-4 py-3">
+    <section class="address-picker-section-stack mx-4 space-y-5 rounded-[1.75rem] border border-white/5 bg-neutral-900/40 px-4 py-4">
         <div class="space-y-2">
             <label class="text-xs text-gray-400 mb-2 block">Тип адреси</label>
 
-            <div class="flex gap-2 pt-1">
+            <div class="flex flex-wrap gap-2 pt-1">
                 @foreach (['home' => 'Дім', 'work' => 'Робота', 'other' => 'Інше'] as $key => $text)
                     <button
                         type="button"
@@ -138,7 +147,7 @@
         <div>
             <label class="text-xs text-gray-400 mb-2 block">Тип будівлі</label>
 
-            <div class="flex gap-2">
+            <div class="flex flex-wrap gap-2">
                 <button
                     type="button"
                     wire:click="$set('building_type','apartment')"
@@ -319,10 +328,10 @@
     </div>
 
     @if($building_type === 'apartment')
-        <div class="space-y-2">
+        <section class="address-picker-section-stack mx-4 space-y-3 rounded-[1.75rem] border border-white/5 bg-neutral-900/40 px-4 py-4">
             <label class="text-xs text-gray-400 block">Деталізація</label>
 
-            <div class="mt-3 flex gap-2">
+            <div class="mt-3 flex flex-wrap gap-2">
                 <div class="address-mini-input">
                     <x-poof.input-floating label="Підʼїзд" model="entrance" center inputmode="numeric" pattern="[0-9]*" />
                     @error('entrance')
@@ -351,12 +360,32 @@
                     @enderror
                 </div>
             </div>
-        </div>
+        </section>
     @endif
 
 </form>
 
 <style>
+    #address-form .address-picker-map-overlay {
+        z-index: 1200;
+    }
+
+    #address-form .address-picker-map-shell .leaflet-control-container,
+    #address-form .address-picker-map-shell .leaflet-pane,
+    #address-form .address-picker-map-shell .leaflet-top,
+    #address-form .address-picker-map-shell .leaflet-bottom {
+        z-index: 1 !important;
+    }
+
+    #address-form .address-picker-section-stack {
+        width: calc(100% - 2rem);
+        margin-inline: 1rem;
+    }
+
+    #address-form .address-picker-section-stack + .address-picker-section-stack {
+        margin-top: 1rem;
+    }
+
     .address-mini-input {
         width: 72px;
     }
