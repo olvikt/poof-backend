@@ -92,13 +92,13 @@ Blocking jobs:
 
    Current blocking CI gate:
    - `tests/Feature/Api/OrderStoreTest.php`;
-   - `tests/Unit/OrderLifecycleStatusContractTest.php`.
+   - `tests/Unit/OrderLifecycleStatusContractTest.php`;
+   - `tests/Feature/Admin/AdminProtectedRoutesAuthTest.php`.
 
    Non-blocking follow-up suites:
-   - protected routes auth regression;
-   - admin protected routes regression;
-   - accept architecture regression;
-   - courier runtime-state regression;
+   - protected routes auth regression (`tests/Feature/Api/ApiProtectedRoutesAuthTest.php`);
+   - accept architecture regression (`tests/Feature/Courier/AcceptFlowArchitectureRegressionTest.php`);
+   - courier runtime-state regression (`tests/Feature/Courier/CourierRuntimeStateSyncTest.php`);
    - broader Auth / Courier / Livewire / Unit suites.
 
 3. `frontend-build`
