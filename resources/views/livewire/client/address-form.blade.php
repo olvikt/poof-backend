@@ -112,7 +112,7 @@
             @enderror
         </div>
 
-        <section class="address-picker-section-stack address-picker-sheet-section space-y-5 px-1 pb-1">
+        <section class="address-picker-section-stack address-picker-sheet-section space-y-5 px-4 pb-1">
             <div>
                 <label class="text-xs text-gray-400 mb-2 block">Тип будівлі</label>
 
@@ -187,7 +187,7 @@
                         <button
                             type="button"
                             wire:click="$set('label','{{ $key }}')"
-                            class="min-w-0 rounded-2xl px-3 py-3 text-center text-sm font-semibold transition sm:px-4
+                            class="min-w-0 rounded-2xl px-3 py-2 text-center text-sm font-semibold transition sm:px-4
                                 {{ $label === $key
                                     ? 'bg-yellow-400 text-black shadow-[0_14px_30px_-18px_rgba(250,204,21,0.9)]'
                                     : 'bg-neutral-800/95 text-gray-300 hover:bg-neutral-700' }}"
@@ -377,7 +377,11 @@
         --address-sheet-bg: linear-gradient(180deg, rgba(24, 24, 27, 0.985) 0%, rgba(12, 12, 14, 0.99) 100%);
         --address-sheet-border: rgba(255, 255, 255, 0.07);
         position: relative;
-        padding-top: max(env(safe-area-inset-top), 0.75rem);
+        padding-top: 0;
+    }
+
+    #address-form .address-picker-hero {
+        margin-top: calc(env(safe-area-inset-top) * -1);
     }
 
     #address-form .address-picker-map-overlay {
@@ -443,7 +447,7 @@
     }
 
     #address-form .building-type-grid > * {
-        min-height: 3.5rem;
+        min-height: 2.5rem;
     }
 
     #address-form .address-detail-grid {
