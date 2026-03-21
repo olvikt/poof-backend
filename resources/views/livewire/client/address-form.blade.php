@@ -101,29 +101,23 @@
                 @enderror
             </div>
 
-            <div class="building-type-panel rounded-[1.15rem] px-3.5 py-3">
-                <div class="flex items-center justify-between gap-3">
-                    <div>
-                        <p class="text-[11px] font-semibold uppercase tracking-[0.2em] text-neutral-500">Тип будівлі</p>
-                    </div>
-
-                    <button
-                        type="button"
-                        role="switch"
-                        aria-label="Приватний будинок"
-                        aria-checked="{{ $building_type === 'house' ? 'true' : 'false' }}"
-                        wire:click.prevent="toggleBuildingType"
-                        class="building-type-switch relative inline-flex h-8 w-14 shrink-0 items-center rounded-full border transition focus:outline-none focus:ring-2 focus:ring-yellow-300/60 {{ $building_type === 'house' ? 'border-yellow-300 bg-yellow-400' : 'border-neutral-600 bg-neutral-700' }}"
-                    >
-                        <span class="sr-only">Приватний будинок</span>
-                        <span class="building-type-switch-thumb pointer-events-none inline-block h-6 w-6 rounded-full bg-white shadow-md transition-transform {{ $building_type === 'house' ? 'translate-x-7' : 'translate-x-1' }}"></span>
-                    </button>
+            <div class="building-type-panel flex items-center justify-between gap-3 rounded-[1.15rem] px-1 py-1.5">
+                <div class="min-w-0 flex-1">
+                    <p class="text-sm font-semibold leading-5 text-white">Приватний будинок</p>
+                    <p class="mt-0.5 text-xs leading-4 text-neutral-400">Увімкніть якщо будинок приватний.</p>
                 </div>
 
-                <div class="mt-2 pr-6">
-                    <p class="text-sm font-semibold text-white">Приватний будинок</p>
-                    <p class="mt-1 text-xs leading-4 text-neutral-400">Увімкніть якщо будинок приватний.</p>
-                </div>
+                <button
+                    type="button"
+                    role="switch"
+                    aria-label="Приватний будинок"
+                    aria-checked="{{ $building_type === 'house' ? 'true' : 'false' }}"
+                    wire:click.prevent="toggleBuildingType"
+                    class="building-type-switch relative inline-flex h-8 w-14 shrink-0 items-center rounded-full border transition focus:outline-none focus:ring-2 focus:ring-yellow-300/60 {{ $building_type === 'house' ? 'border-yellow-300 bg-yellow-400' : 'border-neutral-600 bg-neutral-700' }}"
+                >
+                    <span class="sr-only">Приватний будинок</span>
+                    <span class="building-type-switch-thumb pointer-events-none inline-block h-6 w-6 rounded-full bg-white shadow-md transition-transform {{ $building_type === 'house' ? 'translate-x-7' : 'translate-x-1' }}"></span>
+                </button>
             </div>
 
             <div class="flex items-start justify-between gap-4 border-b border-neutral-800/80 px-1 pb-4 pt-1">
@@ -492,8 +486,8 @@
     }
 
     #address-form .building-type-panel {
-        border: 1px solid rgba(255, 255, 255, 0.06);
-        background: rgba(255, 255, 255, 0.025);
+        border: 0;
+        background: transparent;
     }
 
     #address-form .building-type-switch {
