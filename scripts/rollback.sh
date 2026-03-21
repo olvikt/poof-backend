@@ -40,8 +40,10 @@ ROLLED_BACK_AT="$(date -u +"%Y-%m-%dT%H:%M:%SZ")"
 ROLLBACK_LOG_FILE="$DEPLOY_LOG_DIR/${ROLLED_BACK_AT//:/-}-${RESOLVED_COMMIT}-rollback.log"
 
 echo "[rollback] requested ref: $TARGET_REF"
+echo "[rollback] resolved rollback ref: $TARGET_REF"
 echo "[rollback] resolved release ref: $RESOLVED_REF"
 echo "[rollback] resolved commit: $RESOLVED_COMMIT"
+echo "[rollback] fallback path used: no"
 echo "[rollback] rollback started at: $ROLLED_BACK_AT"
 
 git reset --hard "$RESOLVED_COMMIT"
@@ -61,6 +63,9 @@ cat > "$DEPLOY_STATE_FILE" <<STATE
 {
   "release_ref": "$RESOLVED_REF",
   "requested_ref": "$TARGET_REF",
+  "resolved_ref": "$TARGET_REF",
+  "fallback_ref": null,
+  "fallback_used": false,
   "commit": "$RESOLVED_COMMIT",
   "deployed_at_utc": "$ROLLED_BACK_AT",
   "deployment_type": "rollback",
