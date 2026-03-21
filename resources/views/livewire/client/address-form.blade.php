@@ -76,8 +76,8 @@
                     </span>
 
                     <div class="min-w-0 pr-2">
-                        @if(filled($search))
-                            <p class="truncate text-[15px] font-semibold text-white">{{ $search }}</p>
+                        @if(filled($summarySearch ?? $search))
+                            <p class="truncate text-[15px] font-semibold text-white">{{ $summarySearch ?? $search }}</p>
                             <p class="mt-1 truncate text-xs text-neutral-400">
                                 {{ collect([$street ? trim($street . ' ' . $house) : null, $city, $region])->filter()->join(' • ') }}
                             </p>
