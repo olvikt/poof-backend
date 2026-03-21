@@ -35,6 +35,7 @@ export default function addressAutocomplete() {
     street: null,
     house: null,
     city: null,
+    region: null,
     suggestions: [],
     suggestionsMessage: null,
     recentAddresses: [],
@@ -262,6 +263,41 @@ export default function addressAutocomplete() {
       return null
     },
 
+    currentMapPointSelection() {
+      const item = this.normalizeSuggestion({
+        label: this.search,
+        line1: this.search,
+        line2: 'Обрати адресу з карти',
+        street: this.street,
+        house: this.house,
+        city: this.city,
+        region: this.region,
+        lat: this.lat,
+        lng: this.lng,
+      })
+
+      if (!item || !this.isValidRecentAddress(item)) {
+        return null
+      }
+
+      const searchText = this.normalizeText(this.search).toLowerCase()
+      const currentAddressLine = this.normalizeText(item.line1 || item.label).toLowerCase()
+
+      if (!searchText || !currentAddressLine || searchText !== currentAddressLine) {
+        return null
+      }
+
+      return item
+    },
+
+    shouldShowCurrentMapPointSelection() {
+      return this.isAddressSearchOpen
+        && !this.isLoadingSuggestions
+        && !this.shouldShowRecent()
+        && this.suggestions.length === 0
+        && this.currentMapPointSelection() !== null
+    },
+
     shouldShowCurrentLocationAction() {
       return !this.isLoadingSuggestions && !this.isResolvingUserLocation && this.normalizeText(this.search) === '' && this.hasBiasCoordinates()
     },
@@ -307,6 +343,7 @@ export default function addressAutocomplete() {
       this.street = this.$wire.entangle('street')
       this.house = this.$wire.entangle('house')
       this.city = this.$wire.entangle('city')
+      this.region = this.$wire.entangle('region')
       this.isAddressSearchOpen = this.$wire.entangle('isAddressSearchOpen')
       this.suggestions = this.$wire.entangle('suggestions', true)
       this.suggestionsMessage = this.$wire.entangle('suggestionsMessage', true)
