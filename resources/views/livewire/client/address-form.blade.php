@@ -76,15 +76,25 @@
                     </span>
 
                     <div class="min-w-0 pr-2">
-                        @if(filled($summarySearch ?? $search))
-                            <p class="truncate text-[15px] font-semibold text-white">{{ $summarySearch ?? $search }}</p>
-                            <p class="mt-1 truncate text-xs text-neutral-400">
-                                {{ collect([$street ? trim($street . ' ' . $house) : null, $city, $region])->filter()->join(' • ') }}
-                            </p>
-                        @else
-                            <p class="pr-6 text-[15px] font-semibold text-white">Введіть адресу, будинок або виберіть точку на мапі</p>
-                            <p class="mt-1 text-xs text-neutral-400">Пошук адреси</p>
-                        @endif
+                        <template x-if="summarySearch || search">
+                            <div>
+                                <p
+                                    class="truncate text-[15px] font-semibold text-white"
+                                    x-text="summarySearch || search"
+                                ></p>
+                                <p
+                                    class="mt-1 truncate text-xs text-neutral-400"
+                                    x-text="[street ? [street, house].filter(Boolean).join(' ') : null, city, region].filter(Boolean).join(' • ')"
+                                ></p>
+                            </div>
+                        </template>
+
+                        <template x-if="!(summarySearch || search)">
+                            <div>
+                                <p class="pr-6 text-[15px] font-semibold text-white">Введіть адресу, будинок або виберіть точку на мапі</p>
+                                <p class="mt-1 text-xs text-neutral-400">Пошук адреси</p>
+                            </div>
+                        </template>
                     </div>
                 </button>
 
