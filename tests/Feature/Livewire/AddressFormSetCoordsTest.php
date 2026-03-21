@@ -42,17 +42,17 @@ class AddressFormSetCoordsTest extends TestCase
             ->shouldReceive('execute')
             ->once()
             ->andReturn(new ResolvedAddressData(
-                street: 'Main Street',
-                house: '15B',
-                city: 'Kyiv',
-                region: 'Kyiv region',
-                search: 'Main Street 15B, Kyiv, Kyiv region',
+                street: 'Набережна Перемоги',
+                house: '108 к5',
+                city: 'Dnipro',
+                region: 'Dnipropetrovsk region',
+                search: 'Набережна Перемоги 108 к5, Dnipro, Dnipropetrovsk region',
             ));
 
         Livewire::test(AddressForm::class)
             ->call('setCoords', 50.45, 30.52, 'map')
-            ->assertSet('house', '15B')
-            ->assertSet('search', 'Main Street 15B, Kyiv, Kyiv region');
+            ->assertSet('house', '108 к5')
+            ->assertSet('search', 'Набережна Перемоги 108 к5, Dnipro, Dnipropetrovsk region');
     }
 
     public function test_it_keeps_manual_house_when_user_has_already_touched_it(): void

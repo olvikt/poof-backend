@@ -52,6 +52,47 @@ class ResolveAddressFromPointTest extends TestCase
         $this->assertSame('Shevchenka Street 15B, Lviv, Lviv region', $resolved->search);
     }
 
+
+    public function test_it_preserves_house_and_corpus_formats_from_house_number(): void
+    {
+        Http::fake([
+            'https://nominatim.openstreetmap.org/reverse*' => Http::response([
+                'address' => [
+                    'road' => 'Набережна Перемоги',
+                    'house_number' => '108 корпус 5',
+                    'city' => 'Дніпро',
+                    'state' => 'Дніпропетровська область',
+                ],
+            ]),
+        ]);
+
+        $resolved = app(ResolveAddressFromPoint::class)->execute(new AddressPointData(48.43, 35.07, 'map'));
+
+        $this->assertNotNull($resolved);
+        $this->assertSame('108 к5', $resolved->house);
+        $this->assertSame('Набережна Перемоги 108 к5, Дніпро, Дніпропетровська область', $resolved->search);
+    }
+
+    public function test_it_extracts_house_and_corpus_from_display_name_when_house_number_is_missing(): void
+    {
+        Http::fake([
+            'https://nominatim.openstreetmap.org/reverse*' => Http::response([
+                'display_name' => 'Україна, Дніпро, Соборний район, Набережна Перемоги, 108 к 4, житловий масив Перемога-5',
+                'address' => [
+                    'road' => 'Набережна Перемоги',
+                    'city' => 'Дніпро',
+                    'state' => 'Дніпропетровська область',
+                ],
+            ]),
+        ]);
+
+        $resolved = app(ResolveAddressFromPoint::class)->execute(new AddressPointData(48.43, 35.07, 'map'));
+
+        $this->assertNotNull($resolved);
+        $this->assertSame('108 к4', $resolved->house);
+        $this->assertSame('Набережна Перемоги 108 к4, Дніпро, Дніпропетровська область', $resolved->search);
+    }
+
     public function test_it_returns_null_for_bad_or_malformed_reverse_geocode_payloads(): void
     {
         $service = app(ResolveAddressFromPoint::class);

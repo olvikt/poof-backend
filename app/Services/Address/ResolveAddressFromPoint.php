@@ -81,12 +81,12 @@ class ResolveAddressFromPoint
             return null;
         }
 
-        if (preg_match(
-            '/,\s*([0-9]+[0-9A-Za-zА-Яа-яІЇЄієї\-\/]*)\b/u',
-            $displayName,
-            $matches
-        )) {
-            return $this->normalizeHouse($matches[1]);
+        foreach (preg_split('/\s*,\s*/u', $displayName) ?: [] as $segment) {
+            $house = $this->normalizeHouse($segment);
+
+            if ($house !== null) {
+                return $house;
+            }
         }
 
         return null;
@@ -105,9 +105,20 @@ class ResolveAddressFromPoint
 
     private function normalizeHouse(?string $house): ?string
     {
-        $house = trim((string) $house);
+        $house = preg_replace('/\s+/u', ' ', trim((string) $house));
 
-        return $house !== '' ? $house : null;
+        if ($house === '' || ! preg_match('/^\d/u', $house)) {
+            return null;
+        }
+
+        if (preg_match('/^(\d+[\dA-Za-zА-Яа-яІЇЄієї\-\/]*)(?:\s*(?:к|корп(?:\.|ус)?)\s*(\d+[A-Za-zА-Яа-яІЇЄієї\-\/]*))?$/ui', $house, $matches)) {
+            $base = $matches[1];
+            $corpus = $matches[2] ?? null;
+
+            return $corpus ? sprintf('%s к%s', $base, $corpus) : $base;
+        }
+
+        return $house;
     }
 
     private function normalizeSearch(mixed $value): string
