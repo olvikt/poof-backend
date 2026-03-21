@@ -24,6 +24,7 @@ export default function initMap() {
   const POOF = window.POOF
   const DEBUG_MAP = true
   const API_BASE = (import.meta?.env?.VITE_API_URL || '').replace(/\/$/, '')
+  const LAST_KNOWN_USER_LOCATION_KEY = 'poof:last-known-user-location:v1'
 
   // ------------------------------------------------------------
   // Shared singleton state
@@ -90,6 +91,8 @@ export default function initMap() {
     debugFirstOrderCoordsLogged: false,
 
     hasActiveOrderBootstrap: false,
+    isResolvingUserLocation: false,
+    hasResolvedUserLocation: false,
   }
 
   const state = POOF.map
@@ -109,6 +112,74 @@ export default function initMap() {
   function toNumber(v) {
     const n = Number(v)
     return Number.isFinite(n) ? n : null
+  }
+
+  function canUseStorage() {
+    try {
+      return typeof window !== 'undefined' && typeof window.localStorage !== 'undefined'
+    } catch (_) {
+      return false
+    }
+  }
+
+  function emitUserLocationBootstrapState() {
+    window.dispatchEvent(new CustomEvent('poof:user-location-bootstrap', {
+      detail: {
+        isResolving: state.isResolvingUserLocation,
+        hasResolved: state.hasResolvedUserLocation,
+        location: getPersistedUserLocation(),
+      },
+    }))
+  }
+
+  function setUserLocationResolving(isResolving, options = {}) {
+    state.isResolvingUserLocation = Boolean(isResolving)
+    if (options.resolved === true) {
+      state.hasResolvedUserLocation = true
+    }
+    emitUserLocationBootstrapState()
+  }
+
+  function persistUserLocation(lat, lng, meta = {}) {
+    if (!isValidLatLng(lat, lng)) return null
+
+    const location = {
+      lat: Number(Number(lat).toFixed(6)),
+      lng: Number(Number(lng).toFixed(6)),
+      updatedAt: Date.now(),
+      source: meta.source || 'unknown',
+    }
+
+    if (canUseStorage()) {
+      try {
+        window.localStorage.setItem(LAST_KNOWN_USER_LOCATION_KEY, JSON.stringify(location))
+      } catch (_) {}
+    }
+
+    window.POOF.userLocation = { lat: location.lat, lng: location.lng }
+    emitUserLocationBootstrapState()
+
+    return location
+  }
+
+  function getPersistedUserLocation() {
+    if (!canUseStorage()) return null
+
+    try {
+      const raw = window.localStorage.getItem(LAST_KNOWN_USER_LOCATION_KEY)
+      if (!raw) return null
+      const parsed = JSON.parse(raw)
+      if (!isValidLatLng(parsed?.lat, parsed?.lng)) return null
+
+      return {
+        lat: Number(Number(parsed.lat).toFixed(6)),
+        lng: Number(Number(parsed.lng).toFixed(6)),
+        updatedAt: Number(parsed.updatedAt) || null,
+        source: typeof parsed.source === 'string' ? parsed.source : 'persisted',
+      }
+    } catch (_) {
+      return null
+    }
   }
 
   // --------- ADDED (prod) ---------
@@ -765,6 +836,8 @@ async function buildRoute(fromLat, fromLng, toLat, toLng) {
     state.__courierCenteredOnce = false
     state.lastLat = null
     state.lastLng = null
+    state.isResolvingUserLocation = false
+    state.hasResolvedUserLocation = false
 
     window.POOF.marker = null
   }
@@ -791,6 +864,9 @@ async function buildRoute(fromLat, fromLng, toLat, toLng) {
           // --------- ADDED (prod) ---------
           if (!isValidLatLng(lat, lng)) return
 
+          persistUserLocation(lat, lng, { source: 'user' })
+          setUserLocationResolving(false, { resolved: true })
+
           updatePointAndAddress(lat, lng, {
             source: 'user',
             zoom: 18,
@@ -808,18 +884,28 @@ async function buildRoute(fromLat, fromLng, toLat, toLng) {
     if (isSavedAddressLocked()) return
     if (state.lastLat !== null && state.lastLng !== null) return
 
+    setUserLocationResolving(true)
+
     navigator.geolocation.getCurrentPosition(
       (pos) => {
         const lat = pos.coords?.latitude
         const lng = pos.coords?.longitude
-        if (!isValidLatLng(lat, lng)) return
+        if (!isValidLatLng(lat, lng)) {
+          setUserLocationResolving(false, { resolved: true })
+          return
+        }
+
+        persistUserLocation(lat, lng, { source: 'user' })
+        setUserLocationResolving(false, { resolved: true })
 
         updatePointAndAddress(lat, lng, {
           source: 'user',
           zoom: 17,
         })
       },
-      () => {},
+      () => {
+        setUserLocationResolving(false, { resolved: true })
+      },
       { enableHighAccuracy: true, timeout: 10000, maximumAge: 60000 }
     )
   }
@@ -1205,6 +1291,8 @@ async function buildRoute(fromLat, fromLng, toLat, toLng) {
         if (!isValidLatLng(lat, lng)) return
 
         console.log('User location:', lat, lng)
+        persistUserLocation(lat, lng, { source: 'user' })
+        setUserLocationResolving(false, { resolved: true })
 
         void updatePointAndAddress(lat, lng, {
           source: 'user',
@@ -1214,6 +1302,7 @@ async function buildRoute(fromLat, fromLng, toLat, toLng) {
         window.dispatchEvent(new CustomEvent('close-address-book'))
       },
       (err) => {
+        setUserLocationResolving(false, { resolved: true })
         console.error('Geolocation error', err)
         alert('Не вдалося отримати вашу локацію')
       },
@@ -1326,23 +1415,47 @@ window.addEventListener('build-route', (e) => {
   bindGlobalHandlersOnce()
   mountAny()
   const bootstrapApplied = applyBootstrapFromDom()
+  const persistedUserLocation = getPersistedUserLocation()
+
+  if (!bootstrapApplied && !state.hasActiveOrderBootstrap && persistedUserLocation) {
+    state.addressLocked = false
+    setMarker(persistedUserLocation.lat, persistedUserLocation.lng, { emit: false, zoom: 17, source: 'persisted-user-location' })
+
+    try {
+      state.instance?.setView([persistedUserLocation.lat, persistedUserLocation.lng], 17, { animate: false })
+    } catch (_) {}
+  }
+
+  emitUserLocationBootstrapState()
 
   if (navigator.geolocation && !isSavedAddressLocked() && !bootstrapApplied && !state.hasActiveOrderBootstrap) {
+    setUserLocationResolving(true)
+
     navigator.geolocation.getCurrentPosition((pos) => {
       const lat = pos.coords.latitude
       const lng = pos.coords.longitude
 
-      if (!isValidLatLng(lat, lng)) return
+      if (!isValidLatLng(lat, lng)) {
+        setUserLocationResolving(false, { resolved: true })
+        return
+      }
 
       console.log('[POOF] user geolocation', lat, lng)
 
-      window.POOF.userLocation = { lat, lng }
+      persistUserLocation(lat, lng, { source: 'geolocation' })
 
       state.addressLocked = false
+      setUserLocationResolving(false, { resolved: true })
       void updatePointAndAddress(lat, lng, {
         source: 'geolocation',
         zoom: 17,
       })
-    })
+    }, () => {
+      setUserLocationResolving(false, { resolved: true })
+    }, { enableHighAccuracy: true, timeout: 12000, maximumAge: persistedUserLocation ? 60000 : 0 })
+  } else {
+    setUserLocationResolving(false, { resolved: Boolean(persistedUserLocation) || isSavedAddressLocked() || bootstrapApplied || state.hasActiveOrderBootstrap })
   }
+
+  POOF.getLastKnownUserLocation = getPersistedUserLocation
 }

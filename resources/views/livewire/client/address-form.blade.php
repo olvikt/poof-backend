@@ -275,6 +275,13 @@
                 <div class="flex-1 overflow-y-auto px-2 py-2">
                     <div x-show="isLoadingSuggestions" class="px-4 py-4 text-sm text-gray-300">Пошук адреси…</div>
 
+                    <div
+                        x-show="shouldShowLocationBootstrapLoading()"
+                        x-cloak
+                        class="px-4 py-5 text-sm text-gray-300"
+                    >
+                        Визначаємо вашу локацію, щоб показати локально релевантні результати. Можна почати вводити адресу вже зараз — пошук поки що буде без локального зміщення.
+                    </div>
 
                     <div
                         x-show="shouldShowCurrentLocationAction()"
