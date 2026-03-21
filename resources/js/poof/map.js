@@ -1197,6 +1197,13 @@ async function buildRoute(fromLat, fromLng, toLat, toLng) {
       state.lastLat = Number(lat)
       state.lastLng = Number(lng)
 
+      if (state.isAddressPickerFlow && !isSavedAddressLocked()) {
+        state.addressLocked = false
+        window.dispatchEvent(new CustomEvent('address:unlock', {
+          detail: { reason: 'map-move' },
+        }))
+      }
+
       window.dispatchEvent(
         new CustomEvent('poof:map-center-changed', {
           detail: {

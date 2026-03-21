@@ -336,6 +336,60 @@ export default function addressAutocomplete() {
       return Number.isFinite(Number(this.lat)) && Number.isFinite(Number(this.lng))
     },
 
+    coordinatesDiffer(lat, lng) {
+      const nextLat = Number(lat)
+      const nextLng = Number(lng)
+      const currentLat = Number(this.lat)
+      const currentLng = Number(this.lng)
+
+      if (!Number.isFinite(nextLat) || !Number.isFinite(nextLng)) {
+        return false
+      }
+
+      if (!Number.isFinite(currentLat) || !Number.isFinite(currentLng)) {
+        return true
+      }
+
+      const epsilon = 0.000001
+
+      return Math.abs(currentLat - nextLat) > epsilon || Math.abs(currentLng - nextLng) > epsilon
+    },
+
+    syncMapPointCoordinates(lat, lng) {
+      const nextLat = Number(lat)
+      const nextLng = Number(lng)
+
+      if (!Number.isFinite(nextLat) || !Number.isFinite(nextLng)) {
+        return false
+      }
+
+      const hasChanged = this.coordinatesDiffer(nextLat, nextLng)
+
+      this.lat = nextLat
+      this.lng = nextLng
+
+      if (hasChanged) {
+        this.$wire.set('lat', nextLat)
+        this.$wire.set('lng', nextLng)
+      }
+
+      return hasChanged
+    },
+
+    resetResolvedAddressForMapPoint() {
+      this.search = ''
+      this.street = null
+      this.house = null
+      this.city = null
+      this.region = null
+
+      this.$wire.set('search', '')
+      this.$wire.set('street', null)
+      this.$wire.set('house', null)
+      this.$wire.set('city', null)
+      this.$wire.set('region', null)
+    },
+
     init() {
       this.search = this.$wire.entangle('search', true)
       this.lat = this.$wire.entangle('lat')
@@ -530,6 +584,25 @@ export default function addressAutocomplete() {
 
         this.mapCenterLat = Number.isFinite(Number(lat)) ? Number(lat) : null
         this.mapCenterLng = Number.isFinite(Number(lng)) ? Number(lng) : null
+
+        if (this.manualClearActive || this.isTypingSearch()) {
+          return
+        }
+
+        const mapPointChanged = this.syncMapPointCoordinates(lat, lng)
+
+        if (!mapPointChanged) {
+          return
+        }
+
+        if (this.addressLocked) {
+          this.addressLocked = false
+          window.dispatchEvent(new CustomEvent('address:unlock', {
+            detail: { reason: 'map-move' },
+          }))
+        }
+
+        this.resetResolvedAddressForMapPoint()
       })
 
       window.addEventListener('poof:user-location-bootstrap', (e) => {
