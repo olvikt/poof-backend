@@ -4,12 +4,15 @@ namespace Tests\Unit\Address;
 
 use App\DTO\Address\AddressFormData;
 use App\Services\Address\PrepareAddressSavePayload;
+use Illuminate\Support\Carbon;
 use Tests\TestCase;
 
 class PrepareAddressSavePayloadTest extends TestCase
 {
     public function test_it_derives_street_and_city_from_search_and_builds_canonical_payload(): void
     {
+        Carbon::setTestNow('2026-03-21 12:34:56');
+
         $service = new PrepareAddressSavePayload();
         $data = new AddressFormData(
             addressId: null,
@@ -33,6 +36,7 @@ class PrepareAddressSavePayloadTest extends TestCase
         $payload = $service->execute($data)->toArray();
 
         $this->assertSame('Main Street', $fallback['street']);
+        $this->assertSame('Kyiv', $fallback['city']);
         $this->assertSame('Main Street', $payload['street']);
         $this->assertSame('Kyiv', $payload['city']);
         $this->assertSame('7A', $payload['house']);
@@ -43,7 +47,9 @@ class PrepareAddressSavePayloadTest extends TestCase
         $this->assertSame('12, Main Street, Kyiv', $payload['address_text']);
         $this->assertSame('manual', $payload['geocode_source']);
         $this->assertSame('exact', $payload['geocode_accuracy']);
-        $this->assertNotNull($payload['geocoded_at']);
+        $this->assertTrue(Carbon::now()->equalTo($payload['geocoded_at']));
+
+        Carbon::setTestNow();
     }
 
     public function test_it_does_not_override_existing_city_when_using_search_fallback(): void
