@@ -30,6 +30,7 @@ function isFiniteCoordinate(value) {
 export default function addressAutocomplete() {
   return {
     search: '',
+    summarySearch: '',
     lat: null,
     lng: null,
     street: null,
@@ -378,12 +379,14 @@ export default function addressAutocomplete() {
 
     resetResolvedAddressForMapPoint() {
       this.search = ''
+      this.summarySearch = ''
       this.street = null
       this.house = null
       this.city = null
       this.region = null
 
       this.$wire.set('search', '')
+      this.$wire.set('summarySearch', '')
       this.$wire.set('street', null)
       this.$wire.set('house', null)
       this.$wire.set('city', null)
@@ -392,6 +395,7 @@ export default function addressAutocomplete() {
 
     init() {
       this.search = this.$wire.entangle('search', true)
+      this.summarySearch = this.$wire.entangle('summarySearch', true)
       this.lat = this.$wire.entangle('lat')
       this.lng = this.$wire.entangle('lng')
       this.street = this.$wire.entangle('street')
@@ -516,43 +520,64 @@ export default function addressAutocomplete() {
         const normalizedItem = this.normalizeRecentItem(item)
         if (!normalizedItem) return
 
+        const syncSearch = options.syncSearch !== false
+        const remember = options.remember !== false
+        const markApplyingSelection = options.markApplyingSelection !== false
+
         this.manualClearActive = false
         this.manualClearCoordinates = null
-        this.isApplyingSelection = true
-        this.search = normalizedItem.label
+
+        if (markApplyingSelection) {
+          this.isApplyingSelection = true
+        }
+
+        if (syncSearch) {
+          this.search = normalizedItem.label
+        }
+
+        this.summarySearch = normalizedItem.label
         this.street = normalizedItem.street
         this.house = normalizedItem.house
         this.city = normalizedItem.city
+        this.region = normalizedItem.region
         this.lat = normalizedItem.lat
         this.lng = normalizedItem.lng
 
         this.suggestions = []
         this.suggestionsMessage = null
 
-        this.$wire.set('search', this.search)
+        if (syncSearch) {
+          this.$wire.set('search', normalizedItem.label)
+        }
+
+        this.$wire.set('summarySearch', normalizedItem.label)
         this.$wire.set('street', this.street)
         this.$wire.set('house', this.house)
         this.$wire.set('city', this.city)
-        this.$wire.set('region', normalizedItem.region)
+        this.$wire.set('region', this.region)
         this.$wire.set('lat', this.lat)
         this.$wire.set('lng', this.lng)
         this.$wire.set('suggestions', [])
         this.$wire.set('suggestionsMessage', null)
 
-        if (options.remember !== false) {
+        if (remember) {
           this.rememberRecentAddress(normalizedItem)
         }
 
-        this.$nextTick(() => {
-          this.isApplyingSelection = false
-        })
+        if (markApplyingSelection) {
+          this.$nextTick(() => {
+            this.isApplyingSelection = false
+          })
+        }
       }
 
       window.addEventListener('address:reverse-geocoded', (e) => {
-        if (this.addressLocked || this.manualClearActive || this.isTypingSearch()) return
+        if (this.addressLocked || this.manualClearActive) return
 
         const item = e.detail?.item
         if (!item) return
+
+        const isTyping = this.isTypingSearch()
 
         const streetInput = document.querySelector('[data-address-street]')
         const houseInput = document.querySelector('[data-address-house]')
@@ -564,19 +589,21 @@ export default function addressAutocomplete() {
         if (cityInput) cityInput.value = this.safe(item.city)
         if (regionInput) regionInput.value = this.safe(item.region)
 
-        applyAddressItem(item)
+        applyAddressItem(item, { syncSearch: !isTyping, markApplyingSelection: !isTyping })
       })
 
       window.addEventListener('map:set-address', (event) => {
-        if (this.addressLocked || this.manualClearActive || this.isTypingSearch()) return
+        if (this.addressLocked || this.manualClearActive) return
 
         const item = event.detail?.item ?? event.detail
         if (!item || typeof item !== 'object') {
           return
         }
 
+        const isTyping = this.isTypingSearch()
+
         syncAddressInputs(item)
-        applyAddressItem(item)
+        applyAddressItem(item, { syncSearch: !isTyping, markApplyingSelection: !isTyping })
       })
 
       window.addEventListener('poof:map-center-changed', (e) => {
@@ -796,6 +823,7 @@ export default function addressAutocomplete() {
       if (!normalizedItem) return
 
       this.search = normalizedItem.label || safeString(item.street)
+      this.summarySearch = this.search
       this.manualClearActive = false
       this.manualClearCoordinates = null
       this.isApplyingSelection = true
@@ -809,6 +837,7 @@ export default function addressAutocomplete() {
       this.suggestionsMessage = null
 
       this.$wire.set('search', this.search)
+      this.$wire.set('summarySearch', this.summarySearch)
       this.$wire.set('street', this.street)
       this.$wire.set('house', this.house)
       this.$wire.set('city', this.city)

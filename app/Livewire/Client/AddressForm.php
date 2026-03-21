@@ -30,6 +30,7 @@ class AddressForm extends Component
     public ?string $title = null;
 
     public ?string $search = null;
+    public ?string $summarySearch = null;
     public bool $isAddressSearchOpen = false;
     public array $suggestions = [];
     public int $activeSuggestionIndex = -1;
@@ -132,6 +133,7 @@ class AddressForm extends Component
     public function clearSearch(): void
     {
         $this->search = null;
+        $this->summarySearch = null;
         $this->clearSuggestions();
     }
 
@@ -230,6 +232,7 @@ class AddressForm extends Component
 
         $this->place_id = null;
         $this->search = $this->normalizeSearch($item['label'] ?? $item['line1'] ?? null);
+        $this->summarySearch = $this->search;
         $this->lat = isset($item['lat']) ? (float) $item['lat'] : null;
         $this->lng = isset($item['lng']) ? (float) $item['lng'] : null;
         $this->addressPrecision = AddressCoordinatePolicy::precisionForFieldGeocode($this->lat, $this->lng)->value;
@@ -373,6 +376,7 @@ class AddressForm extends Component
             'title' => $address->title,
             'building_type' => $address->building_type ?? 'apartment',
             'search' => $this->normalizeSearch($address->address_text),
+            'summarySearch' => $this->normalizeSearch($address->address_text),
             'lat' => $address->lat,
             'lng' => $address->lng,
             'place_id' => $address->place_id,
@@ -407,6 +411,7 @@ class AddressForm extends Component
         }
 
         $this->search = $resolved->search;
+        $this->summarySearch = $resolved->search;
 
         if (! AddressCoordinatePolicy::shouldReverseFillHouse($this->houseTouchedManually)) {
             return;
@@ -461,6 +466,7 @@ class AddressForm extends Component
             'title',
             'building_type',
             'search',
+            'summarySearch',
             'isAddressSearchOpen',
             'suggestions',
             'activeSuggestionIndex',
