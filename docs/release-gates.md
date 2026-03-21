@@ -97,10 +97,11 @@ Blocking jobs:
    - `tests/Feature/Api/ApiProtectedRoutesAuthTest.php`;
    - `tests/Feature/Courier/AcceptFlowArchitectureRegressionTest.php`;
    - `tests/Feature/Courier/CourierRuntimeStateSyncTest.php`;
-   - `tests/Feature/Api/GeocodeControllerTest.php`.
+   - `tests/Feature/Api/GeocodeControllerTest.php`;
+   - `tests/Feature/Livewire/AddressFormSetCoordsTest.php`.
 
    Non-blocking follow-up suites:
-   - broader Auth / Courier / Livewire / Unit suites.
+   - broader Auth / Courier / remaining Livewire / Unit suites.
 
 3. `frontend-build`
    - `npm ci`;

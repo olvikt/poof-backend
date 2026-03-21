@@ -90,7 +90,8 @@ jobs:
             tests/Feature/Api/ApiProtectedRoutesAuthTest.php \
             tests/Feature/Courier/AcceptFlowArchitectureRegressionTest.php \
             tests/Feature/Courier/CourierRuntimeStateSyncTest.php \
-            tests/Feature/Api/GeocodeControllerTest.php
+            tests/Feature/Api/GeocodeControllerTest.php \
+            tests/Feature/Livewire/AddressFormSetCoordsTest.php
 
   frontend-build:
     runs-on: ubuntu-latest
