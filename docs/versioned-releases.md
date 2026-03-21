@@ -37,6 +37,8 @@
 - **Rollback contract:** `scripts/rollback.sh <release-ref>` или `ROLLBACK_REF=<release-ref> bash scripts/rollback.sh`.
 - **Traceability contract:** после deploy/rollback production host записывает:
   - текущий release ref;
+  - requested ref и resolved ref;
+  - был ли использован legacy fallback path;
   - resolved commit SHA;
   - UTC time deploy/rollback;
   - путь к локальному deploy log/state record.
@@ -62,13 +64,11 @@ git push origin release-YYYYMMDD-HHMM
 
 3. Зафиксировать этот tag как release candidate для production.
 
-## 4. Deploy a specific release
+## 4. Canonical production deploy path
 
-### Backward-compatible default
+### Canonical path: explicit release ref/tag
 
-Если ref не указан, `scripts/deploy.sh` по-прежнему использует `origin/main` ради обратной совместимости.
-
-### Recommended explicit deploy
+Нормальный production path теперь формулируется однозначно: оператор **должен** передавать explicit release ref/tag. Во всех runbooks, примерах и ручных командах первым показывается именно этот путь.
 
 ```bash
 cd /var/www/poof
@@ -82,11 +82,27 @@ cd /var/www/poof
 DEPLOY_REF=release-YYYYMMDD-HHMM bash scripts/deploy.sh
 ```
 
+### Legacy continuity path: fallback to `origin/main`
+
+Backward-compatible fallback на `origin/main` остаётся доступным **только** как legacy/emergency continuity path.
+
+```bash
+cd /var/www/poof
+bash scripts/deploy.sh
+```
+
+Важно:
+
+- это больше не считается нормальным operator path;
+- fallback оставлен ради backward compatibility со старыми вызовами и для emergency/manual continuity;
+- при no-ref deploy скрипт теперь печатает явное warning-сообщение и записывает в release state, что был использован fallback.
+
 Во время deploy скрипт теперь:
 
 - делает `git fetch --prune --tags origin`;
 - проверяет, что указанный ref resolvится в commit;
-- логирует requested ref, resolved release ref и commit SHA;
+- логирует requested ref, fallback ref, resolved deploy ref, resolved release ref и commit SHA;
+- явно помечает, был ли использован legacy fallback path;
 - делает `git reset --hard <resolved-commit>` вместо жёсткого `origin/main`;
 - записывает release state в `storage/app/current-release.json`;
 - кладёт deploy metadata snapshot в `storage/logs/deploy/`.
@@ -122,6 +138,7 @@ Rollback script теперь:
 - fetches tags/refs перед reset;
 - валидирует rollback ref;
 - логирует requested ref, resolved ref и commit;
+- явно фиксирует, что fallback path не использовался;
 - обновляет `storage/app/current-release.json`;
 - пишет rollback record в `storage/logs/deploy/`;
 - делает blocking health-check после rollback.
@@ -141,10 +158,13 @@ cat storage/app/current-release.json
 
 - `release_ref`;
 - `requested_ref`;
+- `resolved_ref`;
+- `fallback_ref`;
+- `fallback_used`;
 - `commit`;
 - `deployed_at_utc`;
 - `deploy_log`;
-- `deployment_type` — присутствует для rollback.
+- `deployment_type`.
 
 2. **Deploy log directory**
 
@@ -153,15 +173,17 @@ cd /var/www/poof
 ls -1 storage/logs/deploy
 ```
 
-Этого достаточно, чтобы ответить на вопрос: **“Что сейчас в проде, какой commit behind it и когда это было выкачено?”**
+Этого достаточно, чтобы ответить на вопрос: **“Что сейчас в проде, какой commit behind it и был ли это explicit release deploy или legacy fallback path?”**
 
 ## 7. Operator contract summary
 
-- Production deploy должен использовать **explicit release ref/tag** whenever possible.
-- Default `origin/main` оставлен только ради backward compatibility и emergency/manual continuity.
+- **Canonical normal path:** production deploy выполняется с **explicit release ref/tag**.
+- **Legacy continuity path:** default `origin/main` оставлен только ради backward compatibility и emergency/manual continuity.
+- Если deploy был выполнен без explicit ref, это должно рассматриваться как осознанное исключение, а не как обычная практика.
 - Rollback должен выполняться на **previous release tag**, а не на произвольный remembered commit.
 - После deploy/rollback оператор обязан:
   - проверить `storage/app/current-release.json`;
+  - убедиться, что `requested_ref`, `resolved_ref` и `fallback_used` выглядят ожидаемо;
   - выполнить `bash scripts/check-server.sh`;
   - убедиться, что health/smoke checks прошли.
 

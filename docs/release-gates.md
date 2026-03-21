@@ -118,7 +118,7 @@ Canonical deploy script: `scripts/deploy.sh`.
 
 Blocking during deploy:
 
-- git fetch + explicit ref resolution (`DEPLOY_REF` / positional ref / fallback `origin/main`);
+- git fetch + explicit ref resolution (`DEPLOY_REF` / positional ref / legacy fallback `origin/main`);
 - dependency install;
 - frontend build;
 - frontend manifest verification;
@@ -126,6 +126,12 @@ Blocking during deploy:
 - Laravel cache rebuild;
 - release state recording;
 - blocking health-check against `https://api.poof.com.ua/up`.
+
+Operator note:
+
+- explicit release tag/ref is the canonical release path;
+- fallback `origin/main` remains soft-supported only for backward compatibility and emergency continuity;
+- no-ref deploys now emit a visible warning and leave `fallback_used=true` in `storage/app/current-release.json`.
 
 Health gate теперь считается обязательным: если `https://api.poof.com.ua/up` не отвечает успешно после ограниченного числа retries, deploy завершается с non-zero exit code.
 
@@ -159,13 +165,19 @@ Canonical smoke runner: `scripts/check-server.sh`.
 
 `scripts/deploy.sh` должен успешно завершить:
 
-- fetch и resolve выбранного release ref (`DEPLOY_REF` / positional ref / fallback `origin/main`);
+- fetch и resolve выбранного release ref (`DEPLOY_REF` / positional ref / legacy fallback `origin/main`);
 - dependency installation;
 - frontend build + manifest verification;
 - migrations;
 - Laravel cache rebuild;
 - запись release state (`storage/app/current-release.json`);
 - blocking health-check.
+
+Дополнительный operator contract:
+
+- explicit release ref/tag должен быть передан по умолчанию;
+- fallback на `origin/main` допустим только как исключение;
+- после no-ref deploy оператор должен явно проверить, что `fallback_used=true` был ожидаемым, а не accidental legacy call.
 
 Failure любого из этих шагов = deploy failed.
 
@@ -191,7 +203,8 @@ bash scripts/check-server.sh
 
 Task 4.8 вводит минимальную versioned-release discipline поверх существующего deploy path без большого infra rewrite:
 
-- deploy допускает explicit release ref/tag;
+- deploy допускает explicit release ref/tag и продвигает его как canonical normal path;
+- fallback на `origin/main` сохраняется как soft-supported legacy/emergency path;
 - rollback должен использовать explicit previous release ref/tag;
-- production host хранит минимальный traceability state в `storage/app/current-release.json`;
+- production host хранит минимальный traceability state в `storage/app/current-release.json`, включая `requested_ref`, `resolved_ref` и `fallback_used`;
 - детальный operator flow описан в [`docs/versioned-releases.md`](./versioned-releases.md).

@@ -9,7 +9,14 @@ HEALTHCHECK_URL="${HEALTHCHECK_URL:-https://api.poof.com.ua/up}"
 HEALTHCHECK_ATTEMPTS="${HEALTHCHECK_ATTEMPTS:-10}"
 HEALTHCHECK_DELAY="${HEALTHCHECK_DELAY:-3}"
 DEFAULT_DEPLOY_REF="${DEFAULT_DEPLOY_REF:-origin/main}"
-DEPLOY_REF="${DEPLOY_REF:-${1:-$DEFAULT_DEPLOY_REF}}"
+EXPLICIT_DEPLOY_REF="${DEPLOY_REF:-${1:-}}"
+DEPLOY_REF="$EXPLICIT_DEPLOY_REF"
+FALLBACK_DEPLOY_USED=0
+
+if [[ -z "$DEPLOY_REF" ]]; then
+  DEPLOY_REF="$DEFAULT_DEPLOY_REF"
+  FALLBACK_DEPLOY_USED=1
+fi
 DEPLOY_LOG_DIR="${DEPLOY_LOG_DIR:-$APP_DIR/storage/logs/deploy}"
 DEPLOY_STATE_FILE="${DEPLOY_STATE_FILE:-$APP_DIR/storage/app/current-release.json}"
 
@@ -19,6 +26,13 @@ mkdir -p "$DEPLOY_LOG_DIR" "$(dirname "$DEPLOY_STATE_FILE")"
 
 echo "[deploy] fetching refs"
 git fetch --prune --tags origin
+
+if [[ "$FALLBACK_DEPLOY_USED" -eq 1 ]]; then
+  echo "[deploy] WARNING: no explicit release ref provided; falling back to legacy path: $DEFAULT_DEPLOY_REF" >&2
+  echo "[deploy] WARNING: explicit release tag/ref is the canonical production path; use this fallback only for backward compatibility or emergency continuity" >&2
+else
+  echo "[deploy] explicit release ref requested"
+fi
 
 if ! git rev-parse --verify --quiet "$DEPLOY_REF^{commit}" > /dev/null; then
   echo "[deploy] unknown deploy ref: $DEPLOY_REF" >&2
@@ -34,9 +48,12 @@ fi
 DEPLOYED_AT="$(date -u +"%Y-%m-%dT%H:%M:%SZ")"
 DEPLOY_LOG_FILE="$DEPLOY_LOG_DIR/${DEPLOYED_AT//:/-}-${RESOLVED_COMMIT}.log"
 
-echo "[deploy] requested ref: $DEPLOY_REF"
+echo "[deploy] requested ref: ${EXPLICIT_DEPLOY_REF:-<none>}"
+echo "[deploy] fallback ref: $DEFAULT_DEPLOY_REF"
+echo "[deploy] resolved deploy ref: $DEPLOY_REF"
 echo "[deploy] resolved release ref: $RESOLVED_REF"
 echo "[deploy] resolved commit: $RESOLVED_COMMIT"
+echo "[deploy] fallback path used: $([[ "$FALLBACK_DEPLOY_USED" -eq 1 ]] && echo yes || echo no)"
 echo "[deploy] deploy started at: $DEPLOYED_AT"
 echo "[deploy] deploy log: $DEPLOY_LOG_FILE"
 
@@ -74,9 +91,13 @@ echo "[deploy] recording release state"
 cat > "$DEPLOY_STATE_FILE" <<STATE
 {
   "release_ref": "$RESOLVED_REF",
-  "requested_ref": "$DEPLOY_REF",
+  "requested_ref": "${EXPLICIT_DEPLOY_REF:-}",
+  "resolved_ref": "$DEPLOY_REF",
+  "fallback_ref": "$DEFAULT_DEPLOY_REF",
+  "fallback_used": $([[ "$FALLBACK_DEPLOY_USED" -eq 1 ]] && echo true || echo false),
   "commit": "$RESOLVED_COMMIT",
   "deployed_at_utc": "$DEPLOYED_AT",
+  "deployment_type": "deploy",
   "deploy_log": "$DEPLOY_LOG_FILE"
 }
 STATE

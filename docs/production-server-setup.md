@@ -152,8 +152,9 @@ git config --global --add safe.directory /var/www/poof
 
 См.:
 
-- `scripts/deploy.sh [release-ref]` — стандартный деплой; по умолчанию fallback на `origin/main`, но рекомендуемый путь — explicit release tag/ref
+- `scripts/deploy.sh [release-ref]` — canonical deploy path; всегда предпочитайте explicit release tag/ref
 - `DEPLOY_REF=<release-ref> bash scripts/deploy.sh` — эквивалентный explicit deploy contract
+- `scripts/deploy.sh` без ref — legacy/emergency continuity path only; допустим для backward compatibility, но не как normal flow
 - `scripts/rollback.sh <release-ref>` — откат на previous known-good release ref/tag
 - `scripts/check-server.sh` — канонический post-deploy smoke-runner
 - `docs/release-gates.md` — канонический CI/deploy/smoke contract
@@ -168,6 +169,27 @@ bash scripts/deploy.sh release-YYYYMMDD-HHMM
 cat storage/app/current-release.json
 bash scripts/check-server.sh
 ```
+
+Что оператор должен проверить в `current-release.json` после обычного релиза:
+
+- `requested_ref` совпадает с переданным release tag/ref;
+- `resolved_ref` совпадает с ожидаемым ref после resolution;
+- `fallback_used` равно `false`.
+
+Legacy/emergency continuity workflow (только если explicit ref временно недоступен или старый вызов нельзя быстро поменять):
+
+```bash
+cd /var/www/poof
+bash scripts/deploy.sh
+cat storage/app/current-release.json
+bash scripts/check-server.sh
+```
+
+После такого вызова оператор обязан дополнительно убедиться, что:
+
+- warning про fallback path был ожидаемым;
+- `fallback_ref` = `origin/main` (или иной настроенный default);
+- `fallback_used` = `true`.
 
 Recommended rollback workflow:
 
