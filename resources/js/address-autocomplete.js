@@ -44,6 +44,11 @@ export default function addressAutocomplete() {
     isAddressSearchOpen: false,
     manualClearActive: false,
     manualClearCoordinates: null,
+    isResolvingUserLocation: false,
+    hasResolvedUserLocation: false,
+    activeSearchSession: false,
+    mapCenterLat: null,
+    mapCenterLng: null,
 
     safe(value) {
       if (typeof value === 'string') return value
@@ -183,14 +188,61 @@ export default function addressAutocomplete() {
       return !this.isLoadingSuggestions && this.normalizeText(this.search) === '' && this.recentAddresses.length > 0
     },
 
+    getMarkerCoordinates() {
+      const markerCoords = window.POOF?.marker?.getLatLng?.()
+
+      if (markerCoords && Number.isFinite(Number(markerCoords.lat)) && Number.isFinite(Number(markerCoords.lng))) {
+        return {
+          lat: Number(Number(markerCoords.lat).toFixed(6)),
+          lng: Number(Number(markerCoords.lng).toFixed(6)),
+        }
+      }
+
+      const markerLat = Number(window.POOF?.map?.lastLat)
+      const markerLng = Number(window.POOF?.map?.lastLng)
+
+      if (Number.isFinite(markerLat) && Number.isFinite(markerLng)) {
+        return {
+          lat: Number(markerLat.toFixed(6)),
+          lng: Number(markerLng.toFixed(6)),
+        }
+      }
+
+      return null
+    },
+
     shouldShowCurrentLocationAction() {
-      return !this.isLoadingSuggestions && this.normalizeText(this.search) === '' && this.hasBiasCoordinates()
+      return !this.isLoadingSuggestions && !this.isResolvingUserLocation && this.normalizeText(this.search) === '' && this.hasBiasCoordinates()
+    },
+
+    shouldShowLocationBootstrapLoading() {
+      return this.isAddressSearchOpen && this.normalizeText(this.search) === '' && this.isResolvingUserLocation && !this.hasBiasCoordinates()
+    },
+
+    isTypingSearch() {
+      return this.activeSearchSession && this.normalizeText(this.search).length > 0
+    },
+
+    syncUserLocationBootstrap(detail = {}) {
+      this.isResolvingUserLocation = Boolean(detail?.isResolving)
+      this.hasResolvedUserLocation = Boolean(detail?.hasResolved)
+
+      if (!this.hasBiasCoordinates()) {
+        const location = detail?.location
+        if (Number.isFinite(Number(location?.lat)) && Number.isFinite(Number(location?.lng))) {
+          this.lat = Number(location.lat)
+          this.lng = Number(location.lng)
+        }
+      }
     },
 
     hasBiasCoordinates() {
-      const mapCenter = window.POOF?.map?.instance?.getCenter?.()
+      if (this.getMarkerCoordinates()) {
+        return true
+      }
 
-      if (mapCenter && Number.isFinite(mapCenter.lat) && Number.isFinite(mapCenter.lng)) {
+      const persisted = window.POOF?.getLastKnownUserLocation?.()
+      if (Number.isFinite(Number(persisted?.lat)) && Number.isFinite(Number(persisted?.lng))) {
         return true
       }
 
@@ -209,8 +261,15 @@ export default function addressAutocomplete() {
       this.suggestionsMessage = this.$wire.entangle('suggestionsMessage', true)
       this.loadRecentAddresses()
 
+      this.syncUserLocationBootstrap({
+        isResolving: Boolean(window.POOF?.map?.isResolvingUserLocation),
+        hasResolved: Boolean(window.POOF?.map?.hasResolvedUserLocation),
+        location: window.POOF?.getLastKnownUserLocation?.() || null,
+      })
+
       this.openAddressSearch = () => {
         this.isAddressSearchOpen = true
+        this.activeSearchSession = false
         this.loadRecentAddresses()
 
         this.$nextTick(() => {
@@ -221,12 +280,13 @@ export default function addressAutocomplete() {
 
       this.closeAddressSearch = () => {
         this.isAddressSearchOpen = false
+        this.activeSearchSession = false
       }
 
       this.clearSearch = () => {
-        const mapCenter = window.POOF?.map?.instance?.getCenter?.()
-        const lat = mapCenter?.lat ?? this.lat
-        const lng = mapCenter?.lng ?? this.lng
+        const markerCoords = this.getMarkerCoordinates()
+        const lat = markerCoords?.lat ?? this.mapCenterLat ?? this.lat
+        const lng = markerCoords?.lng ?? this.mapCenterLng ?? this.lng
 
         this.manualClearActive = true
         this.manualClearCoordinates = Number.isFinite(Number(lat)) && Number.isFinite(Number(lng))
@@ -344,7 +404,7 @@ export default function addressAutocomplete() {
       }
 
       window.addEventListener('address:reverse-geocoded', (e) => {
-        if (this.addressLocked || this.manualClearActive) return
+        if (this.addressLocked || this.manualClearActive || this.isTypingSearch()) return
 
         const item = e.detail?.item
         if (!item) return
@@ -363,7 +423,7 @@ export default function addressAutocomplete() {
       })
 
       window.addEventListener('map:set-address', (event) => {
-        if (this.addressLocked || this.manualClearActive) return
+        if (this.addressLocked || this.manualClearActive || this.isTypingSearch()) return
 
         const item = event.detail?.item ?? event.detail
         if (!item || typeof item !== 'object') {
@@ -377,8 +437,12 @@ export default function addressAutocomplete() {
       window.addEventListener('poof:map-center-changed', (e) => {
         const { lat, lng } = e.detail || {}
 
-        this.lat = Number.isFinite(Number(lat)) ? Number(lat) : null
-        this.lng = Number.isFinite(Number(lng)) ? Number(lng) : null
+        this.mapCenterLat = Number.isFinite(Number(lat)) ? Number(lat) : null
+        this.mapCenterLng = Number.isFinite(Number(lng)) ? Number(lng) : null
+      })
+
+      window.addEventListener('poof:user-location-bootstrap', (e) => {
+        this.syncUserLocationBootstrap(e.detail || {})
       })
 
       window.addEventListener('address:lock', () => {
@@ -408,6 +472,8 @@ export default function addressAutocomplete() {
         }
 
         const query = String(value ?? '').trim()
+
+        this.activeSearchSession = this.isAddressSearchOpen && query.length > 0
 
         if (query === lastQuery) {
           return
@@ -443,8 +509,11 @@ export default function addressAutocomplete() {
         return
       }
 
-      const { lat, lng } = this.getBiasCoordinates()
-      const locationKey = Number.isFinite(Number(lat)) && Number.isFinite(Number(lng))
+      const bias = this.getBiasCoordinates()
+      const lat = Number(bias?.lat)
+      const lng = Number(bias?.lng)
+      const hasBias = Number.isFinite(lat) && Number.isFinite(lng)
+      const locationKey = hasBias
         ? `${Number(lat).toFixed(2)}:${Number(lng).toFixed(2)}`
         : 'no-bias'
       const cacheKey = `${normalizedQuery.toLowerCase()}@${locationKey}`
@@ -472,7 +541,14 @@ export default function addressAutocomplete() {
 
 
       try {
-        const response = await fetch(`${API_BASE || ''}/api/geocode?q=${encodeURIComponent(normalizedQuery)}&lat=${lat}&lng=${lng}`, {
+        const params = new URLSearchParams({ q: normalizedQuery })
+
+        if (hasBias) {
+          params.set('lat', String(lat))
+          params.set('lng', String(lng))
+        }
+
+        const response = await fetch(`${API_BASE || ''}/api/geocode?${params.toString()}`, {
           signal: this.abortController.signal,
         })
 
@@ -582,13 +658,18 @@ export default function addressAutocomplete() {
     },
 
     getBiasCoordinates() {
-      const fallback = { lat: 48.45, lng: 34.98 }
-      const mapCenter = window.POOF?.map?.instance?.getCenter?.()
+      const markerCoords = this.getMarkerCoordinates()
 
-      if (mapCenter && Number.isFinite(mapCenter.lat) && Number.isFinite(mapCenter.lng)) {
+      if (markerCoords) {
+        return markerCoords
+      }
+
+      const persisted = window.POOF?.getLastKnownUserLocation?.()
+
+      if (Number.isFinite(Number(persisted?.lat)) && Number.isFinite(Number(persisted?.lng))) {
         return {
-          lat: Number(mapCenter.lat.toFixed(6)),
-          lng: Number(mapCenter.lng.toFixed(6)),
+          lat: Number(Number(persisted.lat).toFixed(6)),
+          lng: Number(Number(persisted.lng).toFixed(6)),
         }
       }
 
@@ -602,7 +683,7 @@ export default function addressAutocomplete() {
         }
       }
 
-      return fallback
+      return null
     },
 
     escapeRegExp(value) {
