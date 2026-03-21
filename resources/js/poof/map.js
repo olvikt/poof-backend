@@ -647,6 +647,21 @@ export default function initMap() {
     return state.markerPrecision === 'exact' ? icons.exact : icons.approx
   }
 
+  function clearFloatingMarker(map = state.instance) {
+    if (!window.POOF.marker || !map) {
+      window.POOF.marker = null
+      state.marker = null
+      return
+    }
+
+    if (map.hasLayer(window.POOF.marker)) {
+      try { map.removeLayer(window.POOF.marker) } catch (_) {}
+    }
+
+    window.POOF.marker = null
+    state.marker = null
+  }
+
   // ------------------------------------------------------------
   // CORE: marker API (pendingPoint safe)
   // ------------------------------------------------------------
@@ -699,11 +714,7 @@ export default function initMap() {
 
       state.marker = window.POOF.marker
     } else {
-      if (window.POOF.marker && map.hasLayer(window.POOF.marker)) {
-        try { map.removeLayer(window.POOF.marker) } catch (_) {}
-      }
-      window.POOF.marker = null
-      state.marker = null
+      clearFloatingMarker(map)
     }
 
     // ensure map centers on the marker (except courier location streaming updates)
@@ -1173,6 +1184,10 @@ async function buildRoute(fromLat, fromLng, toLat, toLng) {
     })
 
     state.tiles.addTo(state.instance)
+
+    if (isAddressPickerFlow) {
+      clearFloatingMarker(state.instance)
+    }
 
     state.instance.on('moveend', async () => {
       const center = state.instance.getCenter()

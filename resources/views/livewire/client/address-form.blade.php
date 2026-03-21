@@ -101,6 +101,31 @@
                 @enderror
             </div>
 
+            <div class="rounded-[1.35rem] border border-white/14 bg-neutral-900/95 px-4 py-3.5 shadow-[0_18px_48px_-34px_rgba(0,0,0,0.95)]">
+                <div class="mb-2.5 flex items-center justify-between gap-3">
+                    <div>
+                        <p class="text-[11px] font-semibold uppercase tracking-[0.2em] text-neutral-500">Тип будівлі</p>
+                    </div>
+
+                    <button
+                        type="button"
+                        role="switch"
+                        aria-label="Приватний будинок"
+                        aria-checked="{{ $building_type === 'house' ? 'true' : 'false' }}"
+                        wire:click.prevent="toggleBuildingType"
+                        class="building-type-switch relative inline-flex h-8 w-14 shrink-0 items-center rounded-full border transition focus:outline-none focus:ring-2 focus:ring-yellow-300/60 {{ $building_type === 'house' ? 'border-yellow-300 bg-yellow-400' : 'border-neutral-600 bg-neutral-700' }}"
+                    >
+                        <span class="sr-only">Приватний будинок</span>
+                        <span class="building-type-switch-thumb pointer-events-none inline-block h-6 w-6 rounded-full bg-white shadow-md transition-transform {{ $building_type === 'house' ? 'translate-x-7' : 'translate-x-1' }}"></span>
+                    </button>
+                </div>
+
+                <div class="pr-8">
+                    <p class="text-sm font-semibold text-white">Приватний будинок</p>
+                    <p class="mt-1 text-xs leading-5 text-neutral-300">Увімкніть якщо будинок приватний.</p>
+                </div>
+            </div>
+
             <div class="flex items-start justify-between gap-4 border-b border-neutral-800/80 px-1 pb-4 pt-1">
                 <div>
                     <p class="text-xs font-semibold uppercase tracking-[0.2em] text-neutral-400">Адреса</p>
@@ -122,31 +147,6 @@
                 <p class="text-xs text-red-400">{{ $message }}</p>
             @enderror
         </div>
-
-        <section class="address-picker-section-stack address-picker-sheet-section space-y-5 px-4 pb-1">
-            <div>
-                <label class="mb-2 block text-xs text-gray-400">Тип будівлі</label>
-
-                <label class="building-type-toggle flex items-center justify-between gap-4 rounded-[1.5rem] border border-white/8 bg-neutral-800/95 px-4 py-3.5">
-                    <span class="min-w-0">
-                        <span class="block text-sm font-semibold text-white">Приватний будинок</span>
-                        <span class="mt-1 block text-xs text-neutral-400">Якщо вимкнено — збережемо адресу як квартиру.</span>
-                    </span>
-
-                    <button
-                        type="button"
-                        role="switch"
-                        aria-label="Приватний будинок"
-                        aria-checked="{{ $building_type === 'house' ? 'true' : 'false' }}"
-                        wire:click="$set('building_type', $building_type === 'house' ? 'apartment' : 'house')"
-                        class="building-type-switch relative inline-flex h-8 w-14 shrink-0 items-center rounded-full border transition {{ $building_type === 'house' ? 'border-yellow-300/80 bg-yellow-400/95' : 'border-white/10 bg-neutral-700/90' }}"
-                    >
-                        <span class="sr-only">Приватний будинок</span>
-                        <span class="building-type-switch-thumb pointer-events-none inline-block h-6 w-6 rounded-full bg-white shadow-md transition-transform {{ $building_type === 'house' ? 'translate-x-7' : 'translate-x-1' }}"></span>
-                    </button>
-                </label>
-            </div>
-        </section>
 
         @if($building_type === 'apartment')
             <section class="address-picker-section-stack address-picker-sheet-section space-y-5 px-4 pb-1">
@@ -485,7 +485,11 @@
     }
 
     #address-form .building-type-toggle {
-        min-height: 4.5rem;
+        min-height: 4.1rem;
+    }
+
+    #address-form .building-type-switch {
+        box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08);
     }
 
     #address-form .address-picker-center-marker {

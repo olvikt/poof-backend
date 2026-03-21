@@ -135,6 +135,13 @@ class AddressForm extends Component
         $this->clearSuggestions();
     }
 
+    public function toggleBuildingType(): void
+    {
+        $this->building_type = $this->building_type === 'house'
+            ? 'apartment'
+            : 'house';
+    }
+
     public function setPhotonSuggestions($items, $message = null): void
     {
         $this->suggestions = is_array($items)

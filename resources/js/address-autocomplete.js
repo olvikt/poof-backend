@@ -53,6 +53,9 @@ export default function addressAutocomplete() {
     activeSearchSession: false,
     mapCenterLat: null,
     mapCenterLng: null,
+    geoActionState: 'idle',
+    geoActionHint: '',
+    geoActionHintTimer: null,
 
     safe(value) {
       if (typeof value === 'string') return value
@@ -500,6 +503,19 @@ export default function addressAutocomplete() {
         const detail = e.detail || {}
         this.geoActionState = typeof detail.status === 'string' ? detail.status : 'idle'
         this.geoActionHint = typeof detail.message === 'string' ? detail.message : ''
+
+        if (this.geoActionHintTimer) {
+          clearTimeout(this.geoActionHintTimer)
+          this.geoActionHintTimer = null
+        }
+
+        if (this.geoActionState !== 'loading' && this.geoActionHint) {
+          this.geoActionHintTimer = window.setTimeout(() => {
+            this.geoActionState = 'idle'
+            this.geoActionHint = ''
+            this.geoActionHintTimer = null
+          }, 2200)
+        }
       })
 
       window.addEventListener('address:lock', () => {
