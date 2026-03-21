@@ -23,6 +23,10 @@ function canUseLocalStorage() {
   }
 }
 
+function isFiniteCoordinate(value) {
+  return Number.isFinite(Number(value))
+}
+
 export default function addressAutocomplete() {
   return {
     search: '',
@@ -116,9 +120,30 @@ export default function addressAutocomplete() {
       }
     },
 
+    isValidRecentAddress(item) {
+      if (!item || typeof item !== 'object') return false
+      if (!isFiniteCoordinate(item.lat) || !isFiniteCoordinate(item.lng)) return false
+
+      const label = this.normalizeText(item.label)
+      const line1 = this.normalizeText(item.line1)
+      const city = this.normalizeText(item.city)
+      const street = this.normalizeText(item.street)
+      const house = this.normalizeText(item.house)
+      const primaryText = label || line1 || [street, house].filter(Boolean).join(' ').trim()
+
+      if (!primaryText) return false
+
+      const normalizedPrimary = primaryText.toLowerCase()
+      if (normalizedPrimary === 'unknown location' || normalizedPrimary === 'невідома адреса') {
+        return false
+      }
+
+      return Boolean(line1 || street || city)
+    },
+
     normalizeRecentItem(item) {
       const normalized = this.normalizeSuggestion(item)
-      if (!normalized) return null
+      if (!normalized || !this.isValidRecentAddress(normalized)) return null
 
       return {
         label: normalized.label,
@@ -133,33 +158,56 @@ export default function addressAutocomplete() {
       }
     },
 
+    getRecentStorageUserId() {
+      const userId = this.normalizeText(document.documentElement?.dataset?.userId)
+      return userId || null
+    },
+
     getRecentStorageKey() {
-      const userId = document.documentElement?.dataset?.userId || 'guest'
-      return `${RECENT_ADDRESSES_KEY}:${userId}`
+      const userId = this.getRecentStorageUserId()
+      return userId ? `${RECENT_ADDRESSES_KEY}:${userId}` : null
     },
 
     loadRecentAddresses() {
-      if (!canUseLocalStorage()) {
+      const storageKey = this.getRecentStorageKey()
+
+      if (!canUseLocalStorage() || !storageKey) {
         this.recentAddresses = []
         return
       }
 
       try {
-        const raw = window.localStorage.getItem(this.getRecentStorageKey())
+        const raw = window.localStorage.getItem(storageKey)
         const items = JSON.parse(raw || '[]')
-
-        this.recentAddresses = Array.isArray(items)
+        const sanitizedItems = Array.isArray(items)
           ? items.map((item) => this.normalizeRecentItem(item)).filter(Boolean).slice(0, RECENT_ADDRESSES_LIMIT)
           : []
+
+        this.recentAddresses = sanitizedItems
+
+        const shouldRewrite = !Array.isArray(items)
+          || sanitizedItems.length !== items.length
+          || JSON.stringify(items.slice(0, RECENT_ADDRESSES_LIMIT)) !== JSON.stringify(sanitizedItems)
+
+        if (shouldRewrite) {
+          window.localStorage.setItem(storageKey, JSON.stringify(sanitizedItems))
+        }
       } catch (_) {
         this.recentAddresses = []
       }
     },
 
     persistRecentAddresses() {
-      if (!canUseLocalStorage()) return
+      const storageKey = this.getRecentStorageKey()
+      if (!canUseLocalStorage() || !storageKey) return
 
-      window.localStorage.setItem(this.getRecentStorageKey(), JSON.stringify(this.recentAddresses.slice(0, RECENT_ADDRESSES_LIMIT)))
+      const sanitizedItems = this.recentAddresses
+        .map((item) => this.normalizeRecentItem(item))
+        .filter(Boolean)
+        .slice(0, RECENT_ADDRESSES_LIMIT)
+
+      this.recentAddresses = sanitizedItems
+      window.localStorage.setItem(storageKey, JSON.stringify(sanitizedItems))
     },
 
     rememberRecentAddress(item) {
