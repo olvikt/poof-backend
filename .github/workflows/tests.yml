@@ -86,6 +86,8 @@ jobs:
           php artisan test \
             tests/Feature/Api/OrderStoreTest.php \
             tests/Unit/OrderLifecycleStatusContractTest.php \
+            tests/Unit/Support/Address/AddressPrecisionTest.php \
+            tests/Unit/Support/Address/AddressCoordinatePolicyTest.php \
             tests/Feature/Admin/AdminProtectedRoutesAuthTest.php \
             tests/Feature/Api/ApiProtectedRoutesAuthTest.php \
             tests/Feature/Courier/AcceptFlowArchitectureRegressionTest.php \

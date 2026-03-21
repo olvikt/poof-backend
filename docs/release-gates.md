@@ -93,6 +93,8 @@ Blocking jobs:
    Current blocking CI gate:
    - `tests/Feature/Api/OrderStoreTest.php`;
    - `tests/Unit/OrderLifecycleStatusContractTest.php`;
+   - `tests/Unit/Support/Address/AddressPrecisionTest.php`;
+   - `tests/Unit/Support/Address/AddressCoordinatePolicyTest.php`;
    - `tests/Feature/Admin/AdminProtectedRoutesAuthTest.php`;
    - `tests/Feature/Api/ApiProtectedRoutesAuthTest.php`;
    - `tests/Feature/Courier/AcceptFlowArchitectureRegressionTest.php`;
@@ -100,7 +102,8 @@ Blocking jobs:
    - `tests/Feature/Api/GeocodeControllerTest.php`.
 
    Non-blocking follow-up suites:
-   - broader Auth / Courier / Livewire / Unit suites.
+   - broader Auth / Courier / Livewire suites;
+   - remaining wider Unit suites beyond the promoted address precision/policy regression checks.
 
 3. `frontend-build`
    - `npm ci`;
