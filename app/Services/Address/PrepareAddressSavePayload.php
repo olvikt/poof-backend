@@ -47,16 +47,47 @@ class PrepareAddressSavePayload
         $street = $this->normalizeStreet($data->street);
         $city = $this->normalizeString($data->city);
 
-        if ($street === null && $data->search) {
-            $parts = array_map('trim', explode(',', $data->search));
-            $street = $this->normalizeStreet($parts[0] ?? null);
+        if ($data->search) {
+            $parts = $this->splitSearchParts($data->search);
 
-            if ($city === null && isset($parts[1])) {
-                $city = $this->normalizeString($parts[1]);
+            if ($street === null) {
+                $street = $this->resolveStreetFromSearchParts($parts);
+            }
+
+            if ($city === null) {
+                $city = $this->resolveCityFromSearchParts($parts);
             }
         }
 
         return [$street, $city];
+    }
+
+    private function splitSearchParts(?string $search): array
+    {
+        return array_values(array_filter(
+            array_map(fn (string $part): string => trim($part), explode(',', (string) $search)),
+            fn (string $part): bool => $part !== ''
+        ));
+    }
+
+    private function resolveStreetFromSearchParts(array $parts): ?string
+    {
+        $streetParts = count($parts) > 1 ? array_slice($parts, 0, -1) : $parts;
+
+        foreach ($streetParts as $part) {
+            $street = $this->normalizeStreet($part);
+
+            if ($street !== null) {
+                return $street;
+            }
+        }
+
+        return null;
+    }
+
+    private function resolveCityFromSearchParts(array $parts): ?string
+    {
+        return $this->normalizeString($parts[count($parts) - 1] ?? null);
     }
 
     private function normalizeStreet(?string $street): ?string
