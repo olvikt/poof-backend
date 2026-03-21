@@ -315,6 +315,9 @@ export default function addressAutocomplete() {
         location: window.POOF?.getLastKnownUserLocation?.() || null,
       })
 
+      this.geoActionState = 'idle'
+      this.geoActionHint = ''
+
       this.openAddressSearch = () => {
         this.isAddressSearchOpen = true
         this.activeSearchSession = false
@@ -491,6 +494,12 @@ export default function addressAutocomplete() {
 
       window.addEventListener('poof:user-location-bootstrap', (e) => {
         this.syncUserLocationBootstrap(e.detail || {})
+      })
+
+      window.addEventListener('poof:geo-action-state', (e) => {
+        const detail = e.detail || {}
+        this.geoActionState = typeof detail.status === 'string' ? detail.status : 'idle'
+        this.geoActionHint = typeof detail.message === 'string' ? detail.message : ''
       })
 
       window.addEventListener('address:lock', () => {

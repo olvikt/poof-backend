@@ -18,8 +18,10 @@
                 ></div>
             </div>
 
-            <div class="pointer-events-none absolute inset-0 flex items-center justify-center">
-                <div class="text-4xl text-yellow-400 drop-shadow-lg">📍</div>
+            <div class="pointer-events-none absolute inset-0 z-[3] flex items-center justify-center">
+                <div class="address-picker-center-marker" aria-hidden="true">
+                    <img src="/images/logo-poof.svg" alt="" class="h-7 w-7">
+                </div>
             </div>
 
             <button
@@ -36,14 +38,23 @@
             <button
                 type="button"
                 id="use-location-btn"
-                class="address-picker-map-overlay address-picker-location-action absolute bottom-4 right-4 inline-flex items-center gap-2 rounded-full border border-black/5 bg-white px-4 py-3 text-sm font-semibold text-neutral-950 shadow-[0_16px_40px_-20px_rgba(15,23,42,0.45)] backdrop-blur-sm transition hover:bg-neutral-50 active:scale-95"
+                :disabled="geoActionState === 'loading'"
+                :class="geoActionState === 'loading' ? 'opacity-80 cursor-wait' : ''"
+                class="address-picker-map-overlay address-picker-location-action absolute bottom-4 right-4 inline-flex items-center gap-2 rounded-full border border-black/5 bg-white px-4 py-3 text-sm font-semibold text-neutral-950 shadow-[0_16px_40px_-20px_rgba(15,23,42,0.45)] backdrop-blur-sm transition hover:bg-neutral-50 active:scale-95 disabled:pointer-events-none"
             >
                 <svg aria-hidden="true" viewBox="0 0 20 20" class="h-6 w-6 text-black" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round">
                     <path d="M10 2.5v2.2M10 15.3v2.2M17.5 10h-2.2M4.7 10H2.5" />
                     <circle cx="10" cy="10" r="3.2" />
                 </svg>
-                <span>Моя локація</span>
+                <span x-text="geoActionState === 'loading' ? 'Визначаємо…' : 'Моя локація'"></span>
             </button>
+
+            <p
+                x-cloak
+                x-show="geoActionHint"
+                x-text="geoActionHint"
+                class="address-picker-map-overlay absolute bottom-[4.9rem] right-4 max-w-[min(18rem,calc(100%-2rem))] rounded-2xl bg-neutral-950/88 px-3 py-2 text-[11px] leading-4 text-neutral-100 shadow-lg backdrop-blur-sm"
+            ></p>
         </div>
     </section>
 
@@ -114,31 +125,26 @@
 
         <section class="address-picker-section-stack address-picker-sheet-section space-y-5 px-4 pb-1">
             <div>
-                <label class="text-xs text-gray-400 mb-2 block">Тип будівлі</label>
+                <label class="mb-2 block text-xs text-gray-400">Тип будівлі</label>
 
-                <div class="building-type-grid grid grid-cols-2 gap-3">
-                    <button
-                        type="button"
-                        wire:click="$set('building_type','apartment')"
-                        class="min-w-0 rounded-2xl px-4 py-3.5 text-center text-sm font-semibold leading-tight transition
-                            {{ $building_type === 'apartment'
-                                ? 'bg-yellow-400 text-black shadow-[0_14px_30px_-18px_rgba(250,204,21,0.9)]'
-                                : 'bg-neutral-800/95 text-gray-300 hover:bg-neutral-700' }}"
-                    >
-                        Квартира
-                    </button>
+                <label class="building-type-toggle flex items-center justify-between gap-4 rounded-[1.5rem] border border-white/8 bg-neutral-800/95 px-4 py-3.5">
+                    <span class="min-w-0">
+                        <span class="block text-sm font-semibold text-white">Приватний будинок</span>
+                        <span class="mt-1 block text-xs text-neutral-400">Якщо вимкнено — збережемо адресу як квартиру.</span>
+                    </span>
 
                     <button
                         type="button"
-                        wire:click="$set('building_type','house')"
-                        class="min-w-0 rounded-2xl px-2 py-3.5 text-center text-sm font-semibold leading-tight transition
-                            {{ $building_type === 'house'
-                                ? 'bg-yellow-400 text-black shadow-[0_14px_30px_-18px_rgba(250,204,21,0.9)]'
-                                : 'bg-neutral-800/95 text-gray-300 hover:bg-neutral-700' }}"
+                        role="switch"
+                        aria-label="Приватний будинок"
+                        aria-checked="{{ $building_type === 'house' ? 'true' : 'false' }}"
+                        wire:click="$set('building_type', $building_type === 'house' ? 'apartment' : 'house')"
+                        class="building-type-switch relative inline-flex h-8 w-14 shrink-0 items-center rounded-full border transition {{ $building_type === 'house' ? 'border-yellow-300/80 bg-yellow-400/95' : 'border-white/10 bg-neutral-700/90' }}"
                     >
-                        <span class="block whitespace-nowrap">Приват будинок</span>
+                        <span class="sr-only">Приватний будинок</span>
+                        <span class="building-type-switch-thumb pointer-events-none inline-block h-6 w-6 rounded-full bg-white shadow-md transition-transform {{ $building_type === 'house' ? 'translate-x-7' : 'translate-x-1' }}"></span>
                     </button>
-                </div>
+                </label>
             </div>
         </section>
 
@@ -478,13 +484,34 @@
         padding-top: 1rem;
     }
 
-    #address-form .building-type-grid {
-        grid-template-columns: repeat(2, minmax(0, 1fr));
-        align-items: stretch;
+    #address-form .building-type-toggle {
+        min-height: 4.5rem;
     }
 
-    #address-form .building-type-grid > * {
-        min-height: 2.5rem;
+    #address-form .address-picker-center-marker {
+        position: relative;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 3.5rem;
+        height: 3.5rem;
+        border-radius: 9999px;
+        background: rgba(250, 204, 21, 0.96);
+        box-shadow: 0 18px 35px -18px rgba(250, 204, 21, 0.95), 0 10px 18px -12px rgba(15, 23, 42, 0.6);
+        transform: translateY(-1.15rem);
+    }
+
+    #address-form .address-picker-center-marker::after {
+        content: '';
+        position: absolute;
+        left: 50%;
+        bottom: -0.85rem;
+        width: 0.95rem;
+        height: 1.05rem;
+        background: rgba(250, 204, 21, 0.96);
+        clip-path: polygon(50% 100%, 0 0, 100% 0);
+        transform: translateX(-50%);
+        filter: drop-shadow(0 8px 12px rgba(15, 23, 42, 0.25));
     }
 
     #address-form .address-detail-grid {
@@ -511,7 +538,6 @@
             bottom: 5rem;
         }
 
-        #address-form .building-type-grid,
         #address-form .address-detail-grid {
             grid-template-columns: repeat(2, minmax(0, 1fr));
         }
