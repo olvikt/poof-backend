@@ -93,6 +93,8 @@ export default function initMap() {
     hasActiveOrderBootstrap: false,
     isResolvingUserLocation: false,
     hasResolvedUserLocation: false,
+    isAddressPickerFlow: false,
+    geoActionInFlight: false,
   }
 
   const state = POOF.map
@@ -226,7 +228,7 @@ export default function initMap() {
   }
 
   function dispatchMapUiError(message, options = {}) {
-    if (!message) return
+    if (!message || options.notify === false) return
 
     window.dispatchEvent(
       new CustomEvent('notify', {
@@ -239,26 +241,30 @@ export default function initMap() {
     }
   }
 
+  function emitGeoActionState(detail = {}) {
+    window.dispatchEvent(new CustomEvent('poof:geo-action-state', { detail }))
+  }
+
   function getGeolocationErrorMessage(error, options = {}) {
     if (!navigator.geolocation) {
       return 'Геолокація не підтримується вашим браузером.'
     }
 
-    const context = options.context === 'bootstrap'
-      ? 'Щоб показати локально релевантні адреси, дозвольте доступ до геолокації або введіть адресу вручну.'
-      : 'Переконайтеся, що доступ до геолокації дозволений у браузері та налаштуваннях пристрою.'
+    const bootstrapContext = 'Щоб показати локально релевантні адреси, дозвольте доступ до геолокації або введіть адресу вручну.'
+    const actionContext = 'GPS на пристрої може бути увімкнений, але браузер або webview ще не мають дозволу. Дозвольте доступ у налаштуваннях браузера/застосунку або виберіть адресу вручну.'
+    const context = options.context === 'bootstrap' ? bootstrapContext : actionContext
 
     switch (Number(error?.code)) {
       case error?.PERMISSION_DENIED:
       case 1:
-        return `Доступ до геолокації заборонено. ${context}`
+        return `Не вдалося отримати доступ до геолокації. ${context}`
       case error?.TIMEOUT:
       case 3:
-        return 'Не вдалося визначити локацію вчасно. Спробуйте ще раз або виберіть адресу вручну.'
+        return 'Не вдалося визначити локацію вчасно. Спробуйте ще раз або виберіть точку на мапі вручну.'
       case error?.POSITION_UNAVAILABLE:
       case 2:
       default:
-        return 'Локація тимчасово недоступна. Перевірте сигнал GPS або виберіть адресу вручну.'
+        return 'Браузер або webview зараз не зміг отримати координати. Посуньте мапу вручну або повторіть спробу трохи пізніше.'
     }
   }
 
@@ -269,13 +275,124 @@ export default function initMap() {
       setUserLocationResolving(false, { resolved: true })
     }
 
-    dispatchMapUiError(message, { useAlertFallback: options.useAlertFallback === true })
+    dispatchMapUiError(message, {
+      useAlertFallback: options.useAlertFallback === true,
+      notify: options.notify !== false,
+      type: options.type || 'error',
+    })
+
+    emitGeoActionState({
+      status: 'error',
+      message,
+      code: Number(error?.code) || null,
+      source: options.source || 'unknown',
+    })
 
     if (options.log !== false) {
       console.error('Geolocation error', error)
     }
 
     return message
+  }
+
+  function setGeoActionLoading(isLoading, message = '') {
+    state.geoActionInFlight = Boolean(isLoading)
+    emitGeoActionState({
+      status: isLoading ? 'loading' : 'idle',
+      message,
+      source: 'action',
+    })
+  }
+
+  function applyCurrentLocation(lat, lng, options = {}) {
+    if (!isValidLatLng(lat, lng)) return false
+
+    persistUserLocation(lat, lng, { source: options.persistSource || 'user' })
+    setUserLocationResolving(false, { resolved: true })
+
+    void updatePointAndAddress(lat, lng, {
+      source: options.source || 'user',
+      zoom: options.zoom ?? 18,
+    })
+
+    emitGeoActionState({
+      status: 'success',
+      message: options.message || 'Локацію оновлено. За потреби посуньте мапу, щоб уточнити точку.',
+      source: options.source || 'user',
+    })
+
+    if (options.closeAddressBook === true) {
+      window.dispatchEvent(new CustomEvent('close-address-book'))
+    }
+
+    return true
+  }
+
+  function usePersistedLocationFallback(options = {}) {
+    const persisted = getPersistedUserLocation()
+    if (!persisted) return false
+
+    return applyCurrentLocation(persisted.lat, persisted.lng, {
+      source: options.source || 'user-fallback',
+      persistSource: persisted.source || 'persisted',
+      zoom: options.zoom ?? 17,
+      message: 'Точну геолокацію не вдалося отримати, тому показали останню збережену точку. За потреби посуньте мапу вручну.',
+      closeAddressBook: options.closeAddressBook === true,
+    })
+  }
+
+  function requestCurrentLocation(options = {}) {
+    if (!navigator.geolocation) {
+      const message = 'Геолокація не підтримується вашим браузером.'
+      dispatchMapUiError(message, { useAlertFallback: options.useAlertFallback === true, notify: options.notify !== false })
+      emitGeoActionState({ status: 'error', message, source: options.source || 'action' })
+      return
+    }
+
+    if (options.explicitAction) {
+      setGeoActionLoading(true, 'Визначаємо вашу локацію…')
+    }
+
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        if (options.explicitAction) {
+          setGeoActionLoading(false)
+        }
+
+        const lat = pos.coords?.latitude
+        const lng = pos.coords?.longitude
+
+        if (!applyCurrentLocation(lat, lng, {
+          source: options.successSource || 'user',
+          persistSource: options.persistSource || 'user',
+          zoom: options.zoom ?? 18,
+          closeAddressBook: options.closeAddressBook === true,
+        })) {
+          handleGeolocationError({ code: 2 }, options)
+        }
+      },
+      async (error) => {
+        if (options.explicitAction) {
+          setGeoActionLoading(false)
+        }
+
+        if (options.allowFallback !== false && usePersistedLocationFallback(options)) {
+          dispatchMapUiError('Точну локацію не вдалося отримати — використали останню збережену точку.', {
+            type: 'warning',
+            useAlertFallback: false,
+            notify: options.notify !== false,
+          })
+          return
+        }
+
+        handleGeolocationError(error, options)
+      },
+      {
+        enableHighAccuracy: options.enableHighAccuracy !== false,
+        timeout: options.timeout ?? 12000,
+        maximumAge: options.maximumAge ?? 0,
+      }
+    )
   }
 
   function debugMapFlow(event, payload = {}) {
@@ -558,28 +675,36 @@ export default function initMap() {
     state.lastLat = latN
     state.lastLng = lngN
 
-    // create marker if it doesn't exist
-    if (!window.POOF.marker) {
-      const icon = getMarkerIcon()
-      window.POOF.marker = window.L.marker([latN, lngN], {
-        draggable: true,
-        icon: icon || undefined,
-      }).addTo(map)
+    if (!state.isAddressPickerFlow) {
+      // create marker if it doesn't exist
+      if (!window.POOF.marker) {
+        const icon = getMarkerIcon()
+        window.POOF.marker = window.L.marker([latN, lngN], {
+          draggable: true,
+          icon: icon || undefined,
+        }).addTo(map)
 
-      window.POOF.marker.on('dragend', (e) => {
-        const p = e.target.getLatLng()
-        void updatePointAndAddress(p.lat, p.lng, {
-          source: 'user',
-          zoom: map?.getZoom() || 18,
+        window.POOF.marker.on('dragend', (e) => {
+          const p = e.target.getLatLng()
+          void updatePointAndAddress(p.lat, p.lng, {
+            source: 'user',
+            zoom: map?.getZoom() || 18,
+          })
         })
-      })
+      }
+
+      window.POOF.marker.setLatLng([latN, lngN])
+      const icon = getMarkerIcon()
+      if (icon) window.POOF.marker.setIcon(icon)
+
+      state.marker = window.POOF.marker
+    } else {
+      if (window.POOF.marker && map.hasLayer(window.POOF.marker)) {
+        try { map.removeLayer(window.POOF.marker) } catch (_) {}
+      }
+      window.POOF.marker = null
+      state.marker = null
     }
-
-    window.POOF.marker.setLatLng([latN, lngN])
-    const icon = getMarkerIcon()
-    if (icon) window.POOF.marker.setIcon(icon)
-
-    state.marker = window.POOF.marker
 
     // ensure map centers on the marker (except courier location streaming updates)
     if (map && options?.source !== 'courier') {
@@ -893,31 +1018,19 @@ async function buildRoute(fromLat, fromLng, toLat, toLng) {
     state.geoBtnBoundEl = btn
 
     btn.addEventListener('click', () => {
-      if (!navigator.geolocation) {
-        dispatchMapUiError('Геолокація не підтримується вашим браузером.', { useAlertFallback: true })
-        return
-      }
+      if (state.geoActionInFlight) return
 
-      navigator.geolocation.getCurrentPosition(
-        (pos) => {
-          const lat = pos.coords.latitude
-          const lng = pos.coords.longitude
-          // --------- ADDED (prod) ---------
-          if (!isValidLatLng(lat, lng)) return
-
-          persistUserLocation(lat, lng, { source: 'user' })
-          setUserLocationResolving(false, { resolved: true })
-
-          updatePointAndAddress(lat, lng, {
-            source: 'user',
-            zoom: 18,
-          })
-        },
-        (error) => {
-          handleGeolocationError(error, { useAlertFallback: true, markResolved: true })
-        },
-        { enableHighAccuracy: true, timeout: 12000, maximumAge: 0 }
-      )
+      requestCurrentLocation({
+        explicitAction: true,
+        useAlertFallback: true,
+        notify: true,
+        source: 'button',
+        successSource: 'user',
+        persistSource: 'user',
+        timeout: 12000,
+        maximumAge: 0,
+        closeAddressBook: false,
+      })
     })
   }
 
@@ -947,7 +1060,7 @@ async function buildRoute(fromLat, fromLng, toLat, toLng) {
         })
       },
       (error) => {
-        handleGeolocationError(error, { context: 'bootstrap', log: false })
+        handleGeolocationError(error, { context: 'bootstrap', log: false, notify: false, source: 'bootstrap' })
       },
       { enableHighAccuracy: true, timeout: 10000, maximumAge: 60000 }
     )
@@ -1034,6 +1147,7 @@ async function buildRoute(fromLat, fromLng, toLat, toLng) {
     state.el = el
 
     const isAddressPickerFlow = Boolean(el.closest('#address-form'))
+    state.isAddressPickerFlow = isAddressPickerFlow
 
     state.instance = window.L.map(el, {
       zoomControl: !isAddressPickerFlow,
@@ -1065,6 +1179,9 @@ async function buildRoute(fromLat, fromLng, toLat, toLng) {
       const lat = center.lat
       const lng = center.lng
 
+      state.lastLat = Number(lat)
+      state.lastLng = Number(lng)
+
       window.dispatchEvent(
         new CustomEvent('poof:map-center-changed', {
           detail: {
@@ -1077,20 +1194,22 @@ async function buildRoute(fromLat, fromLng, toLat, toLng) {
       scheduleReverseGeocode(lat, lng, { source: 'map-move' })
     })
 
-    state.instance.on('click', function (e) {
-      const lat = e.latlng.lat
-      const lng = e.latlng.lng
+    if (!isAddressPickerFlow) {
+      state.instance.on('click', function (e) {
+        const lat = e.latlng.lat
+        const lng = e.latlng.lng
 
-      state.addressLocked = false
-      window.dispatchEvent(new CustomEvent('address:unlock', {
-        detail: { reason: 'map-click' },
-      }))
+        state.addressLocked = false
+        window.dispatchEvent(new CustomEvent('address:unlock', {
+          detail: { reason: 'map-click' },
+        }))
 
-      void updatePointAndAddress(lat, lng, {
-        source: 'user',
-        zoom: state.instance?.getZoom() || 18,
+        void updatePointAndAddress(lat, lng, {
+          source: 'user',
+          zoom: state.instance?.getZoom() || 18,
+        })
       })
-    })
+    }
 
     // применяем pendingPoint (если события пришли раньше)
     if (state.pendingPoint) {
@@ -1322,33 +1441,19 @@ async function buildRoute(fromLat, fromLng, toLat, toLng) {
   })
 
   window.addEventListener('use-current-location', () => {
-    if (!navigator.geolocation) {
-      dispatchMapUiError('Геолокація не підтримується вашим браузером.', { useAlertFallback: true })
-      return
-    }
+    if (state.geoActionInFlight) return
 
-    navigator.geolocation.getCurrentPosition(
-      (pos) => {
-        const lat = pos.coords?.latitude
-        const lng = pos.coords?.longitude
-        if (!isValidLatLng(lat, lng)) return
-
-        console.log('User location:', lat, lng)
-        persistUserLocation(lat, lng, { source: 'user' })
-        setUserLocationResolving(false, { resolved: true })
-
-        void updatePointAndAddress(lat, lng, {
-          source: 'user',
-          zoom: 18,
-        })
-
-        window.dispatchEvent(new CustomEvent('close-address-book'))
-      },
-      (error) => {
-        handleGeolocationError(error, { useAlertFallback: true })
-      },
-      { enableHighAccuracy: true, timeout: 8000 }
-    )
+    requestCurrentLocation({
+      explicitAction: true,
+      useAlertFallback: true,
+      notify: true,
+      source: 'event',
+      successSource: 'user',
+      persistSource: 'user',
+      timeout: 8000,
+      maximumAge: 0,
+      closeAddressBook: true,
+    })
   })
 
   // ============================================================
@@ -1492,7 +1597,7 @@ window.addEventListener('build-route', (e) => {
         zoom: 17,
       })
     }, (error) => {
-      handleGeolocationError(error, { context: 'bootstrap', log: false })
+      handleGeolocationError(error, { context: 'bootstrap', log: false, notify: false, source: 'bootstrap' })
     }, { enableHighAccuracy: true, timeout: 12000, maximumAge: persistedUserLocation ? 60000 : 0 })
   } else {
     setUserLocationResolving(false, { resolved: Boolean(persistedUserLocation) || isSavedAddressLocked() || bootstrapApplied || state.hasActiveOrderBootstrap })
