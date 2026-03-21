@@ -53,7 +53,7 @@ class AddressForm extends Component
 
     public string $addressPrecision = AddressPrecision::None->value;
 
-    protected bool $houseTouchedManually = false;
+    public bool $houseTouchedManually = false;
     protected bool $updatingHouseFromMap = false;
 
     protected $listeners = [
@@ -134,6 +134,7 @@ class AddressForm extends Component
     {
         $this->search = null;
         $this->summarySearch = null;
+        $this->resetManualHouseGuard();
         $this->clearSuggestions();
     }
 
@@ -230,6 +231,7 @@ class AddressForm extends Component
             return;
         }
 
+        $this->resetManualHouseGuard();
         $this->place_id = null;
         $this->search = $this->normalizeSearch($item['label'] ?? $item['line1'] ?? null);
         $this->summarySearch = $this->search;
@@ -392,7 +394,7 @@ class AddressForm extends Component
         ]);
 
         $this->clearSuggestions();
-        $this->houseTouchedManually = false;
+        $this->resetManualHouseGuard();
         $this->updatingHouseFromMap = false;
     }
 
@@ -489,8 +491,13 @@ class AddressForm extends Component
         $this->building_type = 'apartment';
         $this->addressPrecision = AddressPrecision::None->value;
         $this->clearSuggestions();
-        $this->houseTouchedManually = false;
+        $this->resetManualHouseGuard();
         $this->updatingHouseFromMap = false;
+    }
+
+    protected function resetManualHouseGuard(): void
+    {
+        $this->houseTouchedManually = false;
     }
 
     protected function clearSuggestions(): void

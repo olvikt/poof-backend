@@ -58,7 +58,7 @@ class AddressFormSetCoordsTest extends TestCase
     public function test_it_keeps_manual_house_when_user_has_already_touched_it(): void
     {
         Http::fake([
-            'http://localhost/api/geocode*' => Http::response([], 500),
+            url('/api/geocode').'*' => Http::response([], 500),
         ]);
 
         $this->mock(ResolveAddressFromPoint::class)
@@ -81,6 +81,76 @@ class AddressFormSetCoordsTest extends TestCase
             ->assertSet('house', '11A')
             ->assertSet('street', 'Main Street')
             ->assertSet('search', 'Main Street 99, Kyiv, Kyiv region');
+    }
+
+
+    public function test_select_suggestion_resets_manual_house_guard_for_new_address_context(): void
+    {
+        Http::fake([
+            url('/api/geocode').'*' => Http::response([], 500),
+        ]);
+
+        $this->mock(ResolveAddressFromPoint::class)
+            ->shouldReceive('execute')
+            ->once()
+            ->andReturn(new ResolvedAddressData(
+                street: 'Suggestion Street',
+                house: '42',
+                city: 'Kyiv',
+                region: 'Kyiv region',
+                search: 'Suggestion Street 42, Kyiv, Kyiv region',
+            ));
+
+        Livewire::test(AddressForm::class)
+            ->set('street', 'Manual Street')
+            ->set('city', 'Kyiv')
+            ->set('house', '11A')
+            ->call('updatedHouse')
+            ->call('setPhotonSuggestions', [[
+                'lat' => 50.46,
+                'lng' => 30.53,
+                'street' => 'Suggestion Street',
+                'house' => null,
+                'city' => 'Kyiv',
+                'region' => 'Kyiv region',
+                'label' => 'Suggestion Street, Kyiv',
+            ]])
+            ->call('selectSuggestion', 0)
+            ->assertSet('houseTouchedManually', false)
+            ->call('setCoords', 50.46, 30.53, 'map')
+            ->assertSet('house', '42')
+            ->assertSet('street', 'Suggestion Street')
+            ->assertSet('search', 'Suggestion Street 42, Kyiv, Kyiv region');
+    }
+
+    public function test_clear_search_resets_manual_house_guard_for_new_address_context(): void
+    {
+        Http::fake([
+            url('/api/geocode').'*' => Http::response([], 500),
+        ]);
+
+        $this->mock(ResolveAddressFromPoint::class)
+            ->shouldReceive('execute')
+            ->once()
+            ->andReturn(new ResolvedAddressData(
+                street: 'New Street',
+                house: '21',
+                city: 'Dnipro',
+                region: 'Dnipropetrovsk region',
+                search: 'New Street 21, Dnipro, Dnipropetrovsk region',
+            ));
+
+        Livewire::test(AddressForm::class)
+            ->set('street', 'Manual Street')
+            ->set('city', 'Kyiv')
+            ->set('house', '11A')
+            ->call('updatedHouse')
+            ->call('clearSearch')
+            ->assertSet('houseTouchedManually', false)
+            ->call('setCoords', 48.46, 35.05, 'map')
+            ->assertSet('house', '21')
+            ->assertSet('street', 'New Street')
+            ->assertSet('search', 'New Street 21, Dnipro, Dnipropetrovsk region');
     }
 
     public function test_non_map_sources_only_update_coordinates_without_reverse_fill(): void
