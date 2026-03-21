@@ -53,7 +53,7 @@ class AddressForm extends Component
 
     public string $addressPrecision = AddressPrecision::None->value;
 
-    protected bool $houseTouchedManually = false;
+    public bool $houseTouchedManually = false;
     protected bool $updatingHouseFromMap = false;
 
     protected $listeners = [

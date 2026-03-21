@@ -58,7 +58,7 @@ class AddressFormSetCoordsTest extends TestCase
     public function test_it_keeps_manual_house_when_user_has_already_touched_it(): void
     {
         Http::fake([
-            'http://localhost/api/geocode*' => Http::response([], 500),
+            url('/api/geocode').'*' => Http::response([], 500),
         ]);
 
         $this->mock(ResolveAddressFromPoint::class)

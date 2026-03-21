@@ -13,7 +13,7 @@ class AddressFormUpdatedHouseTest extends TestCase
     public function test_manual_house_update_sets_coordinates_and_dispatches_marker(): void
     {
         Http::fake([
-            'http://localhost/api/geocode*' => Http::response([
+            url('/api/geocode').'*' => Http::response([
                 ['lat' => '50.4501', 'lng' => '30.5234'],
             ]),
         ]);
@@ -30,7 +30,7 @@ class AddressFormUpdatedHouseTest extends TestCase
     public function test_it_geocodes_house_update_using_search_fallback_when_street_is_empty(): void
     {
         Http::fake([
-            'http://localhost/api/geocode*' => Http::response([
+            url('/api/geocode').'*' => Http::response([
                 ['lat' => '49.8397', 'lng' => '24.0297'],
             ]),
         ]);
@@ -72,7 +72,7 @@ class AddressFormUpdatedHouseTest extends TestCase
     public function test_exact_manual_point_is_not_overwritten_by_forward_geocode(): void
     {
         Http::fake([
-            'http://localhost/api/geocode*' => Http::response([
+            url('/api/geocode').'*' => Http::response([
                 ['lat' => '49.8397', 'lng' => '24.0297'],
             ]),
         ]);
@@ -90,7 +90,7 @@ class AddressFormUpdatedHouseTest extends TestCase
     public function test_unsuccessful_geocode_response_does_not_break_existing_state(): void
     {
         Http::fake([
-            'http://localhost/api/geocode*' => Http::response([], 500),
+            url('/api/geocode').'*' => Http::response([], 500),
         ]);
 
         Livewire::test(AddressForm::class)
@@ -106,7 +106,7 @@ class AddressFormUpdatedHouseTest extends TestCase
     public function test_missing_coordinates_in_geocode_response_do_not_break_existing_state(): void
     {
         Http::fake([
-            'http://localhost/api/geocode*' => Http::response([
+            url('/api/geocode').'*' => Http::response([
                 ['lat' => '50.45'],
             ]),
         ]);
