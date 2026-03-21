@@ -287,6 +287,24 @@
                     </div>
 
                     <div
+                        x-show="shouldShowCurrentMapPointSelection()"
+                        x-cloak
+                        class="px-2 pb-2"
+                    >
+                        <button
+                            type="button"
+                            x-on:click="selectSuggestion(currentMapPointSelection())"
+                            class="flex w-full items-start gap-3 rounded-2xl px-4 py-4 text-left transition hover:bg-neutral-900"
+                        >
+                            <span class="mt-0.5 text-yellow-400">📍</span>
+                            <span class="min-w-0 flex-1">
+                                <span class="block truncate text-sm font-semibold text-white" x-text="currentMapPointSelection()?.line1 || currentMapPointSelection()?.label || ''"></span>
+                                <span class="mt-1 block truncate text-xs text-neutral-400">Обрати адресу з карти</span>
+                            </span>
+                        </button>
+                    </div>
+
+                    <div
                         x-show="shouldShowCurrentLocationAction()"
                         x-cloak
                         class="px-2 pb-2"
