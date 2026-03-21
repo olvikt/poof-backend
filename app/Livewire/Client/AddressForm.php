@@ -17,7 +17,6 @@ use App\Support\Address\AddressCoordinatePolicy;
 use App\Support\Address\AddressPrecision;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Validation\ValidationException;
-use Livewire\Attributes\Locked;
 use Livewire\Component;
 
 class AddressForm extends Component
@@ -54,7 +53,6 @@ class AddressForm extends Component
 
     public string $addressPrecision = AddressPrecision::None->value;
 
-    #[Locked]
     public bool $houseTouchedManually = false;
     protected bool $updatingHouseFromMap = false;
 
