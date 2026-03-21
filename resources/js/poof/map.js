@@ -225,16 +225,57 @@ export default function initMap() {
     return distanceKm(Number(lat), Number(lng), Number(orderLL.lat), Number(orderLL.lng)) <= maxCityDistanceKm
   }
 
-  function dispatchMapUiError(message) {
+  function dispatchMapUiError(message, options = {}) {
+    if (!message) return
+
     window.dispatchEvent(
       new CustomEvent('notify', {
-        detail: [{ type: 'error', message }],
+        detail: [{ type: options.type || 'error', message }],
       })
     )
 
-    if (typeof window.alert === 'function') {
+    if (options.useAlertFallback === true && typeof window.alert === 'function') {
       window.alert(message)
     }
+  }
+
+  function getGeolocationErrorMessage(error, options = {}) {
+    if (!navigator.geolocation) {
+      return 'Геолокація не підтримується вашим браузером.'
+    }
+
+    const context = options.context === 'bootstrap'
+      ? 'Щоб показати локально релевантні адреси, дозвольте доступ до геолокації або введіть адресу вручну.'
+      : 'Переконайтеся, що доступ до геолокації дозволений у браузері та налаштуваннях пристрою.'
+
+    switch (Number(error?.code)) {
+      case error?.PERMISSION_DENIED:
+      case 1:
+        return `Доступ до геолокації заборонено. ${context}`
+      case error?.TIMEOUT:
+      case 3:
+        return 'Не вдалося визначити локацію вчасно. Спробуйте ще раз або виберіть адресу вручну.'
+      case error?.POSITION_UNAVAILABLE:
+      case 2:
+      default:
+        return 'Локація тимчасово недоступна. Перевірте сигнал GPS або виберіть адресу вручну.'
+    }
+  }
+
+  function handleGeolocationError(error, options = {}) {
+    const message = getGeolocationErrorMessage(error, options)
+
+    if (options.markResolved !== false) {
+      setUserLocationResolving(false, { resolved: true })
+    }
+
+    dispatchMapUiError(message, { useAlertFallback: options.useAlertFallback === true })
+
+    if (options.log !== false) {
+      console.error('Geolocation error', error)
+    }
+
+    return message
   }
 
   function debugMapFlow(event, payload = {}) {
@@ -853,7 +894,7 @@ async function buildRoute(fromLat, fromLng, toLat, toLng) {
 
     btn.addEventListener('click', () => {
       if (!navigator.geolocation) {
-        alert('Геолокація не підтримується')
+        dispatchMapUiError('Геолокація не підтримується вашим браузером.', { useAlertFallback: true })
         return
       }
 
@@ -872,7 +913,9 @@ async function buildRoute(fromLat, fromLng, toLat, toLng) {
             zoom: 18,
           })
         },
-        () => alert('Не вдалося отримати локацію'),
+        (error) => {
+          handleGeolocationError(error, { useAlertFallback: true, markResolved: true })
+        },
         { enableHighAccuracy: true, timeout: 12000, maximumAge: 0 }
       )
     })
@@ -903,8 +946,8 @@ async function buildRoute(fromLat, fromLng, toLat, toLng) {
           zoom: 17,
         })
       },
-      () => {
-        setUserLocationResolving(false, { resolved: true })
+      (error) => {
+        handleGeolocationError(error, { context: 'bootstrap', log: false })
       },
       { enableHighAccuracy: true, timeout: 10000, maximumAge: 60000 }
     )
@@ -1280,7 +1323,7 @@ async function buildRoute(fromLat, fromLng, toLat, toLng) {
 
   window.addEventListener('use-current-location', () => {
     if (!navigator.geolocation) {
-      alert('Геолокація не підтримується браузером')
+      dispatchMapUiError('Геолокація не підтримується вашим браузером.', { useAlertFallback: true })
       return
     }
 
@@ -1301,10 +1344,8 @@ async function buildRoute(fromLat, fromLng, toLat, toLng) {
 
         window.dispatchEvent(new CustomEvent('close-address-book'))
       },
-      (err) => {
-        setUserLocationResolving(false, { resolved: true })
-        console.error('Geolocation error', err)
-        alert('Не вдалося отримати вашу локацію')
+      (error) => {
+        handleGeolocationError(error, { useAlertFallback: true })
       },
       { enableHighAccuracy: true, timeout: 8000 }
     )
@@ -1450,8 +1491,8 @@ window.addEventListener('build-route', (e) => {
         source: 'geolocation',
         zoom: 17,
       })
-    }, () => {
-      setUserLocationResolving(false, { resolved: true })
+    }, (error) => {
+      handleGeolocationError(error, { context: 'bootstrap', log: false })
     }, { enableHighAccuracy: true, timeout: 12000, maximumAge: persistedUserLocation ? 60000 : 0 })
   } else {
     setUserLocationResolving(false, { resolved: Boolean(persistedUserLocation) || isSavedAddressLocked() || bootstrapApplied || state.hasActiveOrderBootstrap })
