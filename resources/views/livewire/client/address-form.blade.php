@@ -39,7 +39,7 @@
                 type="button"
                 id="use-location-btn"
                 :disabled="geoActionState === 'loading'"
-                :class="geoActionState === 'loading' ? 'opacity-80 cursor-wait' : ''"
+                :class="geoActionState === 'loading' ? 'cursor-wait' : ''"
                 class="address-picker-map-overlay address-picker-location-action absolute bottom-4 right-4 inline-flex items-center gap-2 rounded-full border border-black/5 bg-white px-4 py-3 text-sm font-semibold text-neutral-950 shadow-[0_16px_40px_-20px_rgba(15,23,42,0.45)] backdrop-blur-sm transition hover:bg-neutral-50 active:scale-95 disabled:pointer-events-none"
             >
                 <svg aria-hidden="true" viewBox="0 0 20 20" class="h-6 w-6 text-black" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round">
@@ -101,8 +101,8 @@
                 @enderror
             </div>
 
-            <div class="rounded-[1.35rem] border border-white/14 bg-neutral-900/95 px-4 py-3.5 shadow-[0_18px_48px_-34px_rgba(0,0,0,0.95)]">
-                <div class="mb-2.5 flex items-center justify-between gap-3">
+            <div class="building-type-panel rounded-[1.15rem] px-3.5 py-3">
+                <div class="flex items-center justify-between gap-3">
                     <div>
                         <p class="text-[11px] font-semibold uppercase tracking-[0.2em] text-neutral-500">Тип будівлі</p>
                     </div>
@@ -120,9 +120,9 @@
                     </button>
                 </div>
 
-                <div class="pr-8">
+                <div class="mt-2 pr-6">
                     <p class="text-sm font-semibold text-white">Приватний будинок</p>
-                    <p class="mt-1 text-xs leading-5 text-neutral-300">Увімкніть якщо будинок приватний.</p>
+                    <p class="mt-1 text-xs leading-4 text-neutral-400">Увімкніть якщо будинок приватний.</p>
                 </div>
             </div>
 
@@ -149,26 +149,29 @@
         </div>
 
         @if($building_type === 'apartment')
-            <section class="address-picker-section-stack address-picker-sheet-section space-y-5 px-4 pb-1">
-                <label class="text-xs text-gray-400 block">Деталізація</label>
+            <section class="address-picker-section-stack address-picker-sheet-section space-y-4 px-4 pb-1">
+                <div class="flex items-center justify-between gap-3">
+                    <label class="block text-xs text-gray-400">Деталізація</label>
+                    <span class="text-[11px] text-neutral-500">* Обов'язково для квартири</span>
+                </div>
 
-                <div class="address-detail-grid mt-3">
+                <div class="address-detail-grid">
                     <div class="address-mini-input">
-                        <x-poof.input-floating label="Підʼїзд" model="entrance" center inputmode="numeric" pattern="[0-9]*" />
+                        <x-poof.input-floating label="Підʼїзд *" model="entrance" center inputmode="numeric" pattern="[0-9]*" />
                         @error('entrance')
                             <p class="mt-1 text-xs text-red-400">{{ $message }}</p>
                         @enderror
                     </div>
 
                     <div class="address-mini-input">
-                        <x-poof.input-floating label="Поверх" model="floor" center inputmode="numeric" pattern="[0-9]*" />
+                        <x-poof.input-floating label="Поверх *" model="floor" center inputmode="numeric" pattern="[0-9]*" />
                         @error('floor')
                             <p class="mt-1 text-xs text-red-400">{{ $message }}</p>
                         @enderror
                     </div>
 
                     <div class="address-mini-input">
-                        <x-poof.input-floating label="Кв./офіс" model="apartment" center inputmode="numeric" pattern="[0-9]*" />
+                        <x-poof.input-floating label="Кв./офіс *" model="apartment" center inputmode="numeric" pattern="[0-9]*" />
                         @error('apartment')
                             <p class="mt-1 text-xs text-red-400">{{ $message }}</p>
                         @enderror
@@ -385,7 +388,7 @@
     <style>
     #address-form {
         --address-sheet-bg: linear-gradient(180deg, rgba(24, 24, 27, 0.985) 0%, rgba(12, 12, 14, 0.99) 100%);
-        --address-sheet-border: rgba(255, 255, 255, 0.07);
+        --address-sheet-border: rgba(255, 255, 255, 0.05);
         --address-safe-top: max(env(safe-area-inset-top), 0px);
         position: relative;
         padding-top: 0;
@@ -401,7 +404,7 @@
     #address-form .address-picker-map-shell {
         background:
             radial-gradient(circle at top center, rgba(247, 208, 96, 0.16) 0%, rgba(255, 255, 255, 0.06) 18%, rgba(255, 255, 255, 0) 46%),
-            linear-gradient(180deg, rgba(20, 20, 24, 0.12) 0%, rgba(20, 20, 24, 0.045) 18%, rgba(20, 20, 24, 0) 38%);
+            linear-gradient(180deg, rgba(20, 20, 24, 0.08) 0%, rgba(20, 20, 24, 0.03) 18%, rgba(20, 20, 24, 0) 38%);
         isolation: isolate;
     }
 
@@ -413,7 +416,7 @@
         padding-top: var(--address-safe-top);
         overflow: hidden;
         box-sizing: border-box;
-        background: linear-gradient(180deg, rgba(24, 25, 31, 0.94) 0%, rgba(24, 25, 31, 0.35) 22%, rgba(24, 25, 31, 0) 45%);
+        background: linear-gradient(180deg, rgba(24, 25, 31, 0.82) 0%, rgba(24, 25, 31, 0.2) 22%, rgba(24, 25, 31, 0) 45%);
     }
 
     #address-form .address-picker-map-frame .map-container {
@@ -429,8 +432,8 @@
     #address-form .address-picker-status-fade {
         height: calc(5.75rem + var(--address-safe-top));
         background:
-            linear-gradient(180deg, rgba(24, 25, 31, 0.26) 0%, rgba(24, 25, 31, 0.11) 36%, rgba(24, 25, 31, 0) 100%),
-            radial-gradient(circle at top center, rgba(247, 208, 96, 0.10) 0%, rgba(247, 208, 96, 0.04) 28%, rgba(247, 208, 96, 0) 58%);
+            linear-gradient(180deg, rgba(24, 25, 31, 0.12) 0%, rgba(24, 25, 31, 0.05) 36%, rgba(24, 25, 31, 0) 100%),
+            radial-gradient(circle at top center, rgba(247, 208, 96, 0.05) 0%, rgba(247, 208, 96, 0.02) 28%, rgba(247, 208, 96, 0) 58%);
         mix-blend-mode: normal;
         opacity: 1;
     }
@@ -451,41 +454,46 @@
     #address-form .address-picker-bottom-sheet {
         position: relative;
         z-index: 5;
-        margin-top: -2.9rem;
-        padding: 0 0 1.5rem;
-        border-radius: 2rem 2rem 0 0;
+        margin-top: -2.6rem;
+        padding: 0 0 1.25rem;
+        border-radius: 1.75rem 1.75rem 0 0;
         background: var(--address-sheet-bg);
         border: 1px solid var(--address-sheet-border);
-        box-shadow: 0 -16px 45px -28px rgba(0, 0, 0, 0.9), 0 28px 64px -34px rgba(0, 0, 0, 0.86);
-        backdrop-filter: blur(18px);
+        box-shadow: 0 -14px 36px -28px rgba(0, 0, 0, 0.82), 0 22px 52px -38px rgba(0, 0, 0, 0.82);
+        backdrop-filter: blur(12px);
         overflow: hidden;
     }
 
     #address-form .address-picker-sheet-block {
-        padding: 1rem 1rem 0.5rem;
+        padding: 0.85rem 1rem 0.35rem;
     }
 
     #address-form .address-picker-sheet-section {
         position: relative;
         z-index: 5;
         margin-top: 0;
-        padding-top: 0.9rem;
+        padding-top: 0.75rem;
         background: transparent;
         border-inline: 0;
     }
 
     #address-form .address-picker-sheet-section:last-of-type {
-        padding-bottom: 1.5rem;
+        padding-bottom: 1.2rem;
     }
 
     #address-form .address-picker-section-stack + .address-picker-section-stack {
         margin-top: 0;
         border-top: 1px solid rgba(255, 255, 255, 0.06);
-        padding-top: 1rem;
+        padding-top: 0.85rem;
     }
 
     #address-form .building-type-toggle {
         min-height: 4.1rem;
+    }
+
+    #address-form .building-type-panel {
+        border: 1px solid rgba(255, 255, 255, 0.06);
+        background: rgba(255, 255, 255, 0.025);
     }
 
     #address-form .building-type-switch {

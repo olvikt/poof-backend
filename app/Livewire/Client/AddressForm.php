@@ -286,10 +286,20 @@ class AddressForm extends Component
             'region' => 'nullable|string|max:120',
             'street' => 'required|string|min:2|max:120',
             'house' => 'required|string|max:20',
-            'entrance' => 'nullable|string|max:10',
-            'floor' => 'nullable|string|max:10',
+            'entrance' => 'required_if:building_type,apartment|nullable|string|max:10',
+            'floor' => 'required_if:building_type,apartment|nullable|string|max:10',
             'intercom' => 'nullable|string|max:10',
-            'apartment' => 'nullable|string|max:10',
+            'apartment' => 'required_if:building_type,apartment|nullable|string|max:10',
+        ];
+    }
+
+
+    protected function messages(): array
+    {
+        return [
+            "entrance.required_if" => "Вкажіть підʼїзд для квартири.",
+            'floor.required_if' => 'Вкажіть поверх для квартири.',
+            'apartment.required_if' => 'Вкажіть квартиру/офіс для квартири.',
         ];
     }
 
@@ -321,6 +331,10 @@ class AddressForm extends Component
             $this->dispatch('sheet:close', name: 'addressForm');
             $this->dispatch('sheet:close');
         } catch (ValidationException $e) {
+            if ($this->building_type === 'apartment' && collect(['entrance', 'floor', 'apartment'])->some(fn (string $field): bool => array_key_exists($field, $e->errors()))) {
+                $this->dispatch('notify', type: 'error', message: 'Для квартири заповніть підʼїзд, поверх і квартиру.');
+            }
+
             Log::error('Address save failed', [
                 'user_id' => auth()->id(),
                 'payload' => $this->payloadForLogs(),

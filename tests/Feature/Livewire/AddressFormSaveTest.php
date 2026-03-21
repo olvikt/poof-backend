@@ -155,6 +155,60 @@ class AddressFormSaveTest extends TestCase
         ]);
     }
 
+
+
+    public function test_it_requires_apartment_details_for_apartment_addresses(): void
+    {
+        $user = User::factory()->create();
+        $this->actingAs($user);
+
+        Livewire::test(AddressForm::class)
+            ->set('label', 'home')
+            ->set('building_type', 'apartment')
+            ->set('search', 'Main Street, Kyiv')
+            ->set('city', 'Kyiv')
+            ->set('street', 'Main Street')
+            ->set('house', '7A')
+            ->set('lat', 50.45)
+            ->set('lng', 30.52)
+            ->set('entrance', null)
+            ->set('floor', null)
+            ->set('apartment', null)
+            ->call('save')
+            ->assertHasErrors(['entrance' => ['required_if'], 'floor' => ['required_if'], 'apartment' => ['required_if']])
+            ->assertDispatched('notify', type: 'error', message: 'Для квартири заповніть підʼїзд, поверх і квартиру.');
+    }
+
+    public function test_it_allows_private_house_without_apartment_details(): void
+    {
+        $user = User::factory()->create();
+        $this->actingAs($user);
+
+        Livewire::test(AddressForm::class)
+            ->set('label', 'home')
+            ->set('building_type', 'house')
+            ->set('search', 'Main Street, Kyiv')
+            ->set('city', 'Kyiv')
+            ->set('street', 'Main Street')
+            ->set('house', '7A')
+            ->set('lat', 50.45)
+            ->set('lng', 30.52)
+            ->set('entrance', null)
+            ->set('floor', null)
+            ->set('apartment', null)
+            ->call('save')
+            ->assertHasNoErrors()
+            ->assertDispatched('address-saved');
+
+        $this->assertDatabaseHas('client_addresses', [
+            'user_id' => $user->id,
+            'building_type' => 'house',
+            'entrance' => null,
+            'floor' => null,
+            'apartment' => null,
+        ]);
+    }
+
     public function test_it_requires_coordinates_with_current_validation_message(): void
     {
         $user = User::factory()->create();
