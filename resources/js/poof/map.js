@@ -350,7 +350,7 @@ export default function initMap() {
     }
 
     if (options.explicitAction) {
-      setGeoActionLoading(true, 'Визначаємо вашу локацію…')
+      setGeoActionLoading(true)
     }
 
     navigator.geolocation.getCurrentPosition(
