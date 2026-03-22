@@ -11,6 +11,7 @@ TARGET_REF="${ROLLBACK_REF:-${1:-}}"
 APP_DIR="${APP_DIR:-/var/www/poof}"
 PHP_BIN="${PHP_BIN:-php}"
 COMPOSER_BIN="${COMPOSER_BIN:-composer}"
+NPM_BIN="${NPM_BIN:-npm}"
 SUPERVISORCTL_BIN="${SUPERVISORCTL_BIN:-supervisorctl}"
 HEALTHCHECK_URL="${HEALTHCHECK_URL:-https://api.poof.com.ua/up}"
 HEALTHCHECK_ATTEMPTS="${HEALTHCHECK_ATTEMPTS:-10}"
@@ -113,6 +114,21 @@ git clean -fd
 
 echo "[rollback] installing PHP dependencies"
 "$COMPOSER_BIN" install --no-dev --optimize-autoloader
+
+echo "[rollback] installing JS dependencies"
+"$NPM_BIN" ci
+
+echo "[rollback] building frontend assets"
+"$NPM_BIN" run build
+
+echo "[rollback] verifying frontend build artifacts"
+test -f public/build/manifest.json
+
+echo "[rollback] clearing Laravel config cache"
+"$PHP_BIN" artisan config:clear
+
+echo "[rollback] clearing Laravel optimized caches"
+"$PHP_BIN" artisan optimize:clear
 
 echo "[rollback] optimizing Laravel caches"
 "$PHP_BIN" artisan optimize
