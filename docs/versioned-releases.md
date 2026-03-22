@@ -35,13 +35,14 @@
   - semver/date hybrid вроде `v2026.03.19.1`, если команде так удобнее.
 - **Deploy contract:** `scripts/deploy.sh <release-ref>` или `DEPLOY_REF=<release-ref> bash scripts/deploy.sh`.
 - **Rollback contract:** `scripts/rollback.sh <release-ref>` или `ROLLBACK_REF=<release-ref> bash scripts/rollback.sh`.
-- **Traceability contract:** после deploy/rollback production host записывает:
-  - текущий release ref;
+- **Traceability contract:** после успешного deploy/rollback production host записывает:
+  - текущий known-good release ref;
+  - previous known-good release ref и commit;
   - requested ref и resolved ref;
-  - был ли использован legacy fallback path;
+  - был ли использован explicit path или legacy fallback path;
   - resolved commit SHA;
   - UTC time deploy/rollback;
-  - путь к локальному deploy log/state record.
+  - путь к локальному metadata snapshot и append-only release history ledger.
 
 Для минимального operational safety рекомендуется использовать именно **annotated tags** как release refs:
 
@@ -105,7 +106,8 @@ bash scripts/deploy.sh
 - явно помечает, был ли использован legacy fallback path;
 - делает `git reset --hard <resolved-commit>` вместо жёсткого `origin/main`;
 - записывает release state в `storage/app/current-release.json`;
-- кладёт deploy metadata snapshot в `storage/logs/deploy/`.
+- добавляет append-only запись в `storage/app/release-history.jsonl`;
+- кладёт metadata snapshot в `storage/logs/deploy/`.
 
 ## 5. Rollback a previous release
 
@@ -137,15 +139,16 @@ Rollback script теперь:
 
 - fetches tags/refs перед reset;
 - валидирует rollback ref;
-- логирует requested ref, resolved ref и commit;
+- логирует requested ref, resolved ref, commit и previous known-good release;
 - явно фиксирует, что fallback path не использовался;
-- обновляет `storage/app/current-release.json`;
-- пишет rollback record в `storage/logs/deploy/`;
+- обновляет `storage/app/current-release.json` только после успешного health-check;
+- добавляет append-only запись в `storage/app/release-history.jsonl`;
+- пишет rollback metadata snapshot в `storage/logs/deploy/`;
 - делает blocking health-check после rollback.
 
 ## 6. How to confirm what is in production
 
-Минимальная traceability теперь строится на двух местах:
+Минимальная traceability теперь строится на трёх местах:
 
 1. **Current state file**
 
@@ -161,19 +164,37 @@ cat storage/app/current-release.json
 - `resolved_ref`;
 - `fallback_ref`;
 - `fallback_used`;
+- `selection_mode`;
 - `commit`;
 - `deployed_at_utc`;
+- `previous_release_ref`;
+- `previous_commit`;
 - `deploy_log`;
+- `release_history`;
 - `deployment_type`.
 
-2. **Deploy log directory**
+2. **Append-only release history ledger**
+
+```bash
+cd /var/www/poof
+tail -n 5 storage/app/release-history.jsonl
+```
+
+Каждая строка — это JSON snapshot успешного deploy/rollback. Ledger удобен для быстрого ответа на вопросы:
+
+- какой release был до текущего;
+- когда production переключили на новый release;
+- был ли выбран explicit ref или legacy fallback path;
+- какой rollback уже выполнялся на этом хосте.
+
+3. **Deploy log directory**
 
 ```bash
 cd /var/www/poof
 ls -1 storage/logs/deploy
 ```
 
-Этого достаточно, чтобы ответить на вопрос: **“Что сейчас в проде, какой commit behind it и был ли это explicit release deploy или legacy fallback path?”**
+Этого достаточно, чтобы ответить на вопросы: **“Что сейчас в проде?”, “какой previous known-good release был до него?” и “был ли это explicit release deploy или legacy fallback path?”**
 
 ## 7. Operator contract summary
 
@@ -181,9 +202,11 @@ ls -1 storage/logs/deploy
 - **Legacy continuity path:** default `origin/main` оставлен только ради backward compatibility и emergency/manual continuity.
 - Если deploy был выполнен без explicit ref, это должно рассматриваться как осознанное исключение, а не как обычная практика.
 - Rollback должен выполняться на **previous release tag**, а не на произвольный remembered commit.
+- `storage/app/current-release.json` теперь отражает только последний **successful / known-good** release; failed health-check не должен перетирать current state.
 - После deploy/rollback оператор обязан:
   - проверить `storage/app/current-release.json`;
-  - убедиться, что `requested_ref`, `resolved_ref` и `fallback_used` выглядят ожидаемо;
+  - при необходимости посмотреть `tail -n 5 storage/app/release-history.jsonl`;
+  - убедиться, что `requested_ref`, `resolved_ref`, `selection_mode`, `previous_release_ref` и `fallback_used` выглядят ожидаемо;
   - выполнить `bash scripts/check-server.sh`;
   - убедиться, что health/smoke checks прошли.
 
