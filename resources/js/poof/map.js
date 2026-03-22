@@ -16,6 +16,57 @@
  * - Safe mount timing (layout-ready) + robust invalidate
  */
 
+function isFiniteLatLngForBootstrap(lat, lng) {
+  const latN = Number(lat)
+  const lngN = Number(lng)
+
+  if (!Number.isFinite(latN) || !Number.isFinite(lngN)) return false
+  if (latN === 0 && lngN === 0) return false
+  if (latN < -90 || latN > 90) return false
+  if (lngN < -180 || lngN > 180) return false
+
+  return true
+}
+
+function shouldApplyPersistedLocationOnBootstrap({
+  persistedLocation = null,
+  bootstrapApplied = false,
+  hasActiveOrderBootstrap = false,
+  isAddressPickerFlow = false,
+} = {}) {
+  return Boolean(
+    persistedLocation
+    && !bootstrapApplied
+    && !hasActiveOrderBootstrap
+    && !isAddressPickerFlow,
+  )
+}
+
+function buildCurrentLocationFallbackPlan({
+  allowPersistedFallback = false,
+  persistedLocation = null,
+  closeAddressBook = false,
+  source = 'user-fallback',
+  zoom = 17,
+} = {}) {
+  if (!allowPersistedFallback || !persistedLocation || !isFiniteLatLngForBootstrap(persistedLocation.lat, persistedLocation.lng)) {
+    return null
+  }
+
+  return {
+    lat: Number(Number(persistedLocation.lat).toFixed(6)),
+    lng: Number(Number(persistedLocation.lng).toFixed(6)),
+    source,
+    persistSource: persistedLocation.source || 'persisted',
+    zoom,
+    closeAddressBook: false,
+    message: 'Точну геолокацію не вдалося отримати, тому показали останню збережену точку. За потреби посуньте мапу вручну.',
+    warning: 'Точну локацію не вдалося отримати — використали останню збережену точку.',
+    requestedCloseAddressBook: Boolean(closeAddressBook),
+    usedPersistedFallback: true,
+  }
+}
+
 export default function initMap() {
   // ------------------------------------------------------------
   // Namespace
@@ -329,15 +380,22 @@ export default function initMap() {
   }
 
   function usePersistedLocationFallback(options = {}) {
-    const persisted = getPersistedUserLocation()
-    if (!persisted) return false
-
-    return applyCurrentLocation(persisted.lat, persisted.lng, {
-      source: options.source || 'user-fallback',
-      persistSource: persisted.source || 'persisted',
-      zoom: options.zoom ?? 17,
-      message: 'Точну геолокацію не вдалося отримати, тому показали останню збережену точку. За потреби посуньте мапу вручну.',
+    const plan = buildCurrentLocationFallbackPlan({
+      allowPersistedFallback: options.allowFallback === true,
+      persistedLocation: getPersistedUserLocation(),
       closeAddressBook: options.closeAddressBook === true,
+      source: options.source || 'user-fallback',
+      zoom: options.zoom ?? 17,
+    })
+
+    if (!plan) return false
+
+    return applyCurrentLocation(plan.lat, plan.lng, {
+      source: plan.source,
+      persistSource: plan.persistSource,
+      zoom: plan.zoom,
+      message: plan.message,
+      closeAddressBook: plan.closeAddressBook,
     })
   }
 
@@ -376,8 +434,16 @@ export default function initMap() {
           setGeoActionLoading(false)
         }
 
-        if (options.allowFallback !== false && usePersistedLocationFallback(options)) {
-          dispatchMapUiError('Точну локацію не вдалося отримати — використали останню збережену точку.', {
+        if (usePersistedLocationFallback(options)) {
+          const fallbackPlan = buildCurrentLocationFallbackPlan({
+            allowPersistedFallback: options.allowFallback === true,
+            persistedLocation: getPersistedUserLocation(),
+            closeAddressBook: options.closeAddressBook === true,
+            source: options.source || 'user-fallback',
+            zoom: options.zoom ?? 17,
+          })
+
+          dispatchMapUiError(fallbackPlan?.warning || 'Точну локацію не вдалося отримати — використали останню збережену точку.', {
             type: 'warning',
             useAlertFallback: false,
             notify: options.notify !== false,
@@ -1614,8 +1680,14 @@ window.addEventListener('build-route', (e) => {
   mountAny()
   const bootstrapApplied = applyBootstrapFromDom()
   const persistedUserLocation = getPersistedUserLocation()
+  const shouldBootstrapFromPersistedLocation = shouldApplyPersistedLocationOnBootstrap({
+    persistedLocation: persistedUserLocation,
+    bootstrapApplied,
+    hasActiveOrderBootstrap: state.hasActiveOrderBootstrap,
+    isAddressPickerFlow: state.isAddressPickerFlow,
+  })
 
-  if (!bootstrapApplied && !state.hasActiveOrderBootstrap && persistedUserLocation) {
+  if (shouldBootstrapFromPersistedLocation) {
     state.addressLocked = false
     setMarker(persistedUserLocation.lat, persistedUserLocation.lng, { emit: false, zoom: 17, source: 'persisted-user-location' })
 
@@ -1661,4 +1733,9 @@ window.addEventListener('build-route', (e) => {
   }
 
   POOF.getLastKnownUserLocation = getPersistedUserLocation
+}
+
+export {
+  buildCurrentLocationFallbackPlan,
+  shouldApplyPersistedLocationOnBootstrap,
 }
