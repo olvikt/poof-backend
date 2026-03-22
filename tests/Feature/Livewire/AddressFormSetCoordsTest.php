@@ -153,6 +153,57 @@ class AddressFormSetCoordsTest extends TestCase
             ->assertSet('search', 'New Street 21, Dnipro, Dnipropetrovsk region');
     }
 
+
+    public function test_stale_late_geolocation_update_does_not_override_selected_suggestion(): void
+    {
+        $this->mock(ResolveAddressFromPoint::class)
+            ->shouldNotReceive('execute');
+
+        Livewire::test(AddressForm::class)
+            ->call('setPhotonSuggestions', [[
+                'lat' => 48.4671,
+                'lng' => 35.0382,
+                'street' => 'Мандриківська',
+                'house' => '173',
+                'city' => 'Dnipro',
+                'region' => 'Dnipropetrovsk region',
+                'label' => 'Мандриківська 173, Dnipro',
+            ]])
+            ->call('selectSuggestion', 0)
+            ->call('setCoords', 48.5001, 35.1002, 'geolocation')
+            ->assertSet('lat', 48.4671)
+            ->assertSet('lng', 35.0382)
+            ->assertSet('street', 'Мандриківська')
+            ->assertSet('house', '173')
+            ->assertSet('search', 'Мандриківська 173, Dnipro')
+            ->assertSet('summarySearch', 'Мандриківська 173, Dnipro');
+    }
+
+    public function test_manual_map_correction_after_my_location_updates_visible_search_summary(): void
+    {
+        $this->mock(ResolveAddressFromPoint::class)
+            ->shouldReceive('execute')
+            ->once()
+            ->andReturn(new ResolvedAddressData(
+                street: 'Мандриківська',
+                house: '173',
+                city: 'Dnipro',
+                region: 'Dnipropetrovsk region',
+                search: 'Мандриківська 173, Dnipro, Dnipropetrovsk region',
+            ));
+
+        Livewire::test(AddressForm::class)
+            ->set('search', 'Моя локація')
+            ->set('summarySearch', 'Моя локація')
+            ->call('setCoords', 48.4671, 35.0382, 'user')
+            ->assertSet('lat', 48.4671)
+            ->assertSet('lng', 35.0382)
+            ->assertSet('street', 'Мандриківська')
+            ->assertSet('house', '173')
+            ->assertSet('search', 'Мандриківська 173, Dnipro, Dnipropetrovsk region')
+            ->assertSet('summarySearch', 'Мандриківська 173, Dnipro, Dnipropetrovsk region');
+    }
+
     public function test_non_map_sources_only_update_coordinates_without_reverse_fill(): void
     {
         $this->mock(ResolveAddressFromPoint::class)
