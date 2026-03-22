@@ -189,12 +189,14 @@ Failure любого из этих шагов = deploy failed.
 Оператор запускает:
 
 ```bash
+bash scripts/show-release.sh
 bash scripts/check-server.sh
 ```
 
 Обязательный результат:
 
 - все команды завершаются успешно;
+- вывод `bash scripts/show-release.sh` явно подтверждает current release, previous known-good release и deployment mode (`EXPLICIT` vs `FALLBACK`);
 - logs не содержат очевидных ошибок, связанных с только что выполненным deploy.
 
 ### Who confirms the post-deploy smoke
