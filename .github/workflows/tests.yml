@@ -144,6 +144,21 @@ jobs:
       - name: Run migrations
         run: php artisan migrate --force
 
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install npm deps
+        run: npm ci
+
+      - name: Build frontend
+        run: npm run build
+
+      - name: Verify frontend build artifacts
+        run: test -f public/build/manifest.json
+
       - name: Run narrow PWA regression evidence suite
         run: |
           php artisan test \
