@@ -303,7 +303,7 @@
                     >
                         <button
                             type="button"
-                            x-on:click="selectSuggestion(currentMapPointSelection())"
+                            x-on:click="openCurrentMapPointSelection()"
                             class="flex w-full items-start gap-3 rounded-2xl px-4 py-4 text-left transition hover:bg-neutral-900"
                         >
                             <span class="mt-0.5 text-yellow-400">📍</span>

@@ -36,6 +36,31 @@ class AddressFormSetCoordsTest extends TestCase
             ->assertSet('addressPrecision', 'exact');
     }
 
+    public function test_it_ignores_unknown_sync_sources_before_mutating_current_visible_point(): void
+    {
+        $this->mock(ResolveAddressFromPoint::class)
+            ->shouldNotReceive('execute');
+
+        Livewire::test(AddressForm::class)
+            ->set('search', 'Мандриківська 173, Dnipro')
+            ->set('summarySearch', 'Мандриківська 173, Dnipro')
+            ->set('street', 'Мандриківська')
+            ->set('house', '173')
+            ->set('city', 'Dnipro')
+            ->set('region', 'Dnipropetrovsk region')
+            ->set('lat', 48.4671)
+            ->set('lng', 35.0382)
+            ->set('addressPrecision', 'exact')
+            ->call('setCoords', 48.4240053, 35.0588747, 'sync')
+            ->assertSet('search', 'Мандриківська 173, Dnipro')
+            ->assertSet('summarySearch', 'Мандриківська 173, Dnipro')
+            ->assertSet('street', 'Мандриківська')
+            ->assertSet('house', '173')
+            ->assertSet('lat', 48.4671)
+            ->assertSet('lng', 35.0382)
+            ->assertSet('addressPrecision', 'exact');
+    }
+
     public function test_it_applies_house_fallbacks_resolved_by_reverse_geocode_service(): void
     {
         $this->mock(ResolveAddressFromPoint::class)

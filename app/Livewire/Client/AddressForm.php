@@ -258,6 +258,10 @@ class AddressForm extends Component
 
     public function setCoords(float $lat, float $lng, ?string $source = null): void
     {
+        if (! in_array($source, ['map', 'user', 'geolocation'], true)) {
+            return;
+        }
+
         if ($this->shouldIgnoreIncomingCoords($lat, $lng, $source)) {
             return;
         }
@@ -269,10 +273,6 @@ class AddressForm extends Component
             : AddressCoordinatePolicy::precisionForFieldGeocode($lat, $lng)->value;
         $this->place_id = null;
         $this->clearSuggestions();
-
-        if (! in_array($source, ['map', 'user', 'geolocation'], true)) {
-            return;
-        }
 
         $this->selectedAddressLocked = false;
 
