@@ -191,6 +191,27 @@ Run this checklist after deploy and after any change to `public/sw.js`, `public/
 9. HTML is revalidated so the browser does not keep serving stale markup that references removed hashed assets.
 10. Offline/repeat-visit behavior still preserves a basic landing load/install surface without breaking the page shell.
 
+### Automated vs manual boundary
+
+Current narrow automated regression coverage intentionally stays deterministic and source-contract focused:
+
+- automated file-level/unit coverage:
+  - `public/manifest.json` exists and is valid JSON;
+  - manifest core contract remains aligned for `id`, `name`, `short_name`, `start_url`, `scope`, `display`, theme/background colors, icons, and shortcut URLs;
+  - `resources/js/app.js` still registers `/sw.js` on `window.load`;
+  - `public/sw.js` still keeps explicit `CACHE_VERSION`;
+  - `public/sw.js` still excludes `/api/` and `/build/` from cache handling.
+- automated rendered-page coverage:
+  - landing page response still includes `<link rel="manifest" href="/manifest.json">`.
+
+The following checks remain manual/browser-level because stable automation would require a real browser/runtime environment and would be disproportionately wide for the current gate:
+
+- successful browser registration of `/sw.js`;
+- install button/banner visibility behavior around `beforeinstallprompt`, viewport size, and standalone mode;
+- post-deploy verification that new Vite outputs are resolved by fresh HTML;
+- HTML cache revalidation behavior under the real deployment stack;
+- offline/repeat-visit shell behavior.
+
 ## E. Address picker top chrome limitation note
 
 - The client address picker intentionally extends the map into the safe-area using `viewport-fit=cover`, safe-area offsets, and an overdrawn map container.
