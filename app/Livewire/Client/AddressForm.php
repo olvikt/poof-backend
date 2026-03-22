@@ -412,16 +412,18 @@ class AddressForm extends Component
 
     protected function shouldIgnoreIncomingCoords(float $lat, float $lng, ?string $source): bool
     {
-        if ($source !== 'geolocation' || ! $this->selectedAddressLocked) {
-            return false;
+        if ($source === 'geolocation') {
+            if ($this->selectedAddressLocked) {
+                return $this->hasExistingPoint()
+                    && (! $this->coordinatesMatch($this->lat, $lat) || ! $this->coordinatesMatch($this->lng, $lng));
+            }
+
+            return AddressPrecision::fromNullable($this->addressPrecision) === AddressPrecision::Exact
+                && $this->hasExistingPoint()
+                && (! $this->coordinatesMatch($this->lat, $lat) || ! $this->coordinatesMatch($this->lng, $lng));
         }
 
-        if ($this->lat === null || $this->lng === null) {
-            return false;
-        }
-
-        return ! $this->coordinatesMatch($this->lat, $lat)
-            || ! $this->coordinatesMatch($this->lng, $lng);
+        return false;
     }
 
     protected function coordinatesMatch(float $left, float $right): bool
@@ -546,6 +548,12 @@ class AddressForm extends Component
         }
 
         $this->dispatch('map:set-marker', lat: $this->lat, lng: $this->lng);
+        $this->dispatch('map:set-marker-precision', precision: $this->addressPrecision);
+    }
+
+    protected function hasExistingPoint(): bool
+    {
+        return $this->lat !== null && $this->lng !== null;
     }
 
     protected function normalizeSearch($value): string
