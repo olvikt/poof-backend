@@ -167,6 +167,7 @@ cd /var/www/poof
 git fetch --prune --tags origin
 bash scripts/deploy.sh release-YYYYMMDD-HHMM
 cat storage/app/current-release.json
+tail -n 5 storage/app/release-history.jsonl
 bash scripts/check-server.sh
 ```
 
@@ -174,7 +175,10 @@ bash scripts/check-server.sh
 
 - `requested_ref` совпадает с переданным release tag/ref;
 - `resolved_ref` совпадает с ожидаемым ref после resolution;
-- `fallback_used` равно `false`.
+- `selection_mode` = `"explicit"`;
+- `previous_release_ref` указывает на предыдущий known-good release;
+- `fallback_used` равно `false`;
+- `release_history` указывает на `storage/app/release-history.jsonl`.
 
 Legacy/emergency continuity workflow (только если explicit ref временно недоступен или старый вызов нельзя быстро поменять):
 
@@ -182,6 +186,7 @@ Legacy/emergency continuity workflow (только если explicit ref вре�
 cd /var/www/poof
 bash scripts/deploy.sh
 cat storage/app/current-release.json
+tail -n 5 storage/app/release-history.jsonl
 bash scripts/check-server.sh
 ```
 
@@ -189,6 +194,7 @@ bash scripts/check-server.sh
 
 - warning про fallback path был ожидаемым;
 - `fallback_ref` = `origin/main` (или иной настроенный default);
+- `selection_mode` = `"fallback"`;
 - `fallback_used` = `true`.
 
 Recommended rollback workflow:
@@ -198,8 +204,11 @@ cd /var/www/poof
 git tag --list 'release-*' --sort=-creatordate
 bash scripts/rollback.sh release-YYYYMMDD-HHMM
 cat storage/app/current-release.json
+tail -n 5 storage/app/release-history.jsonl
 bash scripts/check-server.sh
 ```
+
+Если health-check внутри `deploy.sh` или `rollback.sh` не проходит, `storage/app/current-release.json` не обновляется: файл продолжает показывать previous known-good release, а история не получает новую append-only запись. Это нужно, чтобы operator-facing state не указывал на release, который не прошёл blocking health gate.
 
 ## 9) Mandatory smoke-check after deploy
 

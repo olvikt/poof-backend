@@ -124,14 +124,16 @@ Blocking during deploy:
 - frontend manifest verification;
 - DB migrations;
 - Laravel cache rebuild;
-- release state recording;
+- release state recording for the successful/known-good release;
+- append-only release history recording;
 - blocking health-check against `https://api.poof.com.ua/up`.
 
 Operator note:
 
 - explicit release tag/ref is the canonical release path;
 - fallback `origin/main` remains soft-supported only for backward compatibility and emergency continuity;
-- no-ref deploys now emit a visible warning and leave `fallback_used=true` in `storage/app/current-release.json`.
+- no-ref deploys now emit a visible warning and leave `fallback_used=true` / `selection_mode="fallback"` in `storage/app/current-release.json`.
+- `storage/app/current-release.json` обновляется только после успешного health-check, а append-only `storage/app/release-history.jsonl` получает новую запись только для successful release transitions.
 
 Health gate теперь считается обязательным: если `https://api.poof.com.ua/up` не отвечает успешно после ограниченного числа retries, deploy завершается с non-zero exit code.
 
@@ -170,8 +172,9 @@ Canonical smoke runner: `scripts/check-server.sh`.
 - frontend build + manifest verification;
 - migrations;
 - Laravel cache rebuild;
-- запись release state (`storage/app/current-release.json`);
-- blocking health-check.
+- blocking health-check;
+- запись release state (`storage/app/current-release.json`) только для successful/known-good release;
+- append-only history entry в `storage/app/release-history.jsonl`.
 
 Дополнительный operator contract:
 
