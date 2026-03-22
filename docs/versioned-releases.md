@@ -150,7 +150,16 @@ Rollback script теперь:
 
 Минимальная traceability теперь строится на трёх местах:
 
-1. **Current state file**
+1. **Current state file / operator summary**
+
+Предпочтительный operator UX теперь начинается с одной команды:
+
+```bash
+cd /var/www/poof
+bash scripts/show-release.sh
+```
+
+Она печатает human-readable summary для current release, previous known-good release и последних transition entries из history ledger. При необходимости raw state всё ещё можно читать напрямую:
 
 ```bash
 cd /var/www/poof
@@ -204,9 +213,9 @@ ls -1 storage/logs/deploy
 - Rollback должен выполняться на **previous release tag**, а не на произвольный remembered commit.
 - `storage/app/current-release.json` теперь отражает только последний **successful / known-good** release; failed health-check не должен перетирать current state.
 - После deploy/rollback оператор обязан:
-  - проверить `storage/app/current-release.json`;
-  - при необходимости посмотреть `tail -n 5 storage/app/release-history.jsonl`;
+  - запустить `bash scripts/show-release.sh`;
   - убедиться, что `requested_ref`, `resolved_ref`, `selection_mode`, `previous_release_ref` и `fallback_used` выглядят ожидаемо;
+  - при необходимости открыть raw `storage/app/current-release.json` или `tail -n 5 storage/app/release-history.jsonl`;
   - выполнить `bash scripts/check-server.sh`;
   - убедиться, что health/smoke checks прошли.
 

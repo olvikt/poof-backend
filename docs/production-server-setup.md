@@ -166,12 +166,11 @@ Recommended release workflow:
 cd /var/www/poof
 git fetch --prune --tags origin
 bash scripts/deploy.sh release-YYYYMMDD-HHMM
-cat storage/app/current-release.json
-tail -n 5 storage/app/release-history.jsonl
+bash scripts/show-release.sh
 bash scripts/check-server.sh
 ```
 
-Что оператор должен проверить в `current-release.json` после обычного релиза:
+Что оператор должен проверить в выводе `bash scripts/show-release.sh` после обычного релиза:
 
 - `requested_ref` совпадает с переданным release tag/ref;
 - `resolved_ref` совпадает с ожидаемым ref после resolution;
@@ -185,8 +184,7 @@ Legacy/emergency continuity workflow (только если explicit ref вре�
 ```bash
 cd /var/www/poof
 bash scripts/deploy.sh
-cat storage/app/current-release.json
-tail -n 5 storage/app/release-history.jsonl
+bash scripts/show-release.sh
 bash scripts/check-server.sh
 ```
 
@@ -203,8 +201,7 @@ Recommended rollback workflow:
 cd /var/www/poof
 git tag --list 'release-*' --sort=-creatordate
 bash scripts/rollback.sh release-YYYYMMDD-HHMM
-cat storage/app/current-release.json
-tail -n 5 storage/app/release-history.jsonl
+bash scripts/show-release.sh
 bash scripts/check-server.sh
 ```
 
@@ -219,3 +216,17 @@ cd /var/www/poof && bash scripts/check-server.sh
 ```
 
 Release не считается завершённым, пока этот smoke-run не прошёл без blocking failures. Скрипт использует канонический health target `https://api.poof.com.ua/up`.
+
+Минимальный operator UX поверх release traceability файлов:
+
+```bash
+cd /var/www/poof
+bash scripts/show-release.sh
+```
+
+Команда читает `storage/app/current-release.json` и `storage/app/release-history.jsonl`, затем печатает:
+
+- current release summary;
+- previous known-good release summary;
+- последние transition entries из history;
+- явную маркировку `EXPLICIT release ref` vs `FALLBACK legacy path`.
