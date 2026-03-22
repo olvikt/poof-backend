@@ -224,4 +224,4 @@ Task 4.8 вводит минимальную versioned-release discipline пов
 - fallback на `origin/main` сохраняется как soft-supported legacy/emergency path;
 - rollback должен использовать explicit previous release ref/tag;
 - production host хранит минимальный traceability state в `storage/app/current-release.json`, включая `requested_ref`, `resolved_ref` и `fallback_used`;
-- детальный operator flow описан в [`docs/versioned-releases.md`](./versioned-releases.md).
+- детальный operator flow описан в [`docs/release-candidate-workflow.md`](./release-candidate-workflow.md), а release model/traceability details — в [`docs/versioned-releases.md`](./versioned-releases.md).

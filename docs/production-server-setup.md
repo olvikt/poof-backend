@@ -159,8 +159,9 @@ git config --global --add safe.directory /var/www/poof
 - `scripts/check-server.sh` — канонический post-deploy smoke-runner
 - `docs/release-gates.md` — канонический CI/deploy/smoke contract
 - `docs/versioned-releases.md` — минимальная versioned release model и operator contract
+- `docs/release-candidate-workflow.md` — canonical operator checklist для release candidate deploy/smoke/rollback
 
-Recommended release workflow:
+Recommended release workflow: см. `docs/release-candidate-workflow.md` для полного end-to-end checklist. Минимальный happy-path для ordinary backend-only release:
 
 ```bash
 cd /var/www/poof
@@ -195,12 +196,12 @@ bash scripts/check-server.sh
 - `selection_mode` = `"fallback"`;
 - `fallback_used` = `true`.
 
-Recommended rollback workflow:
+Recommended rollback workflow: сначала определить `previous_release_ref` через `bash scripts/show-release.sh`, затем откатываться именно на этот previous known-good release ref. Минимальный flow:
 
 ```bash
 cd /var/www/poof
-git tag --list 'release-*' --sort=-creatordate
-bash scripts/rollback.sh release-YYYYMMDD-HHMM
+bash scripts/show-release.sh
+bash scripts/rollback.sh <previous_release_ref>
 bash scripts/show-release.sh
 bash scripts/check-server.sh
 ```
