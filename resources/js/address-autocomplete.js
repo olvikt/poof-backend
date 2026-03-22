@@ -1,4 +1,4 @@
-const API_BASE = (import.meta.env.VITE_API_URL || '').replace(/\/$/, '')
+const API_BASE = (import.meta?.env?.VITE_API_URL || '').replace(/\/$/, '')
 const RECENT_ADDRESSES_KEY = 'poof:recent-addresses:v1'
 const RECENT_ADDRESSES_LIMIT = 5
 
@@ -58,6 +58,7 @@ export default function addressAutocomplete() {
     geoActionState: 'idle',
     geoActionHint: '',
     geoActionHintTimer: null,
+    visibleAddressSelectionPoint: null,
 
     safe(value) {
       if (typeof value === 'string') return value
@@ -264,8 +265,52 @@ export default function addressAutocomplete() {
       return null
     },
 
+    resolveVisibleAddressSelectionPoint(item = null) {
+      const normalizedItem = item && typeof item === 'object' ? this.normalizeSuggestion(item) : null
+      const visibleLabel = this.normalizeText(normalizedItem?.label || normalizedItem?.line1 || this.search)
+
+      if (!visibleLabel) {
+        return null
+      }
+
+      const normalizedVisibleLabel = visibleLabel.toLowerCase()
+      const pointCandidates = [
+        this.visibleAddressSelectionPoint,
+        window.POOF?.map?.preferredVisibleAddressPoint,
+      ]
+
+      for (const candidate of pointCandidates) {
+        const lat = Number(candidate?.lat)
+        const lng = Number(candidate?.lng)
+
+        if (!Number.isFinite(lat) || !Number.isFinite(lng)) {
+          continue
+        }
+
+        const candidateLabel = this.normalizeText(candidate?.label)
+
+        if (candidateLabel && candidateLabel.toLowerCase() !== normalizedVisibleLabel) {
+          continue
+        }
+
+        return {
+          lat,
+          lng,
+        }
+      }
+
+      if (normalizedItem && Number.isFinite(Number(normalizedItem.lat)) && Number.isFinite(Number(normalizedItem.lng))) {
+        return {
+          lat: Number(normalizedItem.lat),
+          lng: Number(normalizedItem.lng),
+        }
+      }
+
+      return null
+    },
+
     currentMapPointSelection() {
-      const item = this.normalizeSuggestion({
+      const candidate = {
         label: this.search,
         line1: this.search,
         line2: 'Обрати адресу з карти',
@@ -273,8 +318,17 @@ export default function addressAutocomplete() {
         house: this.house,
         city: this.city,
         region: this.region,
-        lat: this.lat,
-        lng: this.lng,
+      }
+      const selectionPoint = this.resolveVisibleAddressSelectionPoint(candidate)
+
+      if (!selectionPoint) {
+        return null
+      }
+
+      const item = this.normalizeSuggestion({
+        ...candidate,
+        lat: selectionPoint.lat,
+        lng: selectionPoint.lng,
       })
 
       if (!item || !this.isValidRecentAddress(item)) {
@@ -385,6 +439,14 @@ export default function addressAutocomplete() {
         return
       }
 
+      this.visibleAddressSelectionPoint = {
+        lat,
+        lng,
+        label: this.normalizeText(item?.label),
+        reason: typeof meta.reason === 'string' ? meta.reason : 'visible-address',
+        updatedAt: Date.now(),
+      }
+
       window.dispatchEvent(new CustomEvent('poof:address-picker-visible-point', {
         detail: {
           lat,
@@ -401,6 +463,7 @@ export default function addressAutocomplete() {
     },
 
     resetResolvedAddressForMapPoint() {
+      this.visibleAddressSelectionPoint = null
       this.search = ''
       this.summarySearch = ''
       this.street = null
@@ -667,6 +730,24 @@ export default function addressAutocomplete() {
         }
 
         this.resetResolvedAddressForMapPoint()
+      })
+
+      window.addEventListener('poof:address-picker-visible-point', (e) => {
+        const detail = e.detail || {}
+        const lat = Number(detail.lat)
+        const lng = Number(detail.lng)
+
+        if (!Number.isFinite(lat) || !Number.isFinite(lng)) {
+          return
+        }
+
+        this.visibleAddressSelectionPoint = {
+          lat,
+          lng,
+          label: this.normalizeText(detail.label),
+          reason: typeof detail.reason === 'string' ? detail.reason : 'visible-address',
+          updatedAt: Number(detail.updatedAt) || Date.now(),
+        }
       })
 
       window.addEventListener('poof:user-location-bootstrap', (e) => {
