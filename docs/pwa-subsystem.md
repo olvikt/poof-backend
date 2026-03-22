@@ -191,6 +191,25 @@ Run this checklist after deploy and after any change to `public/sw.js`, `public/
 9. HTML is revalidated so the browser does not keep serving stale markup that references removed hashed assets.
 10. Offline/repeat-visit behavior still preserves a basic landing load/install surface without breaking the page shell.
 
+### Canonical operator smoke runner
+
+Run `bash scripts/check-pwa.sh` on the deployed host when you need the narrow HTTP/rendered-response portion of the checklist.
+
+The script intentionally automates only the stable post-deploy checks that are safe to verify with shell + `curl`:
+
+- `GET /manifest.json` returns `200`;
+- `/manifest.json` decodes as valid JSON;
+- `GET /sw.js` returns `200`;
+- landing HTML contains `<link rel="manifest" href="/manifest.json">`;
+- landing HTML references the current Vite output paths from local `public/build/manifest.json`;
+- landing HTML headers expose an observable revalidation signal such as `Cache-Control: no-cache`, `Cache-Control: max-age=0`, `ETag`, or `Last-Modified`.
+
+Configuration:
+
+- `APP_BASE_URL` is the canonical target and defaults to `API_BASE_URL`, then `https://api.poof.com.ua`;
+- `APP_DIR` defaults to `/var/www/poof`;
+- `PHP_BIN` and `CURL_BIN` may be overridden if the host uses non-default binaries.
+
 ### Automated vs manual boundary
 
 Current narrow automated regression coverage intentionally stays deterministic and source-contract focused:
@@ -208,9 +227,9 @@ The following checks remain manual/browser-level because stable automation would
 
 - successful browser registration of `/sw.js`;
 - install button/banner visibility behavior around `beforeinstallprompt`, viewport size, and standalone mode;
-- post-deploy verification that new Vite outputs are resolved by fresh HTML;
-- HTML cache revalidation behavior under the real deployment stack;
-- offline/repeat-visit shell behavior.
+- service-worker cache inspection for `/api/...` and `/build/...` in a real browser;
+- offline/repeat-visit shell behavior;
+- install prompt/platform-specific UX validation across supported browsers.
 
 ## E. Address picker top chrome limitation note
 

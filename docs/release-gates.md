@@ -139,7 +139,10 @@ Health gate теперь считается обязательным: если `
 
 ### Post-deploy smoke — mandatory contract
 
-Canonical smoke runner: `scripts/check-server.sh`.
+Canonical smoke runners:
+
+- `scripts/check-server.sh` — mandatory release-closing infrastructure/API smoke;
+- `scripts/check-pwa.sh` — narrow operator-facing PWA smoke for the HTTP/rendered-response part of the landing/install contract.
 
 Обязательный smoke набор:
 
@@ -151,7 +154,9 @@ Canonical smoke runner: `scripts/check-server.sh`.
 6. worker log tail;
 7. application log tail.
 
-Дополнительно скрипт проверяет systemd state для nginx / php-fpm / redis / cron.
+Дополнительно `scripts/check-server.sh` проверяет systemd state для nginx / php-fpm / redis / cron.
+
+`bash scripts/check-pwa.sh` рекомендуется запускать после PWA-affecting deploys: изменений в `public/sw.js`, `public/manifest.json`, landing page install shell, Vite asset wiring, или production cache config. Он не расширяет blocking release promotion и не заменяет manual/browser-level PWA verification.
 
 ## 3. Operations contract
 
@@ -193,11 +198,18 @@ bash scripts/show-release.sh
 bash scripts/check-server.sh
 ```
 
+И при PWA-affecting изменениях дополнительно запускает:
+
+```bash
+bash scripts/check-pwa.sh
+```
+
 Обязательный результат:
 
-- все команды завершаются успешно;
+- все обязательные команды завершаются успешно;
 - вывод `bash scripts/show-release.sh` явно подтверждает current release, previous known-good release и deployment mode (`EXPLICIT` vs `FALLBACK`);
-- logs не содержат очевидных ошибок, связанных с только что выполненным deploy.
+- logs не содержат очевидных ошибок, связанных с только что выполненным deploy;
+- для PWA-affecting релизов `bash scripts/check-pwa.sh` подтверждает manifest/service-worker/landing HTML wiring без browser automation.
 
 ### Who confirms the post-deploy smoke
 

@@ -217,6 +217,14 @@ cd /var/www/poof && bash scripts/check-server.sh
 
 Release не считается завершённым, пока этот smoke-run не прошёл без blocking failures. Скрипт использует канонический health target `https://api.poof.com.ua/up`.
 
+Если релиз затрагивал PWA shell (`public/manifest.json`, `public/sw.js`, landing install UI, Vite asset wiring, cache headers), дополнительно запустите:
+
+```bash
+cd /var/www/poof && bash scripts/check-pwa.sh
+```
+
+Этот smoke-runner проверяет только стабильную HTTP/rendered-response часть PWA checklist и не заменяет manual browser-level validation install UX/service-worker behavior.
+
 Минимальный operator UX поверх release traceability файлов:
 
 ```bash
