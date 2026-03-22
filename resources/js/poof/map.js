@@ -436,6 +436,18 @@ export default function initMap() {
     } catch (_) {}
   }
 
+  function syncAddressFormCoords(lat, lng, source = 'map') {
+    if (!hasLivewire() || typeof window.Livewire.dispatch !== 'function') return
+
+    try {
+      window.Livewire.dispatch('address:set-coords', {
+        lat,
+        lng,
+        source,
+      })
+    } catch (_) {}
+  }
+
   function toScalarString(value) {
     if (typeof value === 'string') {
       return value.trim()
@@ -495,6 +507,23 @@ export default function initMap() {
     }
   }
 
+  function shouldIgnoreIncomingRemotePoint(lat, lng, source = 'map') {
+    if (source !== 'geolocation') {
+      return false
+    }
+
+    if (state.markerPrecision !== 'exact') {
+      return false
+    }
+
+    if (!isValidLatLng(state.lastLat, state.lastLng) || !isValidLatLng(lat, lng)) {
+      return false
+    }
+
+    return Math.abs(Number(state.lastLat) - Number(lat)) > 0.000001
+      || Math.abs(Number(state.lastLng) - Number(lng)) > 0.000001
+  }
+
   async function reverseGeocodeAndDispatch(lat, lng, options = {}) {
     if (options?.source === 'autocomplete' || state.addressLocked || isSavedAddressLocked()) {
       if (isSavedAddressLocked()) {
@@ -502,11 +531,6 @@ export default function initMap() {
       } else if (DEBUG_MAP) {
         console.debug('[POOF] reverse geocode skipped (locked/source)', options?.source)
       }
-      return
-    }
-
-    if (state.isReverseUpdating) {
-      if (DEBUG_MAP) console.debug('[POOF] reverse geocode skipped (self update)')
       return
     }
 
@@ -575,6 +599,11 @@ export default function initMap() {
   }
 
   async function updatePointAndAddress(lat, lng, { source = 'user', zoom = 18 } = {}) {
+    if (shouldIgnoreIncomingRemotePoint(lat, lng, source)) {
+      if (DEBUG_MAP) console.debug('[POOF] stale remote point ignored', { lat, lng, source })
+      return
+    }
+
     setMarker(lat, lng, {
       emit: true,
       zoom,
@@ -1213,6 +1242,7 @@ async function buildRoute(fromLat, fromLng, toLat, toLng) {
         })
       )
 
+      syncAddressFormCoords(lat, lng, 'map')
       scheduleReverseGeocode(lat, lng, { source: 'map-move' })
     })
 

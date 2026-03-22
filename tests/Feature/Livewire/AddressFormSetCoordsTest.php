@@ -204,6 +204,67 @@ class AddressFormSetCoordsTest extends TestCase
             ->assertSet('summarySearch', 'Мандриківська 173, Dnipro, Dnipropetrovsk region');
     }
 
+    public function test_manual_marker_move_updates_visible_address_summary_to_latest_resolved_point(): void
+    {
+        $this->mock(ResolveAddressFromPoint::class)
+            ->shouldReceive('execute')
+            ->twice()
+            ->andReturn(
+                new ResolvedAddressData(
+                    street: 'Мандриківська',
+                    house: '173',
+                    city: 'Dnipro',
+                    region: 'Dnipropetrovsk region',
+                    search: 'Мандриківська 173, Dnipro, Dnipropetrovsk region',
+                ),
+                new ResolvedAddressData(
+                    street: 'Мандриківська',
+                    house: '171',
+                    city: 'Dnipro',
+                    region: 'Dnipropetrovsk region',
+                    search: 'Мандриківська 171, Dnipro, Dnipropetrovsk region',
+                ),
+            );
+
+        Livewire::test(AddressForm::class)
+            ->call('setCoords', 48.4671, 35.0382, 'map')
+            ->assertSet('search', 'Мандриківська 173, Dnipro, Dnipropetrovsk region')
+            ->assertSet('summarySearch', 'Мандриківська 173, Dnipro, Dnipropetrovsk region')
+            ->call('setCoords', 48.4669, 35.0379, 'map')
+            ->assertSet('lat', 48.4669)
+            ->assertSet('lng', 35.0379)
+            ->assertSet('street', 'Мандриківська')
+            ->assertSet('house', '171')
+            ->assertSet('search', 'Мандриківська 171, Dnipro, Dnipropetrovsk region')
+            ->assertSet('summarySearch', 'Мандриківська 171, Dnipro, Dnipropetrovsk region')
+            ->assertSet('addressPrecision', 'exact');
+    }
+
+    public function test_late_geolocation_does_not_override_manual_map_point_that_has_settled(): void
+    {
+        $this->mock(ResolveAddressFromPoint::class)
+            ->shouldReceive('execute')
+            ->once()
+            ->andReturn(new ResolvedAddressData(
+                street: 'Мандриківська',
+                house: '171',
+                city: 'Dnipro',
+                region: 'Dnipropetrovsk region',
+                search: 'Мандриківська 171, Dnipro, Dnipropetrovsk region',
+            ));
+
+        Livewire::test(AddressForm::class)
+            ->call('setCoords', 48.4669, 35.0379, 'map')
+            ->assertSet('addressPrecision', 'exact')
+            ->call('setCoords', 48.5001, 35.1002, 'geolocation')
+            ->assertSet('lat', 48.4669)
+            ->assertSet('lng', 35.0379)
+            ->assertSet('street', 'Мандриківська')
+            ->assertSet('house', '171')
+            ->assertSet('search', 'Мандриківська 171, Dnipro, Dnipropetrovsk region')
+            ->assertSet('summarySearch', 'Мандриківська 171, Dnipro, Dnipropetrovsk region');
+    }
+
     public function test_non_map_sources_only_update_coordinates_without_reverse_fill(): void
     {
         $this->mock(ResolveAddressFromPoint::class)
