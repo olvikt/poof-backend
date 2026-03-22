@@ -54,6 +54,7 @@ class AddressForm extends Component
     public string $addressPrecision = AddressPrecision::None->value;
 
     public bool $houseTouchedManually = false;
+    public bool $selectedAddressLocked = false;
     protected bool $updatingHouseFromMap = false;
 
     protected $listeners = [
@@ -134,6 +135,7 @@ class AddressForm extends Component
     {
         $this->search = null;
         $this->summarySearch = null;
+        $this->selectedAddressLocked = false;
         $this->resetManualHouseGuard();
         $this->clearSuggestions();
     }
@@ -232,6 +234,7 @@ class AddressForm extends Component
         }
 
         $this->resetManualHouseGuard();
+        $this->selectedAddressLocked = true;
         $this->place_id = null;
         $this->search = $this->normalizeSearch($item['label'] ?? $item['line1'] ?? null);
         $this->summarySearch = $this->search;
@@ -255,6 +258,10 @@ class AddressForm extends Component
 
     public function setCoords(float $lat, float $lng, ?string $source = null): void
     {
+        if ($this->shouldIgnoreIncomingCoords($lat, $lng, $source)) {
+            return;
+        }
+
         $this->lat = $lat;
         $this->lng = $lng;
         $this->addressPrecision = $source === 'map'
@@ -263,9 +270,11 @@ class AddressForm extends Component
         $this->place_id = null;
         $this->clearSuggestions();
 
-        if ($source !== 'map') {
+        if (! in_array($source, ['map', 'user', 'geolocation'], true)) {
             return;
         }
+
+        $this->selectedAddressLocked = false;
 
         $resolved = app(ResolveAddressFromPoint::class)->execute(new AddressPointData(
             lat: $lat,
@@ -373,6 +382,8 @@ class AddressForm extends Component
             ->where('user_id', auth()->id())
             ->findOrFail($id);
 
+        $this->selectedAddressLocked = true;
+
         $this->fill([
             'label' => $address->label,
             'title' => $address->title,
@@ -396,6 +407,26 @@ class AddressForm extends Component
         $this->clearSuggestions();
         $this->resetManualHouseGuard();
         $this->updatingHouseFromMap = false;
+    }
+
+
+    protected function shouldIgnoreIncomingCoords(float $lat, float $lng, ?string $source): bool
+    {
+        if ($source !== 'geolocation' || ! $this->selectedAddressLocked) {
+            return false;
+        }
+
+        if ($this->lat === null || $this->lng === null) {
+            return false;
+        }
+
+        return ! $this->coordinatesMatch($this->lat, $lat)
+            || ! $this->coordinatesMatch($this->lng, $lng);
+    }
+
+    protected function coordinatesMatch(float $left, float $right): bool
+    {
+        return abs($left - $right) <= 0.000001;
     }
 
     protected function applyResolvedAddress(ResolvedAddressData $resolved): void
@@ -489,6 +520,7 @@ class AddressForm extends Component
 
         $this->label = 'home';
         $this->building_type = 'apartment';
+        $this->selectedAddressLocked = false;
         $this->addressPrecision = AddressPrecision::None->value;
         $this->clearSuggestions();
         $this->resetManualHouseGuard();

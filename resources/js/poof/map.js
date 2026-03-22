@@ -420,7 +420,7 @@ export default function initMap() {
     return null
   }
 
-  function sendLocation(lat, lng) {
+  function sendLocation(lat, lng, source = 'map') {
     if (!hasLivewire() || typeof window.Livewire.dispatch !== 'function') return
 
     // OrderCreate
@@ -431,7 +431,7 @@ export default function initMap() {
       window.Livewire.dispatch('address:set-coords', {
         lat,
         lng,
-        source: 'map',
+        source,
       })
     } catch (_) {}
   }
@@ -725,7 +725,7 @@ export default function initMap() {
       })
     }
 
-    if (emit) sendLocation(latN, lngN)
+    if (emit) sendLocation(latN, lngN, options.source || 'map')
   }
 
   // ------------------------------------------------------------
@@ -1611,6 +1611,11 @@ window.addEventListener('build-route', (e) => {
       console.log('[POOF] user geolocation', lat, lng)
 
       persistUserLocation(lat, lng, { source: 'geolocation' })
+
+      if (state.addressLocked) {
+        setUserLocationResolving(false, { resolved: true })
+        return
+      }
 
       state.addressLocked = false
       setUserLocationResolving(false, { resolved: true })
