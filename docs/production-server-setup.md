@@ -205,6 +205,8 @@ bash scripts/show-release.sh
 bash scripts/check-server.sh
 ```
 
+`bash scripts/rollback.sh ...` должен не только переключить git ref, но и заново собрать host-side runtime state для выбранного release: `composer install`, `npm ci`, `npm run build`, проверка `public/build/manifest.json`, Laravel cache rebuild, restart воркеров и blocking health-check. Это защищает rollback от ситуации, когда на хосте остаются frontend build artifacts или optimized caches от более нового release.
+
 Если health-check внутри `deploy.sh` или `rollback.sh` не проходит, `storage/app/current-release.json` не обновляется: файл продолжает показывать previous known-good release, а история не получает новую append-only запись. Это нужно, чтобы operator-facing state не указывал на release, который не прошёл blocking health gate.
 
 ## 9) Mandatory smoke-check after deploy

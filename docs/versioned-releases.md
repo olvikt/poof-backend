@@ -141,6 +141,8 @@ Rollback script теперь:
 - валидирует rollback ref;
 - логирует requested ref, resolved ref, commit и previous known-good release;
 - явно фиксирует, что fallback path не использовался;
+- переустанавливает production dependencies и заново собирает frontend assets (`npm ci` + `npm run build` + проверка `public/build/manifest.json`), чтобы host-side rollback не оставлял артефакты от более нового release;
+- пересобирает Laravel caches (`config:clear` + `optimize:clear` + `optimize`);
 - обновляет `storage/app/current-release.json` только после успешного health-check;
 - добавляет append-only запись в `storage/app/release-history.jsonl`;
 - пишет rollback metadata snapshot в `storage/logs/deploy/`;
