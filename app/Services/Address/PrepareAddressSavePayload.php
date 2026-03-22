@@ -75,6 +75,10 @@ class PrepareAddressSavePayload
         $streetParts = count($parts) > 1 ? array_slice($parts, 0, -1) : $parts;
 
         foreach ($streetParts as $part) {
+            if ($this->isHouseNumberToken($part)) {
+                continue;
+            }
+
             $street = $this->normalizeStreet($part);
 
             if ($street !== null) {
@@ -88,6 +92,11 @@ class PrepareAddressSavePayload
     private function resolveCityFromSearchParts(array $parts): ?string
     {
         return $this->normalizeString($parts[count($parts) - 1] ?? null);
+    }
+
+    private function isHouseNumberToken(string $part): bool
+    {
+        return preg_match('/^\d+[\dA-Za-zА-Яа-яІЇЄієї\-\/]*$/u', trim($part)) === 1;
     }
 
     private function normalizeStreet(?string $street): ?string
