@@ -377,6 +377,29 @@ export default function addressAutocomplete() {
       return hasChanged
     },
 
+    publishVisibleAddressPoint(item, meta = {}) {
+      const lat = Number(item?.lat)
+      const lng = Number(item?.lng)
+
+      if (!Number.isFinite(lat) || !Number.isFinite(lng)) {
+        return
+      }
+
+      window.dispatchEvent(new CustomEvent('poof:address-picker-visible-point', {
+        detail: {
+          lat,
+          lng,
+          label: this.normalizeText(item?.label),
+          street: this.normalizeText(item?.street) || null,
+          house: this.normalizeText(item?.house) || null,
+          city: this.normalizeText(item?.city) || null,
+          region: this.normalizeText(item?.region) || null,
+          reason: typeof meta.reason === 'string' ? meta.reason : 'visible-address',
+          updatedAt: Date.now(),
+        },
+      }))
+    },
+
     resetResolvedAddressForMapPoint() {
       this.search = ''
       this.summarySearch = ''
@@ -560,6 +583,10 @@ export default function addressAutocomplete() {
         this.$wire.set('suggestions', [])
         this.$wire.set('suggestionsMessage', null)
 
+        this.publishVisibleAddressPoint(normalizedItem, {
+          reason: options.reason || 'resolved-address',
+        })
+
         if (remember) {
           this.rememberRecentAddress(normalizedItem)
         }
@@ -569,6 +596,16 @@ export default function addressAutocomplete() {
             this.isApplyingSelection = false
           })
         }
+      }
+
+      this.openCurrentMapPointSelection = () => {
+        const item = this.currentMapPointSelection()
+
+        if (!item) {
+          return
+        }
+
+        this.selectSuggestion(item, { reason: 'map-open-visible-address' })
       }
 
       window.addEventListener('address:reverse-geocoded', (e) => {
@@ -814,7 +851,7 @@ export default function addressAutocomplete() {
       }
     },
 
-    selectSuggestion(item) {
+    selectSuggestion(item, options = {}) {
       if (!item || typeof item !== 'object') {
         return
       }
@@ -850,6 +887,9 @@ export default function addressAutocomplete() {
       this.isAddressSearchOpen = false
 
       this.rememberRecentAddress(normalizedItem)
+      this.publishVisibleAddressPoint(normalizedItem, {
+        reason: options.reason || 'autocomplete',
+      })
 
       this.addressLocked = true
       window.dispatchEvent(new CustomEvent('address:lock', {

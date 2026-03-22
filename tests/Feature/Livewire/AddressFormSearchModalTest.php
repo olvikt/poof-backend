@@ -90,6 +90,14 @@ class AddressFormSearchModalTest extends TestCase
             ->assertDispatched('map:update', lat: 50.45, lng: 30.52, zoom: 17);
     }
 
+    public function test_visible_map_point_row_uses_dedicated_map_open_handler(): void
+    {
+        Livewire::test(AddressForm::class)
+            ->call('openAddressSearch')
+            ->assertSee('Обрати адресу з карти')
+            ->assertSeeHtml('x-on:click="openCurrentMapPointSelection()"');
+    }
+
     public function test_save_flow_still_works_after_primary_inputs_are_removed_from_ui(): void
     {
         $user = User::factory()->create();
