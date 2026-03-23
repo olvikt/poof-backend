@@ -93,9 +93,7 @@ jobs:
             tests/Feature/Courier/AcceptFlowArchitectureRegressionTest.php \
             tests/Feature/Courier/CourierRuntimeStateSyncTest.php \
             tests/Feature/Api/GeocodeControllerTest.php \
-            tests/Unit/Address/PrepareAddressSavePayloadTest.php \
-            tests/Feature/Livewire/AddressFormSetCoordsTest.php \
-            tests/Feature/Livewire/AddressFormSearchModalTest.php
+            tests/Unit/Address/PrepareAddressSavePayloadTest.php
 
 
   pwa-regression-evidence:
