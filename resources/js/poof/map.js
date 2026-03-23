@@ -67,6 +67,40 @@ function buildCurrentLocationFallbackPlan({
   }
 }
 
+function shouldIgnoreStaleAddressPickerSyncPoint({
+  isAddressPickerFlow = false,
+  lat = null,
+  lng = null,
+  source = 'sync',
+  authoritativePoint = null,
+  preferredPoint = null,
+  now = Date.now(),
+} = {}) {
+  if (!isAddressPickerFlow || source !== 'sync') return false
+
+  const hasFreshPoint = (point) => (
+    point
+    && isFiniteLatLngForBootstrap(point.lat, point.lng)
+    && now - Number(point.updatedAt || 0) <= 5000
+  )
+
+  if (hasFreshPoint(authoritativePoint)) {
+    return !(
+      Math.abs(Number(authoritativePoint.lat) - Number(lat)) <= 0.000001
+      && Math.abs(Number(authoritativePoint.lng) - Number(lng)) <= 0.000001
+    )
+  }
+
+  if (hasFreshPoint(preferredPoint)) {
+    return !(
+      Math.abs(Number(preferredPoint.lat) - Number(lat)) <= 0.000001
+      && Math.abs(Number(preferredPoint.lng) - Number(lng)) <= 0.000001
+    )
+  }
+
+  return false
+}
+
 export default function initMap() {
   // ------------------------------------------------------------
   // Namespace
@@ -147,6 +181,7 @@ export default function initMap() {
     isAddressPickerFlow: false,
     geoActionInFlight: false,
     preferredVisibleAddressPoint: null,
+    authoritativeAddressPickerPoint: null,
   }
 
   const state = POOF.map
@@ -284,15 +319,31 @@ export default function initMap() {
     }
   }
 
-  function shouldIgnoreSyncPointForPreferredVisibleAddress(lat, lng, source = 'sync') {
-    if (!state.isAddressPickerFlow || source !== 'sync') return false
+  function rememberAuthoritativeAddressPickerPoint(detail = {}) {
+    const lat = toNumber(detail?.lat)
+    const lng = toNumber(detail?.lng)
 
-    const preferredPoint = state.preferredVisibleAddressPoint
-    if (!preferredPoint || !isValidLatLng(preferredPoint.lat, preferredPoint.lng)) return false
-    if (Date.now() - Number(preferredPoint.updatedAt || 0) > 5000) return false
-    if (!isValidLatLng(lat, lng)) return false
+    if (!isValidLatLng(lat, lng)) return
 
-    return !coordinatesMatch(preferredPoint.lat, preferredPoint.lng, lat, lng)
+    state.authoritativeAddressPickerPoint = {
+      lat,
+      lng,
+      label: toScalarString(detail?.label) || null,
+      reason: toScalarString(detail?.reason) || 'authoritative-point',
+      updatedAt: Number(detail?.updatedAt) || Date.now(),
+    }
+  }
+
+  function shouldIgnoreIncomingAddressPickerSyncPoint(lat, lng, source = 'sync') {
+    return shouldIgnoreStaleAddressPickerSyncPoint({
+      isAddressPickerFlow: state.isAddressPickerFlow,
+      lat,
+      lng,
+      source,
+      authoritativePoint: state.authoritativeAddressPickerPoint,
+      preferredPoint: state.preferredVisibleAddressPoint,
+      now: Date.now(),
+    })
   }
 
   function isCourierCoordsConfirmed(lat, lng, accuracy = null) {
@@ -810,6 +861,28 @@ export default function initMap() {
 
     const zoom = options.zoom ?? map.getZoom()
     const emit = options.emit ?? false
+    const source = typeof options.source === 'string' ? options.source : 'user'
+
+    if (shouldIgnoreIncomingAddressPickerSyncPoint(latN, lngN, source)) {
+      if (DEBUG_MAP) {
+        console.debug('[POOF] stale sync marker ignored in address picker', {
+          lat: latN,
+          lng: lngN,
+          source,
+          authoritative: state.authoritativeAddressPickerPoint,
+          preferred: state.preferredVisibleAddressPoint,
+        })
+      }
+      return
+    }
+
+    if (state.isAddressPickerFlow && ['geolocation', 'user', 'autocomplete'].includes(source)) {
+      rememberAuthoritativeAddressPickerPoint({
+        lat: latN,
+        lng: lngN,
+        reason: source,
+      })
+    }
 
     console.debug('[POOF MAP] setMarker', latN, lngN)
     console.debug('[POOF MAP] update', latN, lngN, options)
@@ -852,7 +925,7 @@ export default function initMap() {
       })
     }
 
-    if (emit) sendLocation(latN, lngN, options.source || 'map')
+    if (emit) sendLocation(latN, lngN, source || 'map')
   }
 
   // ------------------------------------------------------------
@@ -1515,12 +1588,13 @@ async function buildRoute(fromLat, fromLng, toLat, toLng) {
 
     if (lat == null || lng == null) return
 
-    if (shouldIgnoreSyncPointForPreferredVisibleAddress(lat, lng, source)) {
+    if (shouldIgnoreIncomingAddressPickerSyncPoint(lat, lng, source)) {
       if (DEBUG_MAP) {
         console.debug('[POOF] stale sync point ignored in address picker', {
           lat,
           lng,
           source,
+          authoritative: state.authoritativeAddressPickerPoint,
           preferred: state.preferredVisibleAddressPoint,
         })
       }
@@ -1529,6 +1603,11 @@ async function buildRoute(fromLat, fromLng, toLat, toLng) {
 
     if (source === 'autocomplete') {
       state.addressLocked = true
+      rememberAuthoritativeAddressPickerPoint({
+        lat,
+        lng,
+        reason: 'autocomplete',
+      })
       rememberPreferredVisibleAddressPoint({
         lat,
         lng,
@@ -1540,6 +1619,11 @@ async function buildRoute(fromLat, fromLng, toLat, toLng) {
 
     if (source === 'geolocation' || source === 'user') {
       state.addressLocked = false
+      rememberAuthoritativeAddressPickerPoint({
+        lat,
+        lng,
+        reason: source,
+      })
       rememberPreferredVisibleAddressPoint({
         lat,
         lng,
@@ -1795,5 +1879,6 @@ window.addEventListener('build-route', (e) => {
 
 export {
   buildCurrentLocationFallbackPlan,
+  shouldIgnoreStaleAddressPickerSyncPoint,
   shouldApplyPersistedLocationOnBootstrap,
 }
