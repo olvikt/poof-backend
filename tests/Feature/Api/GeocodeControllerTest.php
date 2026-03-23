@@ -2,6 +2,7 @@
 
 namespace Tests\Feature\Api;
 
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 use Tests\TestCase;
@@ -20,6 +21,7 @@ class GeocodeControllerTest extends TestCase
 
     public function test_it_does_not_emit_debug_logs_for_successful_photon_lookup(): void
     {
+        Cache::flush();
         Log::spy();
 
         Http::fake([
@@ -41,7 +43,7 @@ class GeocodeControllerTest extends TestCase
             ]),
         ]);
 
-        $this->getJson('/api/geocode?q=мандрик')
+        $this->getJson('/api/geocode?q=логуспіх')
             ->assertOk()
             ->assertJsonCount(1);
 
@@ -51,6 +53,7 @@ class GeocodeControllerTest extends TestCase
 
     public function test_it_logs_photon_request_failures_without_response_body_context(): void
     {
+        Cache::flush();
         Log::spy();
 
         Http::fake([
@@ -59,7 +62,7 @@ class GeocodeControllerTest extends TestCase
             ], 502),
         ]);
 
-        $this->getJson('/api/geocode?q=мандрик')
+        $this->getJson('/api/geocode?q=логпомилка')
             ->assertOk()
             ->assertExactJson([]);
 
@@ -68,7 +71,7 @@ class GeocodeControllerTest extends TestCase
             ->withArgs(function (string $message, array $context): bool {
                 return $message === 'Photon request failed'
                     && ($context['status'] ?? null) === 502
-                    && ($context['query'] ?? null) === 'мандрик'
+                    && ($context['query'] ?? null) === 'логпомилка'
                     && ! array_key_exists('body', $context);
             });
         Log::shouldNotHaveReceived('debug');
