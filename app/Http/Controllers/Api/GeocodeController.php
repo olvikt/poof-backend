@@ -68,10 +68,7 @@ class GeocodeController extends Controller
                 Cache::put($cacheKey, $suggestions, now()->addMinutes(30));
             }
         } catch (\Throwable $e) {
-            Log::error('Photon request failed', [
-                'query' => $normalizedQuery,
-                'error' => $e->getMessage(),
-            ]);
+            $this->logPhotonRequestFailure($normalizedQuery, error: $e->getMessage());
 
             $suggestions = [];
         }
@@ -165,19 +162,13 @@ class GeocodeController extends Controller
                     ->acceptJson()
                     ->get('https://photon.komoot.io/api/', $params);
             } catch (\Throwable $e) {
-                Log::error('Photon request failed', [
-                    'query' => $variant,
-                    'error' => $e->getMessage(),
-                ]);
+                $this->logPhotonRequestFailure($variant, error: $e->getMessage());
 
                 continue;
             }
 
             if (! $response->successful()) {
-                Log::error('Photon request failed', [
-                    'status' => $response->status(),
-                    'query' => $variant,
-                ]);
+                $this->logPhotonRequestFailure($variant, status: $response->status());
 
                 continue;
             }
@@ -363,6 +354,15 @@ class GeocodeController extends Controller
         }
 
         return $unique;
+    }
+
+    private function logPhotonRequestFailure(?string $query = null, ?int $status = null, ?string $error = null): void
+    {
+        Log::error('Photon request failed', array_filter([
+            'query' => $query,
+            'status' => $status,
+            'error' => $error,
+        ], static fn ($value): bool => $value !== null));
     }
 
     private function parseSearchQuery(string $query): array
