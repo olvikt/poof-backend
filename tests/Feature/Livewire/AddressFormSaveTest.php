@@ -35,6 +35,7 @@ class AddressFormSaveTest extends TestCase
             ->set('apartment', '15')
             ->call('save')
             ->assertDispatched('address-saved')
+            ->assertDispatchedTo('client.address-manager', 'address-saved')
             ->assertDispatched('sheet:close', name: 'addressForm')
             ->assertDispatched('sheet:close');
 
@@ -51,6 +52,63 @@ class AddressFormSaveTest extends TestCase
             'apartment' => '15',
             'geocode_source' => 'manual',
             'geocode_accuracy' => 'exact',
+        ]);
+    }
+
+    public function test_it_persists_apartment_only_fields_only_for_apartment_addresses(): void
+    {
+        $user = User::factory()->create();
+        $this->actingAs($user);
+
+        Livewire::test(AddressForm::class)
+            ->set('label', 'home')
+            ->set('title', 'Квартира')
+            ->set('building_type', 'apartment')
+            ->set('search', 'Apartment Street 1, Kyiv')
+            ->set('city', 'Kyiv')
+            ->set('street', 'Apartment Street')
+            ->set('house', '1')
+            ->set('lat', 50.45)
+            ->set('lng', 30.52)
+            ->set('entrance', '2')
+            ->set('intercom', '45')
+            ->set('floor', '8')
+            ->set('apartment', '81')
+            ->call('save')
+            ->assertHasNoErrors();
+
+        $apartmentAddress = ClientAddress::query()->where('user_id', $user->id)->sole();
+
+        $this->assertSame('2', $apartmentAddress->entrance);
+        $this->assertSame('45', $apartmentAddress->intercom);
+        $this->assertSame('8', $apartmentAddress->floor);
+        $this->assertSame('81', $apartmentAddress->apartment);
+
+        Livewire::test(AddressForm::class)
+            ->set('addressId', $apartmentAddress->id)
+            ->set('label', 'work')
+            ->set('title', 'Будинок')
+            ->set('building_type', 'house')
+            ->set('search', 'House Street 9, Kyiv')
+            ->set('city', 'Kyiv')
+            ->set('street', 'House Street')
+            ->set('house', '9')
+            ->set('lat', 50.46)
+            ->set('lng', 30.53)
+            ->set('entrance', '9')
+            ->set('intercom', '99')
+            ->set('floor', '9')
+            ->set('apartment', '99')
+            ->call('save')
+            ->assertHasNoErrors();
+
+        $this->assertDatabaseHas('client_addresses', [
+            'id' => $apartmentAddress->id,
+            'building_type' => 'house',
+            'entrance' => null,
+            'intercom' => null,
+            'floor' => null,
+            'apartment' => null,
         ]);
     }
 
@@ -80,12 +138,42 @@ class AddressFormSaveTest extends TestCase
             ->assertSet('title', 'Office')
             ->assertSet('building_type', 'house')
             ->assertSet('search', 'Updated Street 9B, Kyiv')
+            ->assertSet('summarySearch', 'Updated Street 9B, Kyiv')
             ->assertSet('street', 'Updated Street')
             ->assertSet('house', '9B')
             ->assertSet('lat', 50.46)
             ->assertSet('lng', 30.53)
+            ->assertSet('selectedAddressLocked', true)
             ->assertDispatched('sheet:open', name: 'addressForm')
-            ->assertDispatched('map:set-marker', lat: 50.46, lng: 30.53);
+            ->assertDispatched('map:set-marker', lat: 50.46, lng: 30.53)
+            ->assertDispatched('map:set-marker-precision', precision: 'exact');
+    }
+
+    public function test_it_resets_search_state_when_opening_a_new_address_form(): void
+    {
+        $user = User::factory()->create();
+        $this->actingAs($user);
+
+        Livewire::test(AddressForm::class)
+            ->set('search', 'Old address')
+            ->set('summarySearch', 'Old summary')
+            ->set('suggestions', [['label' => 'Old address', 'lat' => 50.45, 'lng' => 30.52]])
+            ->set('activeSuggestionIndex', 0)
+            ->set('suggestionsMessage', 'Hint')
+            ->set('lat', 50.45)
+            ->set('lng', 30.52)
+            ->set('selectedAddressLocked', true)
+            ->call('open')
+            ->assertSet('addressId', null)
+            ->assertSet('search', null)
+            ->assertSet('summarySearch', null)
+            ->assertSet('suggestions', [])
+            ->assertSet('activeSuggestionIndex', -1)
+            ->assertSet('suggestionsMessage', null)
+            ->assertSet('lat', null)
+            ->assertSet('lng', null)
+            ->assertSet('selectedAddressLocked', false)
+            ->assertDispatched('sheet:open', name: 'addressForm');
     }
 
     public function test_it_updates_only_the_authenticated_users_address_via_save_flow(): void
@@ -155,7 +243,50 @@ class AddressFormSaveTest extends TestCase
         ]);
     }
 
+    public function test_it_cannot_update_another_users_address(): void
+    {
+        $user = User::factory()->create();
+        $otherUser = User::factory()->create();
 
+        $foreignAddress = ClientAddress::create([
+            'user_id' => $otherUser->id,
+            'label' => 'work',
+            'title' => 'Foreign office',
+            'building_type' => 'house',
+            'address_text' => 'Foreign Address',
+            'city' => 'Lviv',
+            'street' => 'Foreign Street',
+            'house' => '2',
+            'lat' => 49.84,
+            'lng' => 24.03,
+        ]);
+
+        $this->actingAs($user);
+
+        Livewire::test(AddressForm::class)
+            ->set('addressId', $foreignAddress->id)
+            ->set('label', 'home')
+            ->set('building_type', 'house')
+            ->set('search', 'Attempted takeover, Kyiv')
+            ->set('city', 'Kyiv')
+            ->set('street', 'Attempted takeover')
+            ->set('house', '7')
+            ->set('lat', 50.45)
+            ->set('lng', 30.52)
+            ->call('save')
+            ->assertHasErrors(['search']);
+
+        $this->assertDatabaseHas('client_addresses', [
+            'id' => $foreignAddress->id,
+            'user_id' => $otherUser->id,
+            'label' => 'work',
+            'title' => 'Foreign office',
+            'address_text' => 'Foreign Address',
+            'city' => 'Lviv',
+            'street' => 'Foreign Street',
+            'house' => '2',
+        ]);
+    }
 
     public function test_it_requires_apartment_details_for_apartment_addresses(): void
     {
@@ -209,7 +340,7 @@ class AddressFormSaveTest extends TestCase
         ]);
     }
 
-    public function test_it_requires_coordinates_with_current_validation_message(): void
+    public function test_it_requires_coordinates_with_the_documented_search_error_message(): void
     {
         $user = User::factory()->create();
         $this->actingAs($user);
@@ -224,6 +355,7 @@ class AddressFormSaveTest extends TestCase
             ->set('lat', null)
             ->set('lng', null)
             ->call('save')
-            ->assertHasErrors(['search' => ['custom']]);
+            ->assertHasErrors(['search' => ['custom']])
+            ->assertSee('Уточніть точку на мапі.');
     }
 }
