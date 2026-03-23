@@ -3,6 +3,7 @@
 namespace Tests\Feature\Api;
 
 use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Log;
 use Tests\TestCase;
 
 class GeocodeControllerTest extends TestCase
@@ -15,6 +16,62 @@ class GeocodeControllerTest extends TestCase
 
         $response->assertOk()->assertExactJson([]);
         Http::assertNothingSent();
+    }
+
+    public function test_it_does_not_emit_debug_logs_for_successful_photon_lookup(): void
+    {
+        Log::spy();
+
+        Http::fake([
+            'https://photon.komoot.io/api*' => Http::response([
+                'features' => [
+                    [
+                        'properties' => [
+                            'street' => 'Мандриківська',
+                            'housenumber' => '23',
+                            'city' => 'Дніпро',
+                            'state' => 'Дніпропетровська область',
+                            'countrycode' => 'UA',
+                        ],
+                        'geometry' => [
+                            'coordinates' => [35.0308, 48.4572],
+                        ],
+                    ],
+                ],
+            ]),
+        ]);
+
+        $this->getJson('/api/geocode?q=мандрик')
+            ->assertOk()
+            ->assertJsonCount(1);
+
+        Log::shouldNotHaveReceived('debug');
+        Log::shouldNotHaveReceived('error');
+    }
+
+    public function test_it_logs_photon_request_failures_without_response_body_context(): void
+    {
+        Log::spy();
+
+        Http::fake([
+            'https://photon.komoot.io/api*' => Http::response([
+                'message' => 'upstream failure',
+            ], 502),
+        ]);
+
+        $this->getJson('/api/geocode?q=мандрик')
+            ->assertOk()
+            ->assertExactJson([]);
+
+        Log::shouldHaveReceived('error')
+            ->once()
+            ->withArgs(function (string $message, array $context): bool {
+                return $message === 'Photon request failed'
+                    && ($context['status'] ?? null) === 502
+                    && ($context['query'] ?? null) === 'мандрик'
+                    && ! array_key_exists('body', $context);
+            });
+        Log::shouldNotHaveReceived('debug');
     }
 
     public function test_it_normalizes_photon_response(): void
@@ -56,7 +113,6 @@ class GeocodeControllerTest extends TestCase
                 ],
             ]);
     }
-
 
     public function test_it_handles_sparse_features_and_limits_unique_results(): void
     {
@@ -234,7 +290,6 @@ class GeocodeControllerTest extends TestCase
             ->assertJsonPath('0.city', 'Дніпро');
     }
 
-
     public function test_house_number_query_prefers_nearby_matching_street_over_distant_street_only_noise(): void
     {
         Http::fake([
@@ -351,7 +406,6 @@ class GeocodeControllerTest extends TestCase
             ->assertJsonPath('1.city', 'Кривий Ріг')
             ->assertJsonPath('1.house', null);
     }
-
 
     public function test_local_street_result_stays_above_cross_region_noise_when_exact_house_is_missing(): void
     {
@@ -600,7 +654,6 @@ class GeocodeControllerTest extends TestCase
                 'city' => 'Севастополь',
             ]);
     }
-
 
     public function test_it_filters_russian_orthography_noise_when_local_ukrainian_result_exists(): void
     {

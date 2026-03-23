@@ -9,6 +9,7 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Log;
 
 class GeocodeController extends Controller
 {
@@ -62,18 +63,12 @@ class GeocodeController extends Controller
             $suggestions = Cache::get($cacheKey);
 
             if (! is_array($suggestions)) {
-                \Log::debug('Photon cache miss', [
-                    'query' => $queryProfile['primary'],
-                    'lat' => $lat,
-                    'lng' => $lng,
-                ]);
-
                 $suggestions = $this->fetchPhotonSuggestions($queryProfile, $lat, $lng);
 
                 Cache::put($cacheKey, $suggestions, now()->addMinutes(30));
             }
         } catch (\Throwable $e) {
-            logger()->error('Photon request failed', [
+            Log::error('Photon request failed', [
                 'query' => $normalizedQuery,
                 'error' => $e->getMessage(),
             ]);
@@ -83,7 +78,6 @@ class GeocodeController extends Controller
 
         return response()->json(is_array($suggestions) ? $suggestions : []);
     }
-
 
     private function fetchReverseSuggestions(float $lat, float $lng): array
     {
@@ -171,7 +165,7 @@ class GeocodeController extends Controller
                     ->acceptJson()
                     ->get('https://photon.komoot.io/api/', $params);
             } catch (\Throwable $e) {
-                logger()->error('Photon request failed', [
+                Log::error('Photon request failed', [
                     'query' => $variant,
                     'error' => $e->getMessage(),
                 ]);
@@ -180,9 +174,8 @@ class GeocodeController extends Controller
             }
 
             if (! $response->successful()) {
-                logger()->error('Photon request failed', [
+                Log::error('Photon request failed', [
                     'status' => $response->status(),
-                    'body' => $response->body(),
                     'query' => $variant,
                 ]);
 
@@ -191,30 +184,12 @@ class GeocodeController extends Controller
 
             $data = $response->json();
 
-            logger()->debug('Photon features', [
-                'query' => $variant,
-                'features' => count($data['features'] ?? []),
-            ]);
-
             $features = $features->merge($data['features'] ?? []);
         }
 
         $features = $features
             ->values()
             ->all();
-
-        logger()->debug('Photon results', [
-            'query' => $queryProfile['primary'],
-            'features' => count($features),
-        ]);
-
-        if (empty($features)) {
-            logger()->debug('Photon returned empty result', [
-                'query' => $queryProfile['primary'],
-                'lat' => $lat,
-                'lng' => $lng,
-            ]);
-        }
 
         $parsedQuery = $this->parseSearchQueryProfile($queryProfile);
         $suggestions = [];
