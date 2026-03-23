@@ -62,7 +62,7 @@ class GeocodeControllerTest extends TestCase
             ], 502),
         ]);
 
-        $this->getJson('/api/geocode?q=логпомилка')
+        $this->getJson('/api/geocode?q=логпомилкаї')
             ->assertOk()
             ->assertExactJson([]);
 
@@ -71,7 +71,7 @@ class GeocodeControllerTest extends TestCase
             ->withArgs(function (string $message, array $context): bool {
                 return $message === 'Photon request failed'
                     && ($context['status'] ?? null) === 502
-                    && ($context['query'] ?? null) === 'логпомилка'
+                    && ($context['query'] ?? null) === 'логпомилкаї'
                     && ! array_key_exists('body', $context);
             });
         Log::shouldNotHaveReceived('debug');
