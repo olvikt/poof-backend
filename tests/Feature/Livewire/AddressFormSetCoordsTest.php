@@ -51,6 +51,12 @@ class AddressFormSetCoordsTest extends TestCase
             ->set('lat', 48.4671)
             ->set('lng', 35.0382)
             ->set('addressPrecision', 'exact')
+            ->set('selectedAddressLocked', true)
+            ->set('suggestions', [[
+                'label' => 'Старий автокомпліт',
+                'lat' => 48.4671,
+                'lng' => 35.0382,
+            ]])
             ->call('setCoords', 48.4240053, 35.0588747, 'sync')
             ->assertSet('search', 'Мандриківська 173, Dnipro')
             ->assertSet('summarySearch', 'Мандриківська 173, Dnipro')
@@ -58,7 +64,13 @@ class AddressFormSetCoordsTest extends TestCase
             ->assertSet('house', '173')
             ->assertSet('lat', 48.4671)
             ->assertSet('lng', 35.0382)
-            ->assertSet('addressPrecision', 'exact');
+            ->assertSet('addressPrecision', 'exact')
+            ->assertSet('selectedAddressLocked', true)
+            ->assertSet('suggestions', [[
+                'label' => 'Старий автокомпліт',
+                'lat' => 48.4671,
+                'lng' => 35.0382,
+            ]]);
     }
 
     public function test_it_applies_house_fallbacks_resolved_by_reverse_geocode_service(): void
