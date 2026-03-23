@@ -85,9 +85,45 @@ class AddressFormSearchModalTest extends TestCase
             ->assertSet('region', 'Kyiv region')
             ->assertSet('lat', 50.45)
             ->assertSet('lng', 30.52)
+            ->assertSet('summarySearch', 'Main Street 7A, Kyiv')
+            ->assertSet('selectedAddressLocked', true)
+            ->assertSet('addressPrecision', 'approx')
+            ->assertSet('suggestions', [])
+            ->assertSet('activeSuggestionIndex', -1)
+            ->assertSet('suggestionsMessage', null)
             ->assertDispatched('map:set-marker', lat: 50.45, lng: 30.52)
+            ->assertDispatched('map:set-marker-precision', precision: 'approx')
             ->assertDispatched('map:set-location', lat: 50.45, lng: 30.52, source: 'autocomplete', zoom: 17)
             ->assertDispatched('map:update', lat: 50.45, lng: 30.52, zoom: 17);
+    }
+
+    public function test_short_search_input_clears_autocomplete_state_without_preserving_stale_suggestions(): void
+    {
+        Livewire::test(AddressForm::class)
+            ->call('openAddressSearch')
+            ->set('search', 'Кос')
+            ->set('suggestions', [[
+                'label' => 'Космічна, Дніпро',
+                'line1' => 'Космічна',
+                'line2' => 'Дніпро, Дніпропетровська область',
+                'street' => 'Космічна',
+                'house' => null,
+                'city' => 'Дніпро',
+                'region' => 'Дніпропетровська область',
+                'lat' => 48.4647,
+                'lng' => 35.0462,
+            ]])
+            ->set('activeSuggestionIndex', 0)
+            ->set('suggestionsMessage', 'Старий стан')
+            ->set('selectedAddressLocked', true)
+            ->set('summarySearch', 'Космічна, Дніпро')
+            ->set('search', 'Ко')
+            ->assertSet('search', 'Ко')
+            ->assertSet('suggestions', [])
+            ->assertSet('activeSuggestionIndex', -1)
+            ->assertSet('suggestionsMessage', null)
+            ->assertSet('selectedAddressLocked', true)
+            ->assertSet('summarySearch', 'Космічна, Дніпро');
     }
 
     public function test_visible_map_point_row_uses_dedicated_map_open_handler(): void
@@ -159,6 +195,9 @@ class AddressFormSearchModalTest extends TestCase
                 'lng' => 35.0462,
             ]])
             ->call('selectSuggestion', 0)
+            ->set('entrance', '1')
+            ->set('floor', '3')
+            ->set('apartment', '15')
             ->call('save')
             ->assertHasNoErrors()
             ->assertDispatched('address-saved');
@@ -199,8 +238,8 @@ class AddressFormSearchModalTest extends TestCase
             ->assertSee('Назад')
             ->assertSee('Моя локація')
             ->assertSeeHtml('data-address-search-trigger')
-            ->assertSeeHtml('bg-white px-4 py-4 pr-12 text-left')
-            ->assertSeeHtml('absolute right-4 top-4 inline-flex h-8 w-8')
+            ->assertSeeHtml('border border-[#666666] bg-neutral-800/95 px-5 py-4 pr-16 text-left')
+            ->assertSeeHtml('absolute right-4 top-1/2 inline-flex -translate-y-1/2')
             ->assertDontSeeHtml('border border-yellow-400/30')
             ->assertDontSeeHtml('bg-yellow-400 text-3xl leading-none text-black');
     }
