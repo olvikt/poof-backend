@@ -362,10 +362,6 @@ class GeocodeController extends Controller
             }
         }
 
-        logger()->debug('Photon filtered results', [
-            'count' => count($unique),
-        ]);
-
         return $unique;
     }
 
