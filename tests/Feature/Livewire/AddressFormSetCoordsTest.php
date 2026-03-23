@@ -5,7 +5,7 @@ namespace Tests\Feature\Livewire;
 use App\DTO\Address\ResolvedAddressData;
 use App\Livewire\Client\AddressForm;
 use App\Services\Address\ResolveAddressFromPoint;
-use Illuminate\Support\Facades\Http;
+use App\Services\Address\ResolveAddressPointFromFields;
 use Livewire\Livewire;
 use Tests\TestCase;
 
@@ -94,9 +94,10 @@ class AddressFormSetCoordsTest extends TestCase
 
     public function test_it_keeps_manual_house_when_user_has_already_touched_it(): void
     {
-        Http::fake([
-            url('/api/geocode').'*' => Http::response([], 500),
-        ]);
+        $this->mock(ResolveAddressPointFromFields::class)
+            ->shouldReceive('execute')
+            ->once()
+            ->andReturn(null);
 
         $this->mock(ResolveAddressFromPoint::class)
             ->shouldReceive('execute')
@@ -113,7 +114,6 @@ class AddressFormSetCoordsTest extends TestCase
             ->set('street', 'Manual Street')
             ->set('city', 'Kyiv')
             ->set('house', '11A')
-            ->call('updatedHouse')
             ->call('setCoords', 50.45, 30.52, 'map')
             ->assertSet('house', '11A')
             ->assertSet('street', 'Main Street')
@@ -123,9 +123,10 @@ class AddressFormSetCoordsTest extends TestCase
 
     public function test_select_suggestion_resets_manual_house_guard_for_new_address_context(): void
     {
-        Http::fake([
-            url('/api/geocode').'*' => Http::response([], 500),
-        ]);
+        $this->mock(ResolveAddressPointFromFields::class)
+            ->shouldReceive('execute')
+            ->once()
+            ->andReturn(null);
 
         $this->mock(ResolveAddressFromPoint::class)
             ->shouldReceive('execute')
@@ -142,7 +143,6 @@ class AddressFormSetCoordsTest extends TestCase
             ->set('street', 'Manual Street')
             ->set('city', 'Kyiv')
             ->set('house', '11A')
-            ->call('updatedHouse')
             ->call('setPhotonSuggestions', [[
                 'lat' => 50.46,
                 'lng' => 30.53,
@@ -162,9 +162,10 @@ class AddressFormSetCoordsTest extends TestCase
 
     public function test_clear_search_resets_manual_house_guard_for_new_address_context(): void
     {
-        Http::fake([
-            url('/api/geocode').'*' => Http::response([], 500),
-        ]);
+        $this->mock(ResolveAddressPointFromFields::class)
+            ->shouldReceive('execute')
+            ->once()
+            ->andReturn(null);
 
         $this->mock(ResolveAddressFromPoint::class)
             ->shouldReceive('execute')
@@ -181,7 +182,6 @@ class AddressFormSetCoordsTest extends TestCase
             ->set('street', 'Manual Street')
             ->set('city', 'Kyiv')
             ->set('house', '11A')
-            ->call('updatedHouse')
             ->call('clearSearch')
             ->assertSet('houseTouchedManually', false)
             ->call('setCoords', 48.46, 35.05, 'map')
@@ -302,7 +302,7 @@ class AddressFormSetCoordsTest extends TestCase
             ->assertSet('summarySearch', 'Мандриківська 171, Dnipro, Dnipropetrovsk region');
     }
 
-    public function test_non_map_sources_only_update_coordinates_without_reverse_fill(): void
+    public function test_unsupported_non_map_sources_are_ignored_without_reverse_fill(): void
     {
         $this->mock(ResolveAddressFromPoint::class)
             ->shouldNotReceive('execute');
@@ -311,10 +311,13 @@ class AddressFormSetCoordsTest extends TestCase
             ->set('street', 'Existing Street')
             ->set('city', 'Existing City')
             ->set('house', '5')
+            ->set('lat', 48.4671)
+            ->set('lng', 35.0382)
+            ->set('addressPrecision', 'exact')
             ->call('setCoords', 50.45, 30.52, 'autocomplete')
-            ->assertSet('lat', 50.45)
-            ->assertSet('lng', 30.52)
-            ->assertSet('addressPrecision', 'approx')
+            ->assertSet('lat', 48.4671)
+            ->assertSet('lng', 35.0382)
+            ->assertSet('addressPrecision', 'exact')
             ->assertSet('street', 'Existing Street')
             ->assertSet('city', 'Existing City')
             ->assertSet('house', '5');

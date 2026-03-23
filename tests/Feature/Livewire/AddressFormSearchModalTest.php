@@ -87,12 +87,12 @@ class AddressFormSearchModalTest extends TestCase
             ->assertSet('lng', 30.52)
             ->assertSet('summarySearch', 'Main Street 7A, Kyiv')
             ->assertSet('selectedAddressLocked', true)
-            ->assertSet('addressPrecision', 'exact')
+            ->assertSet('addressPrecision', 'approx')
             ->assertSet('suggestions', [])
             ->assertSet('activeSuggestionIndex', -1)
             ->assertSet('suggestionsMessage', null)
             ->assertDispatched('map:set-marker', lat: 50.45, lng: 30.52)
-            ->assertDispatched('map:set-marker-precision', precision: 'exact')
+            ->assertDispatched('map:set-marker-precision', precision: 'approx')
             ->assertDispatched('map:set-location', lat: 50.45, lng: 30.52, source: 'autocomplete', zoom: 17)
             ->assertDispatched('map:update', lat: 50.45, lng: 30.52, zoom: 17);
     }
