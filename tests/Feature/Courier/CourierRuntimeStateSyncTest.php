@@ -106,6 +106,28 @@ class CourierRuntimeStateSyncTest extends TestCase
         $this->assertFalse($courier->hasActiveCourierOrder());
     }
 
+    public function test_accepted_fixture_builder_keeps_assigned_runtime_contract(): void
+    {
+        [$courier, $order] = $this->createCourierWithActiveOrder(Order::STATUS_ACCEPTED);
+
+        $this->assertSame(Order::STATUS_ACCEPTED, $order->status);
+        $this->assertSame(Courier::STATUS_ASSIGNED, $courier->courierProfile->status);
+        $this->assertSame(User::SESSION_ASSIGNED, $courier->session_state);
+        $this->assertTrue((bool) $courier->is_busy);
+        $this->assertTrue((bool) $courier->is_online);
+    }
+
+    public function test_in_progress_fixture_builder_keeps_delivering_runtime_contract(): void
+    {
+        [$courier, $order] = $this->createCourierWithActiveOrder(Order::STATUS_IN_PROGRESS);
+
+        $this->assertSame(Order::STATUS_IN_PROGRESS, $order->status);
+        $this->assertSame(Courier::STATUS_DELIVERING, $courier->courierProfile->status);
+        $this->assertSame(User::SESSION_IN_PROGRESS, $courier->session_state);
+        $this->assertTrue((bool) $courier->is_busy);
+        $this->assertTrue((bool) $courier->is_online);
+    }
+
     public function test_cancel_from_in_progress_is_blocked_without_mutating_runtime_state(): void
     {
         [$courier, $order] = $this->createCourierWithActiveOrder(Order::STATUS_IN_PROGRESS);

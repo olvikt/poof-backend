@@ -100,6 +100,11 @@ class ApiProtectedRoutesAuthTest extends TestCase
             ->assertJsonPath('success', true)
             ->assertJsonPath('order.id', $searchingOrder->id)
             ->assertJsonPath('order.courier_id', $courier->id);
+
+        $courier->refresh();
+
+        $this->assertSame(Courier::STATUS_ASSIGNED, $courier->courierProfile->status);
+        $this->assertSame(User::SESSION_ASSIGNED, $courier->session_state);
     }
 
     public function test_client_is_forbidden_from_courier_only_sanctum_routes(): void

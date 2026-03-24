@@ -33,6 +33,7 @@ trait BuildsOrderRuntimeFixtures
         ], $overrides));
 
         $courier->markBusy();
+        $courier->refresh();
 
         return $order->fresh();
     }
@@ -51,8 +52,8 @@ trait BuildsOrderRuntimeFixtures
         ], $overrides));
 
         $courier->markDelivering();
+        $courier->refresh();
 
         return $order->fresh();
     }
 }
-
