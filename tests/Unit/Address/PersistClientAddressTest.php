@@ -61,6 +61,42 @@ class PersistClientAddressTest extends TestCase
         ]);
     }
 
+    public function test_it_ignores_user_id_from_payload_and_persists_create_under_authenticated_user(): void
+    {
+        $user = User::factory()->create();
+        $otherUser = User::factory()->create();
+
+        $payload = PersistAddressData::fromCanonical([
+            'user_id' => $otherUser->id,
+            'label' => 'home',
+            'title' => 'Auth-bound create',
+            'building_type' => 'house',
+            'street' => 'Boundary Street',
+            'house' => '42',
+        ]);
+
+        app(PersistClientAddress::class)->execute(
+            $this->makeFormData(addressId: null),
+            $payload,
+            $user->id,
+        );
+
+        $this->assertDatabaseHas('client_addresses', [
+            'user_id' => $user->id,
+            'label' => 'home',
+            'title' => 'Auth-bound create',
+            'street' => 'Boundary Street',
+            'house' => '42',
+        ]);
+
+        $this->assertDatabaseMissing('client_addresses', [
+            'user_id' => $otherUser->id,
+            'title' => 'Auth-bound create',
+            'street' => 'Boundary Street',
+            'house' => '42',
+        ]);
+    }
+
     public function test_it_updates_only_the_owned_address_in_edit_mode_without_mutating_other_records(): void
     {
         $user = User::factory()->create();
