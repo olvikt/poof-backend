@@ -66,10 +66,12 @@ class ResolveAddressPointFromFieldsTest extends TestCase
         $this->assertSame('Main Street, 7A, Kyiv', $resolved->query);
 
         Http::assertSent(function ($request) {
+            $data = $request->data();
+
             return $request->url() === url('/api/geocode')
-                && $request['q'] === 'Main Street, 7A, Kyiv'
-                && $request['lat'] === 50.45
-                && $request['lng'] === 30.52;
+                && ($data['q'] ?? null) === 'Main Street, 7A, Kyiv'
+                && ($data['lat'] ?? null) === '50.45'
+                && ($data['lng'] ?? null) === '30.52';
         });
     }
 
@@ -94,8 +96,10 @@ class ResolveAddressPointFromFieldsTest extends TestCase
         $this->assertSame('Main Street, 7A, Lviv', $resolved->query);
 
         Http::assertSent(function ($request) {
+            $data = $request->data();
+
             return $request->url() === url('/api/geocode')
-                && $request['q'] === 'Main Street, 7A, Lviv';
+                && ($data['q'] ?? null) === 'Main Street, 7A, Lviv';
         });
     }
 
@@ -120,10 +124,12 @@ class ResolveAddressPointFromFieldsTest extends TestCase
         $this->assertSame('Main Street, 7A', $resolved->query);
 
         Http::assertSent(function ($request) {
+            $data = $request->data();
+
             return $request->url() === url('/api/geocode')
-                && $request['q'] === 'Main Street, 7A'
-                && $request['lat'] === null
-                && $request['lng'] === null;
+                && ($data['q'] ?? null) === 'Main Street, 7A'
+                && ! array_key_exists('lat', $data)
+                && ! array_key_exists('lng', $data);
         });
     }
 
