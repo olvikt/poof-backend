@@ -20,7 +20,7 @@ class PersistAddressData
 
     public function withUserId(int $userId): array
     {
-        return $this->attributes + ['user_id' => $userId];
+        return array_merge($this->attributes, ['user_id' => $userId]);
     }
 
 }
