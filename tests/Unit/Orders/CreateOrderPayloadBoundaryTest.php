@@ -231,4 +231,18 @@ class CreateOrderPayloadBoundaryTest extends TestCase
             'courier_id' => 999, // explicitly forbidden for create contract
         ]);
     }
+
+    public function test_testing_create_contract_rejects_unknown_columns_like_legacy_address_alias(): void
+    {
+        $this->expectException(MassAssignmentException::class);
+
+        Order::createForTesting([
+            'client_id' => 1,
+            'status' => Order::STATUS_SEARCHING,
+            'payment_status' => Order::PAY_PAID,
+            'address_text' => 'вул. Валідна, 1',
+            'address' => 'вул. Невалідна, 1',
+            'price' => 100,
+        ]);
+    }
 }

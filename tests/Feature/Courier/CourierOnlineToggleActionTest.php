@@ -167,7 +167,6 @@ class CourierOnlineToggleActionTest extends TestCase
             'courier_id' => $courier->id,
             'status' => $orderStatus,
             'payment_status' => Order::PAY_PAID,
-            'address' => 'вул. Активна, 11',
             'address_text' => 'вул. Активна, 11',
             'price' => 100,
             'accepted_at' => now(),

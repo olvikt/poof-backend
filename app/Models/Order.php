@@ -114,6 +114,43 @@ public function markAsPaid(): void
         'trial_days',
     ];
 
+    public const TEST_CREATE_COLUMNS = [
+        'client_id',
+        'courier_id',
+        'status',
+        'payment_status',
+        'order_type',
+        'type',
+        'service',
+        'bags_count',
+        'total_weight_kg',
+        'price',
+        'currency',
+        'address_id',
+        'address_text',
+        'lat',
+        'lng',
+        'entrance',
+        'floor',
+        'apartment',
+        'intercom',
+        'comment',
+        'scheduled_date',
+        'scheduled_time_from',
+        'scheduled_time_to',
+        'time_from',
+        'time_to',
+        'handover_type',
+        'promo_code',
+        'is_trial',
+        'trial_days',
+        'accepted_at',
+        'started_at',
+        'completed_at',
+        'created_at',
+        'updated_at',
+    ];
+
     /* =========================================================
      |  MASS ASSIGNMENT
      | ========================================================= */
@@ -138,6 +175,8 @@ public function markAsPaid(): void
         if (! app()->runningUnitTests()) {
             throw new \LogicException('Order::createForTesting() is available only in automated tests.');
         }
+
+        self::assertCreateBoundary($attributes, self::TEST_CREATE_COLUMNS, 'testing');
 
         return self::unguarded(fn () => self::query()->create($attributes));
     }

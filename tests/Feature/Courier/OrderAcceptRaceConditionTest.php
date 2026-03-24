@@ -221,7 +221,6 @@ class OrderAcceptRaceConditionTest extends TestCase
             'client_id' => $client->id,
             'status' => Order::STATUS_SEARCHING,
             'payment_status' => Order::PAY_PAID,
-            'address' => 'вул. Перша, 1',
             'address_text' => 'вул. Перша, 1',
             'price' => 100,
         ]);
@@ -230,7 +229,6 @@ class OrderAcceptRaceConditionTest extends TestCase
             'client_id' => $client->id,
             'status' => Order::STATUS_SEARCHING,
             'payment_status' => Order::PAY_PAID,
-            'address' => 'вул. Друга, 2',
             'address_text' => 'вул. Друга, 2',
             'price' => 120,
         ]);
@@ -312,7 +310,6 @@ class OrderAcceptRaceConditionTest extends TestCase
             'client_id' => $client->id,
             'status' => Order::STATUS_SEARCHING,
             'payment_status' => Order::PAY_PAID,
-            'address' => 'вул. Перша, 1',
             'address_text' => 'вул. Перша, 1',
             'price' => 100,
         ]);
@@ -321,7 +318,6 @@ class OrderAcceptRaceConditionTest extends TestCase
             'client_id' => $client->id,
             'status' => Order::STATUS_SEARCHING,
             'payment_status' => Order::PAY_PAID,
-            'address' => 'вул. Друга, 2',
             'address_text' => 'вул. Друга, 2',
             'price' => 120,
         ]);
@@ -460,7 +456,6 @@ class OrderAcceptRaceConditionTest extends TestCase
             'client_id' => $client->id,
             'status' => Order::STATUS_SEARCHING,
             'payment_status' => Order::PAY_PAID,
-            'address' => 'вул. Тестова, 1',
             'address_text' => 'вул. Тестова, 1',
             'price' => 100,
         ]);

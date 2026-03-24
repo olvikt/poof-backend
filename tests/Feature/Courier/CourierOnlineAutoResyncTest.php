@@ -111,7 +111,6 @@ class CourierOnlineAutoResyncTest extends TestCase
             'courier_id' => $courier->id,
             'status' => Order::STATUS_ACCEPTED,
             'payment_status' => Order::PAY_PAID,
-            'address' => 'вул. Тестова, 10',
             'address_text' => 'вул. Тестова, 10',
             'price' => 150,
             'accepted_at' => now(),

@@ -72,7 +72,6 @@ class LifecycleActionContractsTest extends TestCase
             'client_id' => $client->id,
             'status' => Order::STATUS_NEW,
             'payment_status' => Order::PAY_PENDING,
-            'address' => 'вул. Оплатна, 1',
             'address_text' => 'вул. Оплатна, 1',
             'price' => 100,
         ]);
@@ -118,7 +117,6 @@ class LifecycleActionContractsTest extends TestCase
             'status' => Order::STATUS_ACCEPTED,
             'payment_status' => Order::PAY_PAID,
             'accepted_at' => now(),
-            'address' => 'вул. Тестова, 1',
             'address_text' => 'вул. Тестова, 1',
             'price' => 100,
         ]);

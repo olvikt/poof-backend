@@ -109,7 +109,6 @@ class CourierBusyUxFlowTest extends TestCase
             'client_id' => $client->id,
             'status' => Order::STATUS_SEARCHING,
             'payment_status' => Order::PAY_PAID,
-            'address' => 'вул. Вільна, 8',
             'address_text' => 'вул. Вільна, 8',
             'price' => 150,
         ]);
@@ -134,7 +133,6 @@ class CourierBusyUxFlowTest extends TestCase
             'courier_id' => $courier->id,
             'status' => $orderStatus,
             'payment_status' => Order::PAY_PAID,
-            'address' => 'вул. Активна, 11',
             'address_text' => 'вул. Активна, 11',
             'price' => 100,
             'accepted_at' => now(),

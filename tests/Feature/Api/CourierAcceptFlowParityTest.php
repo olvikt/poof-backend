@@ -43,7 +43,6 @@ class CourierAcceptFlowParityTest extends TestCase
             'client_id' => $client->id,
             'status' => Order::STATUS_SEARCHING,
             'payment_status' => Order::PAY_PAID,
-            'address' => 'вул. Єдина, 1',
             'address_text' => 'вул. Єдина, 1',
             'price' => 100,
         ]);
@@ -92,7 +91,6 @@ class CourierAcceptFlowParityTest extends TestCase
             'client_id' => $client->id,
             'status' => Order::STATUS_SEARCHING,
             'payment_status' => Order::PAY_PAID,
-            'address' => 'вул. Активна, 1',
             'address_text' => 'вул. Активна, 1',
             'price' => 150,
         ]);
@@ -101,7 +99,6 @@ class CourierAcceptFlowParityTest extends TestCase
             'client_id' => $client->id,
             'status' => Order::STATUS_SEARCHING,
             'payment_status' => Order::PAY_PAID,
-            'address' => 'вул. Оферна, 2',
             'address_text' => 'вул. Оферна, 2',
             'price' => 180,
         ]);
@@ -160,7 +157,6 @@ class CourierAcceptFlowParityTest extends TestCase
             'client_id' => $client->id,
             'status' => Order::STATUS_SEARCHING,
             'payment_status' => Order::PAY_PAID,
-            'address' => 'вул. Паритетна, 1',
             'address_text' => 'вул. Паритетна, 1',
             'price' => 100,
         ]);

@@ -53,7 +53,6 @@ class CourierRuntimeStateSyncTest extends TestCase
             'client_id' => $client->id,
             'status' => Order::STATUS_SEARCHING,
             'payment_status' => Order::PAY_PAID,
-            'address' => 'вул. Тестова, 1',
             'address_text' => 'вул. Тестова, 1',
             'price' => 100,
         ]);
@@ -286,7 +285,6 @@ class CourierRuntimeStateSyncTest extends TestCase
             'client_id' => $client->id,
             'status' => Order::STATUS_SEARCHING,
             'payment_status' => Order::PAY_PAID,
-            'address' => 'вул. Тестова, 2',
             'address_text' => 'вул. Тестова, 2',
             'lat' => 50.4501,
             'lng' => 30.5234,
@@ -310,7 +308,6 @@ class CourierRuntimeStateSyncTest extends TestCase
             'courier_id' => $courier->id,
             'status' => $orderStatus,
             'payment_status' => Order::PAY_PAID,
-            'address' => 'вул. Активна, 11',
             'address_text' => 'вул. Активна, 11',
             'price' => 100,
             'accepted_at' => now(),

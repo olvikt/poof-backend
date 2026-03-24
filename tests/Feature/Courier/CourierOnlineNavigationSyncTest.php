@@ -336,7 +336,6 @@ class CourierOnlineNavigationSyncTest extends TestCase
             'courier_id' => $courier->id,
             'status' => $orderStatus,
             'payment_status' => Order::PAY_PAID,
-            'address' => 'вул. Навігаційна, 7',
             'address_text' => 'вул. Навігаційна, 7',
             'price' => 125,
             'accepted_at' => now(),
