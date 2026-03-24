@@ -156,7 +156,7 @@ git config --global --add safe.directory /var/www/poof
 - `DEPLOY_REF=<release-ref> bash scripts/deploy.sh` — эквивалентный explicit deploy contract
 - `scripts/deploy.sh` без ref — legacy/emergency continuity path only; допустим для backward compatibility, но не как normal flow
 - `scripts/rollback.sh <release-ref>` — откат на previous known-good release ref/tag
-- `scripts/check-server.sh` — канонический post-deploy smoke-runner
+- `scripts/check-server.sh` — канонический post-deploy smoke-runner; log sections are deploy-relative best-effort context (recent timestamp window with explicit fallback tail label)
 - `docs/release-gates.md` — канонический CI/deploy/smoke contract
 - `docs/versioned-releases.md` — минимальная versioned release model и operator contract
 - `docs/release-candidate-workflow.md` — canonical operator checklist для release candidate deploy/smoke/rollback
