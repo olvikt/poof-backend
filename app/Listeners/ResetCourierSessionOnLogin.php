@@ -31,9 +31,14 @@ class ResetCourierSessionOnLogin
 
         // Сначала выравниваем runtime-state на основе активных заказов (self-heal).
         $user->repairCourierRuntimeState();
+        $user->refresh();
+
+        $activeOrderStatus = $user->takenOrders()
+            ->activeForCourier()
+            ->value('status');
 
         // Для свободного курьера сохраняем прежнее поведение: логин сбрасывает в OFFLINE.
-        if (! $user->hasActiveCourierOrder()) {
+        if ($activeOrderStatus === null) {
             $user->goOffline(force: true);
 
             return;
@@ -41,5 +46,6 @@ class ResetCourierSessionOnLogin
 
         // Активный заказ запрещает offline/free на логине.
         $user->repairCourierRuntimeState();
+        $user->refresh();
     }
 }
