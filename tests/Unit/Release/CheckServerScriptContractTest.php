@@ -21,8 +21,10 @@ class CheckServerScriptContractTest extends TestCase
 
         $this->assertNotFalse($script);
         $this->assertStringContainsString('LOG_RECENT_WINDOW_MINUTES="${LOG_RECENT_WINDOW_MINUTES:-20}"', $script);
+        $this->assertStringContainsString('DEPLOY_STATE_FILE="${DEPLOY_STATE_FILE:-$APP_DIR/storage/app/current-release.json}"', $script);
         $this->assertStringContainsString('Recent deploy-window context (best effort):', $script);
-        $this->assertStringContainsString('No timestamp-matched lines in recent window; showing fallback tail for operator context.', $script);
+        $this->assertStringContainsString('filtering timestamped lines since ${cutoff_label}.', $script);
+        $this->assertStringContainsString('No timestamp-matched lines in derived deploy window; showing fallback tail for operator context.', $script);
         $this->assertStringContainsString('run_log_evidence "Worker log evidence" "storage/logs/worker.log" 50 400', $script);
         $this->assertStringContainsString('run_log_evidence "Application log evidence" "storage/logs/laravel.log" 100 600', $script);
     }
