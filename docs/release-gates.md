@@ -152,8 +152,8 @@ Canonical smoke runners:
 3. `php artisan schedule:list`;
 4. `supervisorctl status`;
 5. `redis-cli ping`;
-6. worker log tail;
-7. application log tail.
+6. worker log evidence (recent deploy-window context by timestamp; best-effort fallback to tail);
+7. application log evidence (recent deploy-window context by timestamp; best-effort fallback to tail).
 
 Дополнительно `scripts/check-server.sh` проверяет systemd state для nginx / php-fpm / redis / cron.
 
@@ -209,7 +209,7 @@ bash scripts/check-pwa.sh
 
 - все обязательные команды завершаются успешно;
 - вывод `bash scripts/show-release.sh` явно подтверждает current release, previous known-good release и deployment mode (`EXPLICIT` vs `FALLBACK`);
-- logs не содержат очевидных ошибок, связанных с только что выполненным deploy;
+- recent log-evidence sections не содержат очевидных ошибок, связанных с только что выполненным deploy;
 - для PWA-affecting релизов `bash scripts/check-pwa.sh` подтверждает manifest/service-worker/landing HTML wiring без browser automation.
 
 ### Who confirms the post-deploy smoke
