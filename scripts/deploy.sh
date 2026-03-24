@@ -4,6 +4,7 @@ set -euo pipefail
 APP_DIR="${APP_DIR:-/var/www/poof}"
 PHP_BIN="${PHP_BIN:-php}"
 COMPOSER_BIN="${COMPOSER_BIN:-composer}"
+COMPOSER_ALLOW_SUPERUSER="${COMPOSER_ALLOW_SUPERUSER:-1}"
 SUPERVISORCTL_BIN="${SUPERVISORCTL_BIN:-supervisorctl}"
 HEALTHCHECK_URL="${HEALTHCHECK_URL:-https://api.poof.com.ua/up}"
 HEALTHCHECK_ATTEMPTS="${HEALTHCHECK_ATTEMPTS:-10}"
@@ -122,7 +123,7 @@ git reset --hard "$RESOLVED_COMMIT"
 git clean -fd
 
 echo "[deploy] installing PHP dependencies"
-"$COMPOSER_BIN" install --no-dev --optimize-autoloader
+COMPOSER_ALLOW_SUPERUSER="$COMPOSER_ALLOW_SUPERUSER" "$COMPOSER_BIN" install --no-interaction --no-dev --optimize-autoloader
 
 echo "[deploy] installing JS dependencies"
 npm ci
