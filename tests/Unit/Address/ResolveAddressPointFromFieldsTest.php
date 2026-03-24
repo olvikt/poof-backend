@@ -46,7 +46,7 @@ class ResolveAddressPointFromFieldsTest extends TestCase
     public function test_it_uses_street_and_city_from_search_fallback_and_builds_current_query_shape(): void
     {
         Http::fake([
-            'http://localhost/api/geocode*' => Http::response([
+            $this->geocodeUrlPattern() => Http::response([
                 ['lat' => '50.4501', 'lng' => '30.5234'],
             ]),
         ]);
@@ -66,17 +66,81 @@ class ResolveAddressPointFromFieldsTest extends TestCase
         $this->assertSame('Main Street, 7A, Kyiv', $resolved->query);
 
         Http::assertSent(function ($request) {
-            return $request->url() === url('/api/geocode')
-                && $request['q'] === 'Main Street, 7A, Kyiv'
-                && $request['lat'] === 50.45
-                && $request['lng'] === 30.52;
+            $data = $request->data();
+            $lat = $data['lat'] ?? null;
+            $lng = $data['lng'] ?? null;
+
+            return str_starts_with($request->url(), url('/api/geocode'))
+                && ($data['q'] ?? null) === 'Main Street, 7A, Kyiv'
+                && (string) $lat === '50.45'
+                && (string) $lng === '30.52';
+        });
+    }
+
+    public function test_it_keeps_explicit_city_when_search_fallback_provides_another_city(): void
+    {
+        Http::fake([
+            $this->geocodeUrlPattern() => Http::response([
+                ['lat' => '50.4501', 'lng' => '30.5234'],
+            ]),
+        ]);
+
+        $resolved = app(ResolveAddressPointFromFields::class)->execute(new AddressFieldsData(
+            street: ' ',
+            house: '7A',
+            city: 'Lviv',
+            search: 'Main Street, Kyiv, Ukraine',
+            lat: 50.45,
+            lng: 30.52,
+        ));
+
+        $this->assertNotNull($resolved);
+        $this->assertSame('Main Street, 7A, Lviv', $resolved->query);
+
+        Http::assertSent(function ($request) {
+            $data = $request->data();
+
+            return str_starts_with($request->url(), url('/api/geocode'))
+                && ($data['q'] ?? null) === 'Main Street, 7A, Lviv';
+        });
+    }
+
+    public function test_it_builds_query_without_city_when_city_is_missing_in_fields_and_search_fallback(): void
+    {
+        Http::fake([
+            $this->geocodeUrlPattern() => Http::response([
+                ['lat' => '50.4501', 'lng' => '30.5234'],
+            ]),
+        ]);
+
+        $resolved = app(ResolveAddressPointFromFields::class)->execute(new AddressFieldsData(
+            street: 'Main Street',
+            house: '7A',
+            city: ' ',
+            search: null,
+            lat: null,
+            lng: null,
+        ));
+
+        $this->assertNotNull($resolved);
+        $this->assertSame('Main Street, 7A', $resolved->query);
+
+        Http::assertSent(function ($request) {
+            $data = $request->data();
+            $lat = $data['lat'] ?? null;
+            $lng = $data['lng'] ?? null;
+
+            return str_starts_with($request->url(), url('/api/geocode'))
+                && ($data['q'] ?? null) === 'Main Street, 7A'
+                && ($lat === null || $lat === '')
+                && ($lng === null || $lng === '');
         });
     }
 
     public function test_it_returns_coordinates_from_valid_geocode_response(): void
     {
         Http::fake([
-            'http://localhost/api/geocode*' => Http::response([
+            $this->geocodeUrlPattern() => Http::response([
                 ['lat' => '49.8397', 'lng' => '24.0297'],
             ]),
         ]);
@@ -96,31 +160,37 @@ class ResolveAddressPointFromFieldsTest extends TestCase
         $this->assertSame('Shevchenka Street, 15B, Lviv', $resolved->query);
     }
 
+
+    private function geocodeUrlPattern(): string
+    {
+        return url('/api/geocode') . '*';
+    }
+
     public function test_it_silently_returns_null_for_bad_or_malformed_responses(): void
     {
         $service = app(ResolveAddressPointFromFields::class);
 
         Http::fake([
-            'http://localhost/api/geocode*' => Http::response([], 500),
+            $this->geocodeUrlPattern() => Http::response([], 500),
         ]);
         $this->assertNull($service->execute(new AddressFieldsData('Main Street', '7A', 'Kyiv', null, 50.45, 30.52)));
 
         Http::fake([
-            'http://localhost/api/geocode*' => Http::response([
+            $this->geocodeUrlPattern() => Http::response([
                 ['lat' => '50.45'],
             ]),
         ]);
         $this->assertNull($service->execute(new AddressFieldsData('Main Street', '7A', 'Kyiv', null, 50.45, 30.52)));
 
         Http::fake([
-            'http://localhost/api/geocode*' => Http::response([
+            $this->geocodeUrlPattern() => Http::response([
                 'unexpected' => 'payload',
             ]),
         ]);
         $this->assertNull($service->execute(new AddressFieldsData('Main Street', '7A', 'Kyiv', null, 50.45, 30.52)));
 
         Http::fake([
-            'http://localhost/api/geocode*' => fn () => throw new \RuntimeException('boom'),
+            $this->geocodeUrlPattern() => fn () => throw new \RuntimeException('boom'),
         ]);
         $this->assertNull($service->execute(new AddressFieldsData('Main Street', '7A', 'Kyiv', null, 50.45, 30.52)));
     }

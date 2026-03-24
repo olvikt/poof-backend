@@ -101,11 +101,12 @@ Blocking jobs:
    - `tests/Feature/Courier/CourierRuntimeStateSyncTest.php`;
    - `tests/Feature/Api/GeocodeControllerTest.php`;
    - `tests/Unit/Address/PrepareAddressSavePayloadTest.php`;
-   - `tests/Unit/Address/ResolveAddressFromPointTest.php`.
+   - `tests/Unit/Address/ResolveAddressFromPointTest.php`;
+   - `tests/Unit/Address/ResolveAddressPointFromFieldsTest.php`.
 
    Non-blocking follow-up suites:
    - broader Auth / Courier / Livewire suites;
-   - remaining wider Unit suites beyond the promoted address precision/policy/reverse-geocode regression checks and `PrepareAddressSavePayloadTest`.
+   - remaining wider Unit suites beyond the promoted address precision/policy/reverse-geocode/forward-geocode regression checks and `PrepareAddressSavePayloadTest`.
 
 3. `frontend-build`
    - `npm ci`;
