@@ -108,8 +108,39 @@ class ResolveAddressFromPointTest extends TestCase
         $this->assertNull($service->execute(new AddressPointData(50.45, 30.52, 'map')));
 
         Http::fake([
+            'https://nominatim.openstreetmap.org/reverse*' => Http::response([
+                'address' => 'not-an-array',
+            ]),
+        ]);
+        $this->assertNull($service->execute(new AddressPointData(50.45, 30.52, 'map')));
+
+        Http::fake([
             'https://nominatim.openstreetmap.org/reverse*' => fn () => throw new \RuntimeException('boom'),
         ]);
         $this->assertNull($service->execute(new AddressPointData(50.45, 30.52, 'map')));
+    }
+
+    public function test_it_preserves_canonical_search_text_from_payload_label(): void
+    {
+        Http::fake([
+            'https://nominatim.openstreetmap.org/reverse*' => Http::response([
+                'label' => '  Custom Canonical Search Text  ',
+                'address' => [
+                    'road' => 'Main Street',
+                    'house_number' => '7',
+                    'city' => 'Kyiv',
+                    'state' => 'Kyiv region',
+                ],
+            ]),
+        ]);
+
+        $resolved = app(ResolveAddressFromPoint::class)->execute(new AddressPointData(50.45, 30.52, 'map'));
+
+        $this->assertNotNull($resolved);
+        $this->assertSame('Main Street', $resolved->street);
+        $this->assertSame('7', $resolved->house);
+        $this->assertSame('Kyiv', $resolved->city);
+        $this->assertSame('Kyiv region', $resolved->region);
+        $this->assertSame('Custom Canonical Search Text', $resolved->search);
     }
 }
