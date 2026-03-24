@@ -5,16 +5,17 @@ namespace Tests\Feature\Api;
 use App\Jobs\DispatchOrderJob;
 use App\Models\Courier;
 use App\Models\ClientAddress;
-use App\Models\Order;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Bus;
 use Laravel\Sanctum\Sanctum;
+use Tests\Concerns\BuildsOrderRuntimeFixtures;
 use Tests\TestCase;
 
 class OrderStoreTest extends TestCase
 {
     use RefreshDatabase;
+    use BuildsOrderRuntimeFixtures;
 
     public function test_client_can_create_order_with_full_canonical_payload(): void
     {
@@ -450,23 +451,15 @@ class OrderStoreTest extends TestCase
             'status' => Courier::STATUS_ONLINE,
         ]);
 
-        $activeOrder = Order::createForTesting([
-            'client_id' => $client->id,
-            'status' => Order::STATUS_SEARCHING,
-            'payment_status' => Order::PAY_PAID,
+        $activeOrder = $this->createAcceptedOrderAssignedToCourier($client, $courier, [
             'address_text' => 'вул. Активна, 1',
             'price' => 100,
         ]);
 
-        $newOrder = Order::createForTesting([
-            'client_id' => $client->id,
-            'status' => Order::STATUS_SEARCHING,
-            'payment_status' => Order::PAY_PAID,
+        $newOrder = $this->createDispatchableSearchingPaidOrder($client, [
             'address_text' => 'вул. Нова, 2',
             'price' => 120,
         ]);
-
-        $this->assertTrue($activeOrder->acceptBy($courier));
 
         Sanctum::actingAs($courier);
 

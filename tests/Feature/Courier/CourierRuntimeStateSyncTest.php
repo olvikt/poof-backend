@@ -12,11 +12,13 @@ use App\Services\Dispatch\OfferDispatcher;
 use Illuminate\Auth\Events\Login;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Livewire\Livewire;
+use Tests\Concerns\BuildsOrderRuntimeFixtures;
 use Tests\TestCase;
 
 class CourierRuntimeStateSyncTest extends TestCase
 {
     use RefreshDatabase;
+    use BuildsOrderRuntimeFixtures;
 
     public function test_go_online_sets_unified_online_state(): void
     {
@@ -49,10 +51,7 @@ class CourierRuntimeStateSyncTest extends TestCase
         $client = User::factory()->create(['role' => User::ROLE_CLIENT, 'is_active' => true]);
         $courier = $this->createCourier(Courier::STATUS_ONLINE);
 
-        $order = Order::createForTesting([
-            'client_id' => $client->id,
-            'status' => Order::STATUS_SEARCHING,
-            'payment_status' => Order::PAY_PAID,
+        $order = $this->createDispatchableSearchingPaidOrder($client, [
             'address_text' => 'вул. Тестова, 1',
             'price' => 100,
         ]);
@@ -281,10 +280,7 @@ class CourierRuntimeStateSyncTest extends TestCase
             lastLocationAt: now()
         );
 
-        $order = Order::createForTesting([
-            'client_id' => $client->id,
-            'status' => Order::STATUS_SEARCHING,
-            'payment_status' => Order::PAY_PAID,
+        $order = $this->createDispatchableSearchingPaidOrder($client, [
             'address_text' => 'вул. Тестова, 2',
             'lat' => 50.4501,
             'lng' => 30.5234,
@@ -303,16 +299,11 @@ class CourierRuntimeStateSyncTest extends TestCase
         $client = User::factory()->create(['role' => User::ROLE_CLIENT, 'is_active' => true]);
         $courier = $this->createCourier(Courier::STATUS_ONLINE, isBusy: false, isOnline: true);
 
-        $order = Order::createForTesting([
-            'client_id' => $client->id,
-            'courier_id' => $courier->id,
-            'status' => $orderStatus,
-            'payment_status' => Order::PAY_PAID,
-            'address_text' => 'вул. Активна, 11',
-            'price' => 100,
-            'accepted_at' => now(),
-            'started_at' => $orderStatus === Order::STATUS_IN_PROGRESS ? now() : null,
-        ]);
+        $order = match ($orderStatus) {
+            Order::STATUS_ACCEPTED => $this->createAcceptedOrderAssignedToCourier($client, $courier),
+            Order::STATUS_IN_PROGRESS => $this->createInProgressOrderAssignedToCourier($client, $courier),
+            default => throw new \InvalidArgumentException('Unsupported active order status fixture: ' . $orderStatus),
+        };
 
         return [$courier, $order];
     }

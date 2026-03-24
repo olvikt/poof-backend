@@ -29,14 +29,16 @@ class OrderTestingFixtureBoundaryArchitectureTest extends TestCase
         return preg_replace('/\s+/', ' ', $contents) ?? '';
     }
 
-    public function test_critical_order_fixture_tests_use_test_boundary_and_not_raw_create(): void
+    public function test_critical_order_fixture_tests_use_canonical_state_builders_and_not_raw_create(): void
     {
         foreach ($this->criticalFixtureFiles() as $file) {
             $source = $this->normalized($file);
 
-            $this->assertStringContainsString('Order::createForTesting(', $source, $file);
+            $this->assertStringContainsString('BuildsOrderRuntimeFixtures', $source, $file);
+            $this->assertStringContainsString('createDispatchableSearchingPaidOrder(', $source, $file);
             $this->assertStringNotContainsString('Order::query()->create(', $source, $file);
             $this->assertStringNotContainsString('Order::create(', $source, $file);
+            $this->assertStringNotContainsString('Order::createForTesting(', $source, $file);
             $this->assertStringNotContainsString('Order::query()->forceCreate(', $source, $file);
             $this->assertStringNotContainsString('Order::unguarded(', $source, $file);
         }
