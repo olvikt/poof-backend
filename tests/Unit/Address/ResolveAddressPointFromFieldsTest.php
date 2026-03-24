@@ -73,6 +73,60 @@ class ResolveAddressPointFromFieldsTest extends TestCase
         });
     }
 
+    public function test_it_keeps_explicit_city_when_search_fallback_provides_another_city(): void
+    {
+        Http::fake([
+            'http://localhost/api/geocode*' => Http::response([
+                ['lat' => '50.4501', 'lng' => '30.5234'],
+            ]),
+        ]);
+
+        $resolved = app(ResolveAddressPointFromFields::class)->execute(new AddressFieldsData(
+            street: ' ',
+            house: '7A',
+            city: 'Lviv',
+            search: 'Main Street, Kyiv, Ukraine',
+            lat: 50.45,
+            lng: 30.52,
+        ));
+
+        $this->assertNotNull($resolved);
+        $this->assertSame('Main Street, 7A, Lviv', $resolved->query);
+
+        Http::assertSent(function ($request) {
+            return $request->url() === url('/api/geocode')
+                && $request['q'] === 'Main Street, 7A, Lviv';
+        });
+    }
+
+    public function test_it_builds_query_without_city_when_city_is_missing_in_fields_and_search_fallback(): void
+    {
+        Http::fake([
+            'http://localhost/api/geocode*' => Http::response([
+                ['lat' => '50.4501', 'lng' => '30.5234'],
+            ]),
+        ]);
+
+        $resolved = app(ResolveAddressPointFromFields::class)->execute(new AddressFieldsData(
+            street: 'Main Street',
+            house: '7A',
+            city: ' ',
+            search: null,
+            lat: null,
+            lng: null,
+        ));
+
+        $this->assertNotNull($resolved);
+        $this->assertSame('Main Street, 7A', $resolved->query);
+
+        Http::assertSent(function ($request) {
+            return $request->url() === url('/api/geocode')
+                && $request['q'] === 'Main Street, 7A'
+                && $request['lat'] === null
+                && $request['lng'] === null;
+        });
+    }
+
     public function test_it_returns_coordinates_from_valid_geocode_response(): void
     {
         Http::fake([
