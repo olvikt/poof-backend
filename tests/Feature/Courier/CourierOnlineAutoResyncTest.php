@@ -106,7 +106,7 @@ class CourierOnlineAutoResyncTest extends TestCase
         $courier = $this->createCourier(online: true, lastLocationAt: $lastLocationAt);
         $client = User::factory()->create(['role' => User::ROLE_CLIENT, 'is_active' => true]);
 
-        $order = Order::query()->create([
+        $order = Order::createForTesting([
             'client_id' => $client->id,
             'courier_id' => $courier->id,
             'status' => Order::STATUS_ACCEPTED,

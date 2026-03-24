@@ -217,7 +217,7 @@ class OrderAcceptRaceConditionTest extends TestCase
             'status' => Courier::STATUS_ONLINE,
         ]);
 
-        $firstOrder = Order::query()->create([
+        $firstOrder = Order::createForTesting([
             'client_id' => $client->id,
             'status' => Order::STATUS_SEARCHING,
             'payment_status' => Order::PAY_PAID,
@@ -226,7 +226,7 @@ class OrderAcceptRaceConditionTest extends TestCase
             'price' => 100,
         ]);
 
-        $secondOrder = Order::query()->create([
+        $secondOrder = Order::createForTesting([
             'client_id' => $client->id,
             'status' => Order::STATUS_SEARCHING,
             'payment_status' => Order::PAY_PAID,
@@ -308,7 +308,7 @@ class OrderAcceptRaceConditionTest extends TestCase
             'status' => Courier::STATUS_ONLINE,
         ]);
 
-        $firstOrder = Order::query()->create([
+        $firstOrder = Order::createForTesting([
             'client_id' => $client->id,
             'status' => Order::STATUS_SEARCHING,
             'payment_status' => Order::PAY_PAID,
@@ -317,7 +317,7 @@ class OrderAcceptRaceConditionTest extends TestCase
             'price' => 100,
         ]);
 
-        $secondOrder = Order::query()->create([
+        $secondOrder = Order::createForTesting([
             'client_id' => $client->id,
             'status' => Order::STATUS_SEARCHING,
             'payment_status' => Order::PAY_PAID,
@@ -456,7 +456,7 @@ class OrderAcceptRaceConditionTest extends TestCase
             'status' => Courier::STATUS_ONLINE,
         ]);
 
-        $order = Order::query()->create([
+        $order = Order::createForTesting([
             'client_id' => $client->id,
             'status' => Order::STATUS_SEARCHING,
             'payment_status' => Order::PAY_PAID,

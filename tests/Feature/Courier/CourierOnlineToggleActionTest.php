@@ -162,7 +162,7 @@ class CourierOnlineToggleActionTest extends TestCase
         $courier = $this->createCourier();
         $courier->goOnline();
 
-        Order::query()->create([
+        Order::createForTesting([
             'client_id' => $client->id,
             'courier_id' => $courier->id,
             'status' => $orderStatus,

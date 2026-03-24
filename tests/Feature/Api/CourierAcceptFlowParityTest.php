@@ -39,7 +39,7 @@ class CourierAcceptFlowParityTest extends TestCase
             'status' => Courier::STATUS_ONLINE,
         ]);
 
-        $order = Order::query()->create([
+        $order = Order::createForTesting([
             'client_id' => $client->id,
             'status' => Order::STATUS_SEARCHING,
             'payment_status' => Order::PAY_PAID,
@@ -88,7 +88,7 @@ class CourierAcceptFlowParityTest extends TestCase
             'status' => Courier::STATUS_ONLINE,
         ]);
 
-        $activeOrder = Order::query()->create([
+        $activeOrder = Order::createForTesting([
             'client_id' => $client->id,
             'status' => Order::STATUS_SEARCHING,
             'payment_status' => Order::PAY_PAID,
@@ -97,7 +97,7 @@ class CourierAcceptFlowParityTest extends TestCase
             'price' => 150,
         ]);
 
-        $offeredOrder = Order::query()->create([
+        $offeredOrder = Order::createForTesting([
             'client_id' => $client->id,
             'status' => Order::STATUS_SEARCHING,
             'payment_status' => Order::PAY_PAID,
@@ -156,7 +156,7 @@ class CourierAcceptFlowParityTest extends TestCase
             'status' => Courier::STATUS_ONLINE,
         ]);
 
-        $order = Order::query()->create([
+        $order = Order::createForTesting([
             'client_id' => $client->id,
             'status' => Order::STATUS_SEARCHING,
             'payment_status' => Order::PAY_PAID,

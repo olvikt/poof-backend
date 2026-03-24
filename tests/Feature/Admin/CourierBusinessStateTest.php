@@ -91,7 +91,7 @@ class CourierBusinessStateTest extends TestCase
             'last_location_at' => now()->subMinutes(5),
         ]);
 
-        Order::query()->create([
+        Order::createForTesting([
             'client_id' => $client->id,
             'courier_id' => $busyCourier->id,
             'status' => Order::STATUS_ACCEPTED,

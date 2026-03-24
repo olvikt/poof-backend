@@ -105,7 +105,7 @@ class CourierBusyUxFlowTest extends TestCase
     {
         $client = User::factory()->create(['role' => User::ROLE_CLIENT, 'is_active' => true]);
 
-        $order = Order::query()->create([
+        $order = Order::createForTesting([
             'client_id' => $client->id,
             'status' => Order::STATUS_SEARCHING,
             'payment_status' => Order::PAY_PAID,
@@ -129,7 +129,7 @@ class CourierBusyUxFlowTest extends TestCase
         $courier = $this->createCourier();
         $courier->goOnline();
 
-        $order = Order::query()->create([
+        $order = Order::createForTesting([
             'client_id' => $client->id,
             'courier_id' => $courier->id,
             'status' => $orderStatus,

@@ -9,6 +9,7 @@ use App\Actions\Orders\Lifecycle\CancelOrderAction;
 use App\Actions\Orders\Lifecycle\CompleteOrderByCourierAction;
 use App\Actions\Orders\Lifecycle\MarkOrderAsPaidAction;
 use App\Actions\Orders\Lifecycle\StartOrderByCourierAction;
+use Illuminate\Database\Eloquent\MassAssignmentException;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -68,16 +69,10 @@ public function markAsPaid(): void
         self::HANDOVER_HAND => 'Передача в руки',
     ];
 
-    /* =========================================================
-     |  MASS ASSIGNMENT
-     | ========================================================= */
-    protected $fillable = [
+    public const CANONICAL_CREATE_COLUMNS = [
         'client_id',
-        'courier_id',
         'status',
         'payment_status',
-
-        // Canonical API create-order fields.
         'type',
         'service',
         'bags_count',
@@ -92,25 +87,75 @@ public function markAsPaid(): void
         'time_from',
         'time_to',
         'comment',
+    ];
 
-        // Legacy/web flow fields kept for non-API create scenarios.
+    public const LEGACY_WEB_CREATE_COLUMNS = [
+        'client_id',
         'order_type',
+        'status',
+        'payment_status',
+        'address_id',
+        'address_text',
+        'lat',
+        'lng',
         'entrance',
         'floor',
         'apartment',
         'intercom',
+        'comment',
+        'scheduled_date',
         'scheduled_time_from',
         'scheduled_time_to',
         'handover_type',
-
+        'bags_count',
+        'price',
         'promo_code',
         'is_trial',
         'trial_days',
-
-        'accepted_at',
-        'started_at',
-        'completed_at',
     ];
+
+    /* =========================================================
+     |  MASS ASSIGNMENT
+     | ========================================================= */
+    protected $guarded = ['*'];
+
+    public static function createFromCanonicalContract(array $attributes): self
+    {
+        self::assertCreateBoundary($attributes, self::CANONICAL_CREATE_COLUMNS, 'canonical');
+
+        return self::unguarded(fn () => self::query()->create($attributes));
+    }
+
+    public static function createFromLegacyWebContract(array $attributes): self
+    {
+        self::assertCreateBoundary($attributes, self::LEGACY_WEB_CREATE_COLUMNS, 'legacy-web');
+
+        return self::unguarded(fn () => self::query()->create($attributes));
+    }
+
+    public static function createForTesting(array $attributes): self
+    {
+        if (! app()->runningUnitTests()) {
+            throw new \LogicException('Order::createForTesting() is available only in automated tests.');
+        }
+
+        return self::unguarded(fn () => self::query()->create($attributes));
+    }
+
+    private static function assertCreateBoundary(array $attributes, array $allowedColumns, string $contract): void
+    {
+        $unknownColumns = array_values(array_diff(array_keys($attributes), $allowedColumns));
+
+        if ($unknownColumns === []) {
+            return;
+        }
+
+        throw new MassAssignmentException(sprintf(
+            'Unapproved %s order-create columns: %s',
+            $contract,
+            implode(', ', $unknownColumns),
+        ));
+    }
 
     /* =========================================================
      |  CASTS

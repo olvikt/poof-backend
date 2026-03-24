@@ -68,7 +68,7 @@ class LifecycleActionContractsTest extends TestCase
             'is_active' => true,
         ]);
 
-        $order = Order::query()->create([
+        $order = Order::createForTesting([
             'client_id' => $client->id,
             'status' => Order::STATUS_NEW,
             'payment_status' => Order::PAY_PENDING,
@@ -112,7 +112,7 @@ class LifecycleActionContractsTest extends TestCase
             'status' => Courier::STATUS_ONLINE,
         ]);
 
-        $order = Order::query()->create([
+        $order = Order::createForTesting([
             'client_id' => $client->id,
             'courier_id' => $courier->id,
             'status' => Order::STATUS_ACCEPTED,

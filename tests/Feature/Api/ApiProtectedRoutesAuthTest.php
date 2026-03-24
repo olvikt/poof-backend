@@ -16,7 +16,7 @@ class ApiProtectedRoutesAuthTest extends TestCase
 
     public function test_guest_is_denied_for_each_sanctum_protected_route(): void
     {
-        $order = Order::query()->create([
+        $order = Order::createForTesting([
             'client_id' => $this->createClient()->id,
             'status' => Order::STATUS_SEARCHING,
             'payment_status' => Order::PAY_PAID,
@@ -85,7 +85,7 @@ class ApiProtectedRoutesAuthTest extends TestCase
         $client = $this->createClient();
         $courier = $this->createCourier();
 
-        $searchingOrder = Order::query()->create([
+        $searchingOrder = Order::createForTesting([
             'client_id' => $client->id,
             'status' => Order::STATUS_SEARCHING,
             'payment_status' => Order::PAY_PAID,
@@ -110,7 +110,7 @@ class ApiProtectedRoutesAuthTest extends TestCase
     public function test_client_is_forbidden_from_courier_only_sanctum_routes(): void
     {
         $client = $this->createClient();
-        $order = Order::query()->create([
+        $order = Order::createForTesting([
             'client_id' => $client->id,
             'status' => Order::STATUS_SEARCHING,
             'payment_status' => Order::PAY_PAID,

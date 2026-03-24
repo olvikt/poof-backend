@@ -49,7 +49,7 @@ class CourierRuntimeStateSyncTest extends TestCase
         $client = User::factory()->create(['role' => User::ROLE_CLIENT, 'is_active' => true]);
         $courier = $this->createCourier(Courier::STATUS_ONLINE);
 
-        $order = Order::query()->create([
+        $order = Order::createForTesting([
             'client_id' => $client->id,
             'status' => Order::STATUS_SEARCHING,
             'payment_status' => Order::PAY_PAID,
@@ -282,7 +282,7 @@ class CourierRuntimeStateSyncTest extends TestCase
             lastLocationAt: now()
         );
 
-        $order = Order::query()->create([
+        $order = Order::createForTesting([
             'client_id' => $client->id,
             'status' => Order::STATUS_SEARCHING,
             'payment_status' => Order::PAY_PAID,
@@ -305,7 +305,7 @@ class CourierRuntimeStateSyncTest extends TestCase
         $client = User::factory()->create(['role' => User::ROLE_CLIENT, 'is_active' => true]);
         $courier = $this->createCourier(Courier::STATUS_ONLINE, isBusy: false, isOnline: true);
 
-        $order = Order::query()->create([
+        $order = Order::createForTesting([
             'client_id' => $client->id,
             'courier_id' => $courier->id,
             'status' => $orderStatus,

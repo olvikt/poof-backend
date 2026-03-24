@@ -450,7 +450,7 @@ class OrderStoreTest extends TestCase
             'status' => Courier::STATUS_ONLINE,
         ]);
 
-        $activeOrder = Order::query()->create([
+        $activeOrder = Order::createForTesting([
             'client_id' => $client->id,
             'status' => Order::STATUS_SEARCHING,
             'payment_status' => Order::PAY_PAID,
@@ -459,7 +459,7 @@ class OrderStoreTest extends TestCase
             'price' => 100,
         ]);
 
-        $newOrder = Order::query()->create([
+        $newOrder = Order::createForTesting([
             'client_id' => $client->id,
             'status' => Order::STATUS_SEARCHING,
             'payment_status' => Order::PAY_PAID,
