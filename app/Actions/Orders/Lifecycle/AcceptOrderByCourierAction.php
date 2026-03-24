@@ -39,11 +39,11 @@ class AcceptOrderByCourierAction
                 return false;
             }
 
-            $lockedOrder->update([
+            $lockedOrder->forceFill([
                 'status' => Order::STATUS_ACCEPTED,
                 'courier_id' => $courier->id,
                 'accepted_at' => now(),
-            ]);
+            ])->save();
 
             $courier->markBusy();
             $courier->refresh();

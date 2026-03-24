@@ -14,10 +14,10 @@ class MarkOrderAsPaidAction
      */
     public function handle(Order $order): void
     {
-        $order->update([
+        $order->forceFill([
             'payment_status' => Order::PAY_PAID,
             'status' => Order::STATUS_SEARCHING,
-        ]);
+        ])->save();
 
         event(new OrderCreated($order));
     }

@@ -25,10 +25,10 @@ class StartOrderByCourierAction
                 return false;
             }
 
-            $lockedOrder->update([
+            $lockedOrder->forceFill([
                 'status' => Order::STATUS_IN_PROGRESS,
                 'started_at' => now(),
-            ]);
+            ])->save();
 
             $courier->markDelivering();
 

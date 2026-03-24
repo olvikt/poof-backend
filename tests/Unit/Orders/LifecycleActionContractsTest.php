@@ -40,10 +40,10 @@ class LifecycleActionContractsTest extends TestCase
     {
         [$courier, $order] = $this->createAcceptedOrderWithCourier();
 
-        $order->update([
+        $order->forceFill([
             'status' => Order::STATUS_IN_PROGRESS,
             'started_at' => now(),
-        ]);
+        ])->save();
         $courier->markDelivering();
 
         $result = app(CancelOrderAction::class)->handle($order->fresh());

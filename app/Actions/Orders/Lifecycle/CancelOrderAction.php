@@ -31,9 +31,9 @@ class CancelOrderAction
                     ->first();
             }
 
-            $lockedOrder->update([
+            $lockedOrder->forceFill([
                 'status' => Order::STATUS_CANCELLED,
-            ]);
+            ])->save();
 
             if ($courier instanceof User && $courier->isCourier()) {
                 $courier->markFree();
