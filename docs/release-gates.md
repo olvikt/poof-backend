@@ -102,6 +102,7 @@ Blocking jobs:
    - `tests/Feature/Api/GeocodeControllerTest.php`;
    - `tests/Unit/Address/PrepareAddressSavePayloadTest.php`;
    - `tests/Unit/Address/FilterClientAddressPayloadTest.php`;
+   - `tests/Unit/Address/PersistAddressDataTest.php`;
    - `tests/Unit/Address/PersistClientAddressTest.php`;
    - `tests/Unit/Address/ResolveAddressFromPointTest.php`;
    - `tests/Unit/Address/ResolveAddressPointFromFieldsTest.php`.
