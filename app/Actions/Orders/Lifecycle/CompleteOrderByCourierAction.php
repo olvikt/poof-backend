@@ -25,10 +25,10 @@ class CompleteOrderByCourierAction
                 return false;
             }
 
-            $lockedOrder->update([
+            $lockedOrder->forceFill([
                 'status' => Order::STATUS_DONE,
                 'completed_at' => now(),
-            ]);
+            ])->save();
 
             $courier->markFree();
 

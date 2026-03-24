@@ -162,12 +162,11 @@ class CourierOnlineToggleActionTest extends TestCase
         $courier = $this->createCourier();
         $courier->goOnline();
 
-        Order::query()->create([
+        Order::createForTesting([
             'client_id' => $client->id,
             'courier_id' => $courier->id,
             'status' => $orderStatus,
             'payment_status' => Order::PAY_PAID,
-            'address' => 'вул. Активна, 11',
             'address_text' => 'вул. Активна, 11',
             'price' => 100,
             'accepted_at' => now(),

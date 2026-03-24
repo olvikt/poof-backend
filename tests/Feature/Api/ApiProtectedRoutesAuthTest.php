@@ -4,22 +4,20 @@ namespace Tests\Feature\Api;
 
 use App\Models\ClientAddress;
 use App\Models\Courier;
-use App\Models\Order;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Laravel\Sanctum\Sanctum;
+use Tests\Concerns\BuildsOrderRuntimeFixtures;
 use Tests\TestCase;
 
 class ApiProtectedRoutesAuthTest extends TestCase
 {
     use RefreshDatabase;
+    use BuildsOrderRuntimeFixtures;
 
     public function test_guest_is_denied_for_each_sanctum_protected_route(): void
     {
-        $order = Order::query()->create([
-            'client_id' => $this->createClient()->id,
-            'status' => Order::STATUS_SEARCHING,
-            'payment_status' => Order::PAY_PAID,
+        $order = $this->createDispatchableSearchingPaidOrder($this->createClient(), [
             'address_text' => 'вул. Гостьова, 1',
             'price' => 100,
         ]);
@@ -85,10 +83,7 @@ class ApiProtectedRoutesAuthTest extends TestCase
         $client = $this->createClient();
         $courier = $this->createCourier();
 
-        $searchingOrder = Order::query()->create([
-            'client_id' => $client->id,
-            'status' => Order::STATUS_SEARCHING,
-            'payment_status' => Order::PAY_PAID,
+        $searchingOrder = $this->createDispatchableSearchingPaidOrder($client, [
             'address_text' => 'вул. Доступна, 5',
             'price' => 135,
         ]);
@@ -105,15 +100,17 @@ class ApiProtectedRoutesAuthTest extends TestCase
             ->assertJsonPath('success', true)
             ->assertJsonPath('order.id', $searchingOrder->id)
             ->assertJsonPath('order.courier_id', $courier->id);
+
+        $courier->refresh();
+
+        $this->assertSame(Courier::STATUS_ASSIGNED, $courier->courierProfile->status);
+        $this->assertSame(User::SESSION_ASSIGNED, $courier->session_state);
     }
 
     public function test_client_is_forbidden_from_courier_only_sanctum_routes(): void
     {
         $client = $this->createClient();
-        $order = Order::query()->create([
-            'client_id' => $client->id,
-            'status' => Order::STATUS_SEARCHING,
-            'payment_status' => Order::PAY_PAID,
+        $order = $this->createDispatchableSearchingPaidOrder($client, [
             'address_text' => 'вул. Курʼєрська, 7',
             'price' => 115,
         ]);

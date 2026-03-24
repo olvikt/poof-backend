@@ -9,6 +9,7 @@ use App\DTO\Orders\LegacyWebOrderCreatePayload;
 use App\Models\ClientAddress;
 use App\Models\Order;
 use App\Models\User;
+use Illuminate\Database\Eloquent\MassAssignmentException;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
@@ -134,11 +135,8 @@ class CreateOrderPayloadBoundaryTest extends TestCase
         $this->assertSame('PROMO10', $order->promo_code);
     }
 
-    public function test_create_contracts_are_narrower_than_order_fillable_surface_to_expose_mass_assignment_drift(): void
+    public function test_create_contracts_match_explicit_runtime_contract_boundaries(): void
     {
-        $orderModel = new Order();
-        $fillable = $orderModel->getFillable();
-
         $canonicalPayload = CanonicalOrderCreatePayload::fromValidated([
             'type' => Order::TYPE_ONE_TIME,
             'service' => 'trash_removal',
@@ -186,19 +184,98 @@ class CreateOrderPayloadBoundaryTest extends TestCase
             'trial_days' => 1,
         ])->toOrderAttributes(1));
 
-        $this->assertNotEqualsCanonicalizing($fillable, $canonicalKeys);
-        $this->assertNotEqualsCanonicalizing($fillable, $legacyKeys);
-
-        $this->assertSame([], array_diff($canonicalKeys, $fillable));
-        $this->assertSame([], array_diff($legacyKeys, $fillable));
-
-        $this->assertNotSame([], array_diff($fillable, $canonicalKeys));
-        $this->assertNotSame([], array_diff($fillable, $legacyKeys));
+        $this->assertEqualsCanonicalizing(Order::CANONICAL_CREATE_COLUMNS, $canonicalKeys);
+        $this->assertEqualsCanonicalizing(Order::LEGACY_WEB_CREATE_COLUMNS, $legacyKeys);
 
         $this->assertContains('time_from', $canonicalKeys);
         $this->assertNotContains('scheduled_time_from', $canonicalKeys);
 
         $this->assertContains('scheduled_time_from', $legacyKeys);
         $this->assertNotContains('time_from', $legacyKeys);
+    }
+
+    public function test_direct_order_create_is_blocked_by_runtime_mass_assignment_policy(): void
+    {
+        $this->expectException(MassAssignmentException::class);
+
+        Order::query()->create([
+            'client_id' => 1,
+            'status' => Order::STATUS_SEARCHING,
+            'payment_status' => Order::PAY_PAID,
+            'price' => 500,
+        ]);
+    }
+
+    public function test_canonical_runtime_contract_rejects_unapproved_columns(): void
+    {
+        $this->expectException(MassAssignmentException::class);
+
+        Order::createFromCanonicalContract([
+            'client_id' => 1,
+            'status' => Order::STATUS_NEW,
+            'payment_status' => Order::PAY_PENDING,
+            'type' => Order::TYPE_ONE_TIME,
+            'service' => 'trash_removal',
+            'bags_count' => 1,
+            'total_weight_kg' => 1.0,
+            'price' => 100,
+            'currency' => 'UAH',
+            'address_id' => null,
+            'address_text' => 'test',
+            'lat' => 50.0,
+            'lng' => 30.0,
+            'scheduled_date' => '2026-03-12',
+            'time_from' => '08:00',
+            'time_to' => '10:00',
+            'comment' => null,
+            'courier_id' => 999, // explicitly forbidden for create contract
+        ]);
+    }
+
+    public function test_testing_create_contract_rejects_unknown_columns_like_legacy_address_alias(): void
+    {
+        $this->expectException(MassAssignmentException::class);
+
+        Order::createForTesting([
+            'client_id' => 1,
+            'status' => Order::STATUS_SEARCHING,
+            'payment_status' => Order::PAY_PAID,
+            'address_text' => 'вул. Валідна, 1',
+            'address' => 'вул. Невалідна, 1',
+            'price' => 100,
+        ]);
+    }
+
+    public function test_testing_create_contract_allows_valid_lifecycle_fixture_columns(): void
+    {
+        $client = User::factory()->create([
+            'role' => User::ROLE_CLIENT,
+            'is_active' => true,
+        ]);
+
+        $courier = User::factory()->create([
+            'role' => User::ROLE_COURIER,
+            'is_active' => true,
+        ]);
+
+        $acceptedAt = now()->subMinutes(10);
+        $startedAt = now()->subMinutes(5);
+
+        $order = Order::createForTesting([
+            'client_id' => $client->id,
+            'courier_id' => $courier->id,
+            'status' => Order::STATUS_IN_PROGRESS,
+            'payment_status' => Order::PAY_PAID,
+            'address_text' => 'вул. Валідна, 7',
+            'price' => 140,
+            'accepted_at' => $acceptedAt,
+            'started_at' => $startedAt,
+        ]);
+
+        $this->assertSame(Order::STATUS_IN_PROGRESS, $order->status);
+        $this->assertSame(Order::PAY_PAID, $order->payment_status);
+        $this->assertSame($courier->id, $order->courier_id);
+        $this->assertNotNull($order->accepted_at);
+        $this->assertNotNull($order->started_at);
     }
 }

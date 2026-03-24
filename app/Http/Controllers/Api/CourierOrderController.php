@@ -17,8 +17,7 @@ class CourierOrderController extends Controller
         abort_if(! $courier || ! $courier->isCourier(), 403);
 
         $orders = Order::query()
-            ->where('status', Order::STATUS_SEARCHING)
-            ->whereNull('courier_id')
+            ->availableForCourier()
             ->orderBy('created_at')
             ->get();
 

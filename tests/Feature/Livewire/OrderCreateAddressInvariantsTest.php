@@ -100,7 +100,7 @@ class OrderCreateAddressInvariantsTest extends TestCase
             'lng' => 30.52,
         ]);
 
-        $order = Order::create([
+        $order = Order::createForTesting([
             'client_id' => $user->id,
             'order_type' => Order::TYPE_ONE_TIME,
             'status' => Order::STATUS_NEW,

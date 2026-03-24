@@ -11,7 +11,7 @@ class CreateCanonicalOrderAction
 {
     public function handle(User $client, CanonicalOrderCreatePayload $payload, ClientAddress $address): Order
     {
-        return Order::query()->create(
+        return Order::createFromCanonicalContract(
             $payload->toOrderAttributes(
                 clientId: (int) $client->id,
                 address: $address,

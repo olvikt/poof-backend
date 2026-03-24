@@ -9,6 +9,6 @@ class CreateLegacyWebOrderAction
 {
     public function handle(int $clientId, LegacyWebOrderCreatePayload $payload): Order
     {
-        return Order::query()->create($payload->toOrderAttributes($clientId));
+        return Order::createFromLegacyWebContract($payload->toOrderAttributes($clientId));
     }
 }

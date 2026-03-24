@@ -40,10 +40,10 @@ class LifecycleActionContractsTest extends TestCase
     {
         [$courier, $order] = $this->createAcceptedOrderWithCourier();
 
-        $order->update([
+        $order->forceFill([
             'status' => Order::STATUS_IN_PROGRESS,
             'started_at' => now(),
-        ]);
+        ])->save();
         $courier->markDelivering();
 
         $result = app(CancelOrderAction::class)->handle($order->fresh());
@@ -68,11 +68,10 @@ class LifecycleActionContractsTest extends TestCase
             'is_active' => true,
         ]);
 
-        $order = Order::query()->create([
+        $order = Order::createForTesting([
             'client_id' => $client->id,
             'status' => Order::STATUS_NEW,
             'payment_status' => Order::PAY_PENDING,
-            'address' => 'вул. Оплатна, 1',
             'address_text' => 'вул. Оплатна, 1',
             'price' => 100,
         ]);
@@ -112,13 +111,12 @@ class LifecycleActionContractsTest extends TestCase
             'status' => Courier::STATUS_ONLINE,
         ]);
 
-        $order = Order::query()->create([
+        $order = Order::createForTesting([
             'client_id' => $client->id,
             'courier_id' => $courier->id,
             'status' => Order::STATUS_ACCEPTED,
             'payment_status' => Order::PAY_PAID,
             'accepted_at' => now(),
-            'address' => 'вул. Тестова, 1',
             'address_text' => 'вул. Тестова, 1',
             'price' => 100,
         ]);

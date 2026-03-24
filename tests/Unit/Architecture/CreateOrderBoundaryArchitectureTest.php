@@ -43,9 +43,11 @@ class CreateOrderBoundaryArchitectureTest extends TestCase
         $canonicalAction = $this->normalizedFile('app/Actions/Orders/Create/CreateCanonicalOrderAction.php');
         $legacyAction = $this->normalizedFile('app/Actions/Orders/Create/CreateLegacyWebOrderAction.php');
 
-        $this->assertStringContainsString('Order::query()->create( $payload->toOrderAttributes(', $canonicalAction);
+        $this->assertStringContainsString('Order::createFromCanonicalContract( $payload->toOrderAttributes(', $canonicalAction);
         $this->assertStringContainsString('price: $this->calculatePrice($payload->bagsCount())', $canonicalAction);
 
-        $this->assertStringContainsString('Order::query()->create($payload->toOrderAttributes($clientId))', $legacyAction);
+        $this->assertStringContainsString('Order::createFromLegacyWebContract($payload->toOrderAttributes($clientId))', $legacyAction);
+        $this->assertStringNotContainsString('Order::query()->create(', $canonicalAction);
+        $this->assertStringNotContainsString('Order::query()->create(', $legacyAction);
     }
 }

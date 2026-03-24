@@ -217,20 +217,18 @@ class OrderAcceptRaceConditionTest extends TestCase
             'status' => Courier::STATUS_ONLINE,
         ]);
 
-        $firstOrder = Order::query()->create([
+        $firstOrder = Order::createForTesting([
             'client_id' => $client->id,
             'status' => Order::STATUS_SEARCHING,
             'payment_status' => Order::PAY_PAID,
-            'address' => 'вул. Перша, 1',
             'address_text' => 'вул. Перша, 1',
             'price' => 100,
         ]);
 
-        $secondOrder = Order::query()->create([
+        $secondOrder = Order::createForTesting([
             'client_id' => $client->id,
             'status' => Order::STATUS_SEARCHING,
             'payment_status' => Order::PAY_PAID,
-            'address' => 'вул. Друга, 2',
             'address_text' => 'вул. Друга, 2',
             'price' => 120,
         ]);
@@ -308,20 +306,18 @@ class OrderAcceptRaceConditionTest extends TestCase
             'status' => Courier::STATUS_ONLINE,
         ]);
 
-        $firstOrder = Order::query()->create([
+        $firstOrder = Order::createForTesting([
             'client_id' => $client->id,
             'status' => Order::STATUS_SEARCHING,
             'payment_status' => Order::PAY_PAID,
-            'address' => 'вул. Перша, 1',
             'address_text' => 'вул. Перша, 1',
             'price' => 100,
         ]);
 
-        $secondOrder = Order::query()->create([
+        $secondOrder = Order::createForTesting([
             'client_id' => $client->id,
             'status' => Order::STATUS_SEARCHING,
             'payment_status' => Order::PAY_PAID,
-            'address' => 'вул. Друга, 2',
             'address_text' => 'вул. Друга, 2',
             'price' => 120,
         ]);
@@ -456,11 +452,10 @@ class OrderAcceptRaceConditionTest extends TestCase
             'status' => Courier::STATUS_ONLINE,
         ]);
 
-        $order = Order::query()->create([
+        $order = Order::createForTesting([
             'client_id' => $client->id,
             'status' => Order::STATUS_SEARCHING,
             'payment_status' => Order::PAY_PAID,
-            'address' => 'вул. Тестова, 1',
             'address_text' => 'вул. Тестова, 1',
             'price' => 100,
         ]);

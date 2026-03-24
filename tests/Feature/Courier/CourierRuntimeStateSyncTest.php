@@ -12,11 +12,13 @@ use App\Services\Dispatch\OfferDispatcher;
 use Illuminate\Auth\Events\Login;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Livewire\Livewire;
+use Tests\Concerns\BuildsOrderRuntimeFixtures;
 use Tests\TestCase;
 
 class CourierRuntimeStateSyncTest extends TestCase
 {
     use RefreshDatabase;
+    use BuildsOrderRuntimeFixtures;
 
     public function test_go_online_sets_unified_online_state(): void
     {
@@ -49,11 +51,7 @@ class CourierRuntimeStateSyncTest extends TestCase
         $client = User::factory()->create(['role' => User::ROLE_CLIENT, 'is_active' => true]);
         $courier = $this->createCourier(Courier::STATUS_ONLINE);
 
-        $order = Order::query()->create([
-            'client_id' => $client->id,
-            'status' => Order::STATUS_SEARCHING,
-            'payment_status' => Order::PAY_PAID,
-            'address' => 'вул. Тестова, 1',
+        $order = $this->createDispatchableSearchingPaidOrder($client, [
             'address_text' => 'вул. Тестова, 1',
             'price' => 100,
         ]);
@@ -106,6 +104,28 @@ class CourierRuntimeStateSyncTest extends TestCase
         $this->assertFalse((bool) $courier->is_busy);
         $this->assertSame(User::SESSION_READY, $courier->session_state);
         $this->assertFalse($courier->hasActiveCourierOrder());
+    }
+
+    public function test_accepted_fixture_builder_keeps_assigned_runtime_contract(): void
+    {
+        [$courier, $order] = $this->createCourierWithActiveOrder(Order::STATUS_ACCEPTED);
+
+        $this->assertSame(Order::STATUS_ACCEPTED, $order->status);
+        $this->assertSame(Courier::STATUS_ASSIGNED, $courier->courierProfile->status);
+        $this->assertSame(User::SESSION_ASSIGNED, $courier->session_state);
+        $this->assertTrue((bool) $courier->is_busy);
+        $this->assertTrue((bool) $courier->is_online);
+    }
+
+    public function test_in_progress_fixture_builder_keeps_delivering_runtime_contract(): void
+    {
+        [$courier, $order] = $this->createCourierWithActiveOrder(Order::STATUS_IN_PROGRESS);
+
+        $this->assertSame(Order::STATUS_IN_PROGRESS, $order->status);
+        $this->assertSame(Courier::STATUS_DELIVERING, $courier->courierProfile->status);
+        $this->assertSame(User::SESSION_IN_PROGRESS, $courier->session_state);
+        $this->assertTrue((bool) $courier->is_busy);
+        $this->assertTrue((bool) $courier->is_online);
     }
 
     public function test_cancel_from_in_progress_is_blocked_without_mutating_runtime_state(): void
@@ -282,11 +302,7 @@ class CourierRuntimeStateSyncTest extends TestCase
             lastLocationAt: now()
         );
 
-        $order = Order::query()->create([
-            'client_id' => $client->id,
-            'status' => Order::STATUS_SEARCHING,
-            'payment_status' => Order::PAY_PAID,
-            'address' => 'вул. Тестова, 2',
+        $order = $this->createDispatchableSearchingPaidOrder($client, [
             'address_text' => 'вул. Тестова, 2',
             'lat' => 50.4501,
             'lng' => 30.5234,
@@ -305,17 +321,11 @@ class CourierRuntimeStateSyncTest extends TestCase
         $client = User::factory()->create(['role' => User::ROLE_CLIENT, 'is_active' => true]);
         $courier = $this->createCourier(Courier::STATUS_ONLINE, isBusy: false, isOnline: true);
 
-        $order = Order::query()->create([
-            'client_id' => $client->id,
-            'courier_id' => $courier->id,
-            'status' => $orderStatus,
-            'payment_status' => Order::PAY_PAID,
-            'address' => 'вул. Активна, 11',
-            'address_text' => 'вул. Активна, 11',
-            'price' => 100,
-            'accepted_at' => now(),
-            'started_at' => $orderStatus === Order::STATUS_IN_PROGRESS ? now() : null,
-        ]);
+        $order = match ($orderStatus) {
+            Order::STATUS_ACCEPTED => $this->createAcceptedOrderAssignedToCourier($client, $courier),
+            Order::STATUS_IN_PROGRESS => $this->createInProgressOrderAssignedToCourier($client, $courier),
+            default => throw new \InvalidArgumentException('Unsupported active order status fixture: ' . $orderStatus),
+        };
 
         return [$courier, $order];
     }

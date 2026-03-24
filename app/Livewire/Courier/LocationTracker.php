@@ -36,8 +36,9 @@ class LocationTracker extends Component
         }
 
         $user->repairCourierRuntimeState();
+        $user->refresh();
 
-        $courierProfile = $user->courierProfile;
+        $courierProfile = $user->courierProfile()->first();
 
         if (! $courierProfile) {
             return;
@@ -67,8 +68,9 @@ class LocationTracker extends Component
         }
 
         $user->repairCourierRuntimeState();
+        $user->refresh();
 
-        $courierProfile = $user->courierProfile;
+        $courierProfile = $user->courierProfile()->first();
 
         if (! $courierProfile) {
             return;
