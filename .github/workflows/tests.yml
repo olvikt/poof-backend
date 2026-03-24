@@ -94,6 +94,7 @@ jobs:
             tests/Feature/Courier/CourierRuntimeStateSyncTest.php \
             tests/Feature/Api/GeocodeControllerTest.php \
             tests/Unit/Address/PrepareAddressSavePayloadTest.php \
+            tests/Unit/Address/FilterClientAddressPayloadTest.php \
             tests/Unit/Address/ResolveAddressFromPointTest.php \
             tests/Unit/Address/ResolveAddressPointFromFieldsTest.php
 
