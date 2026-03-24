@@ -2,23 +2,26 @@
 
 namespace App\Http\Controllers\Api;
 
+use App\Actions\Orders\Create\CreateCanonicalOrderAction;
+use App\DTO\Orders\CanonicalOrderCreatePayload;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\StoreOrderRequest;
 use App\Http\Resources\OrderStoreResource;
 use App\Jobs\DispatchOrderJob;
 use App\Models\ClientAddress;
-use App\Models\Order;
 
 class OrderController extends Controller
 {
     public function store(StoreOrderRequest $request)
     {
         $client = auth()->user();
-        $payload = $request->validated();
+        $payload = CanonicalOrderCreatePayload::fromValidated($request->validated());
 
-        $address = isset($payload['address_id'])
+        $addressId = $request->validated('address_id');
+
+        $address = $addressId
             ? ClientAddress::query()
-                ->whereKey($payload['address_id'])
+                ->whereKey($addressId)
                 ->where('user_id', $client->id)
                 ->firstOrFail()
             : ClientAddress::query()
@@ -28,29 +31,11 @@ class OrderController extends Controller
 
         abort_if(! $address, 422, 'Адрес не знайдено');
 
-        $order = Order::create([
-            'client_id'       => $client->id,
-            'status'          => Order::STATUS_NEW,
-            'payment_status'  => Order::PAY_PENDING,
-
-            'type'            => $payload['type'],
-            'service'         => $payload['service'],
-            'bags_count'      => $payload['bags_count'],
-            'total_weight_kg' => $payload['total_weight_kg'],
-
-            'price'           => $this->calculatePrice($payload['bags_count']),
-            'currency'        => 'UAH',
-
-            'address_id'      => $address->id,
-            'address_text'    => $address->address_text,
-            'lat'             => $address->lat,
-            'lng'             => $address->lng,
-
-            'scheduled_date'  => $payload['scheduled_date'],
-            'time_from'       => $payload['time_from'],
-            'time_to'         => $payload['time_to'],
-            'comment'         => $payload['comment'] ?? null,
-        ]);
+        $order = app(CreateCanonicalOrderAction::class)->handle(
+            client: $client,
+            payload: $payload,
+            address: $address,
+        );
 
         DispatchOrderJob::dispatch($order);
 
@@ -59,8 +44,4 @@ class OrderController extends Controller
             ->setStatusCode(201);
     }
 
-    protected function calculatePrice(int $bags): int
-    {
-        return 100 + ($bags - 1) * 25;
-    }
 }

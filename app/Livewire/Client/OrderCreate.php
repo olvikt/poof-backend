@@ -2,6 +2,8 @@
 
 namespace App\Livewire\Client;
 
+use App\Actions\Orders\Create\CreateLegacyWebOrderAction;
+use App\DTO\Orders\LegacyWebOrderCreatePayload;
 use App\Models\ClientAddress;
 use App\Models\Order;
 use Carbon\Carbon;
@@ -984,37 +986,29 @@ class OrderCreate extends Component
 
         $this->recalculatePrice();
 
-        $order = Order::create([
-            'client_id'           => Auth::id(),
-            'order_type'          => Order::TYPE_ONE_TIME,
-            'status'              => Order::STATUS_NEW,
-            'payment_status'      => $this->is_trial ? Order::PAY_PAID : Order::PAY_PENDING,
-
-            // 🔗 связь с адресной книгой (если выбран)
-            'address_id'          => $this->address_id,
-			
-			'address_text'        => $this->address_text,
-            'lat'                 => $this->lat,
-            'lng'                 => $this->lng,
-
-            'entrance'            => $this->entrance,
-            'floor'               => $this->floor,
-            'apartment'           => $this->apartment,
-            'intercom'            => $this->intercom,
-            'comment'             => $this->comment,
-
-            'scheduled_date'      => $this->scheduled_date,
-            'scheduled_time_from' => $this->scheduled_time_from,
-            'scheduled_time_to'   => $this->scheduled_time_to,
-
-            'handover_type'       => $this->handover_type,
-            'bags_count'          => $this->bags_count,
-            'price'               => $this->price,
-
-            'promo_code'          => $this->promo_code,
-            'is_trial'            => $this->is_trial,
-            'trial_days'          => $this->is_trial ? $this->trial_days : null,
-        ]);
+        $order = app(CreateLegacyWebOrderAction::class)->handle(
+            clientId: (int) Auth::id(),
+            payload: LegacyWebOrderCreatePayload::fromArray([
+                'address_id' => $this->address_id,
+                'address_text' => $this->address_text,
+                'lat' => $this->lat,
+                'lng' => $this->lng,
+                'entrance' => $this->entrance,
+                'floor' => $this->floor,
+                'apartment' => $this->apartment,
+                'intercom' => $this->intercom,
+                'comment' => $this->comment,
+                'scheduled_date' => $this->scheduled_date,
+                'scheduled_time_from' => $this->scheduled_time_from,
+                'scheduled_time_to' => $this->scheduled_time_to,
+                'handover_type' => $this->handover_type,
+                'bags_count' => $this->bags_count,
+                'price' => $this->price,
+                'promo_code' => $this->promo_code,
+                'is_trial' => $this->is_trial,
+                'trial_days' => $this->trial_days,
+            ]),
+        );
 
         $this->createdOrderId = $order->id;
         $this->showPaymentModal = true;
