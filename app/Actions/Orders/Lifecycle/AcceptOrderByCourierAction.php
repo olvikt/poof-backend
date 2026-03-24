@@ -46,6 +46,8 @@ class AcceptOrderByCourierAction
             ]);
 
             $courier->markBusy();
+            $courier->refresh();
+            $courier->repairCourierRuntimeState();
 
             OrderOffer::where('courier_id', $courier->id)
                 ->where('status', OrderOffer::STATUS_PENDING)
