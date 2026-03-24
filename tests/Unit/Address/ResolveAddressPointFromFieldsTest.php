@@ -67,11 +67,13 @@ class ResolveAddressPointFromFieldsTest extends TestCase
 
         Http::assertSent(function ($request) {
             $data = $request->data();
+            $lat = $data['lat'] ?? null;
+            $lng = $data['lng'] ?? null;
 
             return str_starts_with($request->url(), url('/api/geocode'))
                 && ($data['q'] ?? null) === 'Main Street, 7A, Kyiv'
-                && ($data['lat'] ?? null) === '50.45'
-                && ($data['lng'] ?? null) === '30.52';
+                && (string) $lat === '50.45'
+                && (string) $lng === '30.52';
         });
     }
 
@@ -125,11 +127,13 @@ class ResolveAddressPointFromFieldsTest extends TestCase
 
         Http::assertSent(function ($request) {
             $data = $request->data();
+            $lat = $data['lat'] ?? null;
+            $lng = $data['lng'] ?? null;
 
             return str_starts_with($request->url(), url('/api/geocode'))
                 && ($data['q'] ?? null) === 'Main Street, 7A'
-                && ! array_key_exists('lat', $data)
-                && ! array_key_exists('lng', $data);
+                && ($lat === null || $lat === '')
+                && ($lng === null || $lng === '');
         });
     }
 
