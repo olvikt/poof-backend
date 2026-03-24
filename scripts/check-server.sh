@@ -8,6 +8,7 @@ PHP_BIN="${PHP_BIN:-php}"
 SUPERVISORCTL_BIN="${SUPERVISORCTL_BIN:-supervisorctl}"
 REDIS_CLI_BIN="${REDIS_CLI_BIN:-redis-cli}"
 LOG_RECENT_WINDOW_MINUTES="${LOG_RECENT_WINDOW_MINUTES:-20}"
+DEPLOY_STATE_FILE="${DEPLOY_STATE_FILE:-$APP_DIR/storage/app/current-release.json}"
 
 run() {
   local description="$1"
@@ -24,9 +25,39 @@ run_log_evidence() {
   local fallback_tail_lines="$3"
   local recent_scan_lines="$4"
   local cutoff_epoch
+  local now_epoch
+  local deploy_epoch
+  local deploy_started_at
+  local cutoff_label
   local recent_lines
 
+  now_epoch="$(date -u +%s)"
   cutoff_epoch="$(date -u -d "-${LOG_RECENT_WINDOW_MINUTES} minutes" +%s)"
+  cutoff_label="rolling ${LOG_RECENT_WINDOW_MINUTES} minute window"
+  deploy_started_at=""
+
+  if [[ -f "$DEPLOY_STATE_FILE" ]]; then
+    deploy_started_at="$(
+      "$PHP_BIN" -r '
+        $data = json_decode(@file_get_contents($argv[1]), true);
+        if (!is_array($data)) {
+            exit(0);
+        }
+        $value = trim((string) ($data["deployed_at_utc"] ?? ""));
+        if ($value !== "") {
+            echo $value;
+        }
+      ' "$DEPLOY_STATE_FILE"
+    )"
+  fi
+
+  if [[ -n "$deploy_started_at" ]]; then
+    deploy_epoch="$(date -u -d "$deploy_started_at" +%s 2>/dev/null || true)"
+    if [[ -n "$deploy_epoch" ]] && [[ "$deploy_epoch" -le "$now_epoch" ]] && [[ "$deploy_epoch" -gt "$cutoff_epoch" ]]; then
+      cutoff_epoch="$deploy_epoch"
+      cutoff_label="current release deployed_at_utc ($deploy_started_at)"
+    fi
+  fi
 
   recent_lines="$(
     cd "$APP_DIR" && tail -n "$recent_scan_lines" "$log_file" | awk -v cutoff_epoch="$cutoff_epoch" '
@@ -53,14 +84,14 @@ run_log_evidence() {
 
   echo
   echo "==> $description"
-  echo "Recent deploy-window context (best effort): last ${LOG_RECENT_WINDOW_MINUTES} minute(s) by timestamp."
+  echo "Recent deploy-window context (best effort): filtering timestamped lines since ${cutoff_label}."
 
   if [[ -n "$recent_lines" ]]; then
     printf '%s\n' "$recent_lines"
     return 0
   fi
 
-  echo "No timestamp-matched lines in recent window; showing fallback tail for operator context."
+  echo "No timestamp-matched lines in derived deploy window; showing fallback tail for operator context."
   cd "$APP_DIR" && tail -n "$fallback_tail_lines" "$log_file"
 }
 
