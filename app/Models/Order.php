@@ -4,10 +4,14 @@ declare(strict_types=1);
 
 namespace App\Models;
 
+use App\Actions\Orders\Lifecycle\AcceptOrderByCourierAction;
+use App\Actions\Orders\Lifecycle\CancelOrderAction;
+use App\Actions\Orders\Lifecycle\CompleteOrderByCourierAction;
+use App\Actions\Orders\Lifecycle\MarkOrderAsPaidAction;
+use App\Actions\Orders\Lifecycle\StartOrderByCourierAction;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
-use Illuminate\Support\Facades\DB;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class Order extends Model
@@ -47,13 +51,7 @@ class Order extends Model
      | ========================================================= */
 public function markAsPaid(): void
 {
-    $this->update([
-        'payment_status' => self::PAY_PAID,
-        'status'         => self::STATUS_SEARCHING,
-    ]);
-
-    // 🚀 ТОЛЬКО событие
-    event(new \App\Events\OrderCreated($this));
+    app(MarkOrderAsPaidAction::class)->handle($this);
 }
 
     /* =========================================================
@@ -268,48 +266,7 @@ public function markAsPaid(): void
      */
     public function acceptBy(User $courier): bool
     {
-        return (bool) DB::transaction(function () use ($courier) {
-            $courier = User::query()
-                ->whereKey($courier->getKey())
-                ->lockForUpdate()
-                ->first();
-
-            if (! $courier || ! $courier->isCourier()) {
-                return false;
-            }
-
-            $order = self::query()
-                ->whereKey($this->getKey())
-                ->lockForUpdate()
-                ->first();
-
-            if (! $order || ! $order->canBeAccepted()) {
-                return false;
-            }
-
-            if ($courier->isBusyForAccept() || ! $courier->canAcceptOrders()) {
-                return false;
-            }
-
-            // 1️⃣ Назначаем заказ
-            $order->update([
-                'status'      => self::STATUS_ACCEPTED,
-                'courier_id'  => $courier->id,
-                'accepted_at' => now(),
-            ]);
-
-            $courier->markBusy();
-
-            // 🔥 3️⃣ ВАЖНО: убиваем все остальные pending этого курьера
-            \App\Models\OrderOffer::where('courier_id', $courier->id)
-                ->where('status', \App\Models\OrderOffer::STATUS_PENDING)
-                ->where('order_id', '!=', $order->id)
-                ->update([
-                    'status' => \App\Models\OrderOffer::STATUS_EXPIRED,
-                ]);
-
-            return true;
-        });
+        return app(AcceptOrderByCourierAction::class)->handle($this, $courier);
     }
 
     /**
@@ -317,25 +274,7 @@ public function markAsPaid(): void
      */
     public function startBy(User $courier): bool
     {
-        return (bool) DB::transaction(function () use ($courier) {
-            $order = self::query()
-                ->whereKey($this->getKey())
-                ->lockForUpdate()
-                ->first();
-
-            if (! $order || ! $order->canBeStartedBy($courier)) {
-                return false;
-            }
-
-            $order->update([
-                'status'     => self::STATUS_IN_PROGRESS,
-                'started_at' => now(),
-            ]);
-
-            $courier->markDelivering();
-
-            return true;
-        });
+        return app(StartOrderByCourierAction::class)->handle($this, $courier);
     }
 
     /**
@@ -343,29 +282,7 @@ public function markAsPaid(): void
      */
     public function completeBy(User $courier): bool
     {
-        return (bool) DB::transaction(function () use ($courier) {
-            $order = self::query()
-                ->whereKey($this->getKey())
-                ->lockForUpdate()
-                ->first();
-
-            if (! $order || ! $order->canBeCompletedBy($courier)) {
-                return false;
-            }
-
-            $order->update([
-                'status'       => self::STATUS_DONE,
-                'completed_at' => now(),
-            ]);			
-			
-            $courier->markFree();
-			
-			$courier->update([
-				'last_completed_at' => now(),
-			]);
-
-            return true;
-        });
+        return app(CompleteOrderByCourierAction::class)->handle($this, $courier);
     }
 
     /**
@@ -396,35 +313,7 @@ public function markAsPaid(): void
 
     public function cancel(): bool
     {
-        return (bool) DB::transaction(function () {
-            $order = self::query()
-                ->whereKey($this->getKey())
-                ->lockForUpdate()
-                ->first();
-
-            if (! $order || ! $order->canBeCancelled()) {
-                return false;
-            }
-
-            $courier = null;
-
-            if ($order->courier_id !== null) {
-                $courier = User::query()
-                    ->whereKey($order->courier_id)
-                    ->lockForUpdate()
-                    ->first();
-            }
-
-            $order->update([
-                'status' => self::STATUS_CANCELLED,
-            ]);
-
-            if ($courier instanceof User && $courier->isCourier()) {
-                $courier->markFree();
-            }
-
-            return true;
-        });
+        return app(CancelOrderAction::class)->handle($this);
     }
 
     /* =========================================================
