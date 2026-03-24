@@ -37,7 +37,8 @@ class OrderTestingFixtureBoundaryArchitectureTest extends TestCase
             $this->assertStringContainsString('Order::createForTesting(', $source, $file);
             $this->assertStringNotContainsString('Order::query()->create(', $source, $file);
             $this->assertStringNotContainsString('Order::create(', $source, $file);
+            $this->assertStringNotContainsString('Order::query()->forceCreate(', $source, $file);
+            $this->assertStringNotContainsString('Order::unguarded(', $source, $file);
         }
     }
 }
-
