@@ -42,14 +42,25 @@ class AcceptFlowArchitectureRegressionTest extends TestCase
 
     public function test_domain_accept_locks_courier_before_order(): void
     {
-        $orderModel = $this->normalizedFile('app/Models/Order.php');
+        $acceptAction = $this->normalizedFile('app/Actions/Orders/Lifecycle/AcceptOrderByCourierAction.php');
 
-        $courierLockPosition = strpos($orderModel, 'User::query() ->whereKey($courier->getKey()) ->lockForUpdate()');
-        $orderLockPosition = strpos($orderModel, 'self::query() ->whereKey($this->getKey()) ->lockForUpdate()');
+        $courierLockPosition = strpos($acceptAction, 'User::query() ->whereKey($courier->getKey()) ->lockForUpdate()');
+        $orderLockPosition = strpos($acceptAction, 'Order::query() ->whereKey($order->getKey()) ->lockForUpdate()');
 
         $this->assertNotFalse($courierLockPosition);
         $this->assertNotFalse($orderLockPosition);
         $this->assertLessThan($orderLockPosition, $courierLockPosition);
+    }
+
+    public function test_order_canonical_lifecycle_methods_are_thin_delegates_to_lifecycle_actions(): void
+    {
+        $orderModel = $this->normalizedFile('app/Models/Order.php');
+
+        $this->assertStringContainsString('app(MarkOrderAsPaidAction::class)->handle($this);', $orderModel);
+        $this->assertStringContainsString('app(AcceptOrderByCourierAction::class)->handle($this, $courier);', $orderModel);
+        $this->assertStringContainsString('app(StartOrderByCourierAction::class)->handle($this, $courier);', $orderModel);
+        $this->assertStringContainsString('app(CompleteOrderByCourierAction::class)->handle($this, $courier);', $orderModel);
+        $this->assertStringContainsString('app(CancelOrderAction::class)->handle($this);', $orderModel);
     }
 
     public function test_legacy_start_and_complete_delegate_to_canonical_by_methods(): void
@@ -61,12 +72,12 @@ class AcceptFlowArchitectureRegressionTest extends TestCase
 
     public function test_cancel_uses_canonical_runtime_transition_instead_of_scattered_flag_writes(): void
     {
-        $orderModel = $this->normalizedFile('app/Models/Order.php');
-        $this->assertStringContainsString('->canBeCancelled()', $orderModel);
-        $this->assertStringContainsString('$courier->markFree();', $orderModel);
-        $this->assertStringNotContainsString("'is_busy' => false", $orderModel);
-        $this->assertStringNotContainsString("'is_online' => false", $orderModel);
-        $this->assertStringNotContainsString("'session_state' =>", $orderModel);
+        $cancelAction = $this->normalizedFile('app/Actions/Orders/Lifecycle/CancelOrderAction.php');
+        $this->assertStringContainsString('->canBeCancelled()', $cancelAction);
+        $this->assertStringContainsString('$courier->markFree();', $cancelAction);
+        $this->assertStringNotContainsString("'is_busy' => false", $cancelAction);
+        $this->assertStringNotContainsString("'is_online' => false", $cancelAction);
+        $this->assertStringNotContainsString("'session_state' =>", $cancelAction);
     }
 
     public function test_manual_admin_order_flows_do_not_expose_direct_lifecycle_writes_in_forms(): void
