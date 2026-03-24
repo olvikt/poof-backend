@@ -245,4 +245,37 @@ class CreateOrderPayloadBoundaryTest extends TestCase
             'price' => 100,
         ]);
     }
+
+    public function test_testing_create_contract_allows_valid_lifecycle_fixture_columns(): void
+    {
+        $client = User::factory()->create([
+            'role' => User::ROLE_CLIENT,
+            'is_active' => true,
+        ]);
+
+        $courier = User::factory()->create([
+            'role' => User::ROLE_COURIER,
+            'is_active' => true,
+        ]);
+
+        $acceptedAt = now()->subMinutes(10);
+        $startedAt = now()->subMinutes(5);
+
+        $order = Order::createForTesting([
+            'client_id' => $client->id,
+            'courier_id' => $courier->id,
+            'status' => Order::STATUS_IN_PROGRESS,
+            'payment_status' => Order::PAY_PAID,
+            'address_text' => 'вул. Валідна, 7',
+            'price' => 140,
+            'accepted_at' => $acceptedAt,
+            'started_at' => $startedAt,
+        ]);
+
+        $this->assertSame(Order::STATUS_IN_PROGRESS, $order->status);
+        $this->assertSame(Order::PAY_PAID, $order->payment_status);
+        $this->assertSame($courier->id, $order->courier_id);
+        $this->assertNotNull($order->accepted_at);
+        $this->assertNotNull($order->started_at);
+    }
 }
