@@ -28,27 +28,40 @@ run_log_evidence() {
   local now_epoch
   local deploy_epoch
   local deploy_started_at
+  local deploy_commit
+  local release_ref
+  local requested_ref
   local cutoff_label
-  local recent_lines
+  local windowed_lines
+  local marker_lines
+  local recent_buffer
 
   now_epoch="$(date -u +%s)"
   cutoff_epoch="$(date -u -d "-${LOG_RECENT_WINDOW_MINUTES} minutes" +%s)"
   cutoff_label="rolling ${LOG_RECENT_WINDOW_MINUTES} minute window"
   deploy_started_at=""
+  deploy_commit=""
+  release_ref=""
+  requested_ref=""
 
   if [[ -f "$DEPLOY_STATE_FILE" ]]; then
-    deploy_started_at="$(
+    mapfile -t _deploy_state_fields < <(
       "$PHP_BIN" -r '
         $data = json_decode(@file_get_contents($argv[1]), true);
         if (!is_array($data)) {
             exit(0);
         }
-        $value = trim((string) ($data["deployed_at_utc"] ?? ""));
-        if ($value !== "") {
-            echo $value;
+        $fields = ["deployed_at_utc", "commit", "release_ref", "requested_ref"];
+        foreach ($fields as $field) {
+            $value = trim((string) ($data[$field] ?? ""));
+            echo $value, PHP_EOL;
         }
       ' "$DEPLOY_STATE_FILE"
-    )"
+    )
+    deploy_started_at="${_deploy_state_fields[0]:-}"
+    deploy_commit="${_deploy_state_fields[1]:-}"
+    release_ref="${_deploy_state_fields[2]:-}"
+    requested_ref="${_deploy_state_fields[3]:-}"
   fi
 
   if [[ -n "$deploy_started_at" ]]; then
@@ -59,17 +72,23 @@ run_log_evidence() {
     fi
   fi
 
-  recent_lines="$(
-    cd "$APP_DIR" && tail -n "$recent_scan_lines" "$log_file" | awk -v cutoff_epoch="$cutoff_epoch" '
+  recent_buffer="$(mktemp)"
+  trap 'rm -f "$recent_buffer"' RETURN
+
+  cd "$APP_DIR" && tail -n "$recent_scan_lines" "$log_file" > "$recent_buffer"
+
+  windowed_lines="$(
+    TZ=UTC awk -v cutoff_epoch="$cutoff_epoch" '
       function line_epoch(line, ts) {
-        if (match(line, /\[[0-9]{4}-[0-9]{2}-[0-9]{2} [0-9]{2}:[0-9]{2}:[0-9]{2}\]/)) {
+        if (match(line, /\[[0-9]{4}-[0-9]{2}-[0-9]{2}[ T][0-9]{2}:[0-9]{2}:[0-9]{2}/)) {
           ts = substr(line, RSTART + 1, 19)
-        } else if (match(line, /^[0-9]{4}-[0-9]{2}-[0-9]{2} [0-9]{2}:[0-9]{2}:[0-9]{2}/)) {
+        } else if (match(line, /^[0-9]{4}-[0-9]{2}-[0-9]{2}[ T][0-9]{2}:[0-9]{2}:[0-9]{2}/)) {
           ts = substr(line, RSTART, 19)
         } else {
           return 0
         }
 
+        gsub(/T/, " ", ts)
         gsub(/[-:]/, " ", ts)
         return mktime(ts)
       }
@@ -79,19 +98,69 @@ run_log_evidence() {
           print $0
         }
       }
-    '
+    ' "$recent_buffer"
+  )"
+
+  marker_lines="$(
+    RECENT_BUFFER="$recent_buffer" DEPLOY_COMMIT="$deploy_commit" RELEASE_REF="$release_ref" REQUESTED_REF="$requested_ref" DEPLOY_STARTED_AT="$deploy_started_at" bash <<'BASH'
+set -euo pipefail
+max_line=0
+
+if [[ -n "${DEPLOY_COMMIT:-}" ]]; then
+  short_commit="${DEPLOY_COMMIT:0:12}"
+  for pattern in "$DEPLOY_COMMIT" "$short_commit"; do
+    line_number="$(grep -nF "$pattern" "$RECENT_BUFFER" | tail -n 1 | cut -d: -f1 || true)"
+    if [[ -n "$line_number" ]] && [[ "$line_number" -gt "$max_line" ]]; then
+      max_line="$line_number"
+    fi
+  done
+fi
+
+for pattern in "${RELEASE_REF:-}" "${REQUESTED_REF:-}"; do
+  if [[ -z "$pattern" ]]; then
+    continue
+  fi
+  line_number="$(grep -nF "$pattern" "$RECENT_BUFFER" | tail -n 1 | cut -d: -f1 || true)"
+  if [[ -n "$line_number" ]] && [[ "$line_number" -gt "$max_line" ]]; then
+    max_line="$line_number"
+  fi
+done
+
+if [[ -n "${DEPLOY_STARTED_AT:-}" ]]; then
+  deploy_date="${DEPLOY_STARTED_AT%%T*}"
+  line_number="$(grep -nF "$deploy_date" "$RECENT_BUFFER" | tail -n 1 | cut -d: -f1 || true)"
+  if [[ -n "$line_number" ]] && [[ "$line_number" -gt "$max_line" ]]; then
+    max_line="$line_number"
+  fi
+fi
+
+if [[ "$max_line" -gt 0 ]]; then
+  start_line=$((max_line - 20))
+  if [[ "$start_line" -lt 1 ]]; then
+    start_line=1
+  fi
+  end_line=$((max_line + 20))
+  sed -n "${start_line},${end_line}p" "$RECENT_BUFFER"
+fi
+BASH
   )"
 
   echo
   echo "==> $description"
   echo "Recent deploy-window context (best effort): filtering timestamped lines since ${cutoff_label}."
 
-  if [[ -n "$recent_lines" ]]; then
-    printf '%s\n' "$recent_lines"
+  if [[ -n "$windowed_lines" ]]; then
+    printf '%s\n' "$windowed_lines"
     return 0
   fi
 
-  echo "No timestamp-matched lines in derived deploy window; showing fallback tail for operator context."
+  if [[ -n "$marker_lines" ]]; then
+    echo "No timestamp-window match; showing bounded context around latest deploy marker (commit/ref/date) in recent log slice."
+    printf '%s\n' "$marker_lines"
+    return 0
+  fi
+
+  echo "No deploy-window or marker evidence found in recent scan; degraded mode: showing fallback tail for operator context."
   cd "$APP_DIR" && tail -n "$fallback_tail_lines" "$log_file"
 }
 
