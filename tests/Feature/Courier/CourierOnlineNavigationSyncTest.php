@@ -139,8 +139,8 @@ class CourierOnlineNavigationSyncTest extends TestCase
         $this->assertNotNull($ordersLink, 'Courier orders tab link should exist in layout.');
         $this->assertNotNull($myOrdersLink, 'Courier my-orders tab link should exist in layout.');
 
-        $this->assertTrue($ordersLink->hasAttribute('wire:navigate'));
-        $this->assertTrue($myOrdersLink->hasAttribute('wire:navigate'));
+        $this->assertTrue($this->hasWireNavigateAttribute($ordersLink));
+        $this->assertTrue($this->hasWireNavigateAttribute($myOrdersLink));
     }
 
     public function test_busy_courier_with_accepted_order_stays_visually_online_across_tab_navigation(): void
@@ -405,17 +405,54 @@ class CourierOnlineNavigationSyncTest extends TestCase
 
     private function extractDispatchedEventDetail(array $payload): array
     {
-        if (isset($payload[0]) && is_array($payload[0])) {
-            $candidate = $payload[0];
+        $targetKeys = ['fromLat', 'fromLng', 'toLat', 'toLng', 'message'];
 
-            if (isset($candidate[0]) && is_array($candidate[0])) {
-                return $candidate[0];
+        $stack = [$payload];
+
+        while ($stack !== []) {
+            $candidate = array_pop($stack);
+
+            if (! is_array($candidate)) {
+                continue;
             }
 
-            return $candidate;
+            $candidateKeys = array_keys($candidate);
+
+            if (count(array_intersect($targetKeys, $candidateKeys)) > 0) {
+                return $candidate;
+            }
+
+            foreach ($candidate as $value) {
+                if (is_array($value)) {
+                    $stack[] = $value;
+                }
+            }
         }
 
         return [];
+    }
+
+    private function hasWireNavigateAttribute(\DOMElement $link): bool
+    {
+        if ($link->hasAttribute('wire:navigate')) {
+            return true;
+        }
+
+        if (! $link->hasAttributes()) {
+            return false;
+        }
+
+        foreach ($link->attributes as $attribute) {
+            if (! $attribute instanceof \DOMAttr) {
+                continue;
+            }
+
+            if (str_starts_with($attribute->name, 'wire:navigate')) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     private function extractMapBootstrapFromHtml(string $html): array
