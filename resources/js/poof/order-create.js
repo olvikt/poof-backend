@@ -14,6 +14,7 @@ import initMap from './map'
  */
 
 ;(function () {
+  const DEBUG_MAP = String(import.meta?.env?.VITE_MAP_DEBUG || '').toLowerCase() === 'true'
   const params = new URLSearchParams(window.location.search)
   const addressId = params.get('address_id')
 
@@ -25,7 +26,9 @@ import initMap from './map'
       locked: true,
     }
 
-    console.log('[POOF] saved address detected → geolocation disabled')
+    if (DEBUG_MAP) {
+      console.debug('[POOF] saved address detected → geolocation disabled')
+    }
   }
 
   window.POOF = window.POOF || {}
@@ -233,7 +236,9 @@ import initMap from './map'
         return
       }
 
-      console.log('[POOF] center map from form coordinates', lat, lng)
+      if (DEBUG_MAP) {
+        console.debug('[POOF] center map from form coordinates', lat, lng)
+      }
 
       if (window.POOF?.map && window.POOF?.setMarker) {
         window.POOF.setMarker(lat, lng)

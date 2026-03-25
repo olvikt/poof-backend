@@ -381,8 +381,7 @@
 
 			deferredPrompt.prompt();
 
-			const result = await deferredPrompt.userChoice;
-			console.log('Install result:', result);
+			await deferredPrompt.userChoice;
 			deferredPrompt = null;
 			installAppBtn.style.display = 'none';
 			if (installBanner) {
@@ -400,8 +399,7 @@
 			if (!deferredPrompt) return;
 
 			deferredPrompt.prompt();
-			const result = await deferredPrompt.userChoice;
-			console.log('Install result:', result);
+			await deferredPrompt.userChoice;
 			deferredPrompt = null;
 			if (installAppBtn) {
 				installAppBtn.style.display = 'none';

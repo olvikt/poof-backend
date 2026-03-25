@@ -7,7 +7,6 @@ use App\Models\Order;
 use App\Models\User;
 use App\Services\Dispatch\OfferDispatcher;
 use Livewire\Component;
-use Illuminate\Support\Facades\Log;
 
 class LocationTracker extends Component
 {
@@ -130,11 +129,6 @@ class LocationTracker extends Component
 
                 $dispatchTime = now();
 
-                Log::channel('dispatch')->debug('dispatch triggered', [
-                    'courier_id' => $user->id,
-                    'distance_moved' => $distanceMoved,
-                    'orders_searching' => $hasSearchingOrders,
-                ]);
             }
         }
 
