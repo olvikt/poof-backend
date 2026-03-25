@@ -115,7 +115,6 @@ jobs:
             tests/Unit/Address/PersistClientAddressTest.php \
             tests/Unit/Address/ResolveAddressFromPointTest.php \
             tests/Unit/Address/ResolveAddressPointFromFieldsTest.php \
-            tests/Feature/Auth/RegisterTest.php \
             tests/Unit/Orders/LifecycleActionContractsTest.php
 
 

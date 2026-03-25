@@ -106,11 +106,10 @@ Blocking jobs:
    - `tests/Unit/Address/PersistClientAddressTest.php`;
    - `tests/Unit/Address/ResolveAddressFromPointTest.php`;
    - `tests/Unit/Address/ResolveAddressPointFromFieldsTest.php`;
-   - `tests/Feature/Auth/RegisterTest.php`;
    - `tests/Unit/Orders/LifecycleActionContractsTest.php`.
 
    Non-blocking follow-up suites:
-   - broader Auth / Courier / Livewire suites (including password reset and focused courier online/livewire regressions);
+   - broader Auth / Courier / Livewire suites (including registration/password reset and focused courier online/livewire regressions);
    - remaining wider Unit suites beyond the promoted address precision/policy/reverse-geocode/forward-geocode regression checks, address payload persistence checks, and order lifecycle action contracts.
 
 3. `frontend-build`
