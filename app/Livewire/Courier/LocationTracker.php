@@ -34,10 +34,16 @@ class LocationTracker extends Component
             return;
         }
 
-        $user->repairCourierRuntimeState();
-        $user->refresh();
+        $user = $user->fresh(['courierProfile']);
 
-        $courierProfile = $user->courierProfile()->first();
+        if (! $user instanceof User || ! $user->courierProfile) {
+            return;
+        }
+
+        $user->repairCourierRuntimeState();
+        $user = $user->fresh(['courierProfile']);
+
+        $courierProfile = $user->courierProfile;
 
         if (! $courierProfile) {
             return;
