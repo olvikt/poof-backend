@@ -7,62 +7,21 @@ PR #337 was merged as a **minimal frontend security maintenance step** with the 
 - `package.json` and `package-lock.json` are synchronized.
 - frontend CI checks were restored to green (`frontend-build` and `pwa-regression-evidence`).
 
-## Scope intentionally kept small
-This merge should be treated as a partial fix and not a full closure of all frontend audit findings.
+## Follow-up completion for Rollup advisory (post-merge, PR #339)
+A network-enabled follow-up lockfile refresh was completed to close the remaining Rollup advisory work.
 
-- The `axios` high finding was addressed in this merged PR.
-- The `rollup` advisory is **not claimed as fully closed** in this PR.
+### Verified outcomes
+- `npm audit fix` completed successfully.
+- Resolved Rollup version is now `4.60.0`.
+- `npm audit` reports `0 vulnerabilities`.
+- `npm run build` passes.
 
-## Final rollup verification attempt (2026-03-25)
-A follow-up verification was executed in this repository on **March 25, 2026** with a network-enabled runner.
+### Scope confirmation
+- Lockfile refresh only.
+- No production/runtime PHP changes.
 
-### Commands executed
-1. `npm ci`
-2. `npm run build`
-3. `npm audit --package-lock-only --audit-level=high`
-
-### Results
-- `npm ci` failed with `403 Forbidden` while downloading npm tarballs from `https://registry.npmjs.org/`.
-- `npm audit` failed with `403 Forbidden` on the npm advisory endpoint (`/-/npm/v1/security/advisories/bulk`).
-- Because package installation was blocked by registry policy, `npm run build` could not be rerun in this environment as part of this verification pass.
-
-### Dependency-tree check for rollup
-- Current lockfile resolution still includes `rollup@4.55.1` through `vite`.
-- The current GitHub-reviewed high advisory for Rollup 4 (CVE-2026-27606 / GHSA-mw96-cpmx-2vgc) affects `>=4.0.0, <4.59.0` and is patched in `4.59.0`.
-- Therefore, based on the resolved tree currently committed, the rollup high advisory still applies.
-
-## Re-check attempt in this environment (2026-03-25 UTC)
-An additional closure pass was attempted on **March 25, 2026 (UTC)** using the same required command sequence.
-
-### Commands executed
-1. `npm ci`
-2. `npm run build`
-3. `npm audit --package-lock-only --audit-level=high`
-
-### Results
-- `npm ci` failed with `403 Forbidden` when fetching `axios-1.13.5.tgz` from `https://registry.npmjs.org/`.
-- `npm run build` failed because `vite` is not present in `node_modules` after install failure (`sh: 1: vite: not found`).
-- `npm audit --package-lock-only --audit-level=high` failed with `403 Forbidden` on `/-/npm/v1/security/advisories/bulk`.
-
-### Current rollup resolution after re-check
-- `package-lock.json` still resolves `rollup@4.55.1`.
-- Because the patched threshold remains `>=4.59.0`, the tracked Rollup high advisory remains open in the committed dependency tree.
-
-## Final status: accepted (explicitly time-boxed)
-`rollup` is currently tracked as **accepted risk (temporary)**, not fixed.
-
-### Rationale
-- A safe lockfile regeneration and audit closure requires npm registry and advisory endpoint access that is currently denied (`403`).
-- The repository remains on `rollup@4.55.1`, which is below the patched `4.59.0` threshold.
-
-### Required closure step
-When registry access is restored, run this exact closure sequence and update this note:
-
-1. Regenerate lockfile with patched Rollup in the resolved tree (target `rollup >= 4.59.0` via `vite` resolution).
-2. `npm ci`
-3. `npm run build`
-4. `npm audit`
-5. Mark status as **fixed** once all checks pass and no high Rollup finding remains.
+## Final status: fixed
+The previous temporary accepted-risk state for the Rollup advisory is now closed as **fixed** after the lockfile refresh and verification sequence above.
 
 ## Traceability note
-This keeps the current merged change small, reviewable, and safe to ship, while preserving explicit traceability for the remaining advisory follow-up.
+This preserves the same constrained scope used for frontend dependency maintenance while updating the audit record to reflect the verified fixed state.
