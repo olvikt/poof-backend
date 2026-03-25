@@ -19,6 +19,7 @@ class PasswordResetTest extends TestCase
     {
         parent::setUp();
 
+        $this->withoutVite();
         Cache::flush();
     }
 
