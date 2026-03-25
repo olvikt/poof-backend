@@ -89,6 +89,10 @@ Blocking jobs:
 2. `php-tests`
    - Laravel test environment на SQLite;
    - migrations;
+   - coverage reporting for the same blocking suite with CI artifact upload (`php-tests-critical-coverage`), containing:
+     - `clover.xml`;
+     - HTML report (`html/`);
+     - text summary (`summary.txt`).
 
    Current blocking CI gate:
    - `tests/Feature/Api/OrderStoreTest.php`;
@@ -111,6 +115,9 @@ Blocking jobs:
    Non-blocking follow-up suites:
    - broader Auth / Courier / Livewire suites (including registration/password reset and focused courier online/livewire regressions);
    - remaining wider Unit suites beyond the promoted address precision/policy/reverse-geocode/forward-geocode regression checks, address payload persistence checks, and order lifecycle action contracts.
+
+   Coverage note:
+   - coverage is reporting-only in this gate (no minimum threshold enforcement in CI).
 
 3. `frontend-build`
    - `npm ci`;
@@ -172,7 +179,7 @@ Canonical smoke runners:
 Должны пройти все jobs из `.github/workflows/tests.yml`:
 
 - PHP syntax/lint;
-- current blocking CI gate;
+- current blocking CI gate (with coverage artifact `php-tests-critical-coverage` for the exact same suite);
 - frontend build verification.
 
 ### What must pass during deploy
