@@ -5,7 +5,6 @@
     const state = window.__poofCourierTrackerState ?? {
         watchId: null,
         bootstrapped: false,
-        firstPayloadLogged: false,
     };
 
     window.__poofCourierTrackerState = state;
@@ -42,16 +41,6 @@
 
                 const accuracyValid = !Number.isFinite(Number(accuracy)) || Number(accuracy) <= 120;
                 const courierConfirmed = coordsValid && accuracyValid;
-
-                if (!state.firstPayloadLogged) {
-                    state.firstPayloadLogged = true;
-                    console.info('[POOF:courier-tracker][debug] first watchPosition payload', {
-                        lat,
-                        lng,
-                        accuracy,
-                        courierConfirmed,
-                    });
-                }
 
                 if (!coordsValid) {
                     return;
