@@ -56,9 +56,8 @@ class StackOfferPopup extends Component
     {
         if (! $this->offer) return;
 
-        $this->offer->update([
-            'status' => OrderOffer::STATUS_REJECTED,
-        ]);
+        $offer = OrderOffer::query()->find($this->offer->id);
+        $offer?->markDeclined();
 
         $this->dispatch('offer-expired');
         $this->refreshOffer();
