@@ -67,13 +67,13 @@ class CourierOnlineNavigationSyncTest extends TestCase
             ->assertSet('online', true)
             ->assertSee('🟢 На лінії', false);
 
-        $this->get(route('courier.orders'))
-            ->assertOk()
-            ->assertSee('🟢 На лінії', false);
+        // Simulate real tab switches by mounting both page components repeatedly.
+        Livewire::test(AvailableOrders::class)
+            ->assertSet('online', true)
+            ->assertDontSee('Ви не на лінії');
 
-        $this->get(route('courier.my-orders'))
-            ->assertOk()
-            ->assertSee('🟢 На лінії', false);
+        Livewire::test(MyOrders::class)
+            ->assertSet('online', true);
 
         $courier->refresh();
 
@@ -89,16 +89,23 @@ class CourierOnlineNavigationSyncTest extends TestCase
 
         $this->actingAs($courier, 'web');
 
-        $this->get(route('courier.orders'))
-            ->assertOk()
-            ->assertSee('wire:click="toggleOnlineState"', false);
+        Livewire::test(AvailableOrders::class)
+            ->assertSet('online', false);
+
+        Livewire::test(OnlineToggle::class)
+            ->assertSet('busyWithActiveOrder', false)
+            ->assertSee('wire:click="toggleOnlineState"', false)
+            ->assertDontSee('disabled aria-disabled="true"', false);
 
         Livewire::test(OnlineToggle::class)
             ->call('toggleOnlineState')
             ->assertSet('online', true);
 
-        $this->get(route('courier.my-orders'))
-            ->assertOk()
+        Livewire::test(MyOrders::class)
+            ->assertSet('online', true);
+
+        Livewire::test(OnlineToggle::class)
+            ->assertSet('busyWithActiveOrder', false)
             ->assertSee('wire:click="toggleOnlineState"', false)
             ->assertSee('🟢 На лінії', false);
 
@@ -120,9 +127,14 @@ class CourierOnlineNavigationSyncTest extends TestCase
 
         $this->get(route('courier.orders'))
             ->assertOk()
-            ->assertSee('href="'.route('courier.orders').'"', false)
-            ->assertSee('href="'.route('courier.my-orders').'"', false)
-            ->assertSee('wire:navigate', false);
+            ->assertSeeInOrder([
+                'href="'.route('courier.orders').'"',
+                'wire:navigate',
+            ], false)
+            ->assertSeeInOrder([
+                'href="'.route('courier.my-orders').'"',
+                'wire:navigate',
+            ], false);
     }
 
     public function test_busy_courier_with_accepted_order_stays_visually_online_across_tab_navigation(): void
@@ -131,18 +143,21 @@ class CourierOnlineNavigationSyncTest extends TestCase
 
         $this->actingAs($courier, 'web');
 
-        $this->get(route('courier.orders'))
-            ->assertOk()
+        Livewire::test(AvailableOrders::class)
+            ->assertSet('online', true);
+
+        Livewire::test(OnlineToggle::class)
+            ->assertSet('online', true)
+            ->assertSet('busyWithActiveOrder', true)
             ->assertSee('🟢 На лінії', false)
             ->assertDontSee('⚫ Не на лінії', false);
 
-        $this->get(route('courier.my-orders'))
-            ->assertOk()
-            ->assertSee('🟢 На лінії', false)
-            ->assertDontSee('⚫ Не на лінії', false);
+        Livewire::test(MyOrders::class)
+            ->assertSet('online', true);
 
-        $this->get(route('courier.orders'))
-            ->assertOk()
+        Livewire::test(OnlineToggle::class)
+            ->assertSet('online', true)
+            ->assertSet('busyWithActiveOrder', true)
             ->assertSee('🟢 На лінії', false)
             ->assertDontSee('⚫ Не на лінії', false);
 
@@ -159,18 +174,21 @@ class CourierOnlineNavigationSyncTest extends TestCase
 
         $this->actingAs($courier, 'web');
 
-        $this->get(route('courier.orders'))
-            ->assertOk()
+        Livewire::test(AvailableOrders::class)
+            ->assertSet('online', true);
+
+        Livewire::test(OnlineToggle::class)
+            ->assertSet('online', true)
+            ->assertSet('busyWithActiveOrder', true)
             ->assertSee('🟢 На лінії', false)
             ->assertDontSee('⚫ Не на лінії', false);
 
-        $this->get(route('courier.my-orders'))
-            ->assertOk()
-            ->assertSee('🟢 На лінії', false)
-            ->assertDontSee('⚫ Не на лінії', false);
+        Livewire::test(MyOrders::class)
+            ->assertSet('online', true);
 
-        $this->get(route('courier.orders'))
-            ->assertOk()
+        Livewire::test(OnlineToggle::class)
+            ->assertSet('online', true)
+            ->assertSet('busyWithActiveOrder', true)
             ->assertSee('🟢 На лінії', false)
             ->assertDontSee('⚫ Не на лінії', false);
 
@@ -187,24 +205,35 @@ class CourierOnlineNavigationSyncTest extends TestCase
 
         $this->actingAs($courier, 'web');
 
-        $this->get(route('courier.orders'))
-            ->assertOk()
+        Livewire::test(AvailableOrders::class)
+            ->assertSet('online', false)
+            ->assertSee('Ви не на лінії');
+
+        Livewire::test(OnlineToggle::class)
+            ->assertSet('online', false)
             ->assertSee('⚫ Не на лінії', false);
 
         Livewire::test(OnlineToggle::class)
             ->call('toggleOnlineState')
             ->assertSet('online', true);
 
-        $this->get(route('courier.my-orders'))
-            ->assertOk()
+        Livewire::test(MyOrders::class)
+            ->assertSet('online', true);
+
+        Livewire::test(OnlineToggle::class)
+            ->assertSet('online', true)
             ->assertSee('🟢 На лінії', false);
 
         Livewire::test(OnlineToggle::class)
             ->call('toggleOnlineState')
             ->assertSet('online', false);
 
-        $this->get(route('courier.orders'))
-            ->assertOk()
+        Livewire::test(AvailableOrders::class)
+            ->assertSet('online', false)
+            ->assertSee('Ви не на лінії');
+
+        Livewire::test(OnlineToggle::class)
+            ->assertSet('online', false)
             ->assertSee('⚫ Не на лінії', false);
     }
 
