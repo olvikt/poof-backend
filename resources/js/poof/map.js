@@ -1678,6 +1678,22 @@ async function buildRoute(fromLat, fromLng, toLat, toLng) {
     stopCourierWatch()
   })
 
+  window.addEventListener('courier:runtime-sync', (e) => {
+    let payload = e.detail
+    if (Array.isArray(payload)) payload = payload[0] || {}
+
+    const isOnline = Boolean(payload?.online)
+
+    if (isOnline) {
+      mountAny()
+      try { state.instance?.invalidateSize(true) } catch (_) {}
+      startCourierWatch()
+      return
+    }
+
+    stopCourierWatch()
+  })
+
   // -------------------------------
   // UPDATE COURIER MAP
   // -------------------------------

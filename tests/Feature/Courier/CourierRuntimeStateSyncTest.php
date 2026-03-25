@@ -270,7 +270,9 @@ class CourierRuntimeStateSyncTest extends TestCase
 
         $this->actingAs($courier, 'web');
 
-        Livewire::test(LocationTracker::class);
+        Livewire::test(LocationTracker::class)
+            ->assertDispatched('courier:runtime-sync')
+            ->assertDispatched('courier:runtime-sync', online: true, status: Courier::STATUS_ASSIGNED);
 
         $courier->refresh();
 

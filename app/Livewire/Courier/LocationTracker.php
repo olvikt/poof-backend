@@ -28,20 +28,36 @@ class LocationTracker extends Component
      */
     public function mount(): void
     {
-        $user = auth()->user();
+        $authUser = auth()->user();
 
-        if (! $user instanceof User || ! $user->isCourier()) {
+        if (! $authUser instanceof User || ! $authUser->isCourier()) {
+            return;
+        }
+
+        $user = User::query()
+            ->with('courierProfile')
+            ->find($authUser->id);
+
+        if (! $user instanceof User || ! $user->courierProfile) {
             return;
         }
 
         $user->repairCourierRuntimeState();
-        $user->refresh();
+        $user = User::query()
+            ->with('courierProfile')
+            ->find($authUser->id);
 
-        $courierProfile = $user->courierProfile()->first();
+        $courierProfile = $user->courierProfile;
 
         if (! $courierProfile) {
             return;
         }
+
+        $this->dispatch(
+            'courier:runtime-sync',
+            online: $user->isCourierOnline(),
+            status: (string) $courierProfile->status,
+        );
 
         if (
             in_array($courierProfile->status, Courier::ACTIVE_MAP_STATUSES, true) &&
