@@ -135,14 +135,11 @@ class OfferDispatcher
              | 4) CREATE OFFER + ROTATION STAMP
              | ------------------------------------------------- */
 
-            $offer = OrderOffer::create([
-                'order_id'   => $locked->id,
-                'courier_id' => $picked->id,
-                'type'       => OrderOffer::TYPE_PRIMARY,
-                'sequence'   => 1,
-                'status'     => OrderOffer::STATUS_PENDING,
-                'expires_at' => now()->addSeconds($this->ttlSeconds),
-            ]);
+            $offer = OrderOffer::createPrimaryPending(
+                orderId: (int) $locked->id,
+                courierId: (int) $picked->id,
+                ttlSeconds: $this->ttlSeconds,
+            );
 
             // отметка "когда последним разом показали оффер" (Rotation)
             $picked->update([

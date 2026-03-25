@@ -61,8 +61,12 @@ public function reloadAddresses(): void
     {
         $userId = auth()->id();
 
-        ClientAddress::where('user_id', $userId)->update(['is_default' => false]);
-        ClientAddress::where('id', $id)->where('user_id', $userId)->update(['is_default' => true]);
+        $address = ClientAddress::query()
+            ->where('id', $id)
+            ->where('user_id', $userId)
+            ->firstOrFail();
+
+        $address->markAsDefaultForUser();
 
         $this->reloadAddresses();
     }

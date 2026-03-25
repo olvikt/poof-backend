@@ -5,6 +5,7 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Support\Facades\DB;
 
 class ClientAddress extends Model
 {
@@ -158,6 +159,20 @@ class ClientAddress extends Model
         );
     }
 
+    public function markAsDefaultForUser(): void
+    {
+        DB::transaction(function (): void {
+            self::query()
+                ->where('user_id', $this->user_id)
+                ->update(['is_default' => false]);
+
+            self::query()
+                ->whereKey($this->getKey())
+                ->where('user_id', $this->user_id)
+                ->update(['is_default' => true]);
+        });
+    }
+
     /* =========================================================
      |  MODEL EVENTS
      | ========================================================= */
@@ -169,4 +184,3 @@ class ClientAddress extends Model
         });
     }
 }
-

@@ -194,6 +194,18 @@ class OrderOffer extends Model
      |  STATE TRANSITIONS (SAFE)
      | ========================================================= */
 
+    public static function createPrimaryPending(int $orderId, int $courierId, int $ttlSeconds): self
+    {
+        return self::query()->create([
+            'order_id' => $orderId,
+            'courier_id' => $courierId,
+            'type' => self::TYPE_PRIMARY,
+            'sequence' => 1,
+            'status' => self::STATUS_PENDING,
+            'expires_at' => now()->addSeconds($ttlSeconds),
+        ]);
+    }
+
     /**
      * Истечение по TTL / scheduler
      */
@@ -258,5 +270,4 @@ class OrderOffer extends Model
         ]);
     }
 }
-
 

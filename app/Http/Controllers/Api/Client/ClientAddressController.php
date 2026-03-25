@@ -86,10 +86,7 @@ class ClientAddressController extends Controller
 
         $this->authorizeAddress($request, $address);
 
-        $profile = $request->user()->clientProfile;
-
-        $profile->addresses()->update(['is_default' => false]);
-        $address->update(['is_default' => true]);
+        $address->markAsDefaultForUser();
 
         return response()->json([
             'message' => 'Default address set',
@@ -99,7 +96,7 @@ class ClientAddressController extends Controller
     protected function authorizeAddress(Request $request, ClientAddress $address): void
     {
         abort_if(
-            $address->client_profile_id !== $request->user()->clientProfile->id,
+            (int) $address->user_id !== (int) $request->user()->id,
             403
         );
     }

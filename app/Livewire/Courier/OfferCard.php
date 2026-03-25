@@ -89,12 +89,8 @@ class OfferCard extends Component
             return;
         }
 
-        OrderOffer::query()
-            ->whereKey($this->offer->id)
-            ->where('status', OrderOffer::STATUS_PENDING)
-            ->update([
-                'status' => OrderOffer::STATUS_DECLINED,
-            ]);
+        $offer = OrderOffer::query()->find($this->offer->id);
+        $offer?->markDeclined();
 
         $this->dispatch(
             'notify',
