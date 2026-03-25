@@ -31,6 +31,23 @@ A follow-up verification was executed in this repository on **March 25, 2026** w
 - The current GitHub-reviewed high advisory for Rollup 4 (CVE-2026-27606 / GHSA-mw96-cpmx-2vgc) affects `>=4.0.0, <4.59.0` and is patched in `4.59.0`.
 - Therefore, based on the resolved tree currently committed, the rollup high advisory still applies.
 
+## Re-check attempt in this environment (2026-03-25 UTC)
+An additional closure pass was attempted on **March 25, 2026 (UTC)** using the same required command sequence.
+
+### Commands executed
+1. `npm ci`
+2. `npm run build`
+3. `npm audit --package-lock-only --audit-level=high`
+
+### Results
+- `npm ci` failed with `403 Forbidden` when fetching `axios-1.13.5.tgz` from `https://registry.npmjs.org/`.
+- `npm run build` failed because `vite` is not present in `node_modules` after install failure (`sh: 1: vite: not found`).
+- `npm audit --package-lock-only --audit-level=high` failed with `403 Forbidden` on `/-/npm/v1/security/advisories/bulk`.
+
+### Current rollup resolution after re-check
+- `package-lock.json` still resolves `rollup@4.55.1`.
+- Because the patched threshold remains `>=4.59.0`, the tracked Rollup high advisory remains open in the committed dependency tree.
+
 ## Final status: accepted (explicitly time-boxed)
 `rollup` is currently tracked as **accepted risk (temporary)**, not fixed.
 
