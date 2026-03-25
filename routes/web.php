@@ -28,6 +28,14 @@ use App\Livewire\Courier\MyOrders;
 
 Route::get('/', fn () => view('welcome'));
 
+
+Route::get('/readyz', function () {
+    return response('ok', 200)
+        ->header('Content-Type', 'text/plain; charset=UTF-8')
+        ->header('Cache-Control', 'no-store, no-cache, must-revalidate, max-age=0');
+});
+
+
 /*
 |--------------------------------------------------------------------------
 | Auth
