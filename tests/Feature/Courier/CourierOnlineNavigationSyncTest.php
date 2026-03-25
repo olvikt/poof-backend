@@ -222,13 +222,12 @@ class CourierOnlineNavigationSyncTest extends TestCase
         $this->actingAs($courier, 'web');
 
         $component = Livewire::test(AvailableOrders::class);
-        $html = $component->html();
+        $mapBootstrap = $this->extractMapBootstrapFromHtml($component->html());
 
-        $this->assertStringContainsString('data-map-bootstrap=', $html);
-        $this->assertStringContainsString('\"orderLat\":48.4647', $html);
-        $this->assertStringContainsString('\"orderLng\":35.0464', $html);
-        $this->assertStringNotContainsString('\"orderLat\":50.4501', $html);
-        $this->assertStringNotContainsString('\"orderLng\":30.5234', $html);
+        $this->assertSame(48.4647, $mapBootstrap['orderLat']);
+        $this->assertSame(35.0464, $mapBootstrap['orderLng']);
+        $this->assertNotSame(50.4501, $mapBootstrap['orderLat']);
+        $this->assertNotSame(30.5234, $mapBootstrap['orderLng']);
     }
 
     public function test_active_order_map_bootstrap_centers_on_order_not_default_city(): void
@@ -243,13 +242,12 @@ class CourierOnlineNavigationSyncTest extends TestCase
         $this->actingAs($courier, 'web');
 
         $component = Livewire::test(MyOrders::class);
-        $html = $component->html();
+        $mapBootstrap = $this->extractMapBootstrapFromHtml($component->html());
 
-        $this->assertStringContainsString('data-map-bootstrap=', $html);
-        $this->assertStringContainsString('\"orderLat\":48.4647', $html);
-        $this->assertStringContainsString('\"orderLng\":35.0464', $html);
-        $this->assertStringNotContainsString('\"orderLat\":50.4501', $html);
-        $this->assertStringNotContainsString('\"orderLng\":30.5234', $html);
+        $this->assertSame(48.4647, $mapBootstrap['orderLat']);
+        $this->assertSame(35.0464, $mapBootstrap['orderLng']);
+        $this->assertNotSame(50.4501, $mapBootstrap['orderLat']);
+        $this->assertNotSame(30.5234, $mapBootstrap['orderLng']);
     }
 
     public function test_abnormal_cross_country_coordinates_do_not_build_navigation_route(): void
@@ -266,7 +264,9 @@ class CourierOnlineNavigationSyncTest extends TestCase
         Livewire::test(MyOrders::class)
             ->call('navigate', $order->id)
             ->assertNotDispatched('build-route')
-            ->assertDispatched('map:ui-error', message: 'Локація курʼєра не підтверджена')
+            ->assertDispatched('map:ui-error', function (array $payload): bool {
+                return ($payload['message'] ?? null) === 'Локація курʼєра не підтверджена';
+            })
             ->assertDispatched('notify', type: 'error', message: 'Локація курʼєра не підтверджена');
     }
 
@@ -292,12 +292,12 @@ class CourierOnlineNavigationSyncTest extends TestCase
 
         Livewire::test(MyOrders::class)
             ->call('navigate', $order->id)
-            ->assertDispatched('build-route',
-                fromLat: 48.4647,
-                fromLng: 35.0462,
-                toLat: 48.467,
-                toLng: 35.05,
-            );
+            ->assertDispatched('build-route', function (array $payload): bool {
+                return ($payload['fromLat'] ?? null) === 48.4647
+                    && ($payload['fromLng'] ?? null) === 35.0462
+                    && ($payload['toLat'] ?? null) === 48.467
+                    && ($payload['toLng'] ?? null) === 35.05;
+            });
     }
 
     public function test_my_orders_hides_stale_distance_chip_after_confirmed_local_tracker_location(): void
@@ -331,12 +331,25 @@ class CourierOnlineNavigationSyncTest extends TestCase
 
         Livewire::test(MyOrders::class)
             ->call('navigate', $order->id)
-            ->assertDispatched('build-route',
-                fromLat: 48.4647,
-                fromLng: 35.0462,
-                toLat: 48.467,
-                toLng: 35.05,
-            );
+            ->assertDispatched('build-route', function (array $payload): bool {
+                return ($payload['fromLat'] ?? null) === 48.4647
+                    && ($payload['fromLng'] ?? null) === 35.0462
+                    && ($payload['toLat'] ?? null) === 48.467
+                    && ($payload['toLng'] ?? null) === 35.05;
+            });
+    }
+
+    private function extractMapBootstrapFromHtml(string $html): array
+    {
+        preg_match("/data-map-bootstrap='([^']*)'/", $html, $matches);
+
+        $this->assertNotEmpty($matches, 'Expected data-map-bootstrap attribute in rendered HTML.');
+
+        $decoded = json_decode(html_entity_decode($matches[1], ENT_QUOTES), true);
+
+        $this->assertIsArray($decoded, 'Expected map bootstrap JSON payload.');
+
+        return $decoded;
     }
 
     private function createCourier(): User
