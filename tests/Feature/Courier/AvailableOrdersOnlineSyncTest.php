@@ -24,6 +24,8 @@ class AvailableOrdersOnlineSyncTest extends TestCase
             ->assertSee('Ви не на лінії')
             ->dispatch('courier-online-toggled', online: true)
             ->assertSet('online', true)
+            ->call('$refresh')
+            ->assertSet('online', true)
             ->assertDontSee('Ви не на лінії');
     }
 
