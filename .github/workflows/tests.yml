@@ -108,6 +108,7 @@ jobs:
             tests/Feature/Admin/AdminProtectedRoutesAuthTest.php \
             tests/Feature/Api/ApiProtectedRoutesAuthTest.php \
             tests/Feature/Auth/RegisterTest.php \
+            tests/Feature/Auth/PasswordResetTest.php \
             tests/Feature/Courier/AcceptFlowArchitectureRegressionTest.php \
             tests/Feature/Courier/CourierRuntimeStateSyncTest.php \
             tests/Feature/Api/GeocodeControllerTest.php \
