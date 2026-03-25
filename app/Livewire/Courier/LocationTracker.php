@@ -53,10 +53,11 @@ class LocationTracker extends Component
             return;
         }
 
-        $this->dispatch('courier:runtime-sync', [
-            'online' => $user->isCourierOnline(),
-            'status' => (string) $courierProfile->status,
-        ]);
+        $this->dispatch(
+            'courier:runtime-sync',
+            online: $user->isCourierOnline(),
+            status: (string) $courierProfile->status,
+        );
 
         if (
             in_array($courierProfile->status, Courier::ACTIVE_MAP_STATUSES, true) &&
