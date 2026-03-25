@@ -134,10 +134,10 @@ class CourierOnlineNavigationSyncTest extends TestCase
 
         $this->assertIsString($html);
 
-        $crawler = new \Symfony\Component\DomCrawler\Crawler($html);
+        $xpath = $this->createHtmlXPath($html);
 
-        $ordersLink = $this->findCourierTabLink($crawler, route('courier.orders'));
-        $myOrdersLink = $this->findCourierTabLink($crawler, route('courier.my-orders'));
+        $ordersLink = $this->findCourierTabLink($xpath, route('courier.orders'));
+        $myOrdersLink = $this->findCourierTabLink($xpath, route('courier.my-orders'));
 
         $this->assertNotNull($ordersLink, 'Courier orders tab link should exist in layout.');
         $this->assertNotNull($myOrdersLink, 'Courier my-orders tab link should exist in layout.');
@@ -390,11 +390,29 @@ class CourierOnlineNavigationSyncTest extends TestCase
     }
 
 
-    private function findCourierTabLink(\Symfony\Component\DomCrawler\Crawler $crawler, string $targetUrl): ?\DOMElement
+    private function createHtmlXPath(string $html): \DOMXPath
+    {
+        $document = new \DOMDocument('1.0', 'UTF-8');
+
+        libxml_use_internal_errors(true);
+        $document->loadHTML($html, LIBXML_NOWARNING | LIBXML_NOERROR);
+        libxml_clear_errors();
+
+        return new \DOMXPath($document);
+    }
+
+    private function findCourierTabLink(\DOMXPath $xpath, string $targetUrl): ?\DOMElement
     {
         $targetPath = $this->normalizePath((string) parse_url($targetUrl, PHP_URL_PATH));
 
-        foreach ($crawler->filter('a[href]') as $link) {
+        /** @var \DOMNodeList<\DOMElement> $links */
+        $links = $xpath->query('//a[@href]');
+
+        if (! $links instanceof \DOMNodeList) {
+            return null;
+        }
+
+        foreach ($links as $link) {
             if (! $link instanceof \DOMElement) {
                 continue;
             }
