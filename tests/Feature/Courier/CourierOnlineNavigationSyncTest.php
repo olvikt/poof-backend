@@ -125,16 +125,21 @@ class CourierOnlineNavigationSyncTest extends TestCase
         $courier = $this->createCourier();
         $this->actingAs($courier, 'web');
 
-        $this->get(route('courier.orders'))
+        $html = $this->get(route('courier.orders'))
             ->assertOk()
-            ->assertSeeInOrder([
-                'href="'.route('courier.orders').'"',
-                'wire:navigate',
-            ], false)
-            ->assertSeeInOrder([
-                'href="'.route('courier.my-orders').'"',
-                'wire:navigate',
-            ], false);
+            ->getContent();
+
+        $this->assertIsString($html);
+
+        $this->assertMatchesRegularExpression(
+            '/<a(?=[^>]*\bhref="' . preg_quote(route('courier.orders'), '/') . '")(?=[^>]*\bwire:navigate\b)[^>]*>/u',
+            $html
+        );
+
+        $this->assertMatchesRegularExpression(
+            '/<a(?=[^>]*\bhref="' . preg_quote(route('courier.my-orders'), '/') . '")(?=[^>]*\bwire:navigate\b)[^>]*>/u',
+            $html
+        );
     }
 
     public function test_busy_courier_with_accepted_order_stays_visually_online_across_tab_navigation(): void
@@ -294,7 +299,9 @@ class CourierOnlineNavigationSyncTest extends TestCase
             ->call('navigate', $order->id)
             ->assertNotDispatched('build-route')
             ->assertDispatched('map:ui-error', function (array $payload): bool {
-                return ($payload['message'] ?? null) === 'Локація курʼєра не підтверджена';
+                $detail = $payload[0] ?? $payload;
+
+                return ($detail['message'] ?? null) === 'Локація курʼєра не підтверджена';
             })
             ->assertDispatched('notify', type: 'error', message: 'Локація курʼєра не підтверджена');
     }
@@ -322,10 +329,12 @@ class CourierOnlineNavigationSyncTest extends TestCase
         Livewire::test(MyOrders::class)
             ->call('navigate', $order->id)
             ->assertDispatched('build-route', function (array $payload): bool {
-                return ($payload['fromLat'] ?? null) === 48.4647
-                    && ($payload['fromLng'] ?? null) === 35.0462
-                    && ($payload['toLat'] ?? null) === 48.467
-                    && ($payload['toLng'] ?? null) === 35.05;
+                $detail = $payload[0] ?? $payload;
+
+                return ($detail['fromLat'] ?? null) === 48.4647
+                    && ($detail['fromLng'] ?? null) === 35.0462
+                    && ($detail['toLat'] ?? null) === 48.467
+                    && ($detail['toLng'] ?? null) === 35.05;
             });
     }
 
@@ -361,10 +370,12 @@ class CourierOnlineNavigationSyncTest extends TestCase
         Livewire::test(MyOrders::class)
             ->call('navigate', $order->id)
             ->assertDispatched('build-route', function (array $payload): bool {
-                return ($payload['fromLat'] ?? null) === 48.4647
-                    && ($payload['fromLng'] ?? null) === 35.0462
-                    && ($payload['toLat'] ?? null) === 48.467
-                    && ($payload['toLng'] ?? null) === 35.05;
+                $detail = $payload[0] ?? $payload;
+
+                return ($detail['fromLat'] ?? null) === 48.4647
+                    && ($detail['fromLng'] ?? null) === 35.0462
+                    && ($detail['toLat'] ?? null) === 48.467
+                    && ($detail['toLng'] ?? null) === 35.05;
             });
     }
 
