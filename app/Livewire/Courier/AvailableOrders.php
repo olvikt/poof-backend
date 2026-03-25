@@ -91,7 +91,10 @@ class AvailableOrders extends Component
             ])->layout('layouts.courier');
         }
 
-        $this->online = $courier->isCourierOnline();
+        // Online flag is synchronized via mount() / syncOnlineState().
+        // Do not recompute it on every render, otherwise an immediate
+        // `courier-online-toggled` UI update can be overwritten by stale
+        // persisted state before canonical refresh catches up.
 
         // 1) Активне замовлення (якщо є) — використаємо для UI-блоків знизу
         $this->activeOrder = $this->resolveActiveOrder($courier);
