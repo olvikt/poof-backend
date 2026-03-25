@@ -6,6 +6,7 @@ use App\Livewire\Courier\AvailableOrders;
 use App\Models\Courier;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Carbon;
 use Livewire\Livewire;
 use Tests\TestCase;
 
@@ -44,6 +45,31 @@ class AvailableOrdersOnlineSyncTest extends TestCase
             ->call('syncOnlineState')
             ->assertSet('online', true)
             ->assertDontSee('Ви не на лінії');
+    }
+
+    public function test_polling_self_heals_stale_online_event_back_to_canonical_state_after_grace_window(): void
+    {
+        Carbon::setTestNow(now());
+
+        try {
+            $courier = $this->createCourier();
+
+            $this->actingAs($courier, 'web');
+
+            $component = Livewire::test(AvailableOrders::class)
+                ->assertSet('online', false)
+                ->dispatch('courier-online-toggled', online: true)
+                ->assertSet('online', true);
+
+            Carbon::setTestNow(now()->addSeconds(5));
+
+            $component
+                ->call('$refresh')
+                ->assertSet('online', false)
+                ->assertSee('Ви не на лінії');
+        } finally {
+            Carbon::setTestNow();
+        }
     }
 
     private function createCourier(): User

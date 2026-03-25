@@ -10,8 +10,10 @@ use Livewire\Component;
 class AvailableOrders extends Component
 {
     private const MAX_CITY_NAVIGATION_DISTANCE_KM = 80;
+    private const UI_OPTIMISTIC_SYNC_TTL_SECONDS = 3;
 
     public bool $online = false;
+    public ?int $lastUiOnlineSyncAt = null;
 
     /**
      * Активное замовлення кур'єра (accepted / in_progress).
@@ -33,6 +35,7 @@ class AvailableOrders extends Component
 
         if ($user instanceof User && $user->isCourier()) {
             $this->online = $user->isCourierOnline();
+            $this->lastUiOnlineSyncAt = null;
         }
     }
 
@@ -43,6 +46,7 @@ class AvailableOrders extends Component
     {
         if (is_bool($online)) {
             $this->online = $online;
+            $this->lastUiOnlineSyncAt = now()->timestamp;
 
             return;
         }
@@ -51,6 +55,7 @@ class AvailableOrders extends Component
 
         if ($user instanceof User && $user->isCourier()) {
             $this->online = $user->isCourierOnline();
+            $this->lastUiOnlineSyncAt = null;
         }
     }
 
@@ -91,10 +96,10 @@ class AvailableOrders extends Component
             ])->layout('layouts.courier');
         }
 
-        // Online flag is synchronized via mount() / syncOnlineState().
-        // Do not recompute it on every render, otherwise an immediate
-        // `courier-online-toggled` UI update can be overwritten by stale
-        // persisted state before canonical refresh catches up.
+        // Conservative self-heal:
+        // keep short optimistic UI window after toggle event, but then force
+        // polling/render back to canonical backend runtime source.
+        $this->repairOnlineStateFromCanonicalSource($courier);
 
         // 1) Активне замовлення (якщо є) — використаємо для UI-блоків знизу
         $this->activeOrder = $this->resolveActiveOrder($courier);
@@ -166,6 +171,22 @@ class AvailableOrders extends Component
             'courierLng' => $hasCourier ? (float) $courier->last_lng : null,
             'courierConfirmed' => $courierConfirmed,
         ];
+    }
+
+    private function repairOnlineStateFromCanonicalSource(User $courier): void
+    {
+        $canonicalOnline = $courier->isCourierOnline();
+
+        if ($this->lastUiOnlineSyncAt !== null) {
+            $optimisticAge = now()->timestamp - $this->lastUiOnlineSyncAt;
+
+            if ($optimisticAge <= self::UI_OPTIMISTIC_SYNC_TTL_SECONDS) {
+                return;
+            }
+        }
+
+        $this->online = $canonicalOnline;
+        $this->lastUiOnlineSyncAt = null;
     }
 
     private function validCoords($lat, $lng): bool
