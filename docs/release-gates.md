@@ -101,6 +101,7 @@ Blocking jobs:
    - `tests/Unit/Support/Address/AddressCoordinatePolicyTest.php`;
    - `tests/Feature/Admin/AdminProtectedRoutesAuthTest.php`;
    - `tests/Feature/Api/ApiProtectedRoutesAuthTest.php`;
+   - `tests/Feature/Auth/RegisterTest.php`;
    - `tests/Feature/Courier/AcceptFlowArchitectureRegressionTest.php`;
    - `tests/Feature/Courier/CourierRuntimeStateSyncTest.php`;
    - `tests/Feature/Api/GeocodeControllerTest.php`;
@@ -113,7 +114,7 @@ Blocking jobs:
    - `tests/Unit/Orders/LifecycleActionContractsTest.php`.
 
    Non-blocking follow-up suites:
-   - broader Auth / Courier / Livewire suites (including registration/password reset and focused courier online/livewire regressions);
+   - broader Auth / Courier / Livewire suites (including password reset and focused courier online/livewire regressions);
    - remaining wider Unit suites beyond the promoted address precision/policy/reverse-geocode/forward-geocode regression checks, address payload persistence checks, and order lifecycle action contracts.
 
    Coverage note:
