@@ -17,6 +17,34 @@ class CourierOnlineNavigationSyncTest extends TestCase
 {
     use RefreshDatabase;
 
+    public function test_navigation_to_my_orders_rehydrates_online_state_from_canonical_runtime_source(): void
+    {
+        $courier = $this->createCourier();
+
+        $this->actingAs($courier, 'web');
+
+        $availableOrders = Livewire::test(AvailableOrders::class)
+            ->assertSet('online', false)
+            ->assertSee('Ви не на лінії')
+            // Simulate a stale in-memory UI flip that can happen before canonical refresh.
+            ->dispatch('courier-online-toggled', online: true)
+            ->assertSet('online', true)
+            ->assertDontSee('Ви не на лінії');
+
+        $courier->refresh();
+        $this->assertFalse($courier->isCourierOnline());
+
+        Livewire::test(MyOrders::class)
+            ->assertSet('online', false);
+
+        // AvailableOrders can still be stale in-memory, but a navigation mount must not inherit it.
+        $availableOrders->assertSet('online', true);
+
+        Livewire::test(OnlineToggle::class)
+            ->assertSet('online', false)
+            ->assertSee('⚫ Не на лінії', false);
+    }
+
     public function test_online_state_stays_consistent_between_available_and_my_orders_screens(): void
     {
         $courier = $this->createCourier();
@@ -83,6 +111,18 @@ class CourierOnlineNavigationSyncTest extends TestCase
         $this->assertFalse((bool) $courier->is_online);
         $this->assertSame(Courier::STATUS_OFFLINE, $courier->courierProfile->status);
         $this->assertSame(User::SESSION_OFFLINE, $courier->session_state);
+    }
+
+    public function test_courier_layout_exposes_wire_navigate_links_for_real_spa_tab_switches(): void
+    {
+        $courier = $this->createCourier();
+        $this->actingAs($courier, 'web');
+
+        $this->get(route('courier.orders'))
+            ->assertOk()
+            ->assertSee('href="'.route('courier.orders').'"', false)
+            ->assertSee('href="'.route('courier.my-orders').'"', false)
+            ->assertSee('wire:navigate', false);
     }
 
     public function test_busy_courier_with_accepted_order_stays_visually_online_across_tab_navigation(): void
