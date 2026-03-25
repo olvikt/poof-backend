@@ -7,6 +7,7 @@ use App\Http\Controllers\Auth\NewPasswordController;
 use App\Http\Controllers\Auth\PasswordResetLinkController;
 use App\Http\Controllers\Auth\RegisterController;
 use App\Http\Controllers\ProfileController;
+use App\Support\Auth\PhoneNormalizer;
 
 use App\Models\Order;
 
@@ -88,11 +89,13 @@ Route::post('/login', function (Request $request) {
         'password' => ['required'],
     ]);
 
-    $identifier = filter_var($credentials['login'], FILTER_VALIDATE_EMAIL)
-        ? 'email'
-        : 'phone';
+    $isEmailLogin = filter_var($credentials['login'], FILTER_VALIDATE_EMAIL) !== false;
+    $identifier = $isEmailLogin ? 'email' : 'phone';
+    $loginValue = $isEmailLogin
+        ? $credentials['login']
+        : PhoneNormalizer::normalize($credentials['login']);
 
-    if (! Auth::attempt([$identifier => $credentials['login'], 'password' => $credentials['password']])) {
+    if (! Auth::attempt([$identifier => $loginValue, 'password' => $credentials['password']])) {
         return back()->withErrors([
             'login' => 'Невірний email/телефон або пароль',
         ]);

@@ -30,7 +30,7 @@ class RegisterTest extends TestCase
         $this->assertAuthenticated();
         $this->assertDatabaseHas('users', [
             'email' => 'client@example.com',
-            'phone' => '+380501111111',
+            'phone' => '380501111111',
             'role' => 'client',
         ]);
     }
@@ -102,12 +102,12 @@ class RegisterTest extends TestCase
     public function test_login_works_with_phone_identifier(): void
     {
         $user = User::factory()->create([
-            'phone' => '+380503333333',
+            'phone' => '380503333333',
             'password' => bcrypt('password123'),
         ]);
 
         $response = $this->post('/login', [
-            'login' => $user->phone,
+            'login' => '+380 50 333 33 33',
             'password' => 'password123',
         ]);
 

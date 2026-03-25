@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Mail\WelcomeMail;
 use App\Models\Courier;
 use App\Models\User;
+use App\Support\Auth\PhoneNormalizer;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -33,8 +34,12 @@ class RegisterController extends Controller
 
     public function register(Request $request): RedirectResponse|JsonResponse
     {
-        $normalizedPhone = preg_replace('/\D/', '', (string) $request->input('phone'));
-        $request->merge(['phone' => (string) $request->input('country_code', '').$normalizedPhone]);
+        $request->merge([
+            'phone' => PhoneNormalizer::normalize(
+                $request->input('phone'),
+                $request->input('country_code')
+            ),
+        ]);
 
         $rules = [
             'name' => 'required|string|max:255',
@@ -104,6 +109,9 @@ class RegisterController extends Controller
     {
         return Courier::create([
             'user_id' => $user->id,
+            // Canonical registration contract: both legacy `transport` and
+            // newer `transport_type` must be set to the same selected value.
+            'transport' => $validated['transport_type'],
             'transport_type' => $validated['transport_type'],
             'city' => $validated['city'],
         ]);
