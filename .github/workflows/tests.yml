@@ -112,6 +112,7 @@ jobs:
             tests/Feature/Courier/AcceptFlowArchitectureRegressionTest.php \
             tests/Feature/Courier/CourierRuntimeStateSyncTest.php \
             tests/Feature/Courier/AvailableOrdersOnlineSyncTest.php \
+            tests/Feature/Courier/CourierOnlineNavigationSyncTest.php \
             tests/Feature/Api/GeocodeControllerTest.php \
             tests/Unit/Address/PrepareAddressSavePayloadTest.php \
             tests/Unit/Address/FilterClientAddressPayloadTest.php \
