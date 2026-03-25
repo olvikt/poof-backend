@@ -222,11 +222,13 @@ class MyOrders extends Component
             'courierConfirmed' => $courierConfirmed,
         ];
 
-        Log::debug('courier map bootstrap payload', [
-            'courier_id' => $courier->id,
-            'order_id' => $activeOrder->id,
-            'payload' => $payload,
-        ]);
+        if (config('dispatch.courier_map_bootstrap_debug')) {
+            Log::debug('courier map bootstrap payload', [
+                'courier_id' => $courier->id,
+                'order_id' => $activeOrder->id,
+                'payload' => $payload,
+            ]);
+        }
 
         return $payload;
     }
