@@ -22,6 +22,7 @@ DEPLOY_SELECTION_MODE="$([[ "$FALLBACK_DEPLOY_USED" -eq 1 ]] && echo fallback ||
 DEPLOY_LOG_DIR="${DEPLOY_LOG_DIR:-$APP_DIR/storage/logs/deploy}"
 DEPLOY_STATE_FILE="${DEPLOY_STATE_FILE:-$APP_DIR/storage/app/current-release.json}"
 RELEASE_HISTORY_FILE="${RELEASE_HISTORY_FILE:-$APP_DIR/storage/app/release-history.jsonl}"
+RELEASE_SUMMARY_DIR="${RELEASE_SUMMARY_DIR:-$APP_DIR/docs/release-summaries}"
 
 json_field() {
   local file_path="$1"
@@ -68,6 +69,31 @@ append_history_entry() {
   ' "$state_file" >> "$history_file"
 }
 
+resolve_release_summary_file() {
+  local release_ref="$1"
+  echo "$RELEASE_SUMMARY_DIR/$release_ref.md"
+}
+
+extract_release_summary() {
+  local summary_file="$1"
+
+  "$PHP_BIN" -r '
+    $file = $argv[1];
+    if (!is_file($file)) {
+        exit(0);
+    }
+    $lines = file($file, FILE_IGNORE_NEW_LINES) ?: [];
+    foreach ($lines as $line) {
+        $trimmed = trim($line);
+        if ($trimmed === "" || str_starts_with($trimmed, "#")) {
+            continue;
+        }
+        echo $trimmed;
+        exit(0);
+    }
+  ' "$summary_file"
+}
+
 cd "$APP_DIR"
 
 mkdir -p "$DEPLOY_LOG_DIR" "$(dirname "$DEPLOY_STATE_FILE")" "$(dirname "$RELEASE_HISTORY_FILE")"
@@ -105,6 +131,17 @@ if [[ -z "$RESOLVED_REF" ]]; then
   RESOLVED_REF="$DEPLOY_REF"
 fi
 
+RELEASE_SUMMARY_FILE="$(resolve_release_summary_file "$RESOLVED_REF")"
+RELEASE_SUMMARY_TEXT=""
+if git rev-parse --verify --quiet "refs/tags/$RESOLVED_REF" > /dev/null; then
+  if [[ ! -f "$RELEASE_SUMMARY_FILE" ]]; then
+    echo "[deploy] missing release summary for tag $RESOLVED_REF: $RELEASE_SUMMARY_FILE" >&2
+    echo "[deploy] add a short note for this explicit release tag before deploying" >&2
+    exit 1
+  fi
+  RELEASE_SUMMARY_TEXT="$(extract_release_summary "$RELEASE_SUMMARY_FILE")"
+fi
+
 DEPLOYED_AT="$(date -u +"%Y-%m-%dT%H:%M:%SZ")"
 DEPLOY_LOG_FILE="$DEPLOY_LOG_DIR/${DEPLOYED_AT//:/-}-${RESOLVED_COMMIT}.json"
 
@@ -118,6 +155,10 @@ echo "[deploy] fallback path used: $([[ "$FALLBACK_DEPLOY_USED" -eq 1 ]] && echo
 echo "[deploy] deploy started at: $DEPLOYED_AT"
 echo "[deploy] deploy log: $DEPLOY_LOG_FILE"
 echo "[deploy] release history: $RELEASE_HISTORY_FILE"
+if [[ -n "$RELEASE_SUMMARY_TEXT" ]]; then
+  echo "[deploy] release summary: $RELEASE_SUMMARY_TEXT"
+  echo "[deploy] release summary file: $RELEASE_SUMMARY_FILE"
+fi
 
 git reset --hard "$RESOLVED_COMMIT"
 git clean -fd
@@ -172,7 +213,9 @@ for attempt in $(seq 1 "$HEALTHCHECK_ATTEMPTS"); do
   "previous_deployment_type": $(json_string_or_null "$PREVIOUS_DEPLOYMENT_TYPE"),
   "previous_selection_mode": $(json_string_or_null "$PREVIOUS_SELECTION_MODE"),
   "deploy_log": "$DEPLOY_LOG_FILE",
-  "release_history": "$RELEASE_HISTORY_FILE"
+  "release_history": "$RELEASE_HISTORY_FILE",
+  "release_summary_file": $(json_string_or_null "$RELEASE_SUMMARY_FILE"),
+  "release_summary": $(json_string_or_null "$RELEASE_SUMMARY_TEXT")
 }
 STATE
     cp "$DEPLOY_STATE_FILE" "$DEPLOY_LOG_FILE"

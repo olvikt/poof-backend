@@ -138,6 +138,7 @@ Blocking during deploy:
 - frontend manifest verification;
 - DB migrations;
 - Laravel cache rebuild;
+- release summary check for explicit release tags (`docs/release-summaries/<release-tag>.md`);
 - release state recording for the successful/known-good release;
 - append-only release history recording;
 - blocking health-check against `https://api.poof.com.ua/up`.
@@ -191,6 +192,7 @@ Canonical smoke runners:
 - frontend build + manifest verification;
 - migrations;
 - Laravel cache rebuild;
+- validation that explicit release tag has a short summary file in `docs/release-summaries/<release-tag>.md`;
 - blocking health-check;
 - запись release state (`storage/app/current-release.json`) только для successful/known-good release;
 - append-only history entry в `storage/app/release-history.jsonl`.
@@ -222,6 +224,7 @@ bash scripts/check-pwa.sh
 
 - все обязательные команды завершаются успешно;
 - вывод `bash scripts/show-release.sh` явно подтверждает current release, previous known-good release и deployment mode (`EXPLICIT` vs `FALLBACK`);
+- вывод `bash scripts/show-release.sh` также показывает `release_summary_file` и короткий `release_summary` для текущего explicit release;
 - recent log-evidence sections не содержат очевидных ошибок, связанных с только что выполненным deploy;
 - для PWA-affecting релизов `bash scripts/check-pwa.sh` подтверждает manifest/service-worker/landing HTML wiring без browser automation.
 
