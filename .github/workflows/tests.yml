@@ -61,7 +61,7 @@ jobs:
         with:
           php-version: '8.3'
           extensions: mbstring,bcmath,pdo_sqlite,sqlite3
-          coverage: none
+          coverage: pcov
 
       - name: Cache Composer dependencies
         uses: actions/cache@v4
@@ -99,6 +99,7 @@ jobs:
 
       - name: Run minimal blocking release suite
         run: |
+          mkdir -p storage/coverage/php-tests-critical
           php artisan test \
             tests/Feature/Api/OrderStoreTest.php \
             tests/Unit/OrderLifecycleStatusContractTest.php \
@@ -115,7 +116,18 @@ jobs:
             tests/Unit/Address/PersistClientAddressTest.php \
             tests/Unit/Address/ResolveAddressFromPointTest.php \
             tests/Unit/Address/ResolveAddressPointFromFieldsTest.php \
-            tests/Unit/Orders/LifecycleActionContractsTest.php
+            tests/Unit/Orders/LifecycleActionContractsTest.php \
+            --coverage-clover=storage/coverage/php-tests-critical/clover.xml \
+            --coverage-html=storage/coverage/php-tests-critical/html \
+            --coverage-text=storage/coverage/php-tests-critical/summary.txt
+
+      - name: Upload blocking suite coverage artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: php-tests-critical-coverage
+          path: storage/coverage/php-tests-critical
+          if-no-files-found: error
 
 
   pwa-regression-evidence:
