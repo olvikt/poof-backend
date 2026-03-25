@@ -131,15 +131,16 @@ class CourierOnlineNavigationSyncTest extends TestCase
 
         $this->assertIsString($html);
 
-        $this->assertMatchesRegularExpression(
-            '/<a(?=[^>]*\bhref="' . preg_quote(route('courier.orders'), '/') . '")(?=[^>]*\bwire:navigate\b)[^>]*>/u',
-            $html
-        );
+        $crawler = new \Symfony\Component\DomCrawler\Crawler($html);
 
-        $this->assertMatchesRegularExpression(
-            '/<a(?=[^>]*\bhref="' . preg_quote(route('courier.my-orders'), '/') . '")(?=[^>]*\bwire:navigate\b)[^>]*>/u',
-            $html
-        );
+        $ordersLink = $this->findCourierTabLink($crawler, route('courier.orders'));
+        $myOrdersLink = $this->findCourierTabLink($crawler, route('courier.my-orders'));
+
+        $this->assertNotNull($ordersLink, 'Courier orders tab link should exist in layout.');
+        $this->assertNotNull($myOrdersLink, 'Courier my-orders tab link should exist in layout.');
+
+        $this->assertTrue($ordersLink->hasAttribute('wire:navigate'));
+        $this->assertTrue($myOrdersLink->hasAttribute('wire:navigate'));
     }
 
     public function test_busy_courier_with_accepted_order_stays_visually_online_across_tab_navigation(): void
@@ -298,8 +299,8 @@ class CourierOnlineNavigationSyncTest extends TestCase
         Livewire::test(MyOrders::class)
             ->call('navigate', $order->id)
             ->assertNotDispatched('build-route')
-            ->assertDispatched('map:ui-error', function (array $payload): bool {
-                $detail = $payload[0] ?? $payload;
+            ->assertDispatched('map:ui-error', function (...$payload): bool {
+                $detail = $this->extractDispatchedEventDetail($payload);
 
                 return ($detail['message'] ?? null) === 'Локація курʼєра не підтверджена';
             })
@@ -328,8 +329,8 @@ class CourierOnlineNavigationSyncTest extends TestCase
 
         Livewire::test(MyOrders::class)
             ->call('navigate', $order->id)
-            ->assertDispatched('build-route', function (array $payload): bool {
-                $detail = $payload[0] ?? $payload;
+            ->assertDispatched('build-route', function (...$payload): bool {
+                $detail = $this->extractDispatchedEventDetail($payload);
 
                 return ($detail['fromLat'] ?? null) === 48.4647
                     && ($detail['fromLng'] ?? null) === 35.0462
@@ -369,14 +370,52 @@ class CourierOnlineNavigationSyncTest extends TestCase
 
         Livewire::test(MyOrders::class)
             ->call('navigate', $order->id)
-            ->assertDispatched('build-route', function (array $payload): bool {
-                $detail = $payload[0] ?? $payload;
+            ->assertDispatched('build-route', function (...$payload): bool {
+                $detail = $this->extractDispatchedEventDetail($payload);
 
                 return ($detail['fromLat'] ?? null) === 48.4647
                     && ($detail['fromLng'] ?? null) === 35.0462
                     && ($detail['toLat'] ?? null) === 48.467
                     && ($detail['toLng'] ?? null) === 35.05;
             });
+    }
+
+
+    private function findCourierTabLink(\Symfony\Component\DomCrawler\Crawler $crawler, string $targetUrl): ?\DOMElement
+    {
+        $targetPath = parse_url($targetUrl, PHP_URL_PATH);
+
+        foreach ($crawler->filter('a[href]') as $link) {
+            if (! $link instanceof \DOMElement) {
+                continue;
+            }
+
+            $href = $link->getAttribute('href');
+            $hrefPath = parse_url($href, PHP_URL_PATH) ?: $href;
+
+            if ($hrefPath !== $targetPath) {
+                continue;
+            }
+
+            return $link;
+        }
+
+        return null;
+    }
+
+    private function extractDispatchedEventDetail(array $payload): array
+    {
+        if (isset($payload[0]) && is_array($payload[0])) {
+            $candidate = $payload[0];
+
+            if (isset($candidate[0]) && is_array($candidate[0])) {
+                return $candidate[0];
+            }
+
+            return $candidate;
+        }
+
+        return [];
     }
 
     private function extractMapBootstrapFromHtml(string $html): array
