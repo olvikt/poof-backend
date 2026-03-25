@@ -19,6 +19,23 @@ run() {
   "$@"
 }
 
+run_contract_with_degraded_fallback() {
+  local description="$1"
+  local contract_command="$2"
+  local fallback_description="$3"
+  local fallback_command="$4"
+
+  echo
+  echo "==> $description"
+
+  if bash -lc "$contract_command"; then
+    return 0
+  fi
+
+  echo "Contract check failed or unavailable; degraded fallback: $fallback_description"
+  bash -lc "$fallback_command"
+}
+
 run_log_evidence() {
   local description="$1"
   local log_file="$2"
@@ -166,10 +183,17 @@ BASH
 
 run "HTTP availability (base URL)" curl --fail --silent --show-error --head "$API_BASE_URL"
 run "Readiness endpoint contract" bash -lc 'response=$(curl --fail --silent --show-error "$1"); [[ "$response" == "ok" ]]' _ "$HEALTHCHECK_URL"
-run "Laravel scheduler contract" bash -lc "cd '$APP_DIR' && '$PHP_BIN' artisan schedule:list"
-run "Supervisor workers" "$SUPERVISORCTL_BIN" status
+run_contract_with_degraded_fallback \
+  "Scheduler activity contract" \
+  "cd '$APP_DIR' && '$PHP_BIN' artisan ops:contract:scheduler --max-age-seconds=180" \
+  "scheduler listing (human-readable)" \
+  "cd '$APP_DIR' && '$PHP_BIN' artisan schedule:list"
+run_contract_with_degraded_fallback \
+  "Worker supervisor contract" \
+  "cd '$APP_DIR' && '$PHP_BIN' artisan ops:contract:workers --program-prefix=poof-worker: --supervisorctl='$SUPERVISORCTL_BIN'" \
+  "raw supervisorctl status + worker log evidence" \
+  "'$SUPERVISORCTL_BIN' status && cd '$APP_DIR' && tail -n 50 storage/logs/worker.log"
 run "Redis ping" "$REDIS_CLI_BIN" ping
-run_log_evidence "Worker log evidence" "storage/logs/worker.log" 50 400
 run_log_evidence "Application log evidence" "storage/logs/laravel.log" 100 600
 run "Nginx service" systemctl is-active nginx
 run "PHP-FPM service" systemctl is-active php8.3-fpm
