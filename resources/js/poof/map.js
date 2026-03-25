@@ -107,7 +107,8 @@ export default function initMap() {
   // ------------------------------------------------------------
   window.POOF = window.POOF || {}
   const POOF = window.POOF
-  const DEBUG_MAP = true
+  // Optional deep diagnostics: disabled by default in production.
+  const DEBUG_MAP = String(import.meta?.env?.VITE_MAP_DEBUG || '').toLowerCase() === 'true'
   const API_BASE = (import.meta?.env?.VITE_API_URL || '').replace(/\/$/, '')
   const LAST_KNOWN_USER_LOCATION_KEY = 'poof:last-known-user-location:v1'
 
@@ -546,7 +547,7 @@ export default function initMap() {
 
   function debugMapFlow(event, payload = {}) {
     if (!DEBUG_MAP) return
-    console.info(`[POOF:map][debug] ${event}`, payload)
+    console.debug(`[POOF:map][debug] ${event}`, payload)
   }
 
   // --------- ADDED (prod) ---------
@@ -675,10 +676,12 @@ export default function initMap() {
 
   async function reverseGeocodeAndDispatch(lat, lng, options = {}) {
     if (options?.source === 'autocomplete' || state.addressLocked || isSavedAddressLocked()) {
-      if (isSavedAddressLocked()) {
-        console.log('[POOF] reverse geocode blocked (saved address)')
-      } else if (DEBUG_MAP) {
-        console.debug('[POOF] reverse geocode skipped (locked/source)', options?.source)
+      if (DEBUG_MAP) {
+        if (isSavedAddressLocked()) {
+          console.debug('[POOF] reverse geocode blocked (saved address)')
+        } else {
+          console.debug('[POOF] reverse geocode skipped (locked/source)', options?.source)
+        }
       }
       return
     }
@@ -735,8 +738,8 @@ export default function initMap() {
 
   function scheduleReverseGeocode(lat, lng, options = {}) {
     if (options?.source === 'autocomplete' || state.addressLocked || isSavedAddressLocked()) {
-      if (isSavedAddressLocked()) {
-        console.log('[POOF] reverse geocode blocked (saved address)')
+      if (DEBUG_MAP && isSavedAddressLocked()) {
+        console.debug('[POOF] reverse geocode blocked (saved address)')
       }
       return
     }
@@ -884,8 +887,10 @@ export default function initMap() {
       })
     }
 
-    console.debug('[POOF MAP] setMarker', latN, lngN)
-    console.debug('[POOF MAP] update', latN, lngN, options)
+    if (DEBUG_MAP) {
+      console.debug('[POOF MAP] setMarker', latN, lngN)
+      console.debug('[POOF MAP] update', latN, lngN, options)
+    }
 
     state.lastLat = latN
     state.lastLng = lngN
@@ -1448,7 +1453,7 @@ async function buildRoute(fromLat, fromLng, toLat, toLng) {
       const lng = parseFloat(mapEl.dataset.lng)
 
       if (isValidLatLng(lat, lng)) {
-        console.log('[POOF] center map from dataset', lat, lng)
+        if (DEBUG_MAP) console.debug('[POOF] center map from dataset', lat, lng)
         setMarker(lat, lng, { emit: false, zoom: 17, source: 'saved-address' })
         state.instance.setView([lat, lng], 17, { animate: false })
       }
@@ -1728,7 +1733,7 @@ window.addEventListener('build-route', (e) => {
         payload = payload[0] || {}
     }
 
-    console.log('ROUTE PAYLOAD FIXED:', payload)
+    if (DEBUG_MAP) console.debug('ROUTE PAYLOAD FIXED:', payload)
 
     buildRoute(
         payload.fromLat,
@@ -1852,7 +1857,7 @@ window.addEventListener('build-route', (e) => {
         return
       }
 
-      console.log('[POOF] user geolocation', lat, lng)
+      if (DEBUG_MAP) console.debug('[POOF] user geolocation', lat, lng)
 
       persistUserLocation(lat, lng, { source: 'geolocation' })
 
