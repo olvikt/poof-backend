@@ -125,6 +125,9 @@ class CourierOnlineNavigationSyncTest extends TestCase
         $courier = $this->createCourier();
         $this->actingAs($courier, 'web');
 
+        // This assertion validates layout tab-link wiring; Vite manifest coverage belongs to frontend-build CI.
+        $this->withoutVite();
+
         $html = $this->get(route('courier.orders'))
             ->assertOk()
             ->getContent();
