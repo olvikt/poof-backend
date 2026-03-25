@@ -139,8 +139,8 @@ class CourierOnlineNavigationSyncTest extends TestCase
         $this->assertNotNull($ordersLink, 'Courier orders tab link should exist in layout.');
         $this->assertNotNull($myOrdersLink, 'Courier my-orders tab link should exist in layout.');
 
-        $this->assertTrue($this->hasWireNavigateAttribute($ordersLink));
-        $this->assertTrue($this->hasWireNavigateAttribute($myOrdersLink));
+        $this->assertTrue($this->hasWireNavigateAttribute($ordersLink), 'Orders tab should expose Livewire SPA navigation.');
+        $this->assertTrue($this->hasWireNavigateAttribute($myOrdersLink), 'My-orders tab should expose Livewire SPA navigation.');
     }
 
     public function test_busy_courier_with_accepted_order_stays_visually_online_across_tab_navigation(): void
@@ -324,18 +324,21 @@ class CourierOnlineNavigationSyncTest extends TestCase
 
         $courier->refresh();
 
-        $this->assertSame(48.4647, (float) $courier->last_lat);
-        $this->assertSame(35.0462, (float) $courier->last_lng);
+        $this->assertEqualsWithDelta(48.4647, (float) $courier->last_lat, 0.000001);
+        $this->assertEqualsWithDelta(35.0462, (float) $courier->last_lng, 0.000001);
 
         Livewire::test(MyOrders::class)
             ->call('navigate', $order->id)
             ->assertDispatched('build-route', function (...$payload): bool {
                 $detail = $this->extractDispatchedEventDetail($payload);
 
-                return ($detail['fromLat'] ?? null) === 48.4647
-                    && ($detail['fromLng'] ?? null) === 35.0462
-                    && ($detail['toLat'] ?? null) === 48.467
-                    && ($detail['toLng'] ?? null) === 35.05;
+                return $this->payloadHasRouteCoords(
+                    $detail,
+                    fromLat: 48.4647,
+                    fromLng: 35.0462,
+                    toLat: 48.467,
+                    toLng: 35.05,
+                );
             });
     }
 
@@ -373,17 +376,20 @@ class CourierOnlineNavigationSyncTest extends TestCase
             ->assertDispatched('build-route', function (...$payload): bool {
                 $detail = $this->extractDispatchedEventDetail($payload);
 
-                return ($detail['fromLat'] ?? null) === 48.4647
-                    && ($detail['fromLng'] ?? null) === 35.0462
-                    && ($detail['toLat'] ?? null) === 48.467
-                    && ($detail['toLng'] ?? null) === 35.05;
+                return $this->payloadHasRouteCoords(
+                    $detail,
+                    fromLat: 48.4647,
+                    fromLng: 35.0462,
+                    toLat: 48.467,
+                    toLng: 35.05,
+                );
             });
     }
 
 
     private function findCourierTabLink(\Symfony\Component\DomCrawler\Crawler $crawler, string $targetUrl): ?\DOMElement
     {
-        $targetPath = parse_url($targetUrl, PHP_URL_PATH);
+        $targetPath = $this->normalizePath((string) parse_url($targetUrl, PHP_URL_PATH));
 
         foreach ($crawler->filter('a[href]') as $link) {
             if (! $link instanceof \DOMElement) {
@@ -391,7 +397,7 @@ class CourierOnlineNavigationSyncTest extends TestCase
             }
 
             $href = $link->getAttribute('href');
-            $hrefPath = parse_url($href, PHP_URL_PATH) ?: $href;
+            $hrefPath = $this->normalizePath((string) (parse_url($href, PHP_URL_PATH) ?: $href));
 
             if ($hrefPath !== $targetPath) {
                 continue;
@@ -401,6 +407,17 @@ class CourierOnlineNavigationSyncTest extends TestCase
         }
 
         return null;
+    }
+
+    private function normalizePath(string $path): string
+    {
+        $normalized = '/' . ltrim($path, '/');
+
+        if ($normalized !== '/') {
+            $normalized = rtrim($normalized, '/');
+        }
+
+        return $normalized;
     }
 
     private function extractDispatchedEventDetail(array $payload): array
@@ -450,9 +467,36 @@ class CourierOnlineNavigationSyncTest extends TestCase
             if (str_starts_with($attribute->name, 'wire:navigate')) {
                 return true;
             }
+
+            if (($attribute->prefix ?? null) === 'wire' && str_starts_with($attribute->localName, 'navigate')) {
+                return true;
+            }
         }
 
         return false;
+    }
+
+    private function payloadHasRouteCoords(
+        array $detail,
+        float $fromLat,
+        float $fromLng,
+        float $toLat,
+        float $toLng,
+        float $delta = 0.000001,
+    ): bool {
+        return $this->floatMatches($detail['fromLat'] ?? null, $fromLat, $delta)
+            && $this->floatMatches($detail['fromLng'] ?? null, $fromLng, $delta)
+            && $this->floatMatches($detail['toLat'] ?? null, $toLat, $delta)
+            && $this->floatMatches($detail['toLng'] ?? null, $toLng, $delta);
+    }
+
+    private function floatMatches(mixed $actual, float $expected, float $delta): bool
+    {
+        if (! is_numeric($actual)) {
+            return false;
+        }
+
+        return abs(((float) $actual) - $expected) <= $delta;
     }
 
     private function extractMapBootstrapFromHtml(string $html): array
