@@ -83,6 +83,8 @@ function format_summary(array $state): array
         'previous_selection_mode' => stringify($state['previous_selection_mode'] ?? null),
         'deploy_log' => stringify($state['deploy_log'] ?? null),
         'release_history' => stringify($state['release_history'] ?? $GLOBALS['historyFile']),
+        'release_summary_file' => stringify($state['release_summary_file'] ?? null),
+        'release_summary' => stringify($state['release_summary'] ?? null),
     ];
 }
 
@@ -112,6 +114,8 @@ echo 'Selection mode: ', $summary['selection_mode'], PHP_EOL;
 echo 'Fallback used: ', $summary['fallback_used'], PHP_EOL;
 echo 'Deploy log: ', $summary['deploy_log'], PHP_EOL;
 echo 'History file: ', $summary['release_history'], PHP_EOL;
+echo 'Release summary file: ', $summary['release_summary_file'], PHP_EOL;
+echo 'Release summary: ', $summary['release_summary'], PHP_EOL;
 echo PHP_EOL;
 
 print_section('Previous known-good release');

@@ -64,6 +64,19 @@ git push origin release-YYYYMMDD-HHMM
 ```
 
 3. Зафиксировать этот tag как release candidate для production.
+4. Добавить короткий operator-facing summary для этого тега:
+
+```bash
+bash scripts/create-release-summary.sh release-YYYYMMDD-HHMM "Short operator summary"
+git add docs/release-summaries/release-YYYYMMDD-HHMM.md
+git commit -m "docs(release): add summary for release-YYYYMMDD-HHMM"
+```
+
+Release summary convention:
+
+- location: `docs/release-summaries/<release-tag>.md`;
+- summary signal: первая непустая строка после заголовка;
+- expected size: 1-3 коротких строки, без длинного narrative changelog.
 
 ## 4. Canonical production deploy path
 
@@ -108,6 +121,7 @@ bash scripts/deploy.sh
 - записывает release state в `storage/app/current-release.json`;
 - добавляет append-only запись в `storage/app/release-history.jsonl`;
 - кладёт metadata snapshot в `storage/logs/deploy/`.
+- для explicit tag release требует наличие `docs/release-summaries/<release-tag>.md`, извлекает short summary и сохраняет его в release state (`release_summary_file`, `release_summary`).
 
 ## 5. Rollback a previous release
 
@@ -182,6 +196,8 @@ cat storage/app/current-release.json
 - `previous_commit`;
 - `deploy_log`;
 - `release_history`;
+- `release_summary_file`;
+- `release_summary`.
 - `deployment_type`.
 
 2. **Append-only release history ledger**
@@ -206,6 +222,7 @@ ls -1 storage/logs/deploy
 ```
 
 Этого достаточно, чтобы ответить на вопросы: **“Что сейчас в проде?”, “какой previous known-good release был до него?” и “был ли это explicit release deploy или legacy fallback path?”**
+А благодаря `release_summary` в state/`show-release` можно быстро ответить и на вопрос: **“Что вошло в этот release?”**
 
 ## 7. Operator contract summary
 
