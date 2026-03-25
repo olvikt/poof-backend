@@ -105,6 +105,7 @@ Blocking jobs:
    - `tests/Feature/Auth/PasswordResetTest.php`;
    - `tests/Feature/Courier/AcceptFlowArchitectureRegressionTest.php`;
    - `tests/Feature/Courier/CourierRuntimeStateSyncTest.php`;
+   - `tests/Feature/Courier/AvailableOrdersOnlineSyncTest.php`;
    - `tests/Feature/Api/GeocodeControllerTest.php`;
    - `tests/Unit/Address/PrepareAddressSavePayloadTest.php`;
    - `tests/Unit/Address/FilterClientAddressPayloadTest.php`;
