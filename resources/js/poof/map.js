@@ -111,6 +111,8 @@ export default function initMap() {
   const DEBUG_MAP = String(import.meta?.env?.VITE_MAP_DEBUG || '').toLowerCase() === 'true'
   const API_BASE = (import.meta?.env?.VITE_API_URL || '').replace(/\/$/, '')
   const LAST_KNOWN_USER_LOCATION_KEY = 'poof:last-known-user-location:v1'
+  const COURIER_RUNTIME_SYNC_CHANNEL = 'poof:courier-runtime-sync:v1'
+  const COURIER_RUNTIME_SYNC_STORAGE_KEY = 'poof:courier-runtime-sync:message:v1'
 
   // ------------------------------------------------------------
   // Shared singleton state
@@ -183,6 +185,12 @@ export default function initMap() {
     geoActionInFlight: false,
     preferredVisibleAddressPoint: null,
     authoritativeAddressPickerPoint: null,
+
+    crossTabRuntimeBound: false,
+    crossTabRuntimeChannel: null,
+    crossTabRuntimeTabId: null,
+    crossTabRuntimeLastSignature: null,
+    crossTabRuntimeLastEmittedAt: 0,
   }
 
   const state = POOF.map
@@ -210,6 +218,147 @@ export default function initMap() {
     } catch (_) {
       return false
     }
+  }
+
+  function canUseBroadcastChannel() {
+    try {
+      return typeof window !== 'undefined'
+        && typeof window.BroadcastChannel !== 'undefined'
+    } catch (_) {
+      return false
+    }
+  }
+
+  function ensureCrossTabRuntimeTabId() {
+    if (state.crossTabRuntimeTabId) return state.crossTabRuntimeTabId
+
+    const generated = `tab-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`
+
+    if (canUseStorage()) {
+      try {
+        const existing = window.sessionStorage?.getItem('poof:courier-runtime-tab-id:v1')
+        if (existing) {
+          state.crossTabRuntimeTabId = existing
+          return existing
+        }
+
+        window.sessionStorage?.setItem('poof:courier-runtime-tab-id:v1', generated)
+      } catch (_) {}
+    }
+
+    state.crossTabRuntimeTabId = generated
+
+    return generated
+  }
+
+  function normalizeCourierRuntimePayload(payload = {}) {
+    const online = typeof payload?.online === 'boolean'
+      ? payload.online
+      : null
+
+    const status = typeof payload?.status === 'string' && payload.status.trim() !== ''
+      ? payload.status.trim()
+      : null
+
+    if (online === null && status === null) return null
+
+    return {
+      online,
+      status,
+      reason: typeof payload?.reason === 'string' && payload.reason.trim() !== ''
+        ? payload.reason.trim()
+        : null,
+      updatedAt: Number(payload?.updatedAt) || Date.now(),
+    }
+  }
+
+  function emitCrossTabCourierRuntimeSync(rawPayload = {}, options = {}) {
+    const payload = normalizeCourierRuntimePayload(rawPayload)
+    if (!payload) return
+    const signature = `${payload.online === null ? 'null' : String(payload.online)}|${payload.status || 'null'}|${payload.reason || options.reason || 'null'}`
+    const now = Date.now()
+
+    if (
+      state.crossTabRuntimeLastSignature === signature
+      && now - Number(state.crossTabRuntimeLastEmittedAt || 0) < 1200
+    ) {
+      return
+    }
+
+    state.crossTabRuntimeLastSignature = signature
+    state.crossTabRuntimeLastEmittedAt = now
+
+    const envelope = {
+      type: 'courier-runtime-sync',
+      tabId: ensureCrossTabRuntimeTabId(),
+      emittedAt: now,
+      payload: {
+        ...payload,
+        reason: payload.reason ?? options.reason ?? null,
+      },
+    }
+
+    if (state.crossTabRuntimeChannel) {
+      try {
+        state.crossTabRuntimeChannel.postMessage(envelope)
+      } catch (_) {}
+    }
+
+    if (canUseStorage()) {
+      try {
+        window.localStorage.setItem(COURIER_RUNTIME_SYNC_STORAGE_KEY, JSON.stringify(envelope))
+        window.localStorage.removeItem(COURIER_RUNTIME_SYNC_STORAGE_KEY)
+      } catch (_) {}
+    }
+  }
+
+  function handleIncomingCrossTabRuntimeSync(message = null) {
+    if (!message || message.type !== 'courier-runtime-sync') return
+    if (message.tabId && message.tabId === ensureCrossTabRuntimeTabId()) return
+
+    const payload = normalizeCourierRuntimePayload(message.payload || {})
+    if (!payload) return
+
+    window.dispatchEvent(new CustomEvent('courier:runtime-sync', {
+      detail: {
+        ...payload,
+        __crossTab: true,
+      },
+    }))
+
+    if (typeof payload.online === 'boolean' && window.Livewire?.dispatch) {
+      window.Livewire.dispatch('courier-online-toggled', {
+        online: payload.online,
+        changed: false,
+        reason: payload.reason ?? 'cross_tab_runtime_sync',
+      })
+    }
+  }
+
+  function bindCrossTabRuntimeSyncOnce() {
+    if (state.crossTabRuntimeBound) return
+    state.crossTabRuntimeBound = true
+    ensureCrossTabRuntimeTabId()
+
+    if (canUseBroadcastChannel()) {
+      try {
+        state.crossTabRuntimeChannel = new BroadcastChannel(COURIER_RUNTIME_SYNC_CHANNEL)
+        state.crossTabRuntimeChannel.onmessage = (event) => {
+          handleIncomingCrossTabRuntimeSync(event?.data || null)
+        }
+      } catch (_) {
+        state.crossTabRuntimeChannel = null
+      }
+    }
+
+    window.addEventListener('storage', (event) => {
+      if (event.key !== COURIER_RUNTIME_SYNC_STORAGE_KEY || !event.newValue) return
+
+      try {
+        const message = JSON.parse(event.newValue)
+        handleIncomingCrossTabRuntimeSync(message)
+      } catch (_) {}
+    })
   }
 
   function emitUserLocationBootstrapState() {
@@ -1566,6 +1715,7 @@ async function buildRoute(fromLat, fromLng, toLat, toLng) {
   function bindGlobalHandlersOnce() {
   if (state.handlersBound) return
   state.handlersBound = true
+  bindCrossTabRuntimeSyncOnce()
 
   // PHP/Browser → JS: set location from autocomplete or sync
   window.addEventListener('map:set-location', (event) => {
@@ -1678,9 +1828,20 @@ async function buildRoute(fromLat, fromLng, toLat, toLng) {
     stopCourierWatch()
   })
 
+  window.addEventListener('courier-online-toggled', (e) => {
+    let payload = e.detail
+    if (Array.isArray(payload)) payload = payload[0] || {}
+
+    emitCrossTabCourierRuntimeSync(payload || {}, { reason: 'courier_online_toggled' })
+  })
+
   window.addEventListener('courier:runtime-sync', (e) => {
     let payload = e.detail
     if (Array.isArray(payload)) payload = payload[0] || {}
+
+    if (payload?.__crossTab !== true) {
+      emitCrossTabCourierRuntimeSync(payload || {}, { reason: 'courier_runtime_sync' })
+    }
 
     const isOnline = Boolean(payload?.online)
 
