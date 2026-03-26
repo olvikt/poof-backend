@@ -3,6 +3,7 @@ import assert from 'node:assert/strict'
 
 import {
   buildCurrentLocationFallbackPlan,
+  buildCourierRuntimeEvidenceView,
   normalizeRuntimeObservabilityReason,
   shouldIgnoreStaleAddressPickerSyncPoint,
   shouldApplyPersistedLocationOnBootstrap,
@@ -119,4 +120,37 @@ test('runtime observability reason normalizer keeps reason-coded payload compact
   assert.equal(normalizeRuntimeObservabilityReason(' lease_heartbeat_lost '), 'lease_heartbeat_lost')
   assert.equal(normalizeRuntimeObservabilityReason(''), 'unspecified')
   assert.equal(normalizeRuntimeObservabilityReason(null, 'fallback_reason'), 'fallback_reason')
+})
+
+test('runtime evidence view returns compact operator payload with top counters and recent signals', () => {
+  const evidence = buildCourierRuntimeEvidenceView({
+    counters: {
+      'cross_tab_runtime_sync_repair_applied:courier_runtime_sync': 3,
+      'cross_tab_runtime_sync_emit:courier_online_toggled': 9,
+    },
+    signals: [
+      { event: 'cross_tab_runtime_sync_emit', reason: 'courier_online_toggled', level: 'info', ts: 50, meta: { source: 'toggle' } },
+      { event: 'cross_tab_runtime_sync_repair_applied', reason: 'courier_runtime_sync', level: 'warn', ts: 70 },
+    ],
+    authSessionLost: false,
+    crossTab: {
+      tabId: 'tab-1',
+      lastSignature: 'true|assigned|courier_online_toggled',
+      lastEmittedAt: 120,
+      channelEnabled: true,
+    },
+    geoLeadership: {
+      desired: true,
+      active: true,
+      mode: 'lease',
+    },
+  })
+
+  assert.equal(evidence.topCounters[0].key, 'cross_tab_runtime_sync_emit:courier_online_toggled')
+  assert.equal(evidence.topCounters[0].count, 9)
+  assert.equal(evidence.recentSignals[0].event, 'cross_tab_runtime_sync_repair_applied')
+  assert.equal(evidence.recentSignals[0].level, 'warn')
+  assert.equal(evidence.crossTab.tabId, 'tab-1')
+  assert.equal(evidence.geoLeadership.mode, 'lease')
+  assert.equal(evidence.serverRuntimeError, null)
 })
