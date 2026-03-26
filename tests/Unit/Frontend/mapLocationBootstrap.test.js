@@ -3,6 +3,7 @@ import assert from 'node:assert/strict'
 
 import {
   buildCurrentLocationFallbackPlan,
+  normalizeRuntimeObservabilityReason,
   shouldIgnoreStaleAddressPickerSyncPoint,
   shouldApplyPersistedLocationOnBootstrap,
 } from '../../../resources/js/poof/map.js'
@@ -112,4 +113,10 @@ test('matching sync point is still allowed when it agrees with fresh current-loc
   })
 
   assert.equal(result, false)
+})
+
+test('runtime observability reason normalizer keeps reason-coded payload compact', () => {
+  assert.equal(normalizeRuntimeObservabilityReason(' lease_heartbeat_lost '), 'lease_heartbeat_lost')
+  assert.equal(normalizeRuntimeObservabilityReason(''), 'unspecified')
+  assert.equal(normalizeRuntimeObservabilityReason(null, 'fallback_reason'), 'fallback_reason')
 })

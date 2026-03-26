@@ -101,6 +101,16 @@ function shouldIgnoreStaleAddressPickerSyncPoint({
   return false
 }
 
+function normalizeRuntimeObservabilityReason(reason, fallback = 'unspecified') {
+  if (typeof reason !== 'string') return fallback
+  const normalized = reason.trim()
+  return normalized !== '' ? normalized : fallback
+}
+
+function shouldEnableRuntimeDiagnostics() {
+  return String(import.meta?.env?.VITE_MAP_RUNTIME_DIAGNOSTICS || '').toLowerCase() === 'true'
+}
+
 export default function initMap() {
   // ------------------------------------------------------------
   // Namespace
@@ -109,6 +119,7 @@ export default function initMap() {
   const POOF = window.POOF
   // Optional deep diagnostics: disabled by default in production.
   const DEBUG_MAP = String(import.meta?.env?.VITE_MAP_DEBUG || '').toLowerCase() === 'true'
+  const RUNTIME_DIAGNOSTICS = shouldEnableRuntimeDiagnostics()
   const API_BASE = (import.meta?.env?.VITE_API_URL || '').replace(/\/$/, '')
   const LAST_KNOWN_USER_LOCATION_KEY = 'poof:last-known-user-location:v1'
   const COURIER_RUNTIME_SYNC_CHANNEL = 'poof:courier-runtime-sync:v1'
@@ -203,6 +214,7 @@ export default function initMap() {
     courierGeoAcquireRetryTimer: null,
     courierGeoLockAbortController: null,
     courierGeoStorageBound: false,
+    runtimeSignalCounters: {},
   }
 
   const state = POOF.map
@@ -261,6 +273,36 @@ export default function initMap() {
     state.crossTabRuntimeTabId = generated
 
     return generated
+  }
+
+  function emitRuntimeSignal(event, reason, options = {}) {
+    const normalizedReason = normalizeRuntimeObservabilityReason(reason)
+    const level = options.level === 'error' || options.level === 'warn' ? options.level : 'info'
+    const detail = {
+      event: normalizeRuntimeObservabilityReason(event, 'runtime_event'),
+      reason: normalizedReason,
+      level,
+      ts: Date.now(),
+      meta: options.meta && typeof options.meta === 'object' ? options.meta : {},
+    }
+
+    const counterKey = `${detail.event}:${detail.reason}`
+    state.runtimeSignalCounters[counterKey] = Number(state.runtimeSignalCounters[counterKey] || 0) + 1
+
+    window.dispatchEvent(new CustomEvent('poof:courier-runtime-observe', { detail }))
+
+    if (!RUNTIME_DIAGNOSTICS) return
+
+    const label = `[POOF:runtime][${detail.level}] ${detail.event}`
+    if (detail.level === 'error') {
+      console.error(label, detail)
+      return
+    }
+    if (detail.level === 'warn') {
+      console.warn(label, detail)
+      return
+    }
+    console.info(label, detail)
   }
 
   function normalizeCourierRuntimePayload(payload = {}) {
@@ -322,6 +364,14 @@ export default function initMap() {
       },
     }
 
+    emitRuntimeSignal('cross_tab_runtime_sync_emit', envelope.payload.reason ?? options.reason ?? 'runtime_sync_emit', {
+      meta: {
+        transport: state.crossTabRuntimeChannel ? 'broadcast_channel+storage' : 'storage',
+        online: payload.online,
+        status: payload.status,
+      },
+    })
+
     if (state.crossTabRuntimeChannel) {
       try {
         state.crossTabRuntimeChannel.postMessage(envelope)
@@ -341,7 +391,19 @@ export default function initMap() {
     if (message.tabId && message.tabId === ensureCrossTabRuntimeTabId()) return
 
     const payload = normalizeCourierRuntimePayload(message.payload || {})
-    if (!payload) return
+    if (!payload) {
+      emitRuntimeSignal('cross_tab_runtime_sync_ignored', 'invalid_payload', {
+        level: 'warn',
+      })
+      return
+    }
+
+    emitRuntimeSignal('cross_tab_runtime_sync_repair_applied', payload.reason ?? 'cross_tab_runtime_sync', {
+      meta: {
+        online: payload.online,
+        status: payload.status,
+      },
+    })
 
     window.dispatchEvent(new CustomEvent('courier:runtime-sync', {
       detail: {
@@ -427,14 +489,28 @@ export default function initMap() {
   }
 
   function markCourierGeoLeaderActive(mode = null) {
+    const wasActive = state.courierGeoLeaderActive === true
     state.courierGeoLeaderActive = true
     state.courierGeoLeaderMode = mode || state.courierGeoLeaderMode || 'lease'
+    if (!wasActive) {
+      emitRuntimeSignal('geo_leader_acquired', state.courierGeoLeaderMode, {
+        meta: { desired: state.courierGeoLeaderDesired },
+      })
+    }
     startCourierWatch()
   }
 
-  function demoteCourierGeoLeader() {
+  function demoteCourierGeoLeader(reason = 'leader_demoted') {
+    const wasActive = state.courierGeoLeaderActive === true
+    const previousMode = state.courierGeoLeaderMode || 'none'
     state.courierGeoLeaderActive = false
     state.courierGeoLeaderMode = null
+    if (wasActive) {
+      emitRuntimeSignal('geo_leader_demoted', reason, {
+        level: reason === 'leadership_stopped' ? 'info' : 'warn',
+        meta: { previousMode },
+      })
+    }
     stopCourierWatch()
   }
 
@@ -488,7 +564,7 @@ export default function initMap() {
       }
 
       if (state.courierGeoLeaderActive && state.courierGeoLeaderMode === 'lease') {
-        demoteCourierGeoLeader()
+        demoteCourierGeoLeader('lease_heartbeat_lost')
       }
 
       scheduleCourierGeoLeadershipAcquire(700)
@@ -532,7 +608,7 @@ export default function initMap() {
       }
 
       if (state.courierGeoLeaderMode === 'web-lock') {
-        demoteCourierGeoLeader()
+        demoteCourierGeoLeader('web_lock_released')
       }
     }
 
@@ -566,8 +642,13 @@ export default function initMap() {
 
       if (incomingOwner && incomingOwner !== tabId && incomingExpiresAt > Date.now()) {
         if (state.courierGeoLeaderMode === 'lease' && state.courierGeoLeaderActive) {
-          demoteCourierGeoLeader()
+          demoteCourierGeoLeader('lease_taken_by_peer_tab')
         }
+        emitRuntimeSignal('geo_leader_failover_wait', 'peer_tab_active_lease', {
+          meta: {
+            retryInMs: Math.min(2500, Math.max(700, incomingExpiresAt - Date.now() + 120)),
+          },
+        })
         scheduleCourierGeoLeadershipAcquire(Math.min(2500, Math.max(700, incomingExpiresAt - Date.now() + 120)))
         return
       }
@@ -600,12 +681,15 @@ export default function initMap() {
 
     if (leaseGranted) {
       markCourierGeoLeaderActive('lease')
+      if (!canUseWebLocks()) {
+        emitRuntimeSignal('geo_leader_fallback', 'web_locks_unavailable_using_lease')
+      }
       startCourierGeoLeaseHeartbeat()
       return
     }
 
     if (state.courierGeoLeaderMode === 'lease' && state.courierGeoLeaderActive) {
-      demoteCourierGeoLeader()
+      demoteCourierGeoLeader('lease_contention')
     }
 
     scheduleCourierGeoLeadershipAcquire()
@@ -623,7 +707,7 @@ export default function initMap() {
     stopCourierGeoLeaseHeartbeat()
     releaseCourierGeoLeaderLock()
     releaseCourierGeoLeaseStorage()
-    demoteCourierGeoLeader()
+    demoteCourierGeoLeader('leadership_stopped')
   }
 
   function emitUserLocationBootstrapState() {
@@ -887,6 +971,13 @@ export default function initMap() {
     })
 
     if (!plan) return false
+
+    emitRuntimeSignal('geo_self_heal_fallback_applied', plan.source || 'persisted_location_fallback', {
+      level: 'warn',
+      meta: {
+        persistSource: plan.persistSource,
+      },
+    })
 
     return applyCurrentLocation(plan.lat, plan.lng, {
       source: plan.source,
@@ -2262,6 +2353,7 @@ window.addEventListener('build-route', (e) => {
   // --------- ADDED (prod): debug helpers (safe) ---------
   POOF.__getLastGoodCourier = () => getLastGoodCourier()
   POOF.__isValidLatLng = (lat, lng) => isValidLatLng(lat, lng)
+  POOF.__getCourierRuntimeSignalCounters = () => ({ ...state.runtimeSignalCounters })
 
   // ------------------------------------------------------------
   // Bootstrap
@@ -2327,6 +2419,7 @@ window.addEventListener('build-route', (e) => {
 
 export {
   buildCurrentLocationFallbackPlan,
+  normalizeRuntimeObservabilityReason,
   shouldIgnoreStaleAddressPickerSyncPoint,
   shouldApplyPersistedLocationOnBootstrap,
 }
