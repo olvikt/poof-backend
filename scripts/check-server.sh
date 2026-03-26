@@ -9,6 +9,7 @@ SUPERVISORCTL_BIN="${SUPERVISORCTL_BIN:-supervisorctl}"
 REDIS_CLI_BIN="${REDIS_CLI_BIN:-redis-cli}"
 LOG_RECENT_WINDOW_MINUTES="${LOG_RECENT_WINDOW_MINUTES:-20}"
 DEPLOY_STATE_FILE="${DEPLOY_STATE_FILE:-$APP_DIR/storage/app/current-release.json}"
+DEPLOY_RUNTIME_EVIDENCE_FILE="${DEPLOY_RUNTIME_EVIDENCE_FILE:-}"
 
 run() {
   local description="$1"
@@ -193,6 +194,99 @@ BASH
   fi
 }
 
+run_deploy_runtime_evidence() {
+  local description="$1"
+  local evidence_result
+  local contract_exit
+
+  if evidence_result="$(
+    APP_DIR="$APP_DIR" DEPLOY_STATE_FILE="$DEPLOY_STATE_FILE" DEPLOY_RUNTIME_EVIDENCE_FILE="$DEPLOY_RUNTIME_EVIDENCE_FILE" "$PHP_BIN" -r '
+      $statePath = $argv[1];
+      if (!is_file($statePath)) {
+        fwrite(STDERR, "[check-server] release state file missing for runtime evidence: {$statePath}\n");
+        exit(1);
+      }
+
+      $state = json_decode((string) file_get_contents($statePath), true);
+      if (!is_array($state)) {
+        fwrite(STDERR, "[check-server] failed to parse release state for runtime evidence: {$statePath}\n");
+        exit(1);
+      }
+
+      $deployStartedAt = trim((string) ($state["deployed_at_utc"] ?? ""));
+      $commit = trim((string) ($state["commit"] ?? ""));
+      $sourcePath = trim((string) ($state["deploy_runtime_evidence"] ?? ""));
+      if ($sourcePath === "") {
+        $sourcePath = trim((string) getenv("DEPLOY_RUNTIME_EVIDENCE_FILE"));
+      }
+
+      if ($sourcePath === "") {
+        fwrite(STDERR, "[check-server] runtime evidence path is not set\n");
+        exit(1);
+      }
+
+      if (!is_file($sourcePath)) {
+        fwrite(STDERR, "[check-server] runtime evidence file missing: {$sourcePath}\n");
+        exit(1);
+      }
+
+      $lines = file($sourcePath, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES) ?: [];
+      $events = [];
+
+      foreach ($lines as $line) {
+        $entry = json_decode($line, true);
+        if (!is_array($entry)) {
+          continue;
+        }
+
+        if (($entry["deploy_started_at_utc"] ?? null) !== $deployStartedAt) {
+          continue;
+        }
+
+        if (($entry["commit"] ?? null) !== $commit) {
+          continue;
+        }
+
+        $events[] = [
+          "event" => (string) ($entry["event"] ?? ""),
+          "status" => (string) ($entry["status"] ?? ""),
+          "event_at_utc" => (string) ($entry["event_at_utc"] ?? ""),
+        ];
+      }
+
+      if ($events === []) {
+        fwrite(STDERR, "[check-server] runtime evidence file has no events for current deploy window\n");
+        exit(1);
+      }
+
+      $compactEvents = array_slice($events, -10);
+      echo json_encode([
+        "status" => "ok",
+        "source" => $sourcePath,
+        "deploy_started_at_utc" => $deployStartedAt,
+        "commit" => $commit,
+        "events_count" => count($events),
+        "recent_events" => $compactEvents,
+      ], JSON_UNESCAPED_SLASHES), PHP_EOL;
+    ' "$DEPLOY_STATE_FILE" 2>&1
+  )"; then
+    contract_exit=0
+  else
+    contract_exit=$?
+  fi
+
+  echo
+  echo "==> $description"
+  if [[ "$contract_exit" -eq 0 ]]; then
+    printf '%s\n' "$evidence_result"
+    return 0
+  fi
+
+  printf '%s\n' "$evidence_result"
+  echo "Contract check failed or unavailable; degraded fallback: application log deploy-window evidence"
+  run_log_evidence "Application log evidence (degraded fallback)" "storage/logs/laravel.log" 100 600
+}
+
 run "HTTP availability (base URL)" curl --fail --silent --show-error --head "$API_BASE_URL"
 run "Readiness endpoint contract" bash -lc 'response=$(curl --fail --silent --show-error "$1"); [[ "$response" == "ok" ]]' _ "$HEALTHCHECK_URL"
 run "Current release state contract" bash -lc '
@@ -268,7 +362,7 @@ run_contract_with_degraded_fallback \
   "raw supervisorctl status + worker log evidence" \
   "'$SUPERVISORCTL_BIN' status && cd '$APP_DIR' && tail -n 50 storage/logs/worker.log"
 run "Redis ping" "$REDIS_CLI_BIN" ping
-run_log_evidence "Application log evidence" "storage/logs/laravel.log" 100 600
+run_deploy_runtime_evidence "Deploy/runtime evidence contract"
 run "Nginx service" systemctl is-active nginx
 run "PHP-FPM service" systemctl is-active php8.3-fpm
 run "Redis service" systemctl is-active redis-server
