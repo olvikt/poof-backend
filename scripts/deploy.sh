@@ -51,7 +51,7 @@ json_string_or_null() {
   if [[ -z "$value" ]]; then
     echo null
   else
-    "$PHP_BIN" -r 'echo json_encode($argv[1], JSON_UNESCAPED_SLASHES);' "$value"
+    "$PHP_BIN" -r 'echo json_encode($argv[1], JSON_UNESCAPED_SLASHES);' -- "$value"
   fi
 }
 
