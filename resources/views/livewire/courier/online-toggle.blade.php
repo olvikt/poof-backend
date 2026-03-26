@@ -5,11 +5,9 @@
     wire:loading.attr="disabled"
     wire:target="toggleOnlineState"
     @if($busyWithActiveOrder) disabled aria-disabled="true" @endif
-    class="inline-flex min-w-[134px] items-center justify-center gap-2 rounded-xl border px-3 py-2 text-xs font-semibold transition disabled:cursor-not-allowed disabled:opacity-80 {{ $online ? 'border-emerald-400/40 bg-emerald-400/15 text-emerald-100' : 'border-white/15 bg-white/[0.04] text-slate-200' }}"
+    class="inline-flex min-w-[148px] items-center justify-center gap-2 rounded-xl border px-3 py-2 text-xs font-semibold tracking-[0.01em] shadow-sm transition disabled:cursor-not-allowed disabled:opacity-80 {{ $online ? 'border-emerald-300/55 bg-emerald-400/18 text-emerald-50 shadow-emerald-500/10' : 'border-slate-300/35 bg-slate-700/20 text-slate-100 shadow-black/20' }}"
 >
-    <span class="flex h-2.5 w-2.5 rounded-full {{ $online ? 'bg-emerald-300' : 'bg-slate-500' }}" wire:loading.remove wire:target="toggleOnlineState"></span>
-
-    <span wire:loading.remove wire:target="toggleOnlineState">
+    <span wire:loading.remove wire:target="toggleOnlineState" class="whitespace-nowrap">
         {{ $online ? '🟢 На лінії' : '⚫ Не на лінії' }}
     </span>
 

@@ -1,4 +1,4 @@
-<div class="relative h-[calc(100dvh-130px)] w-full" wire:poll.10s data-map-bootstrap='@json($mapBootstrap ?? null)'>
+<div class="relative h-[calc(100dvh-130px)] w-full pb-24" wire:poll.10s data-map-bootstrap='@json($mapBootstrap ?? null)'>
     <div class="sr-only" aria-hidden="true" data-map-bootstrap='@json($mapBootstrap ?? null)'></div>
     <div class="relative h-full w-full overflow-hidden bg-[#070b12]" data-map-bootstrap='@json($mapBootstrap ?? null)'>
         <div wire:ignore id="map" class="absolute inset-0" data-map-bootstrap='@json($mapBootstrap ?? null)'></div>
@@ -14,27 +14,27 @@
         </div>
     @endif
 
-    <div class="absolute inset-x-3 bottom-3 z-30">
+    <div class="absolute inset-x-3 bottom-[calc(5.75rem+env(safe-area-inset-bottom))] z-30">
         @if($activeOrder)
-            <div class="rounded-3xl border border-amber-300/40 bg-[#161108]/94 p-4 shadow-2xl backdrop-blur-sm">
+            <div class="rounded-3xl border border-amber-200/50 bg-[#171003]/97 p-4 shadow-[0_20px_50px_rgba(0,0,0,0.45)]">
                 <div class="flex items-center justify-between gap-3">
                     <div class="min-w-0">
-                        <div class="text-xs font-semibold text-amber-200">Активне замовлення</div>
+                        <div class="text-xs font-semibold uppercase tracking-[0.08em] text-amber-200">Активне замовлення</div>
                         <div class="mt-1 text-lg font-bold text-amber-50">#{{ $activeOrder->id }}</div>
-                        <div class="mt-1 text-xs text-amber-100/75">Завершіть поточну доставку, щоб знову отримувати нові замовлення.</div>
+                        <div class="mt-1 text-xs leading-relaxed text-amber-100/90">Завершіть поточну доставку, щоб знову отримувати нові замовлення.</div>
                     </div>
 
                     <a
                         href="{{ route('courier.my-orders') }}"
                         wire:navigate
-                        class="shrink-0 rounded-2xl bg-amber-300 px-4 py-2 text-sm font-semibold text-[#1d1508] transition hover:bg-amber-200"
+                        class="shrink-0 rounded-2xl bg-amber-300 px-4 py-2 text-sm font-semibold text-[#1d1508] shadow-[0_10px_24px_rgba(252,211,77,0.25)] transition hover:bg-amber-200"
                     >
                         Відкрити
                     </a>
                 </div>
             </div>
         @elseif($online)
-            <div class="rounded-3xl border border-white/10 bg-[#0f1722]/92 p-4 shadow-2xl backdrop-blur-sm">
+            <div class="rounded-3xl border border-slate-100/15 bg-[#101722]/95 p-4 shadow-[0_20px_50px_rgba(0,0,0,0.42)]">
                 <div class="flex items-center gap-3">
                     <div class="h-5 w-5 animate-spin rounded-full border-2 border-poof border-t-transparent"></div>
                     <div>
