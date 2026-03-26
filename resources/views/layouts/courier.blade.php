@@ -1,177 +1,138 @@
 <x-layouts.app title="POOF — Курʼєр">
 
-<div x-data="{ logoutOpen: false, settingsOpen: false }"
-    class="min-h-dvh bg-gray-800 flex justify-center text-white"
->
+<div x-data="{ logoutOpen: false, settingsOpen: false }" class="min-h-dvh bg-[#07090d] text-white flex justify-center">
 
-    {{-- MOBILE CONTAINER --}}
-    <div class="relative w-full max-w-md min-h-dvh flex flex-col bg-gray-800">
+    <div class="relative w-full max-w-md min-h-dvh flex flex-col bg-[#090c12]">
 
         {{-- ================= HEADER ================= --}}
-        <header class="sticky top-0 z-40 bg-gray-900 border-b border-gray-700">
-            <div class="px-4 py-3 flex items-center justify-between">
+        <header class="sticky top-0 z-40 border-b border-white/10 bg-[#0c1119]/95 backdrop-blur-sm">
+            <div class="px-4 py-3">
+                <div class="flex items-center gap-3 rounded-2xl border border-white/10 bg-white/[0.03] px-3 py-2.5 shadow-[0_10px_30px_rgba(0,0,0,0.35)]">
+                    <div class="flex h-10 w-10 items-center justify-center rounded-xl bg-poof/20 text-poof">
+                        <svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                            <path d="M5 17a4 4 0 1 1 0-8h1" />
+                            <path d="M8 13h6" />
+                            <circle cx="18" cy="17" r="2" />
+                            <path d="M14 17h2" />
+                            <path d="M13 9l2 4" />
+                        </svg>
+                    </div>
 
-                <div class="font-black tracking-wide">
-                    🚴 <span class="text-poof">POOF</span>
-                    <span class="text-gray-400 text-xs ml-1">Курʼєр</span>
+                    <div class="min-w-0 flex-1">
+                        <div class="text-[10px] uppercase tracking-[0.2em] text-slate-400">Courier cabinet</div>
+                        <div class="truncate text-sm font-semibold tracking-wide">
+                            <span class="text-poof">POOF</span>
+                            <span class="ml-1 text-slate-300">Курʼєр</span>
+                        </div>
+                    </div>
+
+                    <livewire:courier.online-toggle wire:key="courier-online-toggle-header" />
                 </div>
-
-                <livewire:courier.online-toggle wire:key="courier-online-toggle-header" />
-
             </div>
         </header>
 
-
         {{-- ================= CONTENT ================= --}}
-        <main class="flex-1 overflow-y-auto px-4 py-4 pb-28">
+        <main class="flex-1 overflow-y-auto px-4 py-4 pb-32">
             {{ $slot }}
         </main>
 
-
         {{-- ================= BOTTOM NAV ================= --}}
-        <nav
-            class="fixed bottom-0 left-1/2 -translate-x-1/2
-                   w-full max-w-md
-                   bg-gray-900 border-t border-gray-700
-                   z-50"
-        >
-            <div class="flex justify-around py-2 text-xs">
+        <nav class="fixed bottom-0 left-1/2 z-50 w-full max-w-md -translate-x-1/2 px-4 pb-[max(0.75rem,env(safe-area-inset-bottom))]">
+            <div class="rounded-3xl border border-white/10 bg-[#0d131d]/95 p-1.5 shadow-[0_-8px_30px_rgba(0,0,0,0.45)] backdrop-blur-md">
+                <div class="grid grid-cols-4 gap-1 text-[11px] font-medium">
 
-                {{-- Available --}}
-                <a
-                    href="{{ route('courier.orders') }}"
-                    wire:navigate
-                    class="flex flex-col items-center gap-1 transition
-                        {{ request()->routeIs('courier.orders')
-                            ? 'text-poof'
-                            : 'text-gray-400 hover:text-white'
-                        }}"
-                >
-                    <span class="text-lg">📦</span>
-                    Доступні
-                </a>
+                    <a
+                        href="{{ route('courier.orders') }}"
+                        wire:navigate
+                        class="flex min-h-14 flex-col items-center justify-center gap-1 rounded-2xl transition {{ request()->routeIs('courier.orders') ? 'bg-poof/15 text-poof' : 'text-slate-400 hover:text-white' }}"
+                    >
+                        <svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                            <path d="M3 7.5 12 3l9 4.5-9 4.5L3 7.5Z" />
+                            <path d="M3 12.5 12 17l9-4.5" />
+                            <path d="M3 17l9 4 9-4" />
+                        </svg>
+                        <span>Доступні</span>
+                    </a>
 
-                {{-- My Orders --}}
-                <a
-                    href="{{ route('courier.my-orders') }}"
-                    wire:navigate
-                    class="flex flex-col items-center gap-1 transition
-                        {{ request()->routeIs('courier.my-orders')
-                            ? 'text-poof'
-                            : 'text-gray-400 hover:text-white'
-                        }}"
-                >
-                    <span class="text-lg">🚴‍♂️</span>
-                    Мої
-                </a>
+                    <a
+                        href="{{ route('courier.my-orders') }}"
+                        wire:navigate
+                        class="flex min-h-14 flex-col items-center justify-center gap-1 rounded-2xl transition {{ request()->routeIs('courier.my-orders') ? 'bg-poof/15 text-poof' : 'text-slate-400 hover:text-white' }}"
+                    >
+                        <svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                            <rect x="4" y="3" width="16" height="18" rx="2" />
+                            <path d="M8 7h8" />
+                            <path d="M8 11h8" />
+                            <path d="M8 15h5" />
+                        </svg>
+                        <span>Мої</span>
+                    </a>
 
-                {{-- Settings (без route чтобы не падало) --}}
-				<button
-					type="button"
-					class="flex flex-col items-center gap-1 text-gray-400 hover:text-white transition"
-					@click="settingsOpen = true"
-				>
-				<span class="text-lg">⚙️</span>
-                    Налаштування
-                </button>
+                    <button
+                        type="button"
+                        class="flex min-h-14 flex-col items-center justify-center gap-1 rounded-2xl text-slate-400 transition hover:text-white"
+                        @click="settingsOpen = true"
+                    >
+                        <svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                            <circle cx="12" cy="12" r="3" />
+                            <path d="M19.4 15a1 1 0 0 0 .2 1.1l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1 1 0 0 0-1.1-.2 1 1 0 0 0-.6.9V20a2 2 0 1 1-4 0v-.2a1 1 0 0 0-.6-.9 1 1 0 0 0-1.1.2l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1 1 0 0 0 .2-1.1 1 1 0 0 0-.9-.6H4a2 2 0 1 1 0-4h.2a1 1 0 0 0 .9-.6 1 1 0 0 0-.2-1.1l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1 1 0 0 0 1.1.2h.1a1 1 0 0 0 .6-.9V4a2 2 0 1 1 4 0v.2a1 1 0 0 0 .6.9h.1a1 1 0 0 0 1.1-.2l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1 1 0 0 0-.2 1.1v.1a1 1 0 0 0 .9.6H20a2 2 0 1 1 0 4h-.2a1 1 0 0 0-.9.6V15Z"/>
+                        </svg>
+                        <span>Налашт.</span>
+                    </button>
 
-                {{-- Logout --}}
-                <button
-                    type="button"
-                    class="flex flex-col items-center gap-1 text-gray-400 hover:text-red-400 transition"
-                    @click="logoutOpen = true"
-                >
-                    <span class="text-lg">⏻</span>
-                    Вийти
-                </button>
+                    <button
+                        type="button"
+                        class="flex min-h-14 flex-col items-center justify-center gap-1 rounded-2xl text-slate-400 transition hover:text-rose-300"
+                        @click="logoutOpen = true"
+                    >
+                        <svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                            <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
+                            <path d="m16 17 5-5-5-5" />
+                            <path d="M21 12H9" />
+                        </svg>
+                        <span>Вийти</span>
+                    </button>
 
+                </div>
             </div>
         </nav>
 
-
         {{-- ================= LOGOUT MODAL ================= --}}
-        <div
-            x-show="logoutOpen"
-            x-cloak
-            x-transition.opacity
-            class="fixed inset-0 z-[999] bg-black/70 flex items-center justify-center"
-        >
-            <div
-                @click.away="logoutOpen = false"
-                class="bg-zinc-900 rounded-3xl p-6 w-80 shadow-2xl text-center"
-            >
-
-                <div class="text-lg font-semibold mb-4">
-                    Вийти з акаунту?
-                </div>
+        <div x-show="logoutOpen" x-cloak x-transition.opacity class="fixed inset-0 z-[999] flex items-center justify-center bg-black/75 px-4">
+            <div @click.away="logoutOpen = false" class="w-80 rounded-3xl border border-white/10 bg-[#0d121b] p-6 text-center shadow-2xl">
+                <div class="mb-4 text-lg font-semibold">Вийти з акаунту?</div>
 
                 <div class="flex gap-3">
-
-                    <button
-                        @click="logoutOpen = false"
-                        class="flex-1 py-3 rounded-xl bg-zinc-800 hover:bg-zinc-700 transition"
-                    >
+                    <button @click="logoutOpen = false" class="flex-1 rounded-2xl border border-white/10 bg-white/5 py-3 transition hover:bg-white/10">
                         Скасувати
                     </button>
 
-<form method="POST" action="{{ route('logout') }}" class="flex-1">
-    @csrf
-    <button
-        type="submit"
-        class="w-full py-3 rounded-xl bg-red-500 text-black font-bold text-center hover:bg-red-600 transition"
-    >
-        Вийти
-    </button>
-</form>
-
+                    <form method="POST" action="{{ route('logout') }}" class="flex-1">
+                        @csrf
+                        <button type="submit" class="w-full rounded-2xl bg-rose-500 py-3 text-center font-bold text-white transition hover:bg-rose-600">
+                            Вийти
+                        </button>
+                    </form>
                 </div>
-
             </div>
         </div>
 
+        {{-- SETTINGS MODAL --}}
+        <div x-show="settingsOpen" x-cloak x-transition.opacity class="fixed inset-0 z-[998] flex items-center justify-center bg-black/75 px-4">
+            <div @click.away="settingsOpen = false" class="w-80 rounded-3xl border border-white/10 bg-[#0d121b] p-6 shadow-2xl">
+                <div class="mb-4 text-center text-lg font-semibold">Налаштування</div>
 
-		{{-- SETTINGS MODAL --}}
-		<div
-			x-show="settingsOpen"
-			x-cloak
-			x-transition.opacity
-			class="fixed inset-0 z-[998] bg-black/70 flex items-center justify-center"
-		>
-			<div
-				@click.away="settingsOpen = false"
-				class="bg-zinc-900 rounded-3xl p-6 w-80 shadow-2xl"
-			>
+                <div class="space-y-3 text-sm">
+                    <a href="#" class="block rounded-2xl border border-white/10 bg-white/5 px-4 py-3 transition hover:bg-white/10">Кошелёк</a>
+                    <a href="#" class="block rounded-2xl border border-white/10 bg-white/5 px-4 py-3 transition hover:bg-white/10">Профіль</a>
+                    <a href="#" class="block rounded-2xl border border-white/10 bg-white/5 px-4 py-3 transition hover:bg-white/10">Акції</a>
 
-				<div class="text-lg font-semibold mb-4 text-center">
-					Налаштування
-				</div>
-
-				<div class="space-y-3 text-sm">
-
-					<a href="#" class="block py-3 px-4 rounded-xl bg-zinc-800 hover:bg-zinc-700 transition">
-						💳 Кошелёк
-					</a>
-
-					<a href="#" class="block py-3 px-4 rounded-xl bg-zinc-800 hover:bg-zinc-700 transition">
-						👤 Профіль
-					</a>
-
-					<a href="#" class="block py-3 px-4 rounded-xl bg-zinc-800 hover:bg-zinc-700 transition">
-						🎁 Акції
-					</a>
-
-					<button
-						@click="settingsOpen = false"
-						class="w-full py-3 mt-3 rounded-xl bg-zinc-800 hover:bg-zinc-700 transition"
-					>
-						Закрити
-					</button>
-
-				</div>
-
-			</div>
-		</div>
-
+                    <button @click="settingsOpen = false" class="mt-3 w-full rounded-2xl border border-white/10 bg-white/5 py-3 transition hover:bg-white/10">
+                        Закрити
+                    </button>
+                </div>
+            </div>
+        </div>
 
         {{-- BACKGROUND SERVICES --}}
         <div class="h">
@@ -184,5 +145,3 @@
 </div>
 
 </x-layouts.app>
-
-
