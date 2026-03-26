@@ -13,6 +13,7 @@ use Laravel\Sanctum\HasApiTokens;
 use Illuminate\Support\Facades\Storage;
 use App\Models\OrderOffer;
 use App\Notifications\ResetPasswordPoofNotification;
+use App\Support\CourierRuntimeSnapshot;
 
 class User extends Authenticatable implements FilamentUser
 {
@@ -155,6 +156,11 @@ class User extends Authenticatable implements FilamentUser
             Courier::STATUS_ASSIGNED,
             Courier::STATUS_DELIVERING,
         ], true);
+    }
+
+    public function courierRuntimeSnapshot(): ?array
+    {
+        return CourierRuntimeSnapshot::fromUser($this);
     }
 
     /**

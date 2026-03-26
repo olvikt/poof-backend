@@ -13,8 +13,10 @@
         return @json(auth()->user()?->isCourier() ?? false);
     }
 
+    const runtimeSnapshot = @js($runtimeSnapshot ?? null);
+
     function userIsOnline() {
-        return @json(auth()->user()?->isCourierOnline() ?? false);
+        return Boolean(runtimeSnapshot?.online);
     }
 
     function start() {

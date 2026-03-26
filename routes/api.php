@@ -12,6 +12,7 @@ use App\Http\Controllers\Api\GeocodeController;
 
 // COURIER
 use App\Http\Controllers\Api\CourierOrderController;
+use App\Http\Controllers\Api\CourierRuntimeController;
 use App\Http\Controllers\Api\AdminMapController;
 
 
@@ -51,6 +52,9 @@ Route::middleware('auth:sanctum')->group(function () {
 
     // courier accepts order
     Route::post('/orders/{order}/accept', [CourierOrderController::class, 'accept']);
+
+    // canonical courier runtime snapshot
+    Route::get('/courier/runtime', [CourierRuntimeController::class, 'show']);
 });
 
 

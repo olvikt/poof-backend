@@ -252,12 +252,16 @@ export default function initMap() {
   }
 
   function normalizeCourierRuntimePayload(payload = {}) {
-    const online = typeof payload?.online === 'boolean'
-      ? payload.online
+    const snapshot = payload?.snapshot && typeof payload.snapshot === 'object'
+      ? payload.snapshot
+      : payload
+
+    const online = typeof snapshot?.online === 'boolean'
+      ? snapshot.online
       : null
 
-    const status = typeof payload?.status === 'string' && payload.status.trim() !== ''
-      ? payload.status.trim()
+    const status = typeof snapshot?.status === 'string' && snapshot.status.trim() !== ''
+      ? snapshot.status.trim()
       : null
 
     if (online === null && status === null) return null
@@ -265,10 +269,18 @@ export default function initMap() {
     return {
       online,
       status,
-      reason: typeof payload?.reason === 'string' && payload.reason.trim() !== ''
-        ? payload.reason.trim()
+      reason: typeof snapshot?.reason === 'string' && snapshot.reason.trim() !== ''
+        ? snapshot.reason.trim()
+        : (typeof payload?.reason === 'string' && payload.reason.trim() !== ''
+          ? payload.reason.trim()
+          : null),
+      busy: typeof snapshot?.busy === 'boolean'
+        ? snapshot.busy
         : null,
-      updatedAt: Number(payload?.updatedAt) || Date.now(),
+      activeOrderStatus: typeof snapshot?.active_order_status === 'string'
+        ? snapshot.active_order_status
+        : null,
+      updatedAt: Number(snapshot?.updatedAt || payload?.updatedAt) || Date.now(),
     }
   }
 

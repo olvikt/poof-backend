@@ -48,6 +48,7 @@ class LocationTracker extends Component
             ->find($authUser->id);
 
         $courierProfile = $user->courierProfile;
+        $runtime = $user->courierRuntimeSnapshot();
 
         if (! $courierProfile) {
             return;
@@ -55,8 +56,9 @@ class LocationTracker extends Component
 
         $this->dispatch(
             'courier:runtime-sync',
-            online: $user->isCourierOnline(),
-            status: (string) $courierProfile->status,
+            online: (bool) ($runtime['online'] ?? false),
+            status: (string) ($runtime['status'] ?? $courierProfile->status),
+            snapshot: $runtime,
         );
 
         if (
@@ -188,6 +190,11 @@ class LocationTracker extends Component
      */
     public function render()
     {
-        return view('livewire.courier.location-tracker');
+        $user = auth()->user();
+        $runtime = $user instanceof User ? $user->courierRuntimeSnapshot() : null;
+
+        return view('livewire.courier.location-tracker', [
+            'runtimeSnapshot' => $runtime,
+        ]);
     }
 }

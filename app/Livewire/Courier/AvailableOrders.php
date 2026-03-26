@@ -34,7 +34,8 @@ class AvailableOrders extends Component
         $user = $this->resolveCourier();
 
         if ($user instanceof User && $user->isCourier()) {
-            $this->online = $user->isCourierOnline();
+            $runtime = $user->courierRuntimeSnapshot();
+            $this->online = (bool) ($runtime['online'] ?? false);
             $this->lastUiOnlineSyncAt = null;
         }
     }
@@ -54,7 +55,8 @@ class AvailableOrders extends Component
         $user = $this->resolveCourier();
 
         if ($user instanceof User && $user->isCourier()) {
-            $this->online = $user->isCourierOnline();
+            $runtime = $user->courierRuntimeSnapshot();
+            $this->online = (bool) ($runtime['online'] ?? false);
             $this->lastUiOnlineSyncAt = null;
         }
     }
@@ -175,7 +177,8 @@ class AvailableOrders extends Component
 
     private function repairOnlineStateFromCanonicalSource(User $courier): void
     {
-        $canonicalOnline = $courier->isCourierOnline();
+        $runtime = $courier->courierRuntimeSnapshot();
+        $canonicalOnline = (bool) ($runtime['online'] ?? false);
 
         if ($this->lastUiOnlineSyncAt !== null) {
             $optimisticAge = now()->timestamp - $this->lastUiOnlineSyncAt;
