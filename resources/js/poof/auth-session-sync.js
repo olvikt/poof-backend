@@ -38,6 +38,8 @@ export default function initAuthSessionSync() {
     channel: null,
     lastHandledTs: 0,
     shouldReload: false,
+    sessionLossHandled: false,
+    sessionLossReason: null,
   }
 
   function ensureTabId() {
@@ -80,6 +82,27 @@ export default function initAuthSessionSync() {
     }, 50)
   }
 
+  function handleSessionLoss(reason, source = 'local', options = {}) {
+    const normalizedReason = normalizeAuthSyncReason(reason)
+    const shouldBroadcast = options.broadcast !== false
+
+    if (state.sessionLossHandled) {
+      if (state.sessionLossReason === normalizedReason) return
+      state.sessionLossReason = normalizedReason
+      dispatchSessionLost(normalizedReason, source)
+      return
+    }
+
+    state.sessionLossHandled = true
+    state.sessionLossReason = normalizedReason
+
+    dispatchSessionLost(normalizedReason, source)
+    if (shouldBroadcast) {
+      emitSessionLoss(normalizedReason, source)
+    }
+    scheduleAuthReload()
+  }
+
   function handleIncomingSignal(message = null) {
     if (!message || message.type !== 'poof-auth-session-sync') return
     if (message.tabId === ensureTabId()) return
@@ -89,8 +112,7 @@ export default function initAuthSessionSync() {
     state.lastHandledTs = now
 
     const reason = normalizeAuthSyncReason(message.reason, 'cross_tab_session_loss')
-    dispatchSessionLost(reason, 'cross-tab')
-    scheduleAuthReload()
+    handleSessionLoss(reason, 'cross-tab', { broadcast: false })
   }
 
   function emitSessionLoss(reason, source = 'local') {
@@ -152,8 +174,7 @@ export default function initAuthSessionSync() {
         const status = Number(error?.response?.status)
         if (isSessionLossStatus(status)) {
           const reason = status === 419 ? 'session_expired_http_419' : 'unauthorized_http_401'
-          dispatchSessionLost(reason, 'axios')
-          emitSessionLoss(reason, 'axios')
+          handleSessionLoss(reason, 'axios')
         }
 
         return Promise.reject(error)
@@ -168,8 +189,7 @@ export default function initAuthSessionSync() {
       const response = await nativeFetch(...args)
       if (isSessionLossStatus(response.status)) {
         const reason = response.status === 419 ? 'session_expired_http_419' : 'unauthorized_http_401'
-        dispatchSessionLost(reason, 'fetch')
-        emitSessionLoss(reason, 'fetch')
+        handleSessionLoss(reason, 'fetch')
       }
       return response
     }
