@@ -4,7 +4,6 @@ namespace App\Livewire\Courier;
 
 use Livewire\Component;
 use App\Models\Courier;
-use App\Models\Order;
 use App\Models\User;
 
 class OnlineToggle extends Component
@@ -26,12 +25,10 @@ class OnlineToggle extends Component
     public function syncOnlineState(): void
     {
         $user = $this->resolveCourier();
+        $runtime = $user instanceof User ? $user->courierRuntimeSnapshot() : null;
 
-        $this->online = $user instanceof User
-            && $user->isCourier()
-            && $user->isCourierOnline();
-
-        $activeOrderStatus = $this->resolveActiveOrderStatus($user);
+        $this->online = (bool) ($runtime['online'] ?? false);
+        $activeOrderStatus = $runtime['active_order_status'] ?? null;
         $this->activeOrderStatus = $activeOrderStatus;
         $this->busyWithActiveOrder = $activeOrderStatus !== null;
     }
@@ -131,31 +128,18 @@ class OnlineToggle extends Component
 
     private function snapshotToggleState(User $user): array
     {
-        $courierStatus = (string) optional($user->courierProfile)->status;
-
-        $activeOrderStatus = $this->resolveActiveOrderStatus($user);
+        $runtime = $user->courierRuntimeSnapshot();
+        $activeOrderStatus = $runtime['active_order_status'] ?? null;
 
         return [
-            'online' => $user->isCourierOnline(),
+            'online' => (bool) ($runtime['online'] ?? false),
             'users_is_online' => (bool) $user->is_online,
             'users_is_busy' => (bool) $user->is_busy,
             'users_session_state' => (string) $user->session_state,
-            'courier_status' => $courierStatus,
+            'courier_status' => (string) ($runtime['status'] ?? optional($user->courierProfile)->status),
             'active_order_status' => $activeOrderStatus,
-            'target_status' => $user->isCourierOnline() ? Courier::STATUS_OFFLINE : Courier::STATUS_ONLINE,
+            'target_status' => ((bool) ($runtime['online'] ?? false)) ? Courier::STATUS_OFFLINE : Courier::STATUS_ONLINE,
         ];
-    }
-
-    private function resolveActiveOrderStatus(?User $user): ?string
-    {
-        if (! $user instanceof User) {
-            return null;
-        }
-
-        return $user->takenOrders()
-            ->activeForCourier()
-            ->orderByRaw('CASE WHEN status = ? THEN 0 ELSE 1 END', [Order::STATUS_IN_PROGRESS])
-            ->value('status');
     }
 
     public function render()

@@ -25,7 +25,8 @@ class MyOrders extends Component
         $courier = $this->resolveCourier();
 
         if ($courier instanceof User && $courier->isCourier()) {
-            $this->online = $courier->isCourierOnline();
+            $runtime = $courier->courierRuntimeSnapshot();
+            $this->online = (bool) ($runtime['online'] ?? false);
         }
     }
 
@@ -40,7 +41,8 @@ class MyOrders extends Component
         $courier = $this->resolveCourier();
 
         if ($courier instanceof User && $courier->isCourier()) {
-            $this->online = $courier->isCourierOnline();
+            $runtime = $courier->courierRuntimeSnapshot();
+            $this->online = (bool) ($runtime['online'] ?? false);
         }
     }
 
@@ -176,7 +178,8 @@ class MyOrders extends Component
             ])->layout('layouts.courier');
         }
 
-        $this->online = $courier->isCourierOnline();
+        $runtime = $courier->courierRuntimeSnapshot();
+        $this->online = (bool) ($runtime['online'] ?? false);
 
         // 🔥 БЕЗ scopeActiveForCourier — максимально безопасно
         $orders = Order::where('courier_id', $courier->id)
