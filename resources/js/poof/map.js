@@ -107,6 +107,60 @@ function normalizeRuntimeObservabilityReason(reason, fallback = 'unspecified') {
   return normalized !== '' ? normalized : fallback
 }
 
+function buildCourierRuntimeEvidenceView({
+  counters = {},
+  signals = [],
+  authSessionLost = false,
+  crossTab = {},
+  geoLeadership = {},
+  serverRuntime = null,
+  serverRuntimeError = null,
+  generatedAt = Date.now(),
+} = {}) {
+  const normalizedSignals = Array.isArray(signals)
+    ? signals
+      .filter((signal) => signal && typeof signal === 'object')
+      .map((signal) => ({
+        event: normalizeRuntimeObservabilityReason(signal.event, 'runtime_event'),
+        reason: normalizeRuntimeObservabilityReason(signal.reason),
+        level: signal.level === 'warn' || signal.level === 'error' ? signal.level : 'info',
+        ts: Number(signal.ts) || 0,
+        meta: signal.meta && typeof signal.meta === 'object' ? signal.meta : {},
+      }))
+      .sort((left, right) => Number(right.ts || 0) - Number(left.ts || 0))
+    : []
+
+  const topCounters = Object
+    .entries(counters && typeof counters === 'object' ? counters : {})
+    .filter(([key, value]) => typeof key === 'string' && key !== '' && Number.isFinite(Number(value)))
+    .map(([key, value]) => ({ key, count: Number(value) }))
+    .sort((left, right) => right.count - left.count)
+    .slice(0, 8)
+
+  return {
+    generatedAt: Number(generatedAt) || Date.now(),
+    authSessionLost: Boolean(authSessionLost),
+    counters: counters && typeof counters === 'object' ? { ...counters } : {},
+    topCounters,
+    recentSignals: normalizedSignals.slice(0, 12),
+    crossTab: {
+      tabId: typeof crossTab.tabId === 'string' ? crossTab.tabId : null,
+      lastSignature: typeof crossTab.lastSignature === 'string' ? crossTab.lastSignature : null,
+      lastEmittedAt: Number(crossTab.lastEmittedAt) || 0,
+      channelEnabled: Boolean(crossTab.channelEnabled),
+    },
+    geoLeadership: {
+      desired: Boolean(geoLeadership.desired),
+      active: Boolean(geoLeadership.active),
+      mode: typeof geoLeadership.mode === 'string' ? geoLeadership.mode : null,
+    },
+    serverRuntime,
+    serverRuntimeError: typeof serverRuntimeError === 'string' && serverRuntimeError.trim() !== ''
+      ? serverRuntimeError.trim()
+      : null,
+  }
+}
+
 function shouldEnableRuntimeDiagnostics() {
   return String(import.meta?.env?.VITE_MAP_RUNTIME_DIAGNOSTICS || '').toLowerCase() === 'true'
 }
@@ -215,7 +269,9 @@ export default function initMap() {
     courierGeoLockAbortController: null,
     courierGeoStorageBound: false,
     runtimeSignalCounters: {},
+    runtimeSignalHistory: [],
     authSessionLost: false,
+    runtimeEvidenceRequestBound: false,
   }
 
   const state = POOF.map
@@ -293,6 +349,10 @@ export default function initMap() {
 
     const counterKey = `${detail.event}:${detail.reason}`
     state.runtimeSignalCounters[counterKey] = Number(state.runtimeSignalCounters[counterKey] || 0) + 1
+    state.runtimeSignalHistory.unshift(detail)
+    if (state.runtimeSignalHistory.length > 40) {
+      state.runtimeSignalHistory.length = 40
+    }
 
     window.dispatchEvent(new CustomEvent('poof:courier-runtime-observe', { detail }))
 
@@ -2387,11 +2447,94 @@ window.addEventListener('build-route', (e) => {
   POOF.__getLastGoodCourier = () => getLastGoodCourier()
   POOF.__isValidLatLng = (lat, lng) => isValidLatLng(lat, lng)
   POOF.__getCourierRuntimeSignalCounters = () => ({ ...state.runtimeSignalCounters })
+  POOF.__getCourierRuntimeEvidenceSync = () => buildCourierRuntimeEvidenceView({
+    counters: state.runtimeSignalCounters,
+    signals: state.runtimeSignalHistory,
+    authSessionLost: state.authSessionLost,
+    crossTab: {
+      tabId: ensureCrossTabRuntimeTabId(),
+      lastSignature: state.crossTabRuntimeLastSignature,
+      lastEmittedAt: state.crossTabRuntimeLastEmittedAt,
+      channelEnabled: Boolean(state.crossTabRuntimeChannel),
+    },
+    geoLeadership: {
+      desired: state.courierGeoLeaderDesired,
+      active: state.courierGeoLeaderActive,
+      mode: state.courierGeoLeaderMode,
+    },
+  })
+  POOF.__getCourierRuntimeEvidence = async (options = {}) => {
+    const includeServerRuntime = options && options.includeServerRuntime === true
+    let serverRuntime = null
+    let serverRuntimeError = null
+
+    if (includeServerRuntime) {
+      try {
+        const response = await fetch(`${API_BASE}/api/courier/runtime`, {
+          method: 'GET',
+          headers: {
+            Accept: 'application/json',
+          },
+          credentials: 'include',
+        })
+
+        if (!response.ok) {
+          serverRuntimeError = `http_${response.status}`
+        } else {
+          const payload = await response.json()
+          serverRuntime = payload && typeof payload === 'object' ? (payload.runtime || null) : null
+        }
+      } catch (_) {
+        serverRuntimeError = 'request_failed'
+      }
+    }
+
+    return buildCourierRuntimeEvidenceView({
+      counters: state.runtimeSignalCounters,
+      signals: state.runtimeSignalHistory,
+      authSessionLost: state.authSessionLost,
+      crossTab: {
+        tabId: ensureCrossTabRuntimeTabId(),
+        lastSignature: state.crossTabRuntimeLastSignature,
+        lastEmittedAt: state.crossTabRuntimeLastEmittedAt,
+        channelEnabled: Boolean(state.crossTabRuntimeChannel),
+      },
+      geoLeadership: {
+        desired: state.courierGeoLeaderDesired,
+        active: state.courierGeoLeaderActive,
+        mode: state.courierGeoLeaderMode,
+      },
+      serverRuntime,
+      serverRuntimeError,
+    })
+  }
+  POOF.__printCourierRuntimeEvidence = async (options = {}) => {
+    const evidence = await POOF.__getCourierRuntimeEvidence(options)
+    if (typeof console !== 'undefined' && typeof console.table === 'function') {
+      console.table(evidence.topCounters)
+      console.table(evidence.recentSignals.map((signal) => ({
+        ts: signal.ts,
+        level: signal.level,
+        event: signal.event,
+        reason: signal.reason,
+      })))
+    }
+    return evidence
+  }
 
   // ------------------------------------------------------------
   // Bootstrap
   // ------------------------------------------------------------
   bindGlobalHandlersOnce()
+  if (!state.runtimeEvidenceRequestBound) {
+    state.runtimeEvidenceRequestBound = true
+    window.addEventListener('poof:courier-runtime-evidence-request', async (event) => {
+      const detail = event?.detail && typeof event.detail === 'object' ? event.detail : {}
+      const includeServerRuntime = detail.includeServerRuntime === true
+      const evidence = await POOF.__getCourierRuntimeEvidence({ includeServerRuntime })
+      window.dispatchEvent(new CustomEvent('poof:courier-runtime-evidence', { detail: evidence }))
+    })
+  }
   mountAny()
   const bootstrapApplied = applyBootstrapFromDom()
   const persistedUserLocation = getPersistedUserLocation()
@@ -2452,6 +2595,7 @@ window.addEventListener('build-route', (e) => {
 
 export {
   buildCurrentLocationFallbackPlan,
+  buildCourierRuntimeEvidenceView,
   normalizeRuntimeObservabilityReason,
   shouldIgnoreStaleAddressPickerSyncPoint,
   shouldApplyPersistedLocationOnBootstrap,
