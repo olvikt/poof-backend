@@ -28,4 +28,20 @@ class DeployScriptRuntimeEvidenceContractTest extends TestCase
         $this->assertStringContainsString('append_runtime_evidence "release_state_recorded" "ok"', $script);
         $this->assertStringContainsString('"deploy_runtime_evidence": "$DEPLOY_RUNTIME_EVIDENCE_FILE"', $script);
     }
+
+    public function test_deploy_script_json_string_or_null_handles_dash_prefixed_release_summary(): void
+    {
+        $script = file_get_contents($this->repoRoot.'/scripts/deploy.sh');
+
+        $this->assertNotFalse($script);
+        $this->assertStringContainsString(
+            '"$PHP_BIN" -r \'echo json_encode($argv[1], JSON_UNESCAPED_SLASHES);\' -- "$value"',
+            $script
+        );
+        $this->assertStringContainsString(
+            '"release_summary": $(json_string_or_null "$RELEASE_SUMMARY_TEXT")',
+            $script
+        );
+        $this->assertStringContainsString('append_history_entry "$DEPLOY_STATE_FILE" "$RELEASE_HISTORY_FILE"', $script);
+    }
 }
