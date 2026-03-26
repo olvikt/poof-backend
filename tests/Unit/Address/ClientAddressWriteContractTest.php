@@ -28,7 +28,7 @@ class ClientAddressWriteContractTest extends TestCase
         $address->refresh();
 
         $this->assertSame($owner->id, $address->user_id);
-        $this->assertFalse($address->is_default);
+        $this->assertTrue($address->is_default);
         $this->assertSame('Dnipro', $address->city);
         $this->assertSame('Boundary Street', $address->street);
         $this->assertSame('7', $address->house);
@@ -52,12 +52,13 @@ class ClientAddressWriteContractTest extends TestCase
             'street' => 'After',
             'user_id' => $other->id,
             'is_default' => false,
+            'created_at' => now()->subDay(),
         ]);
 
         $address->refresh();
 
         $this->assertSame($owner->id, $address->user_id);
-        $this->assertTrue($address->is_default);
+        $this->assertFalse($address->is_default);
         $this->assertSame('Lviv', $address->city);
         $this->assertSame('After', $address->street);
     }

@@ -29,6 +29,7 @@ class ClientAddress extends Model
         'geocode_source',
         'geocode_accuracy',
         'geocoded_at',
+        'is_default',
     ];
 
     /* =========================================================
