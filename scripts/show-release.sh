@@ -69,6 +69,7 @@ function format_summary(array $state): array
 {
     return [
         'release_ref' => stringify($state['release_ref'] ?? null),
+        'release_ref_kind' => stringify($state['release_ref_kind'] ?? null),
         'deployment_type' => stringify($state['deployment_type'] ?? null),
         'requested_ref' => stringify($state['requested_ref'] ?? null),
         'resolved_ref' => stringify($state['resolved_ref'] ?? null),
@@ -83,6 +84,8 @@ function format_summary(array $state): array
         'previous_selection_mode' => stringify($state['previous_selection_mode'] ?? null),
         'deploy_log' => stringify($state['deploy_log'] ?? null),
         'release_history' => stringify($state['release_history'] ?? $GLOBALS['historyFile']),
+        'release_summary_required' => yes_no(!empty($state['release_summary_required'])),
+        'release_summary_present' => yes_no(!empty($state['release_summary_present'])),
         'release_summary_file' => stringify($state['release_summary_file'] ?? null),
         'release_summary' => stringify($state['release_summary'] ?? null),
     ];
@@ -105,6 +108,7 @@ $summary = format_summary($state);
 print_section('Current release');
 echo 'Mode: ', deployment_mode($state), PHP_EOL;
 echo 'Release ref: ', $summary['release_ref'], PHP_EOL;
+echo 'Release ref kind: ', $summary['release_ref_kind'], PHP_EOL;
 echo 'Deployment type: ', $summary['deployment_type'], PHP_EOL;
 echo 'Requested ref: ', $summary['requested_ref'], PHP_EOL;
 echo 'Resolved ref: ', $summary['resolved_ref'], PHP_EOL;
@@ -114,6 +118,8 @@ echo 'Selection mode: ', $summary['selection_mode'], PHP_EOL;
 echo 'Fallback used: ', $summary['fallback_used'], PHP_EOL;
 echo 'Deploy log: ', $summary['deploy_log'], PHP_EOL;
 echo 'History file: ', $summary['release_history'], PHP_EOL;
+echo 'Release summary required: ', $summary['release_summary_required'], PHP_EOL;
+echo 'Release summary present: ', $summary['release_summary_present'], PHP_EOL;
 echo 'Release summary file: ', $summary['release_summary_file'], PHP_EOL;
 echo 'Release summary: ', $summary['release_summary'], PHP_EOL;
 echo PHP_EOL;

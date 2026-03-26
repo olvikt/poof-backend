@@ -131,16 +131,31 @@ if [[ -z "$RESOLVED_REF" ]]; then
   RESOLVED_REF="$DEPLOY_REF"
 fi
 
-RELEASE_SUMMARY_FILE="$(resolve_release_summary_file "$RESOLVED_REF")"
-RELEASE_SUMMARY_TEXT=""
+IS_TAG_RELEASE=0
 if git rev-parse --verify --quiet "refs/tags/$RESOLVED_REF" > /dev/null; then
+  IS_TAG_RELEASE=1
+fi
+
+RELEASE_SUMMARY_FILE=""
+RELEASE_SUMMARY_TEXT=""
+if [[ "$IS_TAG_RELEASE" -eq 1 ]]; then
+  RELEASE_SUMMARY_FILE="$(resolve_release_summary_file "$RESOLVED_REF")"
   if [[ ! -f "$RELEASE_SUMMARY_FILE" ]]; then
     echo "[deploy] missing release summary for tag $RESOLVED_REF: $RELEASE_SUMMARY_FILE" >&2
     echo "[deploy] add a short note for this explicit release tag before deploying" >&2
     exit 1
   fi
   RELEASE_SUMMARY_TEXT="$(extract_release_summary "$RELEASE_SUMMARY_FILE")"
+  if [[ -z "$RELEASE_SUMMARY_TEXT" ]]; then
+    echo "[deploy] empty release summary in $RELEASE_SUMMARY_FILE" >&2
+    echo "[deploy] provide a non-empty short operator summary (first non-header line)" >&2
+    exit 1
+  fi
 fi
+
+RELEASE_REF_KIND="$([[ "$IS_TAG_RELEASE" -eq 1 ]] && echo tag || echo ref)"
+RELEASE_SUMMARY_REQUIRED="$([[ "$IS_TAG_RELEASE" -eq 1 ]] && echo true || echo false)"
+RELEASE_SUMMARY_PRESENT="$([[ -n "$RELEASE_SUMMARY_TEXT" ]] && echo true || echo false)"
 
 DEPLOYED_AT="$(date -u +"%Y-%m-%dT%H:%M:%SZ")"
 DEPLOY_LOG_FILE="$DEPLOY_LOG_DIR/${DEPLOYED_AT//:/-}-${RESOLVED_COMMIT}.json"
@@ -149,6 +164,7 @@ echo "[deploy] requested ref: ${EXPLICIT_DEPLOY_REF:-<none>}"
 echo "[deploy] fallback ref: $DEFAULT_DEPLOY_REF"
 echo "[deploy] resolved deploy ref: $DEPLOY_REF"
 echo "[deploy] resolved release ref: $RESOLVED_REF"
+echo "[deploy] release ref kind: $RELEASE_REF_KIND"
 echo "[deploy] resolved commit: $RESOLVED_COMMIT"
 echo "[deploy] selection mode: $DEPLOY_SELECTION_MODE"
 echo "[deploy] fallback path used: $([[ "$FALLBACK_DEPLOY_USED" -eq 1 ]] && echo yes || echo no)"
@@ -158,6 +174,8 @@ echo "[deploy] release history: $RELEASE_HISTORY_FILE"
 if [[ -n "$RELEASE_SUMMARY_TEXT" ]]; then
   echo "[deploy] release summary: $RELEASE_SUMMARY_TEXT"
   echo "[deploy] release summary file: $RELEASE_SUMMARY_FILE"
+else
+  echo "[deploy] release summary: <not required for non-tag ref>"
 fi
 
 git reset --hard "$RESOLVED_COMMIT"
@@ -199,6 +217,7 @@ for attempt in $(seq 1 "$HEALTHCHECK_ATTEMPTS"); do
     cat > "$DEPLOY_STATE_FILE" <<STATE
 {
   "release_ref": "$RESOLVED_REF",
+  "release_ref_kind": "$RELEASE_REF_KIND",
   "requested_ref": "${EXPLICIT_DEPLOY_REF:-}",
   "resolved_ref": "$DEPLOY_REF",
   "fallback_ref": "$DEFAULT_DEPLOY_REF",
@@ -214,6 +233,8 @@ for attempt in $(seq 1 "$HEALTHCHECK_ATTEMPTS"); do
   "previous_selection_mode": $(json_string_or_null "$PREVIOUS_SELECTION_MODE"),
   "deploy_log": "$DEPLOY_LOG_FILE",
   "release_history": "$RELEASE_HISTORY_FILE",
+  "release_summary_required": $RELEASE_SUMMARY_REQUIRED,
+  "release_summary_present": $RELEASE_SUMMARY_PRESENT,
   "release_summary_file": $(json_string_or_null "$RELEASE_SUMMARY_FILE"),
   "release_summary": $(json_string_or_null "$RELEASE_SUMMARY_TEXT")
 }

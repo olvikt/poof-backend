@@ -183,6 +183,68 @@ BASH
 
 run "HTTP availability (base URL)" curl --fail --silent --show-error --head "$API_BASE_URL"
 run "Readiness endpoint contract" bash -lc 'response=$(curl --fail --silent --show-error "$1"); [[ "$response" == "ok" ]]' _ "$HEALTHCHECK_URL"
+run "Current release state contract" bash -lc '
+  "$1" -r '\''
+    $path = $argv[1];
+    if (!is_file($path)) {
+        fwrite(STDERR, "[check-server] release state file missing: {$path}\n");
+        exit(1);
+    }
+
+    $state = json_decode((string) file_get_contents($path), true);
+    if (!is_array($state)) {
+        fwrite(STDERR, "[check-server] failed to parse release state: {$path}\n");
+        exit(1);
+    }
+
+    $required = [
+        "release_ref",
+        "release_ref_kind",
+        "requested_ref",
+        "resolved_ref",
+        "selection_mode",
+        "commit",
+        "deployed_at_utc",
+        "deployment_type",
+        "release_summary_required",
+        "release_summary_present",
+    ];
+
+    foreach ($required as $field) {
+        if (!array_key_exists($field, $state)) {
+            fwrite(STDERR, "[check-server] missing release state field: {$field}\n");
+            exit(1);
+        }
+    }
+
+    $releaseRefKind = trim((string) ($state["release_ref_kind"] ?? ""));
+    if ($releaseRefKind !== "tag" && $releaseRefKind !== "ref") {
+        fwrite(STDERR, "[check-server] invalid release_ref_kind: {$releaseRefKind}\n");
+        exit(1);
+    }
+
+    $summaryRequired = !empty($state["release_summary_required"]);
+    $summaryPresent = !empty($state["release_summary_present"]);
+    $summaryFile = trim((string) ($state["release_summary_file"] ?? ""));
+    $summary = trim((string) ($state["release_summary"] ?? ""));
+
+    if ($releaseRefKind === "tag" && !$summaryRequired) {
+        fwrite(STDERR, "[check-server] tag releases must require release summary\n");
+        exit(1);
+    }
+
+    if ($summaryRequired) {
+      if (!$summaryPresent || $summaryFile === "" || $summary === "") {
+        fwrite(STDERR, "[check-server] required release summary evidence is incomplete\n");
+        exit(1);
+      }
+      if (!is_file($summaryFile)) {
+        fwrite(STDERR, "[check-server] release summary file not found: {$summaryFile}\n");
+        exit(1);
+      }
+    }
+  '\'' "$DEPLOY_STATE_FILE"
+' _ "$PHP_BIN"
 run_contract_with_degraded_fallback \
   "Scheduler activity contract" \
   "cd '$APP_DIR' && '$PHP_BIN' artisan ops:contract:scheduler --max-age-seconds=180" \
