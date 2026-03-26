@@ -69,6 +69,34 @@ append_history_entry() {
   ' "$state_file" >> "$history_file"
 }
 
+append_runtime_evidence() {
+  local event_name="$1"
+  local event_status="$2"
+  local event_details="${3:-{}}"
+
+  if [[ -z "${DEPLOY_RUNTIME_EVIDENCE_FILE:-}" ]]; then
+    return 0
+  fi
+
+  local event_at
+  event_at="$(date -u +"%Y-%m-%dT%H:%M:%SZ")"
+
+  "$PHP_BIN" -r '
+    $payload = [
+      "event_at_utc" => $argv[1],
+      "deploy_started_at_utc" => $argv[2],
+      "event" => $argv[3],
+      "status" => $argv[4],
+      "commit" => $argv[5],
+      "release_ref" => $argv[6],
+      "requested_ref" => $argv[7] !== "" ? $argv[7] : null,
+      "selection_mode" => $argv[8],
+      "details" => json_decode($argv[9], true) ?: new stdClass(),
+    ];
+    echo json_encode($payload, JSON_UNESCAPED_SLASHES), PHP_EOL;
+  ' "$event_at" "$DEPLOYED_AT" "$event_name" "$event_status" "$RESOLVED_COMMIT" "$RESOLVED_REF" "${EXPLICIT_DEPLOY_REF:-}" "$DEPLOY_SELECTION_MODE" "$event_details" >> "$DEPLOY_RUNTIME_EVIDENCE_FILE"
+}
+
 resolve_release_summary_file() {
   local release_ref="$1"
   echo "$RELEASE_SUMMARY_DIR/$release_ref.md"
@@ -159,6 +187,7 @@ RELEASE_SUMMARY_PRESENT="$([[ -n "$RELEASE_SUMMARY_TEXT" ]] && echo true || echo
 
 DEPLOYED_AT="$(date -u +"%Y-%m-%dT%H:%M:%SZ")"
 DEPLOY_LOG_FILE="$DEPLOY_LOG_DIR/${DEPLOYED_AT//:/-}-${RESOLVED_COMMIT}.json"
+DEPLOY_RUNTIME_EVIDENCE_FILE="${DEPLOY_RUNTIME_EVIDENCE_FILE:-$DEPLOY_LOG_DIR/${DEPLOYED_AT//:/-}-${RESOLVED_COMMIT}.runtime.jsonl}"
 
 echo "[deploy] requested ref: ${EXPLICIT_DEPLOY_REF:-<none>}"
 echo "[deploy] fallback ref: $DEFAULT_DEPLOY_REF"
@@ -170,6 +199,7 @@ echo "[deploy] selection mode: $DEPLOY_SELECTION_MODE"
 echo "[deploy] fallback path used: $([[ "$FALLBACK_DEPLOY_USED" -eq 1 ]] && echo yes || echo no)"
 echo "[deploy] deploy started at: $DEPLOYED_AT"
 echo "[deploy] deploy log: $DEPLOY_LOG_FILE"
+echo "[deploy] runtime evidence log: $DEPLOY_RUNTIME_EVIDENCE_FILE"
 echo "[deploy] release history: $RELEASE_HISTORY_FILE"
 if [[ -n "$RELEASE_SUMMARY_TEXT" ]]; then
   echo "[deploy] release summary: $RELEASE_SUMMARY_TEXT"
@@ -181,20 +211,28 @@ fi
 git reset --hard "$RESOLVED_COMMIT"
 git clean -fd
 
+: > "$DEPLOY_RUNTIME_EVIDENCE_FILE"
+append_runtime_evidence "deploy_started" "ok"
+
 echo "[deploy] installing PHP dependencies"
 COMPOSER_ALLOW_SUPERUSER="$COMPOSER_ALLOW_SUPERUSER" "$COMPOSER_BIN" install --no-interaction --no-dev --optimize-autoloader
+append_runtime_evidence "php_dependencies_installed" "ok"
 
 echo "[deploy] installing JS dependencies"
 npm ci
+append_runtime_evidence "js_dependencies_installed" "ok"
 
 echo "[deploy] building frontend assets"
 npm run build
+append_runtime_evidence "frontend_assets_built" "ok"
 
 echo "[deploy] verifying frontend build artifacts"
 test -f public/build/manifest.json
+append_runtime_evidence "frontend_artifacts_verified" "ok"
 
 echo "[deploy] running migrations"
 "$PHP_BIN" artisan migrate --force
+append_runtime_evidence "database_migrations_completed" "ok"
 
 echo "[deploy] clearing Laravel config cache"
 "$PHP_BIN" artisan config:clear
@@ -204,14 +242,17 @@ echo "[deploy] clearing Laravel optimized caches"
 
 echo "[deploy] optimizing Laravel caches"
 "$PHP_BIN" artisan optimize
+append_runtime_evidence "laravel_caches_optimized" "ok"
 
 echo "[deploy] restarting workers"
 "$SUPERVISORCTL_BIN" restart poof-worker:* || true
+append_runtime_evidence "workers_restarted" "ok"
 
 echo "[deploy] running blocking health check (${HEALTHCHECK_ATTEMPTS} attempts, ${HEALTHCHECK_DELAY}s delay)"
 for attempt in $(seq 1 "$HEALTHCHECK_ATTEMPTS"); do
   if curl --fail --silent --show-error "$HEALTHCHECK_URL" > /dev/null; then
     echo "[deploy] health check passed on attempt $attempt"
+    append_runtime_evidence "health_check_passed" "ok" "{\"attempt\":$attempt}"
 
     echo "[deploy] recording release state"
     cat > "$DEPLOY_STATE_FILE" <<STATE
@@ -232,6 +273,7 @@ for attempt in $(seq 1 "$HEALTHCHECK_ATTEMPTS"); do
   "previous_deployment_type": $(json_string_or_null "$PREVIOUS_DEPLOYMENT_TYPE"),
   "previous_selection_mode": $(json_string_or_null "$PREVIOUS_SELECTION_MODE"),
   "deploy_log": "$DEPLOY_LOG_FILE",
+  "deploy_runtime_evidence": "$DEPLOY_RUNTIME_EVIDENCE_FILE",
   "release_history": "$RELEASE_HISTORY_FILE",
   "release_summary_required": $RELEASE_SUMMARY_REQUIRED,
   "release_summary_present": $RELEASE_SUMMARY_PRESENT,
@@ -239,6 +281,7 @@ for attempt in $(seq 1 "$HEALTHCHECK_ATTEMPTS"); do
   "release_summary": $(json_string_or_null "$RELEASE_SUMMARY_TEXT")
 }
 STATE
+    append_runtime_evidence "release_state_recorded" "ok"
     cp "$DEPLOY_STATE_FILE" "$DEPLOY_LOG_FILE"
     append_history_entry "$DEPLOY_STATE_FILE" "$RELEASE_HISTORY_FILE"
 
@@ -249,6 +292,7 @@ STATE
 
   if [ "$attempt" -eq "$HEALTHCHECK_ATTEMPTS" ]; then
     echo "[deploy] health check failed after $attempt attempts"
+    append_runtime_evidence "health_check_failed" "fail" "{\"attempt\":$attempt}"
     echo "[deploy] current release state was not updated; previous known-good release remains recorded in $DEPLOY_STATE_FILE"
     exit 1
   fi
