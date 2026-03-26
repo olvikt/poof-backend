@@ -10,7 +10,7 @@
     <span class="flex h-2.5 w-2.5 rounded-full {{ $online ? 'bg-emerald-300' : 'bg-slate-500' }}" wire:loading.remove wire:target="toggleOnlineState"></span>
 
     <span wire:loading.remove wire:target="toggleOnlineState">
-        {{ $online ? 'На лінії' : 'Не на лінії' }}
+        {{ $online ? '🟢 На лінії' : '⚫ Не на лінії' }}
     </span>
 
     <span wire:loading wire:target="toggleOnlineState" class="inline-flex items-center gap-1">
