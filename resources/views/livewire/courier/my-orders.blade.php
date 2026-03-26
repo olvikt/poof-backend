@@ -19,6 +19,46 @@
             </a>
         </div>
     @else
+        @php
+            $activeOrderForMap = $orders->firstWhere('status', \App\Models\Order::STATUS_IN_PROGRESS)
+                ?? $orders->firstWhere('status', \App\Models\Order::STATUS_ACCEPTED)
+                ?? $orders->first();
+        @endphp
+
+        <div class="mb-4 overflow-hidden rounded-3xl border border-white/10 bg-[#0d141e] shadow-[0_16px_36px_rgba(0,0,0,0.35)]">
+            <div class="flex items-center justify-between border-b border-white/10 px-4 py-3">
+                <div>
+                    <div class="text-xs font-semibold uppercase tracking-[0.08em] text-slate-400">Маршрут</div>
+                    <div class="text-sm font-semibold text-slate-100">
+                        @if($activeOrderForMap)
+                            До замовлення #{{ $activeOrderForMap->id }}
+                        @else
+                            Активний маршрут
+                        @endif
+                    </div>
+                </div>
+                @if($activeOrderForMap)
+                    <button
+                        type="button"
+                        wire:click="navigate({{ $activeOrderForMap->id }})"
+                        @if(! $online) disabled @endif
+                        class="rounded-xl border border-white/15 bg-white/10 px-3 py-1.5 text-xs font-semibold text-slate-100 transition hover:bg-white/15 disabled:pointer-events-none disabled:opacity-40"
+                    >
+                        Навігація
+                    </button>
+                @endif
+            </div>
+            <div class="relative h-36 w-full overflow-hidden bg-[#0a111a]" data-map-bootstrap='@json($mapBootstrap ?? null)'>
+                <div wire:ignore id="my-orders-map" class="absolute inset-0" data-map-bootstrap='@json($mapBootstrap ?? null)'></div>
+                <div class="pointer-events-none absolute inset-0 bg-gradient-to-t from-[#0d141e] via-transparent to-transparent"></div>
+                @if($activeOrderForMap)
+                    <div class="absolute inset-x-3 bottom-3 rounded-2xl border border-white/10 bg-[#101722]/90 px-3 py-2 text-xs text-slate-200">
+                        {{ $activeOrderForMap->address_text ?? 'Адреса не вказана' }}
+                    </div>
+                @endif
+            </div>
+        </div>
+
         <div class="space-y-3">
             @foreach($orders as $order)
                 @php
@@ -50,7 +90,7 @@
                     $clientPhone = $order->client?->phone ?? null;
                 @endphp
 
-                <div wire:key="my-order-{{ $order->id }}" class="rounded-3xl border border-white/10 bg-[#101722] p-4 shadow-[0_18px_40px_rgba(0,0,0,0.35)]">
+                <div wire:key="my-order-{{ $order->id }}" class="rounded-3xl border border-white/10 bg-[#111926] p-4 shadow-[0_18px_36px_rgba(0,0,0,0.32)]">
                     <div class="flex items-start justify-between gap-3">
                         <div>
                             <div class="text-lg font-bold text-white">#{{ $order->id }}</div>
@@ -76,15 +116,15 @@
 
                     <div class="mt-3 flex flex-wrap items-center gap-2 text-[11px]">
                         @if($distanceKm !== null)
-                            <span class="rounded-full border border-white/10 bg-white/5 px-2.5 py-1 {{ $distanceKm <= 1 ? 'text-emerald-300' : ($distanceKm <= 3 ? 'text-amber-300' : 'text-orange-300') }}">{{ number_format($distanceKm, 1) }} км</span>
+                            <span class="rounded-full border border-white/15 bg-white/10 px-2.5 py-1 {{ $distanceKm <= 1 ? 'text-emerald-300' : ($distanceKm <= 3 ? 'text-amber-300' : 'text-orange-300') }}">{{ number_format($distanceKm, 1) }} км</span>
                         @endif
 
                         @if($etaMin !== null)
-                            <span class="rounded-full border border-white/10 bg-white/5 px-2.5 py-1 text-slate-200">~{{ $etaMin }} хв</span>
+                            <span class="rounded-full border border-white/15 bg-white/10 px-2.5 py-1 text-slate-200">~{{ $etaMin }} хв</span>
                         @endif
 
                         @if($elapsedLabel)
-                            <span class="rounded-full border border-white/10 bg-white/5 px-2.5 py-1 text-slate-200">{{ $elapsedLabel }}</span>
+                            <span class="rounded-full border border-white/15 bg-white/10 px-2.5 py-1 text-slate-200">{{ $elapsedLabel }}</span>
                         @endif
                     </div>
 
@@ -93,7 +133,7 @@
                             type="button"
                             wire:click="navigate({{ $order->id }})"
                             @if(! $online) disabled @endif
-                            class="flex h-11 items-center justify-center rounded-2xl border border-white/10 bg-white/5 text-sm font-semibold transition hover:bg-white/10 disabled:pointer-events-none disabled:opacity-40"
+                            class="flex h-11 items-center justify-center rounded-2xl border border-white/15 bg-white/10 text-sm font-semibold transition hover:bg-white/15 disabled:pointer-events-none disabled:opacity-40"
                         >
                             Навігація
                         </button>
@@ -101,7 +141,7 @@
                         <a
                             href="{{ $clientPhone ? 'tel:' . $clientPhone : '#' }}"
                             @if(! $clientPhone) aria-disabled="true" @endif
-                            class="flex h-11 items-center justify-center rounded-2xl border border-white/10 bg-white/5 text-sm font-semibold transition hover:bg-white/10 {{ ($online && $clientPhone) ? '' : 'pointer-events-none opacity-40' }}"
+                            class="flex h-11 items-center justify-center rounded-2xl border border-white/15 bg-white/10 text-sm font-semibold transition hover:bg-white/15 {{ ($online && $clientPhone) ? '' : 'pointer-events-none opacity-40' }}"
                         >
                             Зв’язок
                         </a>
