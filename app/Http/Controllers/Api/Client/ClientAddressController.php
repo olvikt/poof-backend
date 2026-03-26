@@ -33,9 +33,7 @@ class ClientAddressController extends Controller
             'lng' => 'nullable|numeric',
         ]);
 
-        $profile = $request->user()->clientProfile;
-
-        $address = $profile->addresses()->create($data);
+        $address = ClientAddress::createForUser((int) $request->user()->id, $data);
 
         return response()->json([
             'message' => 'Address created',
@@ -59,7 +57,7 @@ class ClientAddressController extends Controller
             'intercom' => 'nullable|string|max:50',
         ]);
 
-        $address->update($data);
+        $address->updateFromClient($data);
 
         return response()->json([
             'message' => 'Address updated',

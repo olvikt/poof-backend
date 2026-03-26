@@ -5,10 +5,33 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Support\Arr;
 use Illuminate\Support\Facades\DB;
 
 class ClientAddress extends Model
 {
+    private const CLIENT_WRITE_FIELDS = [
+        'label',
+        'title',
+        'building_type',
+        'address_text',
+        'city',
+        'region',
+        'street',
+        'house',
+        'entrance',
+        'intercom',
+        'floor',
+        'apartment',
+        'lat',
+        'lng',
+        'place_id',
+        'geocode_source',
+        'geocode_accuracy',
+        'geocoded_at',
+        'is_default',
+    ];
+
     /* =========================================================
      |  MASS ASSIGNMENT
      | ========================================================= */
@@ -60,6 +83,20 @@ class ClientAddress extends Model
         'lng'         => 'float',
         'geocoded_at' => 'datetime',
     ];
+
+    public static function createForUser(int $userId, array $attributes): self
+    {
+        $payload = Arr::only($attributes, self::CLIENT_WRITE_FIELDS);
+        $payload['user_id'] = $userId;
+
+        return self::query()->create($payload);
+    }
+
+    public function updateFromClient(array $attributes): void
+    {
+        $this->fill(Arr::only($attributes, self::CLIENT_WRITE_FIELDS));
+        $this->save();
+    }
 
     /* =========================================================
      |  RELATIONS
