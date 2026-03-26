@@ -1,11 +1,5 @@
-<div
-    class="relative h-[calc(100dvh-130px)] w-full"
-    wire:poll.10s
->
-    <div
-        class="relative h-full w-full overflow-hidden bg-[#070b12]"
-        data-map-bootstrap='@json($mapBootstrap ?? null)'
-    >
+<div class="relative h-[calc(100dvh-130px)] w-full" wire:poll.10s data-map-bootstrap='@json($mapBootstrap ?? null)'>
+    <div class="relative h-full w-full overflow-hidden bg-[#070b12]" data-map-bootstrap='@json($mapBootstrap ?? null)'>
         <div wire:ignore id="map" class="absolute inset-0" data-map-bootstrap='@json($mapBootstrap ?? null)'></div>
         <div class="pointer-events-none absolute inset-x-0 top-0 h-20 bg-gradient-to-b from-[#06090e]/75 to-transparent"></div>
     </div>
