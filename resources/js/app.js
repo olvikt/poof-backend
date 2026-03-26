@@ -23,8 +23,10 @@ import initMap from './poof/map'
 
 // OrderCreate
 import './poof/order-create'
+import initAuthSessionSync from './poof/auth-session-sync'
 
 initMap()
+initAuthSessionSync()
 
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', () => {

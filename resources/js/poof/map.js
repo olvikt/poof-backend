@@ -2212,6 +2212,12 @@ async function buildRoute(fromLat, fromLng, toLat, toLng) {
     stopCourierGeoWatchLeadership()
   })
 
+  window.addEventListener('poof:auth-session-lost', () => {
+    stopCourierGeoWatchLeadership()
+    clearRouteOverlays()
+    clearCourierOverlays()
+  })
+
   // -------------------------------
   // UPDATE COURIER MAP
   // -------------------------------
