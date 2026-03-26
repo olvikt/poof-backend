@@ -79,13 +79,13 @@ Artisan::command('ops:contract:scheduler {--max-age-seconds=120}', function () {
 
     if ($lastTickAt !== '') {
         try {
-            $ageSeconds = now()->diffInSeconds(\Illuminate\Support\Carbon::parse($lastTickAt), false) * -1;
+            $ageSeconds = \Illuminate\Support\Carbon::parse($lastTickAt)->floatDiffInSeconds(now(), false);
         } catch (\Throwable) {
             $ageSeconds = null;
         }
     }
 
-    $ok = is_int($ageSeconds) && $ageSeconds <= $maxAgeSeconds;
+    $ok = is_numeric($ageSeconds) && $ageSeconds >= 0 && $ageSeconds <= $maxAgeSeconds;
 
     $this->line(json_encode([
         'status' => $ok ? 'ok' : 'stale',

@@ -243,8 +243,8 @@ run "Current release state contract" bash -lc '
         exit(1);
       }
     }
-  '\'' "$DEPLOY_STATE_FILE"
-' _ "$PHP_BIN"
+  '\'' "$2"
+' _ "$PHP_BIN" "$DEPLOY_STATE_FILE"
 run_contract_with_degraded_fallback \
   "Scheduler activity contract" \
   "cd '$APP_DIR' && '$PHP_BIN' artisan ops:contract:scheduler --max-age-seconds=180" \
