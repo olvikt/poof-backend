@@ -167,11 +167,12 @@ Canonical smoke runners:
 
 1. base HTTP response (`curl -I $API_BASE_URL`);
 2. canonical health endpoint (`curl https://api.poof.com.ua/up` via `$HEALTHCHECK_URL`);
-3. `php artisan schedule:list`;
-4. `supervisorctl status`;
-5. `redis-cli ping`;
-6. worker log evidence (recent deploy-window context by timestamp; best-effort fallback to tail);
-7. application log evidence (recent deploy-window context by timestamp; best-effort fallback to tail).
+3. release state contract (`storage/app/current-release.json` must contain required metadata fields and enforce summary evidence for tag releases);
+4. `php artisan schedule:list`;
+5. `supervisorctl status`;
+6. `redis-cli ping`;
+7. worker log evidence (recent deploy-window context by timestamp; best-effort fallback to tail);
+8. application log evidence (recent deploy-window context by timestamp; best-effort fallback to tail).
 
 Дополнительно `scripts/check-server.sh` проверяет systemd state для nginx / php-fpm / redis / cron.
 

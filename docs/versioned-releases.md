@@ -185,6 +185,7 @@ cat storage/app/current-release.json
 Ожидаемые поля:
 
 - `release_ref`;
+- `release_ref_kind`;
 - `requested_ref`;
 - `resolved_ref`;
 - `fallback_ref`;
@@ -196,6 +197,8 @@ cat storage/app/current-release.json
 - `previous_commit`;
 - `deploy_log`;
 - `release_history`;
+- `release_summary_required`;
+- `release_summary_present`;
 - `release_summary_file`;
 - `release_summary`.
 - `deployment_type`.

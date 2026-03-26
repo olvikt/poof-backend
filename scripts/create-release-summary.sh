@@ -9,10 +9,16 @@ fi
 
 RELEASE_TAG="$1"
 SHORT_SUMMARY="$2"
+SHORT_SUMMARY_TRIMMED="$(echo "$SHORT_SUMMARY" | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')"
 APP_DIR="${APP_DIR:-$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)}"
 RELEASE_SUMMARY_DIR="${RELEASE_SUMMARY_DIR:-$APP_DIR/docs/release-summaries}"
 SUMMARY_FILE="$RELEASE_SUMMARY_DIR/$RELEASE_TAG.md"
 CREATED_AT_UTC="$(date -u +"%Y-%m-%dT%H:%M:%SZ")"
+
+if [[ -z "$SHORT_SUMMARY_TRIMMED" ]]; then
+  echo "[release-summary] short summary must be non-empty" >&2
+  exit 1
+fi
 
 mkdir -p "$RELEASE_SUMMARY_DIR"
 
@@ -24,7 +30,7 @@ fi
 cat > "$SUMMARY_FILE" <<EOF
 # $RELEASE_TAG
 
-$SHORT_SUMMARY
+$SHORT_SUMMARY_TRIMMED
 
 Created at (UTC): $CREATED_AT_UTC
 EOF
