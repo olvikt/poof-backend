@@ -30,7 +30,7 @@ class ClientProfileController extends Controller
             'email_notifications' => 'boolean',
         ]);
 
-        $user->clientProfile->update($data);
+        $user->clientProfile->updateFromClient($data);
 
         return response()->json([
             'message' => 'Profile updated',

@@ -15,11 +15,11 @@ class PersistClientAddress
                 ->where('id', $formData->addressId)
                 ->where('user_id', $userId)
                 ->firstOrFail()
-                ->update($payload->toArray());
+                ->updateFromClient($payload->toArray());
 
             return;
         }
 
-        ClientAddress::create($payload->withUserId($userId));
+        ClientAddress::createForUser($userId, $payload->toArray());
     }
 }
