@@ -1,4 +1,6 @@
 <div class="w-full px-4 py-4 pb-28 text-white" wire:poll.5s>
+    <div class="sr-only" aria-hidden="true" data-map-bootstrap='@json($mapBootstrap ?? null)'></div>
+
     <div class="mb-4 flex items-center justify-between gap-3">
         <h2 class="text-xl font-semibold text-slate-100">Мої замовлення</h2>
         <span class="rounded-full border border-white/10 bg-white/[0.04] px-3 py-1 text-xs text-slate-300">{{ $orders->count() }} активних</span>
