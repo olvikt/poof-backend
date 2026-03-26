@@ -215,6 +215,7 @@ export default function initMap() {
     courierGeoLockAbortController: null,
     courierGeoStorageBound: false,
     runtimeSignalCounters: {},
+    authSessionLost: false,
   }
 
   const state = POOF.map
@@ -251,6 +252,10 @@ export default function initMap() {
     } catch (_) {
       return false
     }
+  }
+
+  function isRuntimeBlockedByAuthLoss() {
+    return state.authSessionLost === true
   }
 
   function ensureCrossTabRuntimeTabId() {
@@ -1836,6 +1841,7 @@ async function buildRoute(fromLat, fromLng, toLat, toLng) {
   }
 
   function mount(mapId = 'map') {
+    if (isRuntimeBlockedByAuthLoss()) return false
     if (!leafletReady()) return false
 
     const el = document.getElementById(mapId)
@@ -1985,6 +1991,7 @@ async function buildRoute(fromLat, fromLng, toLat, toLng) {
   }
 
   function mountAny() {
+    if (isRuntimeBlockedByAuthLoss()) return false
     // пробуем основные id (у тебя встречались оба)
     return mount('map') || mount('map-address')
   }
@@ -1993,6 +2000,7 @@ async function buildRoute(fromLat, fromLng, toLat, toLng) {
   // Courier geolocation watch
   // ------------------------------------------------------------
   function startCourierWatch() {
+    if (isRuntimeBlockedByAuthLoss()) return
     if (!state.courierGeoLeaderActive) return
     if (!navigator.geolocation) {
       console.warn('Geolocation not supported')
@@ -2174,6 +2182,7 @@ async function buildRoute(fromLat, fromLng, toLat, toLng) {
   // COURIER ONLINE
   // -------------------------------
   window.addEventListener('courier:online', () => {
+    if (isRuntimeBlockedByAuthLoss()) return
     setTimeout(() => {
       mountAny()
       try { state.instance?.invalidateSize(true) } catch (_) {}
@@ -2193,6 +2202,7 @@ async function buildRoute(fromLat, fromLng, toLat, toLng) {
   })
 
   window.addEventListener('courier:runtime-sync', (e) => {
+    if (isRuntimeBlockedByAuthLoss()) return
     let payload = e.detail
     if (Array.isArray(payload)) payload = payload[0] || {}
 
@@ -2212,16 +2222,28 @@ async function buildRoute(fromLat, fromLng, toLat, toLng) {
     stopCourierGeoWatchLeadership()
   })
 
-  window.addEventListener('poof:auth-session-lost', () => {
+  window.addEventListener('poof:auth-session-lost', (event) => {
+    if (state.authSessionLost) return
+    state.authSessionLost = true
+
+    const reason = normalizeRuntimeObservabilityReason(event?.detail?.reason, 'auth_session_lost')
+    emitRuntimeSignal('auth_session_lost_runtime_teardown', reason, {
+      level: 'warn',
+      meta: {
+        source: event?.detail?.source || 'unknown',
+      },
+    })
+
     stopCourierGeoWatchLeadership()
-    clearRouteOverlays()
-    clearCourierOverlays()
+    resetMapStateForNavigation()
+    teardownMapInstance()
   })
 
   // -------------------------------
   // UPDATE COURIER MAP
   // -------------------------------
   window.addEventListener('map:courier-update', (e) => {
+    if (isRuntimeBlockedByAuthLoss()) return
     mountAny()
     if (!state.instance) return
     setCourierMap(e.detail || {})
@@ -2296,6 +2318,7 @@ window.addEventListener('build-route', (e) => {
   // FORCE MAP INIT
   // -------------------------------
   window.addEventListener('map:init', () => {
+    if (isRuntimeBlockedByAuthLoss()) return
     setTimeout(() => {
       mountAny()
       try { state.instance?.invalidateSize(true) } catch (_) {}
@@ -2307,17 +2330,20 @@ window.addEventListener('build-route', (e) => {
   // -------------------------------
   if (window.Livewire?.hook) {
     window.Livewire.hook('morph.updated', () => {
+      if (isRuntimeBlockedByAuthLoss()) return
       mountAny()
       try { state.instance?.invalidateSize(true) } catch (_) {}
     })
 
     window.Livewire.hook('morph.added', () => {
+      if (isRuntimeBlockedByAuthLoss()) return
       mountAny()
       try { state.instance?.invalidateSize(true) } catch (_) {}
     })
   }
 
   document.addEventListener('livewire:navigated', () => {
+    if (isRuntimeBlockedByAuthLoss()) return
     resetMapStateForNavigation()
     teardownMapInstance()
     mountAny()
@@ -2333,6 +2359,7 @@ window.addEventListener('build-route', (e) => {
   POOF.mountMapAny = mountAny
 
   POOF.setCourierMap = (payload) => {
+    if (isRuntimeBlockedByAuthLoss()) return
     mountAny()
     setCourierMap(payload || {})
   }
