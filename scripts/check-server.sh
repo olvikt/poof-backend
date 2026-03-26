@@ -52,6 +52,8 @@ run_log_evidence() {
   local windowed_lines
   local marker_lines
   local recent_buffer
+  local window_buffer
+  local latest_timestamp_line
 
   now_epoch="$(date -u +%s)"
   cutoff_epoch="$(date -u -d "-${LOG_RECENT_WINDOW_MINUTES} minutes" +%s)"
@@ -83,19 +85,19 @@ run_log_evidence() {
 
   if [[ -n "$deploy_started_at" ]]; then
     deploy_epoch="$(date -u -d "$deploy_started_at" +%s 2>/dev/null || true)"
-    if [[ -n "$deploy_epoch" ]] && [[ "$deploy_epoch" -le "$now_epoch" ]] && [[ "$deploy_epoch" -gt "$cutoff_epoch" ]]; then
+    if [[ -n "$deploy_epoch" ]] && [[ "$deploy_epoch" -le "$now_epoch" ]]; then
       cutoff_epoch="$deploy_epoch"
       cutoff_label="current release deployed_at_utc ($deploy_started_at)"
     fi
   fi
 
   recent_buffer="$(mktemp)"
-  trap 'rm -f "$recent_buffer"' RETURN
+  window_buffer="$(mktemp)"
+  trap 'rm -f "$recent_buffer" "$window_buffer"' RETURN
 
   cd "$APP_DIR" && tail -n "$recent_scan_lines" "$log_file" > "$recent_buffer"
 
-  windowed_lines="$(
-    TZ=UTC awk -v cutoff_epoch="$cutoff_epoch" '
+  TZ=UTC awk -v cutoff_epoch="$cutoff_epoch" '
       function line_epoch(line, ts) {
         if (match(line, /\[[0-9]{4}-[0-9]{2}-[0-9]{2}[ T][0-9]{2}:[0-9]{2}:[0-9]{2}/)) {
           ts = substr(line, RSTART + 1, 19)
@@ -115,11 +117,12 @@ run_log_evidence() {
           print $0
         }
       }
-    ' "$recent_buffer"
-  )"
+    ' "$recent_buffer" > "$window_buffer"
+
+  windowed_lines="$(cat "$window_buffer")"
 
   marker_lines="$(
-    RECENT_BUFFER="$recent_buffer" DEPLOY_COMMIT="$deploy_commit" RELEASE_REF="$release_ref" REQUESTED_REF="$requested_ref" DEPLOY_STARTED_AT="$deploy_started_at" bash <<'BASH'
+    RECENT_BUFFER="$window_buffer" DEPLOY_COMMIT="$deploy_commit" RELEASE_REF="$release_ref" REQUESTED_REF="$requested_ref" DEPLOY_STARTED_AT="$deploy_started_at" bash <<'BASH'
 set -euo pipefail
 max_line=0
 
@@ -177,8 +180,17 @@ BASH
     return 0
   fi
 
-  echo "No deploy-window or marker evidence found in recent scan; degraded mode: showing fallback tail for operator context."
-  cd "$APP_DIR" && tail -n "$fallback_tail_lines" "$log_file"
+  latest_timestamp_line="$(
+    tac "$recent_buffer" | grep -m 1 -E '^\[[0-9]{4}-[0-9]{2}-[0-9]{2}[ T][0-9]{2}:[0-9]{2}:[0-9]{2}|^[0-9]{4}-[0-9]{2}-[0-9]{2}[ T][0-9]{2}:[0-9]{2}:[0-9]{2}' || true
+  )"
+
+  echo "No deploy-window or marker evidence found in recent scan; degraded mode: no relevant lines at/after ${cutoff_label}."
+  if [[ -n "$latest_timestamp_line" ]]; then
+    echo "Most recent timestamped log line in scanned slice (may predate current deploy window):"
+    printf '%s\n' "$latest_timestamp_line"
+  else
+    echo "No timestamped application log lines found in scanned slice."
+  fi
 }
 
 run "HTTP availability (base URL)" curl --fail --silent --show-error --head "$API_BASE_URL"
