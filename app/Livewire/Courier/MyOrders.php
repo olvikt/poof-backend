@@ -226,10 +226,11 @@ class MyOrders extends Component
         ];
 
         if (config('dispatch.courier_map_bootstrap_debug')) {
-            Log::debug('courier map bootstrap payload', [
+            Log::debug('courier map bootstrap prepared', [
                 'courier_id' => $courier->id,
                 'order_id' => $activeOrder->id,
-                'payload' => $payload,
+                'has_courier_coordinates' => $hasCourier,
+                'courier_confirmed' => $courierConfirmed,
             ]);
         }
 
