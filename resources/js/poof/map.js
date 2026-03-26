@@ -113,6 +113,10 @@ export default function initMap() {
   const LAST_KNOWN_USER_LOCATION_KEY = 'poof:last-known-user-location:v1'
   const COURIER_RUNTIME_SYNC_CHANNEL = 'poof:courier-runtime-sync:v1'
   const COURIER_RUNTIME_SYNC_STORAGE_KEY = 'poof:courier-runtime-sync:message:v1'
+  const COURIER_GEO_WATCH_LEASE_KEY = 'poof:courier-geo-watch:leader-lease:v1'
+  const COURIER_GEO_WATCH_LEASE_TTL_MS = 12000
+  const COURIER_GEO_WATCH_HEARTBEAT_MS = 4000
+  const COURIER_GEO_WATCH_RETRY_MS = 3500
 
   // ------------------------------------------------------------
   // Shared singleton state
@@ -191,6 +195,14 @@ export default function initMap() {
     crossTabRuntimeTabId: null,
     crossTabRuntimeLastSignature: null,
     crossTabRuntimeLastEmittedAt: 0,
+
+    courierGeoLeaderDesired: false,
+    courierGeoLeaderActive: false,
+    courierGeoLeaderMode: null,
+    courierGeoLeaseHeartbeatTimer: null,
+    courierGeoAcquireRetryTimer: null,
+    courierGeoLockAbortController: null,
+    courierGeoStorageBound: false,
   }
 
   const state = POOF.map
@@ -371,6 +383,247 @@ export default function initMap() {
         handleIncomingCrossTabRuntimeSync(message)
       } catch (_) {}
     })
+  }
+
+  function canUseWebLocks() {
+    try {
+      return typeof navigator !== 'undefined'
+        && typeof navigator.locks !== 'undefined'
+        && typeof navigator.locks.request === 'function'
+        && typeof window.AbortController !== 'undefined'
+    } catch (_) {
+      return false
+    }
+  }
+
+  function clearCourierGeoAcquireRetry() {
+    if (state.courierGeoAcquireRetryTimer) {
+      clearTimeout(state.courierGeoAcquireRetryTimer)
+      state.courierGeoAcquireRetryTimer = null
+    }
+  }
+
+  function scheduleCourierGeoLeadershipAcquire(delayMs = COURIER_GEO_WATCH_RETRY_MS) {
+    if (!state.courierGeoLeaderDesired) return
+    if (state.courierGeoAcquireRetryTimer) return
+
+    state.courierGeoAcquireRetryTimer = setTimeout(() => {
+      state.courierGeoAcquireRetryTimer = null
+      void ensureCourierGeoWatchLeadership()
+    }, Math.max(250, Number(delayMs) || COURIER_GEO_WATCH_RETRY_MS))
+  }
+
+  function releaseCourierGeoLeaseStorage() {
+    if (!canUseStorage()) return
+
+    try {
+      const tabId = ensureCrossTabRuntimeTabId()
+      const raw = window.localStorage.getItem(COURIER_GEO_WATCH_LEASE_KEY)
+      if (!raw) return
+      const lease = JSON.parse(raw)
+      if (lease?.ownerTabId !== tabId) return
+      window.localStorage.removeItem(COURIER_GEO_WATCH_LEASE_KEY)
+    } catch (_) {}
+  }
+
+  function markCourierGeoLeaderActive(mode = null) {
+    state.courierGeoLeaderActive = true
+    state.courierGeoLeaderMode = mode || state.courierGeoLeaderMode || 'lease'
+    startCourierWatch()
+  }
+
+  function demoteCourierGeoLeader() {
+    state.courierGeoLeaderActive = false
+    state.courierGeoLeaderMode = null
+    stopCourierWatch()
+  }
+
+  function tryAcquireCourierGeoLeaseStorage() {
+    if (!canUseStorage()) return false
+
+    const now = Date.now()
+    const tabId = ensureCrossTabRuntimeTabId()
+
+    try {
+      const raw = window.localStorage.getItem(COURIER_GEO_WATCH_LEASE_KEY)
+      const current = raw ? JSON.parse(raw) : null
+      const leaseActive = current
+        && typeof current.ownerTabId === 'string'
+        && Number(current.expiresAt) > now
+
+      if (leaseActive && current.ownerTabId !== tabId) return false
+
+      const nextLease = {
+        ownerTabId: tabId,
+        acquiredAt: leaseActive && current.ownerTabId === tabId
+          ? Number(current.acquiredAt) || now
+          : now,
+        updatedAt: now,
+        expiresAt: now + COURIER_GEO_WATCH_LEASE_TTL_MS,
+      }
+
+      window.localStorage.setItem(COURIER_GEO_WATCH_LEASE_KEY, JSON.stringify(nextLease))
+
+      const confirmedRaw = window.localStorage.getItem(COURIER_GEO_WATCH_LEASE_KEY)
+      if (!confirmedRaw) return false
+      const confirmed = JSON.parse(confirmedRaw)
+      return confirmed?.ownerTabId === tabId && Number(confirmed.expiresAt) > now
+    } catch (_) {
+      return false
+    }
+  }
+
+  function startCourierGeoLeaseHeartbeat() {
+    if (state.courierGeoLeaseHeartbeatTimer) return
+
+    state.courierGeoLeaseHeartbeatTimer = setInterval(() => {
+      if (!state.courierGeoLeaderDesired) return
+
+      const stillOwner = tryAcquireCourierGeoLeaseStorage()
+      if (stillOwner) {
+        if (!state.courierGeoLeaderActive) {
+          markCourierGeoLeaderActive('lease')
+        }
+        return
+      }
+
+      if (state.courierGeoLeaderActive && state.courierGeoLeaderMode === 'lease') {
+        demoteCourierGeoLeader()
+      }
+
+      scheduleCourierGeoLeadershipAcquire(700)
+    }, COURIER_GEO_WATCH_HEARTBEAT_MS)
+  }
+
+  function stopCourierGeoLeaseHeartbeat() {
+    if (!state.courierGeoLeaseHeartbeatTimer) return
+    clearInterval(state.courierGeoLeaseHeartbeatTimer)
+    state.courierGeoLeaseHeartbeatTimer = null
+  }
+
+  async function tryAcquireCourierGeoLeaderViaWebLocks() {
+    if (!canUseWebLocks()) return false
+    if (!state.courierGeoLeaderDesired) return false
+    if (state.courierGeoLockAbortController) return state.courierGeoLeaderActive
+
+    const controller = new AbortController()
+    state.courierGeoLockAbortController = controller
+    let granted = false
+
+    try {
+      await navigator.locks.request(
+        'poof:courier-geo-watch:leader-lock:v1',
+        { mode: 'exclusive', ifAvailable: true, signal: controller.signal },
+        async (lock) => {
+          if (!lock || !state.courierGeoLeaderDesired) return
+          granted = true
+          markCourierGeoLeaderActive('web-lock')
+
+          await new Promise((resolve) => {
+            controller.signal.addEventListener('abort', resolve, { once: true })
+          })
+        }
+      )
+    } catch (_) {
+      // no-op: fall back handled by caller
+    } finally {
+      if (state.courierGeoLockAbortController === controller) {
+        state.courierGeoLockAbortController = null
+      }
+
+      if (state.courierGeoLeaderMode === 'web-lock') {
+        demoteCourierGeoLeader()
+      }
+    }
+
+    return granted
+  }
+
+  function releaseCourierGeoLeaderLock() {
+    const controller = state.courierGeoLockAbortController
+    state.courierGeoLockAbortController = null
+    if (controller) {
+      try { controller.abort() } catch (_) {}
+    }
+  }
+
+  function bindCourierGeoLeadershipStorageOnce() {
+    if (state.courierGeoStorageBound) return
+    state.courierGeoStorageBound = true
+
+    window.addEventListener('storage', (event) => {
+      if (event.key !== COURIER_GEO_WATCH_LEASE_KEY) return
+      if (!state.courierGeoLeaderDesired) return
+
+      const tabId = ensureCrossTabRuntimeTabId()
+      let incomingOwner = null
+      let incomingExpiresAt = 0
+      try {
+        const lease = event.newValue ? JSON.parse(event.newValue) : null
+        incomingOwner = lease?.ownerTabId || null
+        incomingExpiresAt = Number(lease?.expiresAt) || 0
+      } catch (_) {}
+
+      if (incomingOwner && incomingOwner !== tabId && incomingExpiresAt > Date.now()) {
+        if (state.courierGeoLeaderMode === 'lease' && state.courierGeoLeaderActive) {
+          demoteCourierGeoLeader()
+        }
+        scheduleCourierGeoLeadershipAcquire(Math.min(2500, Math.max(700, incomingExpiresAt - Date.now() + 120)))
+        return
+      }
+
+      scheduleCourierGeoLeadershipAcquire(500)
+    })
+
+    window.addEventListener('visibilitychange', () => {
+      if (!state.courierGeoLeaderDesired) return
+      if (document.visibilityState !== 'visible') return
+      scheduleCourierGeoLeadershipAcquire(300)
+    })
+
+    window.addEventListener('beforeunload', () => {
+      stopCourierGeoWatchLeadership()
+    })
+  }
+
+  async function ensureCourierGeoWatchLeadership() {
+    clearCourierGeoAcquireRetry()
+    if (!state.courierGeoLeaderDesired) return
+
+    if (canUseWebLocks()) {
+      const lockGranted = await tryAcquireCourierGeoLeaderViaWebLocks()
+      if (!state.courierGeoLeaderDesired) return
+      if (lockGranted) return
+    }
+
+    const leaseGranted = tryAcquireCourierGeoLeaseStorage()
+
+    if (leaseGranted) {
+      markCourierGeoLeaderActive('lease')
+      startCourierGeoLeaseHeartbeat()
+      return
+    }
+
+    if (state.courierGeoLeaderMode === 'lease' && state.courierGeoLeaderActive) {
+      demoteCourierGeoLeader()
+    }
+
+    scheduleCourierGeoLeadershipAcquire()
+  }
+
+  function startCourierGeoWatchLeadership() {
+    state.courierGeoLeaderDesired = true
+    bindCourierGeoLeadershipStorageOnce()
+    void ensureCourierGeoWatchLeadership()
+  }
+
+  function stopCourierGeoWatchLeadership() {
+    state.courierGeoLeaderDesired = false
+    clearCourierGeoAcquireRetry()
+    stopCourierGeoLeaseHeartbeat()
+    releaseCourierGeoLeaderLock()
+    releaseCourierGeoLeaseStorage()
+    demoteCourierGeoLeader()
   }
 
   function emitUserLocationBootstrapState() {
@@ -1649,6 +1902,7 @@ async function buildRoute(fromLat, fromLng, toLat, toLng) {
   // Courier geolocation watch
   // ------------------------------------------------------------
   function startCourierWatch() {
+    if (!state.courierGeoLeaderActive) return
     if (!navigator.geolocation) {
       console.warn('Geolocation not supported')
       return
@@ -1832,12 +2086,12 @@ async function buildRoute(fromLat, fromLng, toLat, toLng) {
     setTimeout(() => {
       mountAny()
       try { state.instance?.invalidateSize(true) } catch (_) {}
-      startCourierWatch()
+      startCourierGeoWatchLeadership()
     }, 0)
   })
 
   window.addEventListener('courier:offline', () => {
-    stopCourierWatch()
+    stopCourierGeoWatchLeadership()
   })
 
   window.addEventListener('courier-online-toggled', (e) => {
@@ -1860,11 +2114,11 @@ async function buildRoute(fromLat, fromLng, toLat, toLng) {
     if (isOnline) {
       mountAny()
       try { state.instance?.invalidateSize(true) } catch (_) {}
-      startCourierWatch()
+      startCourierGeoWatchLeadership()
       return
     }
 
-    stopCourierWatch()
+    stopCourierGeoWatchLeadership()
   })
 
   // -------------------------------
