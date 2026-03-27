@@ -1866,8 +1866,10 @@ async function buildRoute(fromLat, fromLng, toLat, toLng) {
     return isValidLatLng(bootstrap?.orderLat, bootstrap?.orderLng)
   }
 
-  function applyBootstrapFromDom() {
-    const mapCardEl = document.querySelector('[data-map-bootstrap]')
+  function applyBootstrapFromDom(mapId = null) {
+    const mapCardEl = mapId
+      ? document.querySelector(`#${mapId}[data-map-bootstrap]`) || document.querySelector(`#${mapId}`)?.closest('[data-map-bootstrap]')
+      : document.querySelector('[data-map-bootstrap]')
     const bootstrapRaw = mapCardEl?.dataset?.mapBootstrap || null
     state.hasActiveOrderBootstrap = false
     if (!bootstrapRaw) return false
@@ -1924,7 +1926,7 @@ async function buildRoute(fromLat, fromLng, toLat, toLng) {
 
     // уже есть карта на этом DOM
     if (state.instance && state.el === el) {
-      applyBootstrapFromDom()
+      applyBootstrapFromDom(mapId)
       try { state.instance.invalidateSize(true) } catch (_) {}
       observeMapResize(el, state.instance)
       bindGeoButton()
@@ -2030,7 +2032,7 @@ async function buildRoute(fromLat, fromLng, toLat, toLng) {
       }
     }
 
-    applyBootstrapFromDom()
+    applyBootstrapFromDom(mapId)
 
     // post-mount invalidate (важно когда карта появляется после toggle)
     requestAnimationFrame(() => {
@@ -2053,7 +2055,7 @@ async function buildRoute(fromLat, fromLng, toLat, toLng) {
   function mountAny() {
     if (isRuntimeBlockedByAuthLoss()) return false
     // пробуем основные id (у тебя встречались оба)
-    return mount('map') || mount('map-address')
+    return mount('map') || mount('my-orders-map') || mount('map-address')
   }
 
   // ------------------------------------------------------------
