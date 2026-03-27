@@ -35,7 +35,7 @@
                     <div class="text-xs font-semibold uppercase tracking-[0.08em] text-slate-400">Маршрут</div>
                     <div class="text-sm font-semibold text-slate-100">
                         @if($activeOrderForMap)
-                            До замовлення #{{ $activeOrderForMap->id }}
+                            Активний маршрут
                         @else
                             Активний маршрут
                         @endif
@@ -52,9 +52,9 @@
                     </button>
                 @endif
             </div>
-            <div class="relative h-36 w-full overflow-hidden bg-[#0b131d]" data-map-bootstrap='@json($mapBootstrap ?? null)'>
+            <div class="relative h-44 w-full overflow-hidden bg-[#0b131d]" data-map-bootstrap='@json($mapBootstrap ?? null)'>
                 <div wire:ignore id="my-orders-map" class="absolute inset-0" data-map-bootstrap='@json($mapBootstrap ?? null)'></div>
-                <div class="pointer-events-none absolute inset-0 bg-gradient-to-t from-[#0d141e] via-transparent to-transparent"></div>
+                <div class="pointer-events-none absolute inset-x-0 top-0 h-16 bg-gradient-to-b from-[#0d141e]/75 to-transparent"></div>
                 @unless($hasMapPreviewData)
                     <div class="absolute inset-0 flex items-center justify-center">
                         <div class="rounded-2xl border border-white/15 bg-[#101722]/95 px-3 py-2 text-center text-xs text-slate-200">
@@ -62,12 +62,12 @@
                         </div>
                     </div>
                 @endunless
-                @if($activeOrderForMap)
-                    <div class="absolute inset-x-3 bottom-3 rounded-2xl border border-white/10 bg-[#101722]/90 px-3 py-2 text-xs text-slate-200">
-                        {{ $activeOrderForMap->address_text ?? 'Адреса не вказана' }}
-                    </div>
-                @endif
             </div>
+            @if($activeOrderForMap)
+                <div class="border-t border-white/10 bg-[#101722]/90 px-4 py-2 text-xs text-slate-200">
+                    {{ $activeOrderForMap->address_text ?? 'Адреса не вказана' }}
+                </div>
+            @endif
         </div>
 
         <div class="space-y-3">
@@ -104,7 +104,7 @@
                 <div wire:key="my-order-{{ $order->id }}" class="rounded-3xl border border-white/10 bg-[#111926] p-4 shadow-[0_18px_36px_rgba(0,0,0,0.32)]">
                     <div class="flex items-start justify-between gap-3">
                         <div>
-                            <div class="text-lg font-bold text-white">#{{ $order->id }}</div>
+                            <div class="text-sm font-semibold text-slate-200">Замовлення #{{ $order->id }}</div>
                             <div class="mt-1 text-xs text-slate-400">{{ $order->address_text ?? 'Адреса не вказана' }}</div>
                         </div>
 
@@ -139,16 +139,7 @@
                         @endif
                     </div>
 
-                    <div class="mt-4 grid grid-cols-2 gap-2">
-                        <button
-                            type="button"
-                            wire:click="navigate({{ $order->id }})"
-                            @if(! $online) disabled @endif
-                            class="flex h-11 items-center justify-center rounded-2xl border border-white/15 bg-white/10 text-sm font-semibold transition hover:bg-white/15 disabled:pointer-events-none disabled:opacity-40"
-                        >
-                            Навігація
-                        </button>
-
+                    <div class="mt-4">
                         <a
                             href="{{ $clientPhone ? 'tel:' . $clientPhone : '#' }}"
                             @if(! $clientPhone) aria-disabled="true" @endif
