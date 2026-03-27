@@ -17,15 +17,15 @@
             {{ $slot }}
         </main>
 
-        <div class="pointer-events-none fixed bottom-[calc(5.25rem+env(safe-area-inset-bottom))] left-1/2 z-40 h-5 w-full max-w-md -translate-x-1/2 bg-gradient-to-t from-[#070a10] via-[#070a10]/88 to-transparent"></div>
+        <div class="pointer-events-none fixed bottom-[calc(5.25rem+env(safe-area-inset-bottom))] left-1/2 z-40 h-5 w-full max-w-md -translate-x-1/2 bg-gradient-to-t from-[#070a10] via-[#070a10]/70 to-transparent"></div>
 
         <nav class="fixed bottom-0 left-1/2 z-50 w-full max-w-md -translate-x-1/2 px-4 pb-[max(0.75rem,env(safe-area-inset-bottom))]">
-            <div class="rounded-2xl border border-white/20 bg-[#0d1520]/99 p-1.5 shadow-[0_-14px_34px_rgba(0,0,0,0.62)] ring-1 ring-black/35">
+            <div class="rounded-2xl border border-white/20 bg-[#0e1622]/96 p-1.5 shadow-[0_-14px_34px_rgba(0,0,0,0.62)] ring-1 ring-black/35">
                 <div class="grid grid-cols-3 gap-1 text-[11px] font-medium">
                     <a
                         href="{{ route('courier.orders') }}"
                         wire:navigate
-                        class="flex min-h-14 flex-col items-center justify-center gap-1 rounded-xl transition {{ request()->routeIs('courier.orders') ? 'bg-poof/26 text-poof shadow-[inset_0_0_0_1px_rgba(47,217,184,0.38)]' : 'text-slate-300 hover:bg-white/[0.06] hover:text-white' }}"
+                        class="flex min-h-14 flex-col items-center justify-center gap-1 rounded-xl transition {{ request()->routeIs('courier.orders') ? 'bg-poof/22 text-poof shadow-[inset_0_0_0_1px_rgba(47,217,184,0.38)]' : 'text-slate-300 hover:bg-white/[0.06] hover:text-white' }}"
                     >
                         <svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
                             <path d="M3 7.5 12 3l9 4.5-9 4.5L3 7.5Z" />
@@ -38,7 +38,7 @@
                     <a
                         href="{{ route('courier.my-orders') }}"
                         wire:navigate
-                        class="flex min-h-14 flex-col items-center justify-center gap-1 rounded-xl transition {{ request()->routeIs('courier.my-orders') ? 'bg-poof/26 text-poof shadow-[inset_0_0_0_1px_rgba(47,217,184,0.38)]' : 'text-slate-300 hover:bg-white/[0.06] hover:text-white' }}"
+                        class="flex min-h-14 flex-col items-center justify-center gap-1 rounded-xl transition {{ request()->routeIs('courier.my-orders') ? 'bg-poof/22 text-poof shadow-[inset_0_0_0_1px_rgba(47,217,184,0.38)]' : 'text-slate-300 hover:bg-white/[0.06] hover:text-white' }}"
                     >
                         <svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
                             <rect x="4" y="3" width="16" height="18" rx="2" />
