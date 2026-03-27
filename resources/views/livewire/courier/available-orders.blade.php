@@ -16,7 +16,7 @@
 
     <div class="absolute inset-x-3 bottom-[calc(5.75rem+env(safe-area-inset-bottom))] z-30">
         @if($activeOrder)
-            <div class="rounded-3xl border border-amber-200/50 bg-[#171003]/97 p-4 shadow-[0_20px_50px_rgba(0,0,0,0.45)]">
+            <div class="rounded-3xl border border-amber-200/50 bg-[rgba(23,16,3,0.97)] p-4 shadow-[0_20px_50px_rgba(0,0,0,0.45)]">
                 <div class="flex items-center justify-between gap-3">
                     <div class="min-w-0">
                         <div class="text-xs font-semibold uppercase tracking-[0.08em] text-amber-200">Активне замовлення</div>

@@ -3,7 +3,7 @@
 <div x-data="{ settingsOpen: false }" class="min-h-dvh bg-[#05070b] text-white flex justify-center">
     <div class="relative w-full max-w-md min-h-dvh flex flex-col bg-[#070a10]">
 
-        <header class="sticky top-0 z-40 border-b border-white/15 bg-[#0b121c]/99 shadow-[0_12px_30px_rgba(0,0,0,0.52)]">
+        <header class="sticky top-0 z-40 border-b border-white/15 bg-[rgba(11,18,28,0.99)] shadow-[0_12px_30px_rgba(0,0,0,0.52)]">
             <div class="flex items-center justify-between gap-3 px-4 py-3">
                 <div class="min-w-0">
                     <p class="truncate text-sm font-semibold text-slate-100">POOF Courier</p>
