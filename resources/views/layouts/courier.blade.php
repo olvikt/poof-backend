@@ -3,7 +3,7 @@
 <div x-data="{ settingsOpen: false }" class="min-h-dvh bg-[#05070b] text-white flex justify-center">
     <div class="relative w-full max-w-md min-h-dvh flex flex-col bg-[#070a10]">
 
-        <header class="sticky top-0 z-40 border-b border-white/10 bg-[#0c131d]/96 shadow-[0_10px_24px_rgba(0,0,0,0.22)] backdrop-blur">
+        <header class="sticky top-0 z-40 border-b border-white/15 bg-[#0b121c]/99 shadow-[0_12px_30px_rgba(0,0,0,0.52)]">
             <div class="flex items-center justify-between gap-3 px-4 py-3">
                 <div class="min-w-0">
                     <p class="truncate text-sm font-semibold text-slate-100">POOF Courier</p>
@@ -17,15 +17,15 @@
             {{ $slot }}
         </main>
 
-        <div class="pointer-events-none fixed bottom-[calc(5.5rem+env(safe-area-inset-bottom))] left-1/2 z-40 h-8 w-full max-w-md -translate-x-1/2 bg-gradient-to-t from-[#070a10] via-[#070a10]/70 to-transparent"></div>
+        <div class="pointer-events-none fixed bottom-[calc(5.5rem+env(safe-area-inset-bottom))] left-1/2 z-40 h-8 w-full max-w-md -translate-x-1/2 bg-gradient-to-t from-[#070a10] via-[#070a10]/88 to-transparent"></div>
 
         <nav class="fixed bottom-0 left-1/2 z-50 w-full max-w-md -translate-x-1/2 px-4 pb-[max(0.75rem,env(safe-area-inset-bottom))]">
-            <div class="rounded-2xl border border-white/15 bg-[#0e1622]/96 p-1.5 shadow-[0_-12px_30px_rgba(0,0,0,0.5)] ring-1 ring-black/20 backdrop-blur-md">
+            <div class="rounded-2xl border border-white/20 bg-[#0d1520]/99 p-1.5 shadow-[0_-14px_34px_rgba(0,0,0,0.62)] ring-1 ring-black/35">
                 <div class="grid grid-cols-3 gap-1 text-[11px] font-medium">
                     <a
                         href="{{ route('courier.orders') }}"
                         wire:navigate
-                        class="flex min-h-14 flex-col items-center justify-center gap-1 rounded-xl transition {{ request()->routeIs('courier.orders') ? 'bg-poof/22 text-poof shadow-[inset_0_0_0_1px_rgba(47,217,184,0.32)]' : 'text-slate-400 hover:bg-white/[0.04] hover:text-white' }}"
+                        class="flex min-h-14 flex-col items-center justify-center gap-1 rounded-xl transition {{ request()->routeIs('courier.orders') ? 'bg-poof/26 text-poof shadow-[inset_0_0_0_1px_rgba(47,217,184,0.38)]' : 'text-slate-300 hover:bg-white/[0.06] hover:text-white' }}"
                     >
                         <svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
                             <path d="M3 7.5 12 3l9 4.5-9 4.5L3 7.5Z" />
@@ -38,7 +38,7 @@
                     <a
                         href="{{ route('courier.my-orders') }}"
                         wire:navigate
-                        class="flex min-h-14 flex-col items-center justify-center gap-1 rounded-xl transition {{ request()->routeIs('courier.my-orders') ? 'bg-poof/22 text-poof shadow-[inset_0_0_0_1px_rgba(47,217,184,0.32)]' : 'text-slate-400 hover:bg-white/[0.04] hover:text-white' }}"
+                        class="flex min-h-14 flex-col items-center justify-center gap-1 rounded-xl transition {{ request()->routeIs('courier.my-orders') ? 'bg-poof/26 text-poof shadow-[inset_0_0_0_1px_rgba(47,217,184,0.38)]' : 'text-slate-300 hover:bg-white/[0.06] hover:text-white' }}"
                     >
                         <svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
                             <rect x="4" y="3" width="16" height="18" rx="2" />
@@ -51,7 +51,7 @@
 
                     <button
                         type="button"
-                        class="flex min-h-14 flex-col items-center justify-center gap-1 rounded-xl text-slate-400 transition hover:bg-white/[0.04] hover:text-white"
+                        class="flex min-h-14 flex-col items-center justify-center gap-1 rounded-xl text-slate-300 transition hover:bg-white/[0.06] hover:text-white"
                         @click="settingsOpen = true"
                     >
                         <svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
@@ -64,25 +64,25 @@
             </div>
         </nav>
 
-        <div x-show="settingsOpen" x-cloak x-transition.opacity class="fixed inset-0 z-[998] bg-black/70" @click="settingsOpen = false">
+        <div x-show="settingsOpen" x-cloak x-transition.opacity class="fixed inset-0 z-[998] bg-black/82" @click="settingsOpen = false">
             <div
                 @click.stop
-                class="absolute inset-x-0 bottom-0 mx-auto w-full max-w-md rounded-t-3xl border border-white/10 bg-[#0e1521]/98 p-5 pb-[max(1.25rem,env(safe-area-inset-bottom))] shadow-[0_-20px_60px_rgba(0,0,0,0.55)]"
+                class="absolute inset-x-0 bottom-0 mx-auto w-full max-w-md rounded-t-3xl border border-white/18 bg-[#0c131d] p-5 pb-[max(1.25rem,env(safe-area-inset-bottom))] shadow-[0_-24px_64px_rgba(0,0,0,0.72)]"
             >
-                <div class="mx-auto mb-4 h-1.5 w-12 rounded-full bg-white/25"></div>
-                <div class="mb-4 text-center text-base font-semibold text-slate-100">Акаунт</div>
+                <div class="mx-auto mb-4 h-1.5 w-12 rounded-full bg-white/35"></div>
+                <div class="mb-4 text-center text-base font-semibold text-white">Акаунт</div>
                 <div class="space-y-2">
-                    <button type="button" class="flex w-full items-center justify-between rounded-2xl border border-white/10 bg-white/[0.05] px-4 py-3 text-left text-sm font-medium text-slate-100 transition hover:bg-white/[0.08]">
+                    <button type="button" class="flex w-full items-center justify-between rounded-2xl border border-white/15 bg-white/[0.08] px-4 py-3 text-left text-sm font-semibold text-slate-100 transition hover:bg-white/[0.12]">
                         <span>Мій профіль</span>
-                        <svg class="h-4 w-4 text-slate-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="m9 6 6 6-6 6"/></svg>
+                        <svg class="h-4 w-4 text-slate-300" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="m9 6 6 6-6 6"/></svg>
                     </button>
-                    <button type="button" class="flex w-full items-center justify-between rounded-2xl border border-white/10 bg-white/[0.05] px-4 py-3 text-left text-sm font-medium text-slate-100 transition hover:bg-white/[0.08]">
+                    <button type="button" class="flex w-full items-center justify-between rounded-2xl border border-white/15 bg-white/[0.08] px-4 py-3 text-left text-sm font-semibold text-slate-100 transition hover:bg-white/[0.12]">
                         <span>Кошелёк</span>
-                        <svg class="h-4 w-4 text-slate-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="m9 6 6 6-6 6"/></svg>
+                        <svg class="h-4 w-4 text-slate-300" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="m9 6 6 6-6 6"/></svg>
                     </button>
-                    <button type="button" class="flex w-full items-center justify-between rounded-2xl border border-white/10 bg-white/[0.05] px-4 py-3 text-left text-sm font-medium text-slate-100 transition hover:bg-white/[0.08]">
+                    <button type="button" class="flex w-full items-center justify-between rounded-2xl border border-white/15 bg-white/[0.08] px-4 py-3 text-left text-sm font-semibold text-slate-100 transition hover:bg-white/[0.12]">
                         <span>Підтримка</span>
-                        <svg class="h-4 w-4 text-slate-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="m9 6 6 6-6 6"/></svg>
+                        <svg class="h-4 w-4 text-slate-300" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="m9 6 6 6-6 6"/></svg>
                     </button>
                     <form method="POST" action="{{ route('logout') }}">
                         @csrf
@@ -97,7 +97,7 @@
                     </form>
                 </div>
                 <div class="mt-3">
-                    <button @click="settingsOpen = false" class="w-full rounded-2xl border border-white/10 bg-white/[0.04] py-2.5 text-sm text-slate-300 transition hover:bg-white/[0.08]">Закрити</button>
+                    <button @click="settingsOpen = false" class="w-full rounded-2xl border border-white/15 bg-white/[0.08] py-2.5 text-sm font-medium text-slate-100 transition hover:bg-white/[0.12]">Закрити</button>
                 </div>
             </div>
         </div>

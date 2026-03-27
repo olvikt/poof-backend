@@ -23,6 +23,10 @@
             $activeOrderForMap = $orders->firstWhere('status', \App\Models\Order::STATUS_IN_PROGRESS)
                 ?? $orders->firstWhere('status', \App\Models\Order::STATUS_ACCEPTED)
                 ?? $orders->first();
+            $hasMapPreviewData = (bool) (
+                isset($mapBootstrap['orderLat'], $mapBootstrap['orderLng'])
+                || isset($mapBootstrap['courierLat'], $mapBootstrap['courierLng'])
+            );
         @endphp
 
         <div class="mb-4 overflow-hidden rounded-3xl border border-white/10 bg-[#0d141e] shadow-[0_16px_36px_rgba(0,0,0,0.35)]">
@@ -48,9 +52,16 @@
                     </button>
                 @endif
             </div>
-            <div class="relative h-36 w-full overflow-hidden bg-[#0a111a]" data-map-bootstrap='@json($mapBootstrap ?? null)'>
+            <div class="relative h-36 w-full overflow-hidden bg-[#0b131d]" data-map-bootstrap='@json($mapBootstrap ?? null)'>
                 <div wire:ignore id="my-orders-map" class="absolute inset-0" data-map-bootstrap='@json($mapBootstrap ?? null)'></div>
                 <div class="pointer-events-none absolute inset-0 bg-gradient-to-t from-[#0d141e] via-transparent to-transparent"></div>
+                @unless($hasMapPreviewData)
+                    <div class="absolute inset-0 flex items-center justify-center">
+                        <div class="rounded-2xl border border-white/15 bg-[#101722]/95 px-3 py-2 text-center text-xs text-slate-200">
+                            Карта маршруту з’явиться, щойно буде доступна геопозиція курʼєра.
+                        </div>
+                    </div>
+                @endunless
                 @if($activeOrderForMap)
                     <div class="absolute inset-x-3 bottom-3 rounded-2xl border border-white/10 bg-[#101722]/90 px-3 py-2 text-xs text-slate-200">
                         {{ $activeOrderForMap->address_text ?? 'Адреса не вказана' }}
