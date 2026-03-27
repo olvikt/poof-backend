@@ -1,4 +1,4 @@
-<div class="relative h-[calc(100dvh-118px)] w-full pb-20" wire:poll.10s data-map-bootstrap='@json($mapBootstrap ?? null)'>
+<div class="relative h-[calc(100dvh-104px)] w-full pb-16" wire:poll.10s data-map-bootstrap='@json($mapBootstrap ?? null)'>
     <div class="sr-only" aria-hidden="true" data-map-bootstrap='@json($mapBootstrap ?? null)'></div>
     <div class="relative h-full w-full overflow-hidden bg-[#070b12]" data-map-bootstrap='@json($mapBootstrap ?? null)'>
         <div wire:ignore id="map" class="absolute inset-0" data-map-bootstrap='@json($mapBootstrap ?? null)'></div>
@@ -14,7 +14,7 @@
         </div>
     @endif
 
-    <div class="absolute inset-x-3 bottom-[calc(5.75rem+env(safe-area-inset-bottom))] z-30">
+    <div class="absolute inset-x-3 bottom-[calc(5.2rem+env(safe-area-inset-bottom))] z-30">
         @if($activeOrder)
             <div class="rounded-3xl border border-amber-200/50 bg-[#171003]/97 p-4 shadow-[0_20px_50px_rgba(0,0,0,0.45)]">
                 <div class="flex items-center justify-between gap-3">

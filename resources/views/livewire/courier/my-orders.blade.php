@@ -30,29 +30,19 @@
         @endphp
 
         <div class="mb-4 overflow-hidden rounded-3xl border border-white/10 bg-[#0d141e] shadow-[0_16px_36px_rgba(0,0,0,0.35)]">
-            <div class="flex items-center justify-between border-b border-white/10 px-4 py-3">
-                <div>
-                    <div class="text-xs font-semibold uppercase tracking-[0.08em] text-slate-400">Маршрут</div>
-                    <div class="text-sm font-semibold text-slate-100">
-                        @if($activeOrderForMap)
-                            Активний маршрут
-                        @else
-                            Активний маршрут
-                        @endif
-                    </div>
-                </div>
-                @if($activeOrderForMap)
+            @if($activeOrderForMap)
+                <div class="border-b border-white/10 px-4 py-2.5">
                     <button
                         type="button"
                         wire:click="navigate({{ $activeOrderForMap->id }})"
                         @if(! $online) disabled @endif
-                        class="rounded-xl border border-white/15 bg-white/10 px-3 py-1.5 text-xs font-semibold text-slate-100 transition hover:bg-white/15 disabled:pointer-events-none disabled:opacity-40"
+                        class="inline-flex h-9 items-center justify-center rounded-xl bg-amber-300 px-3.5 text-xs font-semibold text-[#1d1508] shadow-[0_10px_24px_rgba(252,211,77,0.25)] transition hover:bg-amber-200 disabled:pointer-events-none disabled:opacity-40"
                     >
                         Навігація
                     </button>
-                @endif
-            </div>
-            <div class="relative h-44 w-full overflow-hidden bg-[#0b131d]" data-map-bootstrap='@json($mapBootstrap ?? null)'>
+                </div>
+            @endif
+            <div class="relative h-[45dvh] min-h-[320px] max-h-[520px] w-full overflow-hidden bg-[#0b131d]" data-map-bootstrap='@json($mapBootstrap ?? null)'>
                 <div wire:ignore id="my-orders-map" class="absolute inset-0" data-map-bootstrap='@json($mapBootstrap ?? null)'></div>
                 <div class="pointer-events-none absolute inset-x-0 top-0 h-16 bg-gradient-to-b from-[#0d141e]/75 to-transparent"></div>
                 @unless($hasMapPreviewData)
@@ -63,11 +53,6 @@
                     </div>
                 @endunless
             </div>
-            @if($activeOrderForMap)
-                <div class="border-t border-white/10 bg-[#101722]/90 px-4 py-2 text-xs text-slate-200">
-                    {{ $activeOrderForMap->address_text ?? 'Адреса не вказана' }}
-                </div>
-            @endif
         </div>
 
         <div class="space-y-3">
@@ -99,45 +84,50 @@
                         : null;
 
                     $clientPhone = $order->client?->phone ?? null;
+                    $addressDetailRows = array_filter([
+                        'Дім' => data_get($order, 'house'),
+                        'Підʼїзд' => $order->entrance,
+                        'Поверх' => $order->floor,
+                        'Квартира' => $order->apartment,
+                        'Домофон' => $order->intercom,
+                    ], static fn ($value) => filled($value));
                 @endphp
 
                 <div wire:key="my-order-{{ $order->id }}" class="rounded-3xl border border-white/10 bg-[#111926] p-4 shadow-[0_18px_36px_rgba(0,0,0,0.32)]">
                     <div class="flex items-start justify-between gap-3">
-                        <div>
+                        <div class="min-w-0 flex-1">
                             <div class="text-sm font-semibold text-slate-200">Замовлення #{{ $order->id }}</div>
-                            <div class="mt-1 text-xs text-slate-400">{{ $order->address_text ?? 'Адреса не вказана' }}</div>
-                        </div>
+                            <div class="mt-1 flex items-start justify-between gap-2">
+                                <div class="min-w-0 text-xs text-slate-400">{{ $order->address_text ?? 'Адреса не вказана' }}</div>
+                                <div class="flex shrink-0 items-center gap-1.5 text-[11px]">
+                                    @if($distanceKm !== null)
+                                        <span class="rounded-full border border-white/15 bg-white/10 px-2 py-0.5 {{ $distanceKm <= 1 ? 'text-emerald-300' : ($distanceKm <= 3 ? 'text-amber-300' : 'text-orange-300') }}">{{ number_format($distanceKm, 1) }} км</span>
+                                    @endif
 
-                        <span
-                            class="shrink-0 rounded-full px-2.5 py-1 text-[11px] font-semibold
-                            @if($order->status === \App\Models\Order::STATUS_ACCEPTED)
-                                border border-amber-300/40 bg-amber-400/20 text-amber-200
-                            @elseif($order->status === \App\Models\Order::STATUS_IN_PROGRESS)
-                                border border-sky-300/40 bg-sky-500/20 text-sky-100
-                            @elseif($order->status === \App\Models\Order::STATUS_COMPLETED)
-                                border border-emerald-300/40 bg-emerald-500/20 text-emerald-200
-                            @else
-                                border border-white/20 bg-white/10 text-slate-100
-                            @endif
-                            "
-                        >
-                            {{ \App\Models\Order::STATUS_LABELS[$order->status] ?? $order->status }}
-                        </span>
+                                    @if($etaMin !== null)
+                                        <span class="rounded-full border border-white/15 bg-white/10 px-2 py-0.5 text-slate-200">~{{ $etaMin }} хв</span>
+                                    @endif
+                                </div>
+                            </div>
+                        </div>
                     </div>
 
                     <div class="mt-3 flex flex-wrap items-center gap-2 text-[11px]">
-                        @if($distanceKm !== null)
-                            <span class="rounded-full border border-white/15 bg-white/10 px-2.5 py-1 {{ $distanceKm <= 1 ? 'text-emerald-300' : ($distanceKm <= 3 ? 'text-amber-300' : 'text-orange-300') }}">{{ number_format($distanceKm, 1) }} км</span>
-                        @endif
-
-                        @if($etaMin !== null)
-                            <span class="rounded-full border border-white/15 bg-white/10 px-2.5 py-1 text-slate-200">~{{ $etaMin }} хв</span>
-                        @endif
-
                         @if($elapsedLabel)
                             <span class="rounded-full border border-white/15 bg-white/10 px-2.5 py-1 text-slate-200">{{ $elapsedLabel }}</span>
                         @endif
                     </div>
+
+                    @if($addressDetailRows !== [])
+                        <div class="mt-3 grid grid-cols-2 gap-x-3 gap-y-1.5 text-[11px] text-slate-300">
+                            @foreach($addressDetailRows as $label => $value)
+                                <div class="flex items-center gap-1.5">
+                                    <span class="text-slate-500">{{ $label }}:</span>
+                                    <span class="font-medium text-slate-200">{{ $value }}</span>
+                                </div>
+                            @endforeach
+                        </div>
+                    @endif
 
                     <div class="mt-4">
                         <a
