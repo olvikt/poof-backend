@@ -167,6 +167,7 @@ export default {
     extend: {
       colors: {
         poof: {
+          DEFAULT: 'rgb(244 203 87)',
           400: 'rgb(244 203 87)', // основной бренд
           500: 'rgb(234 193 77)', // hover
           600: 'rgb(214 173 57)', // pressed
