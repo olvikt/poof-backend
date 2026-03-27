@@ -71,8 +71,15 @@ export default {
     'bg-black/20',
     'bg-black/70',
     'border-white/5',
+    'border-white/15',
     'border-green-400/30',
     'bg-blue-500/90',
+    'bg-[#171003]/97',
+    'bg-[#0d1520]/99',
+    'from-[#070a10]',
+    'via-[#070a10]/88',
+    'hover:bg-white/[0.06]',
+    'hover:text-white',
 
     // ✅ ДОБАВИЛ: твои "отсутствующие" классы
     'bg-white/5',
