@@ -17,7 +17,7 @@
             {{ $slot }}
         </main>
 
-        <div class="pointer-events-none fixed bottom-[calc(5.05rem+env(safe-area-inset-bottom))] left-1/2 z-40 h-1.5 w-full max-w-md -translate-x-1/2 bg-gradient-to-t from-[#070a10]/45 via-[#070a10]/15 to-transparent"></div>
+        <div class="pointer-events-none fixed bottom-[calc(4.9rem+env(safe-area-inset-bottom))] left-1/2 z-40 h-1 w-full max-w-md -translate-x-1/2 bg-gradient-to-t from-[#070a10]/35 via-[#070a10]/10 to-transparent"></div>
 
         <nav class="fixed bottom-0 left-1/2 z-50 w-full max-w-md -translate-x-1/2 px-4 pb-[max(0.75rem,env(safe-area-inset-bottom))]">
             <div class="rounded-2xl border border-white/20 bg-[#0e1622] p-1 shadow-[0_-14px_34px_rgba(0,0,0,0.62)] ring-1 ring-black/35">

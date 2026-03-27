@@ -1,4 +1,4 @@
-<div class="relative h-[calc(100dvh-104px)] w-full pb-16" wire:poll.10s data-map-bootstrap='@json($mapBootstrap ?? null)'>
+<div class="relative h-[calc(100dvh-92px)] w-full pb-12" wire:poll.10s data-map-bootstrap='@json($mapBootstrap ?? null)'>
     <div class="sr-only" aria-hidden="true" data-map-bootstrap='@json($mapBootstrap ?? null)'></div>
     <div class="relative h-full w-full overflow-hidden bg-[#070b12]" data-map-bootstrap='@json($mapBootstrap ?? null)'>
         <div wire:ignore id="map" class="absolute inset-0" data-map-bootstrap='@json($mapBootstrap ?? null)'></div>
