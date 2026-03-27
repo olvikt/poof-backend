@@ -75,8 +75,10 @@ export default {
     'border-green-400/30',
     'bg-blue-500/90',
     'bg-[#070b12]',
+    // Critical courier surface/overlay tokens that must exist in production builds.
     'bg-[#171003]/97',
     'bg-[#0d1520]/99',
+    'bg-poof/22',
     'bg-poof/26',
     'from-[#070a10]',
     'via-[#070a10]/88',
@@ -167,6 +169,11 @@ export default {
 
   theme: {
     extend: {
+      opacity: {
+        22: '0.22',
+        97: '0.97',
+      },
+
       colors: {
         poof: {
           DEFAULT: 'rgb(244 203 87 / <alpha-value>)',
