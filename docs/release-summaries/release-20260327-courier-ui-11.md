@@ -1,4 +1,5 @@
 # release-20260327-courier-ui-11
 
-- Harden exact Tailwind safelist entries for courier UI surface classes
-- Ensure bg-poof opacity utilities compile reliably in production
+- Restore stable exact courier Blade surface values
+- Revert separator/nav/tab active utilities to the visually working values
+- Keep hover surface behavior aligned on courier navigation
