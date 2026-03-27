@@ -1,5 +1,5 @@
 # release-20260327-courier-ui-12
 
-- Restore stable exact courier Blade surface values
-- Revert separator/nav/tab active utilities to the visually working values
-- Keep hover surface behavior aligned on courier navigation
+- Fix courier rendered surface layers for header, bottom nav, and account sheet
+- Make header and nav painted surfaces fully opaque
+- Reduce the dark band above the bottom nav on Available Orders
