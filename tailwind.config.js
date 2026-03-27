@@ -74,8 +74,10 @@ export default {
     'border-white/15',
     'border-green-400/30',
     'bg-blue-500/90',
+    'bg-[#070b12]',
     'bg-[#171003]/97',
     'bg-[#0d1520]/99',
+    'bg-poof/26',
     'from-[#070a10]',
     'via-[#070a10]/88',
     'hover:bg-white/[0.06]',
@@ -167,10 +169,10 @@ export default {
     extend: {
       colors: {
         poof: {
-          DEFAULT: 'rgb(244 203 87)',
-          400: 'rgb(244 203 87)', // основной бренд
-          500: 'rgb(234 193 77)', // hover
-          600: 'rgb(214 173 57)', // pressed
+          DEFAULT: 'rgb(244 203 87 / <alpha-value>)',
+          400: 'rgb(244 203 87 / <alpha-value>)', // основной бренд
+          500: 'rgb(234 193 77 / <alpha-value>)', // hover
+          600: 'rgb(214 173 57 / <alpha-value>)', // pressed
         },
       },
 
