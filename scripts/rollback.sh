@@ -164,6 +164,11 @@ if git rev-parse --verify --quiet "refs/tags/$RESOLVED_REF" > /dev/null; then
     exit 1
   fi
   RELEASE_SUMMARY_TEXT="$(extract_release_summary "$RELEASE_SUMMARY_FILE")"
+  if [[ -z "$RELEASE_SUMMARY_TEXT" ]]; then
+    echo "[rollback] empty release summary for tag $RESOLVED_REF: $RELEASE_SUMMARY_FILE" >&2
+    echo "[rollback] add a short non-heading note before rollback so release state satisfies summary contract" >&2
+    exit 1
+  fi
 fi
 RELEASE_REF_KIND="$([[ "$IS_TAG_RELEASE" -eq 1 ]] && echo tag || echo ref)"
 RELEASE_SUMMARY_REQUIRED="$([[ "$IS_TAG_RELEASE" -eq 1 ]] && echo true || echo false)"
