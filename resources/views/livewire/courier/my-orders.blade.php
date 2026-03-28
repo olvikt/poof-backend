@@ -133,7 +133,7 @@
                     ];
                 @endphp
 
-                <div wire:key="my-order-{{ $order->id }}" class="courier-surface border border-white/10 p-4" x-data="{ contactOpen: false }">
+                <div wire:key="my-order-{{ $order->id }}" class="courier-surface border border-white/10 p-4" x-data="{ contactOpen: false, clientPhone: @js($clientPhone) }">
                     <div class="flex items-start justify-between gap-3">
                         <div class="min-w-0 flex-1">
                             <div class="text-sm font-semibold text-slate-200">Замовлення #{{ $order->id }}</div>
@@ -229,7 +229,7 @@
                                     <button
                                         type="button"
                                         class="courier-btn courier-btn-secondary w-full"
-                                        @click="navigator.clipboard?.writeText('{{ $clientPhone }}'); contactOpen = false"
+                                        @click="if (clientPhone) { navigator.clipboard?.writeText(clientPhone) }; contactOpen = false"
                                     >
                                         Скопіювати номер
                                     </button>
