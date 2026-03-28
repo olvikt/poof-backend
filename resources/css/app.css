@@ -20,7 +20,7 @@
     }
 
     .courier-btn-secondary {
-        @apply border border-white/12 bg-white/[0.08] text-slate-100 hover:bg-white/[0.14];
+        @apply border border-white/15 bg-white/10 text-slate-100 hover:bg-white/15;
     }
 
     .courier-chip-control {
