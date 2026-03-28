@@ -109,7 +109,7 @@ export default (props = {}) => ({
     this.scheduledDate = date;
 
     // 🔥 общаемся с Livewire безопасно
-    Livewire.dispatch('set-scheduled-date', { date });
+    window.Livewire?.dispatch?.('set-scheduled-date', { date });
   },
 
   scrollToIndex(idx) {
@@ -134,7 +134,7 @@ export default (props = {}) => ({
 
     this.model = this.i;
 
-    Livewire.dispatch('set-time-slot', {
+    window.Livewire?.dispatch?.('set-time-slot', {
       index: this.i,
     });
   },
