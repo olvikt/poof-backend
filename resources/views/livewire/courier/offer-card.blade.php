@@ -8,7 +8,7 @@
         @endphp
 
         {{-- WRAPPER --}}
-        <div class="fixed bottom-20 left-0 right-0 z-50 pointer-events-none">
+        <div class="fixed bottom-[calc(5.25rem+env(safe-area-inset-bottom))] left-0 right-0 z-50 pointer-events-none">
 
             <div class="max-w-md mx-auto px-4 pointer-events-auto">
 
@@ -105,31 +105,11 @@
                         {{-- ACTIONS --}}
                         <div class="mt-6 grid grid-cols-2 gap-3">
 
-                            <button
-                                type="button"
-                                wire:click="reject"
-                                class="
-                                    rounded-2xl
-                                    border border-gray-600
-                                    bg-gray-800
-                                    text-gray-200
-                                    py-3
-                                    font-semibold
-                                    transition
-                                    active:scale-[.97]
-                                    hover:bg-gray-700
-                                "
-                            >
+                            <button type="button" wire:click="reject" class="courier-btn courier-btn-secondary h-12 border-gray-600 bg-gray-800 text-gray-200 hover:bg-gray-700">
                                 Пропустити
                             </button>
 
-                            <button
-                                type="button"
-                                wire:click="accept"
-                                class="
-                                    rounded-xl bg-yellow-400 text-black py-3 font-extrabold transition active:scale-[.98]
-                                "
-                            >
+                            <button type="button" wire:click="accept" class="courier-btn courier-btn-warning h-12 font-bold">
                                 Прийняти
                             </button>
 
