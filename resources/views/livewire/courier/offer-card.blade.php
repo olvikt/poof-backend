@@ -8,7 +8,7 @@
         @endphp
 
         {{-- WRAPPER --}}
-        <div class="fixed bottom-[calc(5.25rem+env(safe-area-inset-bottom))] left-0 right-0 z-50 pointer-events-none">
+        <div class="fixed bottom-[calc(var(--courier-nav-h)+env(safe-area-inset-bottom)+0.2rem)] left-0 right-0 z-50 pointer-events-none">
 
             <div class="max-w-md mx-auto px-4 pointer-events-auto">
 

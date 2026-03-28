@@ -32,6 +32,12 @@
     }
 }
 
+/* Courier UI shell safety: keep map/background readable even during Livewire morphs. */
+#map,
+#my-orders-map {
+    min-height: 100%;
+}
+
 
 html, body {
     height: 100%;
