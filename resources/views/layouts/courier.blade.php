@@ -1,7 +1,7 @@
 <x-layouts.app title="POOF — Курʼєр">
 
 <div x-data="{ settingsOpen: false }" class="min-h-dvh bg-[#05070b] text-white flex justify-center">
-    <div class="relative w-full max-w-md min-h-dvh flex flex-col bg-[#070a10] [--courier-header-h:64px] [--courier-nav-h:92px]">
+    <div class="relative w-full max-w-md min-h-dvh flex flex-col bg-[#070a10] [--courier-header-h:64px] [--courier-nav-h:92px] [--courier-screen-bottom-gap:0.75rem]">
 
         <header class="sticky top-0 z-40 border-b border-white/15 bg-[#0b121c] shadow-[0_12px_30px_rgba(0,0,0,0.52)]">
             <div class="flex items-center justify-between gap-3 px-4 py-3">
@@ -13,7 +13,7 @@
             </div>
         </header>
 
-        <main class="flex-1 overflow-y-auto pb-[calc(var(--courier-nav-h)+env(safe-area-inset-bottom)+0.75rem)]">
+        <main class="flex-1 overflow-y-auto pb-[calc(var(--courier-nav-h)+env(safe-area-inset-bottom)+var(--courier-screen-bottom-gap))]">
             {{ $slot }}
         </main>
 

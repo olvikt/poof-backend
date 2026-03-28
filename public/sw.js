@@ -1,8 +1,7 @@
-const CACHE_VERSION = "poof-v10"
+const CACHE_VERSION = "poof-v11"
 const STATIC_CACHE = `static-${CACHE_VERSION}`
 
 const STATIC_ASSETS = [
-    "/",
     "/manifest.json",
 ]
 
