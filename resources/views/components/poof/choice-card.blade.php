@@ -1,13 +1,18 @@
 @props([
     'value',
     'current',
+    'model' => null,
     'title',
     'subtitle' => null,
     'icon' => null,
 ])
 
+@php
+    $boundModel = $model ?: $attributes->wire('model')->value();
+@endphp
+
 <div
-    wire:click="$set('{{ $attributes->wire('model')->value() }}', '{{ $value }}')"
+    wire:click="$set('{{ $boundModel }}', '{{ $value }}')"
     class="
         flex-1 cursor-pointer
         flex items-center justify-between
@@ -23,7 +28,7 @@
     {{-- hidden radio for semantics --}}
     <input
         type="radio"
-        wire:model="{{ $attributes->wire('model')->value() }}"
+        wire:model="{{ $boundModel }}"
         value="{{ $value }}"
         class="hidden pointer-events-none"
     >

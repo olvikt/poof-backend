@@ -9,8 +9,8 @@
             </h2>
 
             <button
-                onclick="window.Livewire.dispatch('address:open')"
                 type="button"
+                wire:click="create"
                 class="rounded-xl bg-yellow-400 px-3 py-1.5 text-black text-sm font-semibold hover:bg-yellow-300 transition"
             >
                 + Додати

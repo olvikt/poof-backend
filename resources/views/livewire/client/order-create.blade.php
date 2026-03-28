@@ -22,7 +22,8 @@
 
 					<button
 						type="button"
-						wire:click="$dispatch('sheet:open', { name: 'addressPicker' })"
+						x-data
+						@click="$dispatch('sheet:open', { name: 'addressPicker' })"
 						class="text-xs text-yellow-400 font-semibold hover:opacity-80 transition"
 					>
 						Обрати збережену
@@ -250,6 +251,7 @@
 
 				<x-poof.choice-card
 					wire:model="handover_type"
+					model="handover_type"
 					value="door"
 					:current="$handover_type"
 					title="За дверима"
@@ -259,6 +261,7 @@
 
 				<x-poof.choice-card
 					wire:model="handover_type"
+					model="handover_type"
 					value="hand"
 					:current="$handover_type"
 					title="В руки"

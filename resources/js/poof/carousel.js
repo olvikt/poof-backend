@@ -108,7 +108,12 @@ export default (props = {}) => ({
   setDate(date) {
     this.scheduledDate = date;
 
-    // 🔥 общаемся с Livewire безопасно
+    if (this.$wire?.set) {
+      this.$wire.set('scheduled_date', date);
+      return;
+    }
+
+    // fallback для страниц без прямого контекста $wire
     window.Livewire?.dispatch?.('set-scheduled-date', { date });
   },
 
@@ -133,6 +138,11 @@ export default (props = {}) => ({
     if (this.i === null) return;
 
     this.model = this.i;
+
+    if (this.$wire?.call) {
+      this.$wire.call('setTimeSlot', this.i);
+      return;
+    }
 
     window.Livewire?.dispatch?.('set-time-slot', {
       index: this.i,
