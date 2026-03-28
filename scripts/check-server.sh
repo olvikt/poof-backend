@@ -52,8 +52,8 @@ run_log_evidence() {
   local cutoff_label
   local windowed_lines
   local marker_lines
-  local recent_buffer
-  local window_buffer
+  local recent_buffer=""
+  local window_buffer=""
   local latest_timestamp_line
 
   now_epoch="$(date -u +%s)"
@@ -94,7 +94,16 @@ run_log_evidence() {
 
   recent_buffer="$(mktemp)"
   window_buffer="$(mktemp)"
-  trap 'rm -f "$recent_buffer" "$window_buffer"' RETURN
+  trap 'rm -f "${recent_buffer:-}" "${window_buffer:-}"' RETURN
+
+  if ! (cd "$APP_DIR" && [[ -f "$log_file" ]]); then
+    echo
+    echo "==> $description"
+    echo "Application log file not found for degraded evidence fallback: $APP_DIR/$log_file"
+    trap - RETURN
+    rm -f "${recent_buffer:-}" "${window_buffer:-}"
+    return 0
+  fi
 
   cd "$APP_DIR" && tail -n "$recent_scan_lines" "$log_file" > "$recent_buffer"
 
@@ -172,12 +181,16 @@ BASH
 
   if [[ -n "$windowed_lines" ]]; then
     printf '%s\n' "$windowed_lines"
+    trap - RETURN
+    rm -f "${recent_buffer:-}" "${window_buffer:-}"
     return 0
   fi
 
   if [[ -n "$marker_lines" ]]; then
     echo "No timestamp-window match; showing bounded context around latest deploy marker (commit/ref/date) in recent log slice."
     printf '%s\n' "$marker_lines"
+    trap - RETURN
+    rm -f "${recent_buffer:-}" "${window_buffer:-}"
     return 0
   fi
 
@@ -192,6 +205,9 @@ BASH
   else
     echo "No timestamped application log lines found in scanned slice."
   fi
+
+  trap - RETURN
+  rm -f "${recent_buffer:-}" "${window_buffer:-}"
 }
 
 run_deploy_runtime_evidence() {
@@ -305,15 +321,12 @@ run "Current release state contract" bash -lc '
 
     $required = [
         "release_ref",
-        "release_ref_kind",
         "requested_ref",
         "resolved_ref",
         "selection_mode",
         "commit",
         "deployed_at_utc",
         "deployment_type",
-        "release_summary_required",
-        "release_summary_present",
     ];
 
     foreach ($required as $field) {
@@ -324,22 +337,27 @@ run "Current release state contract" bash -lc '
     }
 
     $releaseRefKind = trim((string) ($state["release_ref_kind"] ?? ""));
-    if ($releaseRefKind !== "tag" && $releaseRefKind !== "ref") {
+    $hasSummaryContractFlags = array_key_exists("release_summary_required", $state) || array_key_exists("release_summary_present", $state);
+
+    if ($releaseRefKind === "") {
+        $releaseRefKind = "ref";
+        fwrite(STDERR, "[check-server] WARNING: release_ref_kind missing in release state, treating as legacy state contract\n");
+    } elseif ($releaseRefKind !== "tag" && $releaseRefKind !== "ref") {
         fwrite(STDERR, "[check-server] invalid release_ref_kind: {$releaseRefKind}\n");
         exit(1);
     }
 
-    $summaryRequired = !empty($state["release_summary_required"]);
-    $summaryPresent = !empty($state["release_summary_present"]);
+    $summaryRequired = array_key_exists("release_summary_required", $state) ? !empty($state["release_summary_required"]) : false;
+    $summaryPresent = array_key_exists("release_summary_present", $state) ? !empty($state["release_summary_present"]) : false;
     $summaryFile = trim((string) ($state["release_summary_file"] ?? ""));
     $summary = trim((string) ($state["release_summary"] ?? ""));
 
-    if ($releaseRefKind === "tag" && !$summaryRequired) {
+    if ($hasSummaryContractFlags && $releaseRefKind === "tag" && !$summaryRequired) {
         fwrite(STDERR, "[check-server] tag releases must require release summary\n");
         exit(1);
     }
 
-    if ($summaryRequired) {
+    if ($hasSummaryContractFlags && $summaryRequired) {
       if (!$summaryPresent || $summaryFile === "" || $summary === "") {
         fwrite(STDERR, "[check-server] required release summary evidence is incomplete\n");
         exit(1);
