@@ -1,5 +1,5 @@
 import './bootstrap'
-import { Livewire, Alpine } from '../../vendor/livewire/livewire/dist/livewire.esm'
+import Alpine from 'alpinejs'
 import poofTimeCarousel from './poof/carousel'
 import addressAutocomplete from './address-autocomplete'
 
@@ -10,7 +10,9 @@ document.addEventListener('alpine:init', () => {
   Alpine.data('addressAutocomplete', addressAutocomplete)
 })
 
-Livewire.start()
+if (window.Livewire?.start) {
+  window.Livewire.start()
+}
 
 // CSS
 import '../css/app.css'

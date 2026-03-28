@@ -7,13 +7,13 @@
     </div>
 
     @if($orders->isEmpty())
-        <div class="rounded-3xl border border-white/10 bg-[#101722] p-6 shadow-[0_16px_36px_rgba(0,0,0,0.35)]">
+        <div class="courier-surface border border-white/10 p-6">
             <div class="text-base font-semibold text-slate-100">Активних замовлень немає</div>
             <div class="mt-2 text-sm text-slate-400">Поверніться на головний екран і прийміть замовлення з мапи.</div>
             <a
                 href="{{ route('courier.orders') }}"
                 wire:navigate
-                class="mt-4 inline-flex h-11 items-center justify-center rounded-2xl bg-poof px-4 text-sm font-semibold text-[#051014] transition hover:bg-poof/90"
+                class="courier-btn courier-btn-primary mt-4"
             >
                 До доступних замовлень
             </a>
@@ -27,7 +27,44 @@
                 isset($mapBootstrap['orderLat'], $mapBootstrap['orderLng'])
                 || isset($mapBootstrap['courierLat'], $mapBootstrap['courierLng'])
             );
+
+            $primaryOrder = $orders->firstWhere('status', \App\Models\Order::STATUS_ACCEPTED)
+                ?? $orders->firstWhere('status', \App\Models\Order::STATUS_IN_PROGRESS)
+                ?? $orders->first();
         @endphp
+
+        @if($primaryOrder)
+            <div class="sticky top-2 z-30 mb-4 rounded-2xl border border-white/12 bg-[#111b2a]/95 p-3 shadow-[0_14px_30px_rgba(0,0,0,0.38)] backdrop-blur-sm">
+                <div class="flex items-center gap-2.5">
+                    <div class="min-w-0 flex-1">
+                        <div class="text-[11px] uppercase tracking-[0.08em] text-slate-400">Головна дія</div>
+                        <div class="truncate text-sm font-semibold text-slate-100">Замовлення #{{ $primaryOrder->id }}</div>
+                    </div>
+
+                    @if($primaryOrder->status === \App\Models\Order::STATUS_ACCEPTED)
+                        <button
+                            type="button"
+                            wire:click="start({{ $primaryOrder->id }})"
+                            wire:loading.attr="disabled"
+                            @if(! $online) disabled @endif
+                            class="courier-btn courier-btn-warning h-11 min-w-[165px]"
+                        >
+                            Почати виконання
+                        </button>
+                    @elseif($primaryOrder->status === \App\Models\Order::STATUS_IN_PROGRESS)
+                        <button
+                            type="button"
+                            wire:click="complete({{ $primaryOrder->id }})"
+                            wire:loading.attr="disabled"
+                            @if(! $online) disabled @endif
+                            class="courier-btn courier-btn-success h-11 min-w-[165px]"
+                        >
+                            Завершити
+                        </button>
+                    @endif
+                </div>
+            </div>
+        @endif
 
         <div class="mb-4 overflow-hidden rounded-3xl border border-white/10 bg-[#0d141e] shadow-[0_16px_36px_rgba(0,0,0,0.35)]">
             <div class="relative h-[50dvh] min-h-[360px] max-h-[560px] w-full overflow-hidden bg-[#0b131d]" data-map-bootstrap='@json($mapBootstrap ?? null)'>
@@ -35,13 +72,14 @@
                 <div class="pointer-events-none absolute inset-x-0 top-0 h-16 bg-gradient-to-b from-[#0d141e]/75 to-transparent"></div>
 
                 @if($activeOrderForMap)
-                    <div class="absolute right-3 top-3 z-20">
+                    <div class="absolute bottom-3 right-3 z-20">
                         <button
                             type="button"
                             wire:click="navigate({{ $activeOrderForMap->id }})"
                             @if(! $online) disabled @endif
-                            class="inline-flex h-10 items-center justify-center rounded-xl border border-amber-100/40 bg-amber-300 px-4 text-xs font-semibold text-[#1d1508] shadow-[0_10px_24px_rgba(252,211,77,0.3)] transition hover:bg-amber-200 disabled:pointer-events-none disabled:opacity-40"
+                            class="courier-btn courier-btn-warning h-11 min-w-[132px] rounded-full px-4 text-xs"
                         >
+                            <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M21 3 3 10l7 2 2 7 9-16Z"/></svg>
                             Навігація
                         </button>
                     </div>
@@ -86,16 +124,16 @@
                         : null;
 
                     $clientPhone = $order->client?->phone ?? null;
-                    $addressDetailRows = array_filter([
-                        'Дім' => data_get($order, 'house'),
+
+                    $addressDetails = [
                         'Підʼїзд' => $order->entrance,
                         'Поверх' => $order->floor,
                         'Квартира' => $order->apartment,
                         'Домофон' => $order->intercom,
-                    ], static fn ($value) => filled($value));
+                    ];
                 @endphp
 
-                <div wire:key="my-order-{{ $order->id }}" class="rounded-3xl border border-white/10 bg-[#111926] p-4 shadow-[0_18px_36px_rgba(0,0,0,0.32)]">
+                <div wire:key="my-order-{{ $order->id }}" class="courier-surface border border-white/10 p-4" x-data="{ contactOpen: false, clientPhone: @js($clientPhone) }">
                     <div class="flex items-start justify-between gap-3">
                         <div class="min-w-0 flex-1">
                             <div class="text-sm font-semibold text-slate-200">Замовлення #{{ $order->id }}</div>
@@ -118,25 +156,28 @@
                         </div>
                     </div>
 
-                    @if($addressDetailRows !== [])
-                        <div class="mt-3 flex flex-wrap gap-2">
-                            @foreach($addressDetailRows as $label => $value)
-                                <div class="inline-flex items-center gap-1.5 rounded-xl border border-white/12 bg-white/[0.06] px-2.5 py-1 text-[11px] text-slate-200 shadow-[inset_0_1px_0_rgba(255,255,255,0.03)]">
-                                    <span class="text-slate-400">{{ $label }}</span>
-                                    <span class="font-semibold text-slate-100">{{ $value }}</span>
+                    <div class="mt-3 rounded-2xl border border-white/8 bg-[#0d1522] p-3">
+                        <div class="mb-2 text-[11px] font-semibold uppercase tracking-[0.08em] text-slate-400">Доступ до клієнта</div>
+                        <div class="grid grid-cols-2 gap-2">
+                            @foreach($addressDetails as $label => $value)
+                                <div class="rounded-xl bg-white/[0.04] px-2.5 py-2">
+                                    <div class="text-[10px] uppercase tracking-[0.07em] text-slate-500">{{ $label }}</div>
+                                    <div class="mt-0.5 text-sm font-semibold text-slate-100">{{ filled($value) ? $value : '—' }}</div>
                                 </div>
                             @endforeach
                         </div>
-                    @endif
+                    </div>
 
-                    <div class="mt-4">
-                        <a
-                            href="{{ $clientPhone ? 'tel:' . $clientPhone : '#' }}"
-                            @if(! $clientPhone) aria-disabled="true" @endif
-                            class="flex h-11 items-center justify-center rounded-2xl border border-white/15 bg-white/10 text-sm font-semibold transition hover:bg-white/15 {{ ($online && $clientPhone) ? '' : 'pointer-events-none opacity-40' }}"
+                    <div class="mt-3 flex items-center gap-2.5">
+                        <button
+                            type="button"
+                            @click="contactOpen = true"
+                            @if(! ($online && $clientPhone)) disabled @endif
+                            class="courier-btn courier-btn-secondary h-10 rounded-xl px-3 text-xs"
                         >
-                            Зв’язок
-                        </a>
+                            <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6A19.79 19.79 0 0 1 2.12 4.18 2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72c.12.89.33 1.76.63 2.6a2 2 0 0 1-.45 2.11L8 9.91a16 16 0 0 0 6.09 6.09l1.48-1.29a2 2 0 0 1 2.11-.45c.84.3 1.71.51 2.6.63A2 2 0 0 1 22 16.92Z"/></svg>
+                            Звʼязок
+                        </button>
                     </div>
 
                     <div class="mt-4 border-t border-white/10 pt-4">
@@ -146,7 +187,7 @@
                                 wire:click="start({{ $order->id }})"
                                 wire:loading.attr="disabled"
                                 @if(! $online) disabled @endif
-                                class="h-12 w-full rounded-2xl bg-amber-300 text-sm font-bold text-[#191204] shadow-lg transition active:scale-[0.99] disabled:pointer-events-none disabled:opacity-40"
+                                class="courier-btn courier-btn-warning h-12 w-full"
                             >
                                 Почати виконання
                             </button>
@@ -156,11 +197,45 @@
                                 wire:click="complete({{ $order->id }})"
                                 wire:loading.attr="disabled"
                                 @if(! $online) disabled @endif
-                                class="h-12 w-full rounded-2xl bg-emerald-400 text-sm font-bold text-[#07160e] shadow-lg transition active:scale-[0.99] disabled:pointer-events-none disabled:opacity-40"
+                                class="courier-btn courier-btn-success h-12 w-full"
                             >
                                 Завершити замовлення
                             </button>
                         @endif
+                    </div>
+
+                    <div
+                        x-show="contactOpen"
+                        x-cloak
+                        x-transition.opacity
+                        @click="contactOpen = false"
+                        class="fixed inset-0 z-[70] bg-black/65"
+                    >
+                        <div
+                            @click.stop
+                            class="absolute inset-x-0 bottom-0 mx-auto w-full max-w-md rounded-t-3xl bg-[#0c131d] p-4 pb-[max(1rem,env(safe-area-inset-bottom))] shadow-[0_-18px_42px_rgba(0,0,0,0.7)]"
+                        >
+                            <div class="mx-auto mb-3 h-1.5 w-11 rounded-full bg-white/30"></div>
+                            <div class="text-sm font-semibold text-slate-100">Зв’язок із клієнтом</div>
+                            <div class="mt-3 space-y-2">
+                                <a
+                                    href="{{ $clientPhone ? 'tel:' . $clientPhone : '#' }}"
+                                    @if(! $clientPhone) aria-disabled="true" @endif
+                                    class="courier-btn courier-btn-primary w-full"
+                                >
+                                    Зателефонувати
+                                </a>
+                                @if($clientPhone)
+                                    <button
+                                        type="button"
+                                        class="courier-btn courier-btn-secondary w-full"
+                                        @click="if (clientPhone) { navigator.clipboard?.writeText(clientPhone) }; contactOpen = false"
+                                    >
+                                        Скопіювати номер
+                                    </button>
+                                @endif
+                            </div>
+                        </div>
                     </div>
                 </div>
             @endforeach
