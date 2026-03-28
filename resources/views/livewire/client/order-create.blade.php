@@ -477,6 +477,5 @@
 
 		</x-poof.ui.bottom-sheet>
 		</div>
-      @vite('resources/js/poof/order-create.js')
 
 </div>

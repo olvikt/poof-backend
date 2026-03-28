@@ -11,37 +11,14 @@ function registerAlpineComponents(instance) {
   instance.__poofComponentsRegistered = true
 }
 
-async function bootReactiveRuntime() {
-  let livewire = window.Livewire ?? null
-  let alpine = window.Alpine ?? null
-
-  if (!livewire) {
-    const livewireCandidates = [
-      '/vendor/livewire/livewire/dist/livewire.esm.js',
-      '/vendor/livewire/livewire/dist/livewire.esm',
-    ]
-
-    for (const candidate of livewireCandidates) {
-      try {
-        const mod = await import(/* @vite-ignore */ candidate)
-        if (mod?.Livewire && mod?.Alpine) {
-          livewire = mod.Livewire
-          alpine = mod.Alpine
-          break
-        }
-      } catch (_) {
-        // noop: try next candidate or Alpine-only fallback
-      }
-    }
-  }
+function bootReactiveRuntime() {
+  const livewire = window.Livewire ?? null
+  const alpine = window.Alpine ?? null
 
   if (livewire && alpine) {
-    window.Livewire = livewire
-    window.Alpine = alpine
-
     registerAlpineComponents(alpine)
 
-    if (!window.__poofLivewireStarted) {
+    if (!window.__poofLivewireStarted && typeof livewire.start === 'function') {
       livewire.start()
       window.__poofLivewireStarted = true
     }
@@ -49,16 +26,22 @@ async function bootReactiveRuntime() {
     return
   }
 
-  window.Alpine = alpine || Alpine
-  registerAlpineComponents(window.Alpine)
+  const hasLivewireConfig = Boolean(window.livewireScriptConfig)
 
-  if (!window.__poofAlpineStarted) {
-    window.Alpine.start()
-    window.__poofAlpineStarted = true
+  // Standalone Alpine pages (without Livewire runtime config)
+  if (!hasLivewireConfig) {
+    window.Alpine = alpine || Alpine
+    registerAlpineComponents(window.Alpine)
+
+    if (!window.__poofAlpineStarted) {
+      window.Alpine.start()
+      window.__poofAlpineStarted = true
+    }
   }
 }
 
 bootReactiveRuntime()
+document.addEventListener('livewire:init', bootReactiveRuntime)
 
 // CSS
 import '../css/app.css'
