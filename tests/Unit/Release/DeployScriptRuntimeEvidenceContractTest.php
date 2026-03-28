@@ -44,4 +44,15 @@ class DeployScriptRuntimeEvidenceContractTest extends TestCase
         );
         $this->assertStringContainsString('append_history_entry "$DEPLOY_STATE_FILE" "$RELEASE_HISTORY_FILE"', $script);
     }
+
+    public function test_rollback_script_rejects_empty_tag_release_summary_before_writing_state(): void
+    {
+        $script = file_get_contents($this->repoRoot.'/scripts/rollback.sh');
+
+        $this->assertNotFalse($script);
+        $this->assertStringContainsString('if [[ -z "$RELEASE_SUMMARY_TEXT" ]]; then', $script);
+        $this->assertStringContainsString('[rollback] empty release summary for tag $RESOLVED_REF: $RELEASE_SUMMARY_FILE', $script);
+        $this->assertStringContainsString('release state satisfies summary contract', $script);
+        $this->assertStringContainsString('exit 1', $script);
+    }
 }
