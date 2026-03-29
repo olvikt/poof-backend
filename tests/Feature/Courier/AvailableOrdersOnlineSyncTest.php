@@ -72,6 +72,44 @@ class AvailableOrdersOnlineSyncTest extends TestCase
         }
     }
 
+    public function test_optimistic_online_event_is_kept_within_grace_window(): void
+    {
+        Carbon::setTestNow(now());
+
+        try {
+            $courier = $this->createCourier();
+
+            $this->actingAs($courier, 'web');
+
+            $component = Livewire::test(AvailableOrders::class)
+                ->assertSet('online', false)
+                ->dispatch('courier-online-toggled', online: true)
+                ->assertSet('online', true);
+
+            Carbon::setTestNow(now()->addSeconds(2));
+
+            $component
+                ->call('$refresh')
+                ->assertSet('online', true);
+        } finally {
+            Carbon::setTestNow();
+        }
+    }
+
+    public function test_explicit_sync_without_payload_prioritizes_backend_truth_over_optimistic_projection(): void
+    {
+        $courier = $this->createCourier();
+
+        $this->actingAs($courier, 'web');
+
+        Livewire::test(AvailableOrders::class)
+            ->assertSet('online', false)
+            ->dispatch('courier-online-toggled', online: true)
+            ->assertSet('online', true)
+            ->call('syncOnlineState')
+            ->assertSet('online', false);
+    }
+
     private function createCourier(): User
     {
         $courier = User::factory()->create([
