@@ -32,7 +32,7 @@ class ClientProfileAvatarAddressRegressionTest extends TestCase
             ->set('email', 'after@example.com')
             ->set('phone', '+380222222222')
             ->call('save')
-            ->assertDispatched('sheet:close')
+            ->assertDispatched('sheet:close', name: 'editProfile')
             ->assertDispatched('profile-saved');
 
         $user->refresh();
@@ -53,7 +53,7 @@ class ClientProfileAvatarAddressRegressionTest extends TestCase
             ->set('avatar', UploadedFile::fake()->image('avatar.jpg', 120, 120))
             ->call('save')
             ->assertDispatched('avatar-saved')
-            ->assertDispatched('sheet:close')
+            ->assertDispatched('sheet:close', name: 'editAvatar')
             ->assertSet('avatar', null);
 
         $user->refresh();
@@ -78,7 +78,8 @@ class ClientProfileAvatarAddressRegressionTest extends TestCase
             ->set('lng', 30.52)
             ->set('addressPrecision', 'exact')
             ->call('save')
-            ->assertDispatched('address-saved');
+            ->assertDispatched('address-saved')
+            ->assertDispatched('sheet:close', name: 'addressForm');
 
         $created = ClientAddress::query()->where('user_id', $user->id)->firstOrFail();
 
@@ -90,7 +91,8 @@ class ClientProfileAvatarAddressRegressionTest extends TestCase
             ->set('lng', 30.53)
             ->set('addressPrecision', 'exact')
             ->call('save')
-            ->assertDispatched('address-saved');
+            ->assertDispatched('address-saved')
+            ->assertDispatched('sheet:close', name: 'addressForm');
 
         $this->assertSame(1, ClientAddress::query()->where('user_id', $user->id)->count());
 

@@ -343,7 +343,6 @@ class AddressForm extends Component
             $this->dispatch('address-saved');
             $this->dispatch('address-saved')->to('client.address-manager');
             $this->dispatch('sheet:close', name: 'addressForm');
-            $this->dispatch('sheet:close');
         } catch (ValidationException $e) {
             if ($this->building_type === 'apartment' && collect(['entrance', 'floor', 'apartment'])->some(fn (string $field): bool => array_key_exists($field, $e->errors()))) {
                 $this->dispatch('notify', type: 'error', message: 'Для квартири заповніть підʼїзд, поверх і квартиру.');

@@ -2,6 +2,8 @@
 
 namespace App\Livewire\Client;
 
+use App\Actions\Avatar\PersistClientAvatar;
+use App\DTO\Avatar\AvatarUploadData;
 use Livewire\Component;
 use Livewire\WithFileUploads;
 
@@ -11,7 +13,7 @@ class AvatarForm extends Component
 
     public $avatar;
 
-    public function save()
+    public function save(): void
     {
         if (! $this->avatar) {
             return;
@@ -21,16 +23,13 @@ class AvatarForm extends Component
             'avatar' => 'image|max:2048',
         ]);
 
-        $path = $this->avatar->store('avatars', 'public');
+        $user = app(PersistClientAvatar::class)->execute(
+            auth()->user(),
+            new AvatarUploadData($this->avatar),
+        );
 
-        auth()->user()->update([
-            'avatar' => $path,
-        ]);
-
-        $avatarUrl = auth()->user()->fresh()->avatar_url;
-
-        $this->dispatch('avatar-saved', avatarUrl: $avatarUrl);
-        $this->dispatch('sheet:close');
+        $this->dispatch('avatar-saved', avatarUrl: $user->avatar_url);
+        $this->dispatch('sheet:close', name: 'editAvatar');
 
         $this->reset('avatar');
     }
