@@ -47,3 +47,32 @@
 - Address form save/set-coords/search-modal: `tests/Feature/Livewire/AddressForm*Test.php`.
 - Profile contracts: `tests/Unit/Profile/ClientProfileWriteContractTest.php`.
 - Frontend order-create transport fallback/preference: `tests/Unit/Frontend/orderCreateBootstrap.test.js`.
+
+
+## Runtime bootstrap boundaries (smoke contract)
+
+### Bootstrap entry points (must stay explicit)
+
+- `resources/js/app.js`:
+  - Livewire startup (`bootReactiveRuntime()` + `livewire:init` hook);
+  - standalone Alpine startup fallback (only when `window.livewireScriptConfig` absent);
+  - shared Alpine registrations (`poofTimeCarousel`, `addressAutocomplete`).
+- `resources/js/poof/order-create.js`:
+  - order-create page boot on `DOMContentLoaded` and `livewire:navigated`.
+- `resources/js/poof/map.js`:
+  - map mount path through `mountAny()`;
+  - navigation recovery path via `livewire:navigated`;
+  - Livewire morph recovery hooks (`morph.updated`, `morph.added`).
+
+### Required guards for runtime-heavy components
+
+- Duplicate boot prevention is mandatory:
+  - global boot flags (`__poofLivewireStarted`, `__poofAlpineStarted`);
+  - per-instance shared registration flag (`instance.__poofComponentsRegistered`).
+- Shared Alpine registration must remain idempotent; repeated registration attempts must no-op.
+- Reconnect/navigation paths must reset transient runtime state and then remount through a single runtime path, not through ad-hoc local bootstrap variants.
+
+### Boundary rule
+
+- **Bootstrap** ends once runtime listeners/hooks are bound and singleton runtime state is mounted.
+- **Runtime state handling** starts from event-driven updates (`map:*`, `courier:*`, Livewire hooks) and must self-heal to canonical backend/runtime contracts after navigation/reconnect.

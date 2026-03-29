@@ -6,31 +6,78 @@ use Tests\TestCase;
 
 class RuntimeBootstrapArchitectureSmokeTest extends TestCase
 {
-    public function test_app_runtime_boot_guards_prevent_duplicate_livewire_and_alpine_startup(): void
+    public function test_runtime_bootstrap_entry_points_are_explicitly_pinned(): void
     {
         $appScript = file_get_contents(resource_path('js/app.js'));
+        $orderCreateScript = file_get_contents(resource_path('js/poof/order-create.js'));
+        $mapScript = file_get_contents(resource_path('js/poof/map.js'));
 
         $this->assertNotFalse($appScript);
-        $this->assertStringContainsString('function registerAlpineComponents(instance)', $appScript);
-        $this->assertStringContainsString('instance.__poofComponentsRegistered', $appScript);
-        $this->assertStringContainsString("instance.data('poofTimeCarousel', poofTimeCarousel)", $appScript);
-        $this->assertStringContainsString("instance.data('addressAutocomplete', addressAutocomplete)", $appScript);
-        $this->assertStringContainsString('if (!window.__poofLivewireStarted && typeof livewire.start === \'function\')', $appScript);
-        $this->assertStringContainsString('window.__poofLivewireStarted = true', $appScript);
-        $this->assertStringContainsString('if (!window.__poofAlpineStarted)', $appScript);
-        $this->assertStringContainsString('window.__poofAlpineStarted = true', $appScript);
+        $this->assertNotFalse($orderCreateScript);
+        $this->assertNotFalse($mapScript);
+
+        // Livewire / Alpine startup entrypoints.
+        $this->assertStringContainsString('bootReactiveRuntime()', $appScript);
         $this->assertStringContainsString("document.addEventListener('livewire:init', bootReactiveRuntime)", $appScript);
+        $this->assertStringContainsString('shouldStartLivewireRuntime({ livewire, alpine, globals: window })', $appScript);
+        $this->assertStringContainsString('shouldStartStandaloneAlpine({ alpine: window.Alpine, globals: window })', $appScript);
+
+        // Shared registration boundary.
+        $this->assertStringContainsString('registerSharedAlpineComponents(instance, sharedAlpineComponents)', $appScript);
+        $this->assertStringContainsString('const sharedAlpineComponents = {', $appScript);
+        $this->assertStringContainsString('poofTimeCarousel,', $appScript);
+        $this->assertStringContainsString('addressAutocomplete,', $appScript);
+
+        // Runtime bootstrap hooks (client/courier + navigation).
+        $this->assertStringContainsString("document.addEventListener('livewire:navigated', boot)", $orderCreateScript);
+        $this->assertStringContainsString("document.addEventListener('DOMContentLoaded', boot)", $orderCreateScript);
+        $this->assertStringContainsString("document.addEventListener('livewire:navigated', () => {", $mapScript);
+        $this->assertStringContainsString("window.addEventListener('courier:runtime-sync', (e) => {", $mapScript);
+        $this->assertStringContainsString("window.addEventListener('courier-online-toggled', (e) => {", $mapScript);
     }
 
-    public function test_map_runtime_bootstrap_contract_keeps_single_instance_and_navigation_recovery_hooks(): void
+    public function test_bootstrap_guards_prevent_duplicate_boot_and_hidden_dual_instance_drift(): void
+    {
+        $appScript = file_get_contents(resource_path('js/app.js'));
+        $runtimeBootstrapScript = file_get_contents(resource_path('js/poof/runtime-bootstrap.js'));
+        $mapScript = file_get_contents(resource_path('js/poof/map.js'));
+
+        $this->assertNotFalse($appScript);
+        $this->assertNotFalse($runtimeBootstrapScript);
+        $this->assertNotFalse($mapScript);
+
+        // Single valid boot path + duplicate guards.
+        $this->assertStringContainsString("livewireStarted: '__poofLivewireStarted'", $runtimeBootstrapScript);
+        $this->assertStringContainsString("alpineStarted: '__poofAlpineStarted'", $runtimeBootstrapScript);
+        $this->assertStringContainsString('if (!instance || instance.__poofComponentsRegistered) return false', $runtimeBootstrapScript);
+        $this->assertStringContainsString('instance.__poofComponentsRegistered = true', $runtimeBootstrapScript);
+        $this->assertStringContainsString('if (shouldStartLivewireRuntime({ livewire, alpine, globals: window })) {', $appScript);
+        $this->assertStringContainsString('window[POOF_BOOT_FLAGS.livewireStarted] = true', $appScript);
+        $this->assertStringContainsString('if (shouldStartStandaloneAlpine({ alpine: window.Alpine, globals: window })) {', $appScript);
+        $this->assertStringContainsString('window[POOF_BOOT_FLAGS.alpineStarted] = true', $appScript);
+
+        // Single map runtime instance path (no hidden dual map instances per same element).
+        $this->assertStringContainsString('if (state.instance && state.el === el) {', $mapScript);
+        $this->assertStringContainsString('destroyIfDomChanged(el)', $mapScript);
+        $this->assertStringContainsString('teardownMapInstance()', $mapScript);
+    }
+
+    public function test_navigation_reconnect_recovery_hooks_are_pinned_for_runtime_self_heal(): void
     {
         $mapScript = file_get_contents(resource_path('js/poof/map.js'));
 
         $this->assertNotFalse($mapScript);
-        $this->assertStringContainsString('function teardownMapInstance()', $mapScript);
-        $this->assertStringContainsString('if (state.instance && state.el === el)', $mapScript);
-        $this->assertStringContainsString("document.addEventListener('livewire:navigated', () => {", $mapScript);
+
+        $this->assertStringContainsString('function resetMapStateForNavigation()', $mapScript);
+        $this->assertStringContainsString('state.pendingPoint = null', $mapScript);
+        $this->assertStringContainsString("window.addEventListener('poof:auth-session-lost', (event) => {", $mapScript);
+        $this->assertStringContainsString('stopCourierGeoWatchLeadership()', $mapScript);
         $this->assertStringContainsString('resetMapStateForNavigation()', $mapScript);
         $this->assertStringContainsString('mountAny()', $mapScript);
+        $this->assertStringContainsString('applyBootstrapFromDom()', $mapScript);
+
+        // Livewire morph re-init hooks (wire:navigate/tab-like remounts).
+        $this->assertStringContainsString("window.Livewire.hook('morph.updated', () => {", $mapScript);
+        $this->assertStringContainsString("window.Livewire.hook('morph.added', () => {", $mapScript);
     }
 }

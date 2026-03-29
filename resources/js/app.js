@@ -2,25 +2,33 @@ import './bootstrap'
 import Alpine from 'alpinejs'
 import poofTimeCarousel from './poof/carousel'
 import addressAutocomplete from './address-autocomplete'
+import {
+  POOF_BOOT_FLAGS,
+  registerSharedAlpineComponents,
+  shouldBootStandaloneAlpine,
+  shouldStartLivewireRuntime,
+  shouldStartStandaloneAlpine,
+} from './poof/runtime-bootstrap'
 
-function registerAlpineComponents(instance) {
-  if (!instance || instance.__poofComponentsRegistered) return
-
-  instance.data('poofTimeCarousel', poofTimeCarousel)
-  instance.data('addressAutocomplete', addressAutocomplete)
-  instance.__poofComponentsRegistered = true
+const sharedAlpineComponents = {
+  poofTimeCarousel,
+  addressAutocomplete,
 }
 
-function bootReactiveRuntime() {
+export function registerAlpineComponents(instance) {
+  return registerSharedAlpineComponents(instance, sharedAlpineComponents)
+}
+
+export function bootReactiveRuntime() {
   const livewire = window.Livewire ?? null
   const alpine = window.Alpine ?? null
 
   if (livewire && alpine) {
     registerAlpineComponents(alpine)
 
-    if (!window.__poofLivewireStarted && typeof livewire.start === 'function') {
+    if (shouldStartLivewireRuntime({ livewire, alpine, globals: window })) {
       livewire.start()
-      window.__poofLivewireStarted = true
+      window[POOF_BOOT_FLAGS.livewireStarted] = true
     }
 
     return
@@ -29,13 +37,13 @@ function bootReactiveRuntime() {
   const hasLivewireConfig = Boolean(window.livewireScriptConfig)
 
   // Standalone Alpine pages (without Livewire runtime config)
-  if (!hasLivewireConfig) {
+  if (shouldBootStandaloneAlpine({ hasLivewireConfig })) {
     window.Alpine = alpine || Alpine
     registerAlpineComponents(window.Alpine)
 
-    if (!window.__poofAlpineStarted) {
+    if (shouldStartStandaloneAlpine({ alpine: window.Alpine, globals: window })) {
       window.Alpine.start()
-      window.__poofAlpineStarted = true
+      window[POOF_BOOT_FLAGS.alpineStarted] = true
     }
   }
 }
