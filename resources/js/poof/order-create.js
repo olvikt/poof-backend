@@ -1,18 +1,32 @@
-import initCarousel from './carousel'
-import initMap from './map'
+import initCarousel from './carousel.js'
+import initMap from './map.js'
+
+export function dispatchGeocodeDebounced({ component = null, token, livewire = null } = {}) {
+  if (!token) return false
+
+  if (component && typeof component.call === 'function') {
+    try {
+      component.call('runDebouncedGeocode', token)
+      return true
+    } catch (_) {}
+  }
+
+  if (livewire && typeof livewire.dispatch === 'function') {
+    try {
+      livewire.dispatch('geocode:debounced', { token })
+      return true
+    } catch (_) {}
+  }
+
+  return false
+}
 
 /**
  * ============================================================
  * POOF — Order Create bootstrap
  * ============================================================
- *
- * ✅ Без глобальных флагов (только замыкание)
- * ✅ Livewire v3 + Alpine friendly
- * ✅ Идемпотентно при livewire:navigated
- * ✅ Карта и UI безопасно переживают rerender
- * ✅ Debounce geocode через Browser Event → Livewire event
  */
-
+if (typeof window !== 'undefined' && typeof document !== 'undefined') {
 ;(function () {
   const DEBUG_MAP = String(import.meta?.env?.VITE_MAP_DEBUG || '').toLowerCase() === 'true'
   const params = new URLSearchParams(window.location.search)
@@ -33,19 +47,11 @@ import initMap from './map'
 
   window.POOF = window.POOF || {}
 
-  // ---------------------------------------------------------------------------
-  // Private state (closure)
-  // ---------------------------------------------------------------------------
   let livewireMapSyncBound = false
   let geocodeDebounceBound = false
   let datePickerBound = false
-
-  // Debounce timer
   let geocodeTimer = null
 
-  // ---------------------------------------------------------------------------
-  // Helpers
-  // ---------------------------------------------------------------------------
   function isOrderCreatePage() {
     return !!document.getElementById('order-create-root')
   }
@@ -54,15 +60,10 @@ import initMap from './map'
     return document.getElementById('order-create-root')
   }
 
-  /**
-   * Получить Livewire component instance именно для OrderCreate
-   * Надёжнее, чем querySelector('[wire:id]') по всей странице
-   */
   function getOrderCreateComponent() {
     const root = getOrderCreateRoot()
     if (!root) return null
 
-    // wire:id может быть на самом root или на ближайшем родителе
     const wireEl = root.closest('[wire\\:id]') || root.querySelector('[wire\\:id]')
     const wireId = wireEl?.getAttribute?.('wire:id')
     if (!wireId) return null
@@ -74,9 +75,6 @@ import initMap from './map'
     }
   }
 
-  // ---------------------------------------------------------------------------
-  // Livewire → Map sync (bind once)
-  // ---------------------------------------------------------------------------
   function bindLivewireToMapSyncOnce() {
     if (livewireMapSyncBound) return
     livewireMapSyncBound = true
@@ -84,22 +82,17 @@ import initMap from './map'
     const attach = () => {
       if (!window.Livewire?.hook) return
 
-      // После обработки сообщения Livewire — читаем новые lat/lng и ставим маркер
       window.Livewire.hook('message.processed', (_, component) => {
         if (!isOrderCreatePage()) return
 
         const root = getOrderCreateRoot()
         if (!root) return
-
-        // Ограничиваемся именно корневым компонентом заказа:
-        // component.el должен совпасть с root, иначе можем поймать чужие компоненты.
         if (component?.el !== root) return
 
         const lat = component.get?.('lat')
         const lng = component.get?.('lng')
 
         if (lat != null && lng != null) {
-          // ✅ тихо ставим маркер (без emit обратно в Livewire)
           window.POOF?.setMarkerSilent?.(lat, lng, 18)
         }
       })
@@ -113,14 +106,6 @@ import initMap from './map'
     document.addEventListener('livewire:init', attach, { once: true })
   }
 
-  // ---------------------------------------------------------------------------
-  // Geocode debounce (bind once)
-  // ---------------------------------------------------------------------------
-  /**
-   * PHP: dispatch('geocode:schedule', token: '...')
-   * JS: ждём 600ms и отправляем обратно:
-   *     Livewire.dispatch('geocode:debounced', { token })
-   */
   function bindGeocodeDebounceOnce() {
     if (geocodeDebounceBound) return
     geocodeDebounceBound = true
@@ -133,19 +118,15 @@ import initMap from './map'
 
       clearTimeout(geocodeTimer)
       geocodeTimer = setTimeout(() => {
-        try {
-          window.Livewire?.dispatch?.('geocode:debounced', { token })
-        } catch (_) {}
+        dispatchGeocodeDebounced({
+          component: getOrderCreateComponent(),
+          token,
+          livewire: window.Livewire,
+        })
       }, 600)
     })
   }
 
-
-
-
-  // ---------------------------------------------------------------------------
-  // Date Picker (bind once + exported)
-  // ---------------------------------------------------------------------------
   function bindDatePickerOnce() {
     if (datePickerBound) return
     datePickerBound = true
@@ -180,10 +161,7 @@ import initMap from './map'
 
           try {
             const cmp = getOrderCreateComponent()
-            // ✅ обновляем дату в Livewire
             cmp?.set?.('scheduled_date', value)
-
-            // 🔑 мягко реинициализируем карту (фикс Safari/WebView)
             window.dispatchEvent(new Event('map:init'))
           } catch (_) {}
 
@@ -192,32 +170,24 @@ import initMap from './map'
         { once: true }
       )
 
-      // Safari / Chrome
       try {
         if (input.showPicker) input.showPicker()
         else input.click()
       } catch (_) {
-        // fallback
         input.click()
       }
     }
 
-    // экспортируем (как у тебя было)
     window.POOF = window.POOF || {}
     window.POOF.openDatePicker = openDatePicker
     window.openDatePicker = openDatePicker
   }
 
-  // ---------------------------------------------------------------------------
-  // Boot
-  // ---------------------------------------------------------------------------
   function boot() {
     if (!isOrderCreatePage()) return
 
-    // namespace
     window.POOF = window.POOF || {}
 
-    // UI init (должны быть идемпотентными внутри)
     initCarousel()
     initMap()
 
@@ -246,15 +216,12 @@ import initMap from './map'
       }
     }, 200)
 
-    // Sync & helpers
     bindLivewireToMapSyncOnce()
     bindGeocodeDebounceOnce()
     bindDatePickerOnce()
   }
 
-  // First run
   document.addEventListener('DOMContentLoaded', boot)
-
-  // Livewire navigation re-run (safe)
   document.addEventListener('livewire:navigated', boot)
 })()
+}

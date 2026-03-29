@@ -6,6 +6,7 @@
 
 - `docs/versioned-releases.md`
 - `docs/release-gates.md`
+- `docs/release-discipline-checklist.md`
 - `docs/production-server-setup.md`
 - `docs/pwa-subsystem.md`
 - `scripts/deploy.sh`
@@ -16,13 +17,13 @@
 
 ## 1. Release preparation
 
-1. Убедитесь, что нужный commit уже в `main` и текущий blocking CI gate прошёл.
-2. Создайте explicit annotated release tag для release candidate.
-3. Push tag в origin.
+1. Убедитесь, что нужный commit уже стабилизирован в `release/*` ветке и текущий blocking CI gate прошёл.
+2. Создайте explicit annotated release tag **из release branch**, а не напрямую из unstable `main`.
+3. Push release branch и tag в origin.
 
 ```bash
-git checkout main
-git pull --ff-only origin main
+git checkout release/YYYYMMDD-HHMM
+git pull --ff-only origin release/YYYYMMDD-HHMM
 git tag -a release-YYYYMMDD-HHMM -m "Production release YYYY-MM-DD HH:MM UTC"
 git push origin release-YYYYMMDD-HHMM
 ```
