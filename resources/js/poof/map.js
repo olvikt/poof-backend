@@ -28,6 +28,18 @@ function isFiniteLatLngForBootstrap(lat, lng) {
   return true
 }
 
+export function resolveMapBootstrapRejectionReason(bootstrap = null) {
+  if (!bootstrap || typeof bootstrap !== 'object') return 'invalid_payload'
+  if (
+    isFiniteLatLngForBootstrap(bootstrap?.orderLat, bootstrap?.orderLng)
+    || isFiniteLatLngForBootstrap(bootstrap?.courierLat, bootstrap?.courierLng)
+  ) {
+    return null
+  }
+
+  return 'invalid_or_stale_coords'
+}
+
 function shouldApplyPersistedLocationOnBootstrap({
   persistedLocation = null,
   bootstrapApplied = false,
@@ -1267,6 +1279,13 @@ export default function initMap() {
       if (requestId !== state.reverseRequestId) return
 
       if (!response.ok) {
+        emitRuntimeSignal('reverse_geocode_degraded', 'http_not_ok', {
+          level: 'warn',
+          meta: {
+            status: Number(response.status),
+            source: options?.source || 'map',
+          },
+        })
         if (DEBUG_MAP) console.warn('[POOF] reverse geocode failed', response.status)
         return
       }
@@ -1274,6 +1293,10 @@ export default function initMap() {
       const data = await response.json()
 
       if (!Array.isArray(data) || data.length === 0) {
+        emitRuntimeSignal('reverse_geocode_degraded', 'empty_result', {
+          level: 'warn',
+          meta: { source: options?.source || 'map' },
+        })
         if (DEBUG_MAP) console.warn('[POOF] reverse geocode empty result')
         return
       }
@@ -1298,6 +1321,10 @@ export default function initMap() {
       )
 
     } catch (error) {
+      emitRuntimeSignal('reverse_geocode_degraded', 'request_failed', {
+        level: 'warn',
+        meta: { source: options?.source || 'map' },
+      })
       console.error('[POOF] reverse geocode error', error)
     } finally {
       if (requestId === state.reverseRequestId) {
@@ -1883,7 +1910,7 @@ async function buildRoute(fromLat, fromLng, toLat, toLng) {
 
       state.hasActiveOrderBootstrap = hasActiveOrderBootstrapPayload(bootstrap)
 
-      if (isValidLatLng(bootstrap?.orderLat, bootstrap?.orderLng) || isValidLatLng(bootstrap?.courierLat, bootstrap?.courierLng)) {
+      if (resolveMapBootstrapRejectionReason(bootstrap) === null) {
         setCourierMap({
           orderLat: bootstrap.orderLat,
           orderLng: bootstrap.orderLng,
@@ -1895,7 +1922,20 @@ async function buildRoute(fromLat, fromLng, toLat, toLng) {
         })
         return true
       }
+
+      emitRuntimeSignal('map_bootstrap_rejected', 'invalid_or_stale_coords', {
+        level: 'warn',
+        meta: {
+          source: 'dom_bootstrap',
+          hasOrderCoords: isFiniteLatLngForBootstrap(bootstrap?.orderLat, bootstrap?.orderLng),
+          hasCourierCoords: isFiniteLatLngForBootstrap(bootstrap?.courierLat, bootstrap?.courierLng),
+        },
+      })
     } catch (error) {
+      emitRuntimeSignal('map_bootstrap_rejected', 'invalid_payload', {
+        level: 'warn',
+        meta: { source: 'dom_bootstrap' },
+      })
       console.warn('[POOF] invalid map bootstrap payload', error)
     }
 

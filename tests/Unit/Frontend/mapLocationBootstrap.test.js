@@ -5,6 +5,7 @@ import {
   buildCurrentLocationFallbackPlan,
   buildCourierRuntimeEvidenceView,
   normalizeRuntimeObservabilityReason,
+  resolveMapBootstrapRejectionReason,
   shouldIgnoreStaleAddressPickerSyncPoint,
   shouldApplyPersistedLocationOnBootstrap,
 } from '../../../resources/js/poof/map.js'
@@ -153,4 +154,10 @@ test('runtime evidence view returns compact operator payload with top counters a
   assert.equal(evidence.crossTab.tabId, 'tab-1')
   assert.equal(evidence.geoLeadership.mode, 'lease')
   assert.equal(evidence.serverRuntimeError, null)
+})
+
+test('map bootstrap rejection reason is explicit for invalid or stale coords payloads', () => {
+  assert.equal(resolveMapBootstrapRejectionReason(null), 'invalid_payload')
+  assert.equal(resolveMapBootstrapRejectionReason({ orderLat: null, orderLng: null, courierLat: null, courierLng: null }), 'invalid_or_stale_coords')
+  assert.equal(resolveMapBootstrapRejectionReason({ orderLat: 48.4671, orderLng: 35.0382 }), null)
 })

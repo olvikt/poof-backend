@@ -43,6 +43,8 @@ trait HandlesAddressPersistence
 
     public function save(): void
     {
+        Log::info('ui_save_flow_started', $this->saveLogContext('address', 'before_persistence'));
+
         try {
             $formData = AddressFormData::fromComponent($this);
             $payloadPreparer = app(PrepareAddressSavePayload::class);
@@ -64,6 +66,8 @@ trait HandlesAddressPersistence
                 auth()->id(),
             );
 
+            Log::info('ui_save_flow_succeeded', $this->saveLogContext('address', 'after_persistence'));
+
             $this->dispatch('address-saved');
             $this->dispatch('address-saved')->to('client.address-manager');
             $this->dispatch('sheet:close', name: 'addressForm');
@@ -72,11 +76,10 @@ trait HandlesAddressPersistence
                 $this->dispatch('notify', type: 'error', message: 'Для квартири заповніть підʼїзд, поверх і квартиру.');
             }
 
-            Log::error('Address save failed', [
-                'user_id' => auth()->id(),
-                'payload' => $this->payloadForLogs(),
-                'errors' => $e->errors(),
-            ]);
+            Log::warning('ui_save_flow_failed', $this->saveLogContext('address', 'before_persistence', [
+                'failure_type' => 'validation',
+                'error_fields' => array_keys($e->errors()),
+            ]));
 
             throw $e;
         } catch (\Throwable $e) {
@@ -84,13 +87,10 @@ trait HandlesAddressPersistence
 
             $this->addError('search', 'Сталася помилка при збереженні. Перевірте поля та спробуйте ще раз.');
 
-            Log::error('Address save exception', [
-                'user_id' => auth()->id(),
-                'payload' => $this->payloadForLogs(),
-                'errors' => $this->getErrorBag()->toArray(),
-                'message' => $e->getMessage(),
-                'trace' => $e->getTraceAsString(),
-            ]);
+            Log::error('ui_save_flow_failed', $this->saveLogContext('address', 'after_persistence', [
+                'failure_type' => 'exception',
+                'exception_class' => $e::class,
+            ]));
         }
     }
 
@@ -105,24 +105,16 @@ trait HandlesAddressPersistence
         ]);
     }
 
-    protected function payloadForLogs(): array
+    protected function saveLogContext(string $flow, string $boundary, array $extra = []): array
     {
-        return [
-            'addressId' => $this->addressId,
-            'label' => $this->label,
-            'title' => $this->title,
+        return $extra + [
+            'flow' => $flow,
+            'boundary' => $boundary,
+            'user_id' => auth()->id(),
+            'address_id' => $this->addressId,
             'building_type' => $this->building_type,
-            'search' => $this->search,
-            'city' => $this->city,
-            'region' => $this->region,
-            'street' => $this->street,
-            'house' => $this->house,
-            'lat' => $this->lat,
-            'lng' => $this->lng,
-            'entrance' => $this->entrance,
-            'intercom' => $this->intercom,
-            'floor' => $this->floor,
-            'apartment' => $this->apartment,
+            'has_coordinates' => $this->lat !== null && $this->lng !== null,
+            'address_precision' => $this->addressPrecision ?? null,
         ];
     }
 }

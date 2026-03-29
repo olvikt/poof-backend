@@ -4,6 +4,7 @@ namespace App\Livewire\Client;
 
 use App\Actions\Profile\PersistClientProfileAction;
 use App\DTO\Profile\ProfileFormData;
+use Illuminate\Support\Facades\Log;
 use Livewire\Component;
 
 class ProfileForm extends Component
@@ -42,17 +43,41 @@ class ProfileForm extends Component
 
     public function save(): void
     {
-        $this->validate();
+        Log::info('ui_save_flow_started', [
+            'flow' => 'profile',
+            'boundary' => 'before_persistence',
+            'user_id' => auth()->id(),
+        ]);
 
-        $user = app(PersistClientProfileAction::class)->execute(
-            auth()->user(),
-            ProfileFormData::fromComponent($this),
-        );
+        try {
+            $this->validate();
 
-        auth()->setUser($user);
+            $user = app(PersistClientProfileAction::class)->execute(
+                auth()->user(),
+                ProfileFormData::fromComponent($this),
+            );
 
-        $this->dispatch('sheet:close', name: 'editProfile');
-        $this->dispatch('profile-saved');
+            auth()->setUser($user);
+
+            Log::info('ui_save_flow_succeeded', [
+                'flow' => 'profile',
+                'boundary' => 'after_persistence',
+                'user_id' => auth()->id(),
+            ]);
+
+            $this->dispatch('sheet:close', name: 'editProfile');
+            $this->dispatch('profile-saved');
+        } catch (\Throwable $e) {
+            Log::error('ui_save_flow_failed', [
+                'flow' => 'profile',
+                'boundary' => 'after_persistence',
+                'user_id' => auth()->id(),
+                'failure_type' => 'exception',
+                'exception_class' => $e::class,
+            ]);
+
+            throw $e;
+        }
     }
 
     public function render()
