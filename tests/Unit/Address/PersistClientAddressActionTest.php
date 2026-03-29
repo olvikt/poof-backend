@@ -2,7 +2,7 @@
 
 namespace Tests\Unit\Address;
 
-use App\Actions\Address\PersistClientAddress;
+use App\Actions\Address\PersistClientAddressAction;
 use App\DTO\Address\AddressFormData;
 use App\DTO\Address\PersistAddressData;
 use App\Models\ClientAddress;
@@ -11,7 +11,7 @@ use Illuminate\Database\Eloquent\ModelNotFoundException;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
-class PersistClientAddressTest extends TestCase
+class PersistClientAddressActionTest extends TestCase
 {
     use RefreshDatabase;
 
@@ -39,7 +39,7 @@ class PersistClientAddressTest extends TestCase
             'is_default' => true,
         ]);
 
-        app(PersistClientAddress::class)->execute(
+        app(PersistClientAddressAction::class)->execute(
             $this->makeFormData(addressId: null),
             $payload,
             $user->id,
@@ -75,7 +75,7 @@ class PersistClientAddressTest extends TestCase
             'house' => '42',
         ]);
 
-        app(PersistClientAddress::class)->execute(
+        app(PersistClientAddressAction::class)->execute(
             $this->makeFormData(addressId: null),
             $payload,
             $user->id,
@@ -145,7 +145,7 @@ class PersistClientAddressTest extends TestCase
             'is_default' => true,
         ]);
 
-        app(PersistClientAddress::class)->execute(
+        app(PersistClientAddressAction::class)->execute(
             $this->makeFormData(addressId: $ownedAddress->id),
             $payload,
             $user->id,
@@ -209,7 +209,7 @@ class PersistClientAddressTest extends TestCase
         $this->expectException(ModelNotFoundException::class);
 
         try {
-            app(PersistClientAddress::class)->execute(
+            app(PersistClientAddressAction::class)->execute(
                 $this->makeFormData(addressId: $victimAddress->id),
                 $payload,
                 $attacker->id,

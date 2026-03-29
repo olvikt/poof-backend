@@ -57,8 +57,8 @@ class RouteLayerThinBoundaryArchitectureTest extends TestCase
         $this->assertStringNotContainsString('markBusy(', $webRoutes);
         $this->assertStringNotContainsString('markDelivering(', $webRoutes);
         $this->assertStringNotContainsString('markFree(', $webRoutes);
-        $this->assertStringContainsString('->acceptBy($courier)', $controller);
-        $this->assertStringContainsString('->startBy($courier)', $controller);
-        $this->assertStringContainsString('->completeBy($courier)', $controller);
+        $this->assertStringContainsString('app(AcceptOrderByCourierAction::class)->handle($order, $courier)', $controller);
+        $this->assertStringContainsString('app(StartOrderByCourierAction::class)->handle($order, $courier)', $controller);
+        $this->assertStringContainsString('app(CompleteOrderByCourierAction::class)->handle($order, $courier)', $controller);
     }
 }

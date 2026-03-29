@@ -34,7 +34,7 @@ Product behavior and user-visible contracts stay unchanged.
 
 - **Orchestration**: Livewire manager/form components and sheet events.
 - **Form state**: Livewire fields in `AddressForm`.
-- **Persistence**: dedicated action `PersistClientAddress` + DTO/payload services.
+- **Persistence**: dedicated action `PersistClientAddressAction` + DTO/payload services.
 - **UI-only sheet state**: explicit `sheet:open/close` events (named sheet).
 - **Events/dispatch**: `address-saved` and map/browser events.
 - **Inconsistency**: this flow already separates persistence better than profile/avatar.
@@ -55,7 +55,7 @@ For each flow:
 
 1. **Form component**: owns field state + validation (`ProfileForm`, `AvatarForm`, `AddressForm`).
 2. **Manager/orchestrator**: component method orchestrates save sequence + emits UI/domain events.
-3. **Persistence action**: single action class performs write (`PersistClientProfile`, `PersistClientAvatar`, `PersistClientAddress`).
+3. **Persistence action**: single action class performs write (`PersistClientProfileAction`, `PersistClientAvatarAction`, `PersistClientAddressAction`).
 4. **UI-only component/state**: bottom sheets remain in Blade, lifecycle through named `sheet:*` events.
 5. **Domain validation/policy**: validation rules/policies stay in component + existing address policy services.
 

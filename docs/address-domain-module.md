@@ -15,7 +15,7 @@ The extraction keeps current UX and observable behavior intact.
 | Geocode / reverse-geocode | `ResolveAddressPointFromFields`, `ResolveAddressFromPoint`, `HandlesGeocodingMapSync`, `/api/geocode` calls |
 | Marker sync contract | Event names and source checks in `AddressForm` + `OrderCreate` concerns |
 | Saved address hydrate/select | `HandlesAddressSelection`, `AddressForm::loadAddress`, `AddressManager` |
-| Create/edit persistence rules | `PrepareAddressSavePayload`, `FilterClientAddressPayload`, `PersistClientAddress` |
+| Create/edit persistence rules | `PrepareAddressSavePayload`, `FilterClientAddressPayload`, `PersistClientAddressAction` |
 
 ## What is now in Address domain module
 
@@ -47,7 +47,7 @@ The extraction keeps current UX and observable behavior intact.
 
 - **Domain rules**: `app/Domain/Address/*`.
 - **Application actions/use cases**:
-  - `PersistClientAddress`;
+  - `PersistClientAddressAction`;
   - `AddressGeocoding` (adapter over geocode/reverse services);
   - address payload preparation/filtering services.
 - **Form/input DTOs**: `app/DTO/Address/*`.

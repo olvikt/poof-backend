@@ -6,7 +6,7 @@ use App\DTO\Address\AddressFormData;
 use App\DTO\Address\PersistAddressData;
 use App\Models\ClientAddress;
 
-class PersistClientAddress
+class PersistClientAddressAction
 {
     public function execute(AddressFormData $formData, PersistAddressData $payload, int $userId): void
     {

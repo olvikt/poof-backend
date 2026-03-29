@@ -2,6 +2,7 @@
 
 namespace Tests\Feature\Courier;
 
+use App\Actions\Orders\Lifecycle\AcceptOrderByCourierAction;
 use Tests\TestCase;
 
 class AcceptFlowArchitectureRegressionTest extends TestCase
@@ -15,15 +16,15 @@ class AcceptFlowArchitectureRegressionTest extends TestCase
         return preg_replace('/\s+/', ' ', $contents) ?? '';
     }
 
-    public function test_web_and_api_accept_entry_points_delegate_to_domain_accept_by_method(): void
+    public function test_web_and_api_accept_entry_points_delegate_to_lifecycle_action_boundary(): void
     {
         $webRoutes = $this->normalizedFile('routes/web.php');
         $webLifecycleController = $this->normalizedFile('app/Http/Controllers/Courier/CourierOrderLifecycleController.php');
         $apiController = $this->normalizedFile('app/Http/Controllers/Api/CourierOrderController.php');
 
         $this->assertStringContainsString("Route::post('/orders/{order}/accept', [CourierOrderLifecycleController::class, 'accept'])", $webRoutes);
-        $this->assertStringContainsString('->acceptBy($courier)', $webLifecycleController);
-        $this->assertStringContainsString('->acceptBy($courier)', $apiController);
+        $this->assertStringContainsString('app(AcceptOrderByCourierAction::class)->handle($order, $courier)', $webLifecycleController);
+        $this->assertStringContainsString('app(AcceptOrderByCourierAction::class)->handle($order, $courier)', $apiController);
     }
 
     public function test_livewire_accept_entry_points_delegate_to_canonical_accept_methods_without_manual_locks(): void

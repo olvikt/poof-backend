@@ -2,7 +2,7 @@
 
 namespace App\Livewire\Client\AddressForm\Concerns;
 
-use App\Actions\Address\PersistClientAddress;
+use App\Actions\Address\PersistClientAddressAction;
 use App\DTO\Address\AddressFormData;
 use App\DTO\Address\PersistAddressData;
 use App\Services\Address\FilterClientAddressPayload;
@@ -58,7 +58,7 @@ trait HandlesAddressPersistence
             $payload = $payloadPreparer->execute($formData);
             $filteredPayload = app(FilterClientAddressPayload::class)->execute($payload->toArray());
 
-            app(PersistClientAddress::class)->execute(
+            app(PersistClientAddressAction::class)->execute(
                 $formData,
                 new PersistAddressData($filteredPayload),
                 auth()->id(),

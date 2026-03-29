@@ -4,6 +4,9 @@ declare(strict_types=1);
 
 namespace App\Http\Controllers\Courier;
 
+use App\Actions\Orders\Lifecycle\AcceptOrderByCourierAction;
+use App\Actions\Orders\Lifecycle\CompleteOrderByCourierAction;
+use App\Actions\Orders\Lifecycle\StartOrderByCourierAction;
 use App\Http\Controllers\Controller;
 use App\Models\Order;
 use App\Models\User;
@@ -16,7 +19,7 @@ class CourierOrderLifecycleController extends Controller
         $courier = $this->resolveCourier();
         abort_if(! $courier instanceof User, 403);
 
-        $ok = $order->acceptBy($courier);
+        $ok = app(AcceptOrderByCourierAction::class)->handle($order, $courier);
 
         return $ok
             ? redirect()->route('courier.my-orders')->with('success', 'Замовлення прийнято.')
@@ -27,34 +30,24 @@ class CourierOrderLifecycleController extends Controller
     {
         $courier = $this->resolveCourier();
         abort_if(! $courier instanceof User, 403);
-        abort_if((int) $order->courier_id !== (int) $courier->id, 403);
 
-        if (! $order->canBeStarted()) {
-            return back()->with('error', 'Неможливо розпочати це замовлення.');
-        }
+        $ok = app(StartOrderByCourierAction::class)->handle($order, $courier);
 
-        $order->startBy($courier);
-
-        return redirect()
-            ->route('courier.my-orders')
-            ->with('success', 'Замовлення розпочато.');
+        return $ok
+            ? redirect()->route('courier.my-orders')->with('success', 'Замовлення розпочато.')
+            : back()->with('error', 'Неможливо розпочати це замовлення.');
     }
 
     public function complete(Order $order): RedirectResponse
     {
         $courier = $this->resolveCourier();
         abort_if(! $courier instanceof User, 403);
-        abort_if((int) $order->courier_id !== (int) $courier->id, 403);
 
-        if (! $order->canBeCompleted()) {
-            return back()->with('error', 'Неможливо завершити це замовлення.');
-        }
+        $ok = app(CompleteOrderByCourierAction::class)->handle($order, $courier);
 
-        $order->completeBy($courier);
-
-        return redirect()
-            ->route('courier.my-orders')
-            ->with('success', 'Замовлення завершено.');
+        return $ok
+            ? redirect()->route('courier.my-orders')->with('success', 'Замовлення завершено.')
+            : back()->with('error', 'Неможливо завершити це замовлення.');
     }
 
     private function resolveCourier(): ?User

@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Api;
 
+use App\Actions\Orders\Lifecycle\AcceptOrderByCourierAction;
 use App\Http\Controllers\Controller;
 use App\Models\Order;
 
@@ -35,7 +36,7 @@ class CourierOrderController extends Controller
 
         abort_if(! $courier || ! $courier->isCourier(), 403);
 
-        if (! $order->acceptBy($courier)) {
+        if (! app(AcceptOrderByCourierAction::class)->handle($order, $courier)) {
             return response()->json([
                 'success' => false,
                 'message' => 'Неможливо прийняти замовлення',
