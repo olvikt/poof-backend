@@ -4,10 +4,15 @@ namespace App\Services\Address;
 
 use App\DTO\Address\AddressPointData;
 use App\DTO\Address\ResolvedAddressData;
+use App\Domain\Address\AddressParser;
 use Illuminate\Support\Facades\Http;
 
 class ResolveAddressFromPoint
 {
+    public function __construct(private readonly AddressParser $parser)
+    {
+    }
+
     public function execute(AddressPointData $point): ?ResolvedAddressData
     {
         try {
@@ -39,12 +44,12 @@ class ResolveAddressFromPoint
                 return null;
             }
 
-            $street = $this->normalizeStreet(
+            $street = $this->parser->normalizeStreet(
                 $address['road'] ?? $address['pedestrian'] ?? $address['street'] ?? null
             );
-            $house = $this->normalizeHouse($address['house_number'] ?? null);
-            $city = $this->normalizeString($address['city'] ?? $address['town'] ?? $address['village'] ?? null);
-            $region = $this->normalizeString($address['state'] ?? $address['region'] ?? null);
+            $house = $this->parser->normalizeHouse($address['house_number'] ?? null);
+            $city = $this->parser->normalizeString($address['city'] ?? $address['town'] ?? $address['village'] ?? null);
+            $region = $this->parser->normalizeString($address['state'] ?? $address['region'] ?? null);
 
             if ($house === null) {
                 $house = $this->extractHouseFromDisplayName($payload['display_name'] ?? null);
@@ -55,24 +60,11 @@ class ResolveAddressFromPoint
                 house: $house,
                 city: $city,
                 region: $region,
-                search: $this->buildSearch($street, $house, $city, $region, $payload['label'] ?? null),
+                search: $this->parser->buildSearch($street, $house, $city, $region, $payload['label'] ?? null),
             );
         } catch (\Throwable) {
             return null;
         }
-    }
-
-    public function buildSearch(
-        ?string $street,
-        ?string $house,
-        ?string $city,
-        ?string $region,
-        mixed $label = null,
-    ): string {
-        $line1 = trim(implode(' ', array_filter([$street, $house])));
-        $line2 = trim(implode(', ', array_filter([$city, $region])));
-
-        return $this->normalizeSearch($label ?? trim(implode(', ', array_filter([$line1, $line2]))));
     }
 
     private function extractHouseFromDisplayName(?string $displayName): ?string
@@ -82,7 +74,7 @@ class ResolveAddressFromPoint
         }
 
         foreach (preg_split('/\s*,\s*/u', $displayName) ?: [] as $segment) {
-            $house = $this->normalizeHouse($segment);
+            $house = $this->parser->normalizeHouse($segment);
 
             if ($house !== null) {
                 return $house;
@@ -92,52 +84,4 @@ class ResolveAddressFromPoint
         return null;
     }
 
-    private function normalizeStreet(?string $street): ?string
-    {
-        $street = trim((string) $street);
-
-        if ($street === '') {
-            return null;
-        }
-
-        return preg_replace('/^\s*\d+[\dA-Za-zА-Яа-яІЇЄієї\-\/]*\s*,\s*/u', '', $street) ?: null;
-    }
-
-    private function normalizeHouse(?string $house): ?string
-    {
-        $house = preg_replace('/\s+/u', ' ', trim((string) $house));
-
-        if ($house === '' || ! preg_match('/^\d/u', $house)) {
-            return null;
-        }
-
-        if (preg_match('/^(\d+[\dA-Za-zА-Яа-яІЇЄієї\-\/]*)(?:\s*(?:к|корп(?:\.|ус)?)\s*(\d+[A-Za-zА-Яа-яІЇЄієї\-\/]*))?$/ui', $house, $matches)) {
-            $base = $matches[1];
-            $corpus = $matches[2] ?? null;
-
-            return $corpus ? sprintf('%s к%s', $base, $corpus) : $base;
-        }
-
-        return $house;
-    }
-
-    private function normalizeSearch(mixed $value): string
-    {
-        if (is_array($value)) {
-            return trim((string) ($value['label'] ?? $value['name'] ?? ''));
-        }
-
-        if (is_object($value)) {
-            return trim((string) ($value->label ?? $value->name ?? ''));
-        }
-
-        return trim((string) $value);
-    }
-
-    private function normalizeString(?string $value): ?string
-    {
-        $value = trim((string) $value);
-
-        return $value !== '' ? $value : null;
-    }
 }

@@ -243,6 +243,48 @@ class AddressFormSaveTest extends TestCase
         ]);
     }
 
+
+    public function test_edit_flow_updates_single_record_without_creating_duplicates(): void
+    {
+        $user = User::factory()->create();
+        $this->actingAs($user);
+
+        $address = ClientAddress::create([
+            'user_id' => $user->id,
+            'label' => 'home',
+            'building_type' => 'apartment',
+            'address_text' => 'Main Street 7A, Kyiv',
+            'city' => 'Kyiv',
+            'street' => 'Main Street',
+            'house' => '7A',
+            'lat' => 50.45,
+            'lng' => 30.52,
+        ]);
+
+        Livewire::test(AddressForm::class)
+            ->set('addressId', $address->id)
+            ->set('label', 'work')
+            ->set('building_type', 'house')
+            ->set('search', 'Main Street 9, Kyiv')
+            ->set('city', 'Kyiv')
+            ->set('street', 'Main Street')
+            ->set('house', '9')
+            ->set('lat', 50.46)
+            ->set('lng', 30.53)
+            ->call('save')
+            ->assertHasNoErrors();
+
+        $this->assertSame(1, ClientAddress::query()->where('user_id', $user->id)->count());
+
+        $this->assertDatabaseHas('client_addresses', [
+            'id' => $address->id,
+            'user_id' => $user->id,
+            'label' => 'work',
+            'building_type' => 'house',
+            'house' => '9',
+        ]);
+    }
+
     public function test_it_cannot_update_another_users_address(): void
     {
         $user = User::factory()->create();

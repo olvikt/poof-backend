@@ -4,9 +4,14 @@ namespace App\Services\Address;
 
 use App\DTO\Address\AddressFormData;
 use App\DTO\Address\PersistAddressData;
+use App\Domain\Address\AddressParser;
 
 class PrepareAddressSavePayload
 {
+    public function __construct(private readonly AddressParser $parser)
+    {
+    }
+
     public function execute(AddressFormData $data): PersistAddressData
     {
         [$street, $city] = $this->resolveStreetAndCity($data);
@@ -15,11 +20,11 @@ class PrepareAddressSavePayload
             'label' => $data->label,
             'title' => $data->title,
             'building_type' => $data->buildingType,
-            'address_text' => $this->normalizeSearch($data->search),
+            'address_text' => $this->normalizedOptional($this->parser->normalizeSearch($data->search)),
             'city' => $city,
             'region' => $data->region,
             'street' => $street,
-            'house' => $this->normalizeHouse($data->house),
+            'house' => $this->normalizedOptional($this->parser->normalizeSearch($data->house)),
             'lat' => $data->lat,
             'lng' => $data->lng,
             'entrance' => $data->buildingType === 'apartment' ? $data->entrance : null,
@@ -44,11 +49,11 @@ class PrepareAddressSavePayload
 
     private function resolveStreetAndCity(AddressFormData $data): array
     {
-        $street = $this->normalizeStreet($data->street);
-        $city = $this->normalizeString($data->city);
+        $street = $this->parser->normalizeStreet($data->street);
+        $city = $this->parser->normalizeString($data->city);
 
         if ($data->search) {
-            $parts = $this->splitSearchParts($data->search);
+            $parts = $this->parser->splitSearchParts($data->search);
 
             if ($street === null) {
                 $street = $this->resolveStreetFromSearchParts($parts);
@@ -62,14 +67,6 @@ class PrepareAddressSavePayload
         return [$street, $city];
     }
 
-    private function splitSearchParts(?string $search): array
-    {
-        return array_values(array_filter(
-            array_map(fn (string $part): string => trim($part), explode(',', (string) $search)),
-            fn (string $part): bool => $part !== ''
-        ));
-    }
-
     private function resolveStreetFromSearchParts(array $parts): ?string
     {
         $streetParts = count($parts) > 1 ? array_slice($parts, 0, -1) : $parts;
@@ -79,7 +76,7 @@ class PrepareAddressSavePayload
                 continue;
             }
 
-            $street = $this->normalizeStreet($part);
+            $street = $this->parser->normalizeStreet($part);
 
             if ($street !== null) {
                 return $street;
@@ -91,39 +88,15 @@ class PrepareAddressSavePayload
 
     private function resolveCityFromSearchParts(array $parts): ?string
     {
-        return $this->normalizeString($parts[count($parts) - 1] ?? null);
+        return $this->parser->normalizeString($parts[count($parts) - 1] ?? null);
     }
 
     private function isHouseNumberToken(string $part): bool
     {
-        return preg_match('/^\d+[\dA-Za-zА-Яа-яІЇЄієї\-\/]*$/u', trim($part)) === 1;
+        return $this->parser->isHouseNumberToken($part);
     }
 
-    private function normalizeStreet(?string $street): ?string
-    {
-        $street = trim((string) $street);
-        if ($street === '') {
-            return null;
-        }
-
-        return preg_replace('/^\s*\d+[\dA-Za-zА-Яа-яІЇЄієї\-\/]*\s*,\s*/u', '', $street) ?: null;
-    }
-
-    private function normalizeHouse(?string $house): ?string
-    {
-        $house = trim((string) $house);
-
-        return $house !== '' ? $house : null;
-    }
-
-    private function normalizeSearch(?string $value): ?string
-    {
-        $value = trim((string) $value);
-
-        return $value !== '' ? $value : null;
-    }
-
-    private function normalizeString(?string $value): ?string
+    private function normalizedOptional(?string $value): ?string
     {
         $value = trim((string) $value);
 

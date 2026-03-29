@@ -3,8 +3,8 @@
 namespace App\Livewire\Client\OrderCreate\Concerns;
 
 use App\Models\ClientAddress;
-use App\Support\Address\AddressCoordinatePolicy;
-use App\Support\Address\AddressPrecision;
+use App\Domain\Address\CoordinateTrustPolicy;
+use App\Domain\Address\Precision;
 use Livewire\Attributes\On;
 
 trait HandlesAddressSelection
@@ -22,7 +22,7 @@ trait HandlesAddressSelection
         $this->suppressAddressHooks = true;
 
         $this->coordsFromAddressBook = true;
-        $this->address_precision = AddressCoordinatePolicy::precisionForAddressBook($address->lat, $address->lng)->value;
+        $this->address_precision = app(CoordinateTrustPolicy::class)->precisionForAddressBook($address->lat, $address->lng)->value;
         $this->address_text = $address->address_text ?? $address->full_address;
         $this->street = $address->street;
         $this->house = $address->house;
@@ -38,7 +38,7 @@ trait HandlesAddressSelection
 
         if ($this->lat && $this->lng) {
             $this->dispatch('map:set-marker', lat: $this->lat, lng: $this->lng);
-            $this->dispatch('map:set-marker-precision', precision: AddressPrecision::Exact->value);
+            $this->dispatch('map:set-marker-precision', precision: Precision::Exact->value);
         }
     }
 
@@ -64,7 +64,7 @@ trait HandlesAddressSelection
             $this->lat = $order->lat;
             $this->lng = $order->lng;
             $this->coordsFromAddressBook = true;
-            $this->address_precision = AddressCoordinatePolicy::precisionForAddressBook($this->lat, $this->lng)->value;
+            $this->address_precision = app(CoordinateTrustPolicy::class)->precisionForAddressBook($this->lat, $this->lng)->value;
         } finally {
             $this->suppressAddressHooks = false;
         }
@@ -75,7 +75,7 @@ trait HandlesAddressSelection
 
         if ($this->lat && $this->lng) {
             $this->dispatch('map:set-marker', lat: $this->lat, lng: $this->lng);
-            $this->dispatch('map:set-marker-precision', precision: AddressPrecision::Approx->value);
+            $this->dispatch('map:set-marker-precision', precision: Precision::Approx->value);
         }
     }
 
@@ -116,13 +116,13 @@ trait HandlesAddressSelection
             $this->lat = $address->lat;
             $this->lng = $address->lng;
             $this->coordsFromAddressBook = true;
-            $this->address_precision = AddressCoordinatePolicy::precisionForAddressBook($this->lat, $this->lng)->value;
+            $this->address_precision = app(CoordinateTrustPolicy::class)->precisionForAddressBook($this->lat, $this->lng)->value;
             $this->geocodeToken = null;
         } finally {
             $this->suppressAddressHooks = false;
         }
 
-        if (AddressPrecision::fromNullable($this->address_precision)->isExact()) {
+        if (Precision::fromNullable($this->address_precision)->isExact()) {
             $this->pushMarkerToMap();
         }
 
@@ -154,39 +154,39 @@ trait HandlesAddressSelection
 
     public function updatedAddressText(): void
     {
-        if (! AddressCoordinatePolicy::shouldRunHooksForProgrammaticUpdate($this->suppressAddressHooks)) {
+        if (! app(CoordinateTrustPolicy::class)->shouldRunHooksForProgrammaticUpdate($this->suppressAddressHooks)) {
             return;
         }
 
         $this->address_id = null;
         $this->coordsFromAddressBook = false;
-        $this->address_precision = AddressPrecision::None->value;
+        $this->address_precision = Precision::None->value;
 
         $this->syncStreetFromAddressText();
     }
 
     public function updatedStreet(): void
     {
-        if (! AddressCoordinatePolicy::shouldRunHooksForProgrammaticUpdate($this->suppressAddressHooks)) {
+        if (! app(CoordinateTrustPolicy::class)->shouldRunHooksForProgrammaticUpdate($this->suppressAddressHooks)) {
             return;
         }
 
         $this->coordsFromAddressBook = false;
         $this->address_id = null;
-        $this->address_precision = AddressPrecision::None->value;
+        $this->address_precision = Precision::None->value;
 
         $this->syncAddressText();
     }
 
     public function updatedHouse(): void
     {
-        if (! AddressCoordinatePolicy::shouldRunHooksForProgrammaticUpdate($this->suppressAddressHooks)) {
+        if (! app(CoordinateTrustPolicy::class)->shouldRunHooksForProgrammaticUpdate($this->suppressAddressHooks)) {
             return;
         }
 
         $this->coordsFromAddressBook = false;
         $this->address_id = null;
-        $this->address_precision = AddressPrecision::None->value;
+        $this->address_precision = Precision::None->value;
         $this->syncAddressText();
         $this->scheduleGeocode();
     }

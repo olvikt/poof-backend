@@ -8,7 +8,7 @@ use App\Livewire\Client\OrderCreate\Concerns\HandlesOrderSubmission;
 use App\Livewire\Client\OrderCreate\Concerns\HandlesPricingTrialPolicy;
 use App\Livewire\Client\OrderCreate\Concerns\HandlesScheduleSlots;
 use App\Models\Order;
-use App\Support\Address\AddressPrecision;
+use App\Domain\Address\Precision;
 use Carbon\Carbon;
 use Illuminate\Support\Collection;
 use Livewire\Component;
@@ -31,7 +31,7 @@ class OrderCreate extends Component
     public ?float $lat = null;
     public ?float $lng = null;
     public bool $coordsFromAddressBook = false;
-    public string $address_precision = AddressPrecision::None->value;
+    public string $address_precision = Precision::None->value;
     protected ?string $geocodeToken = null;
 
     public ?string $entrance = null;

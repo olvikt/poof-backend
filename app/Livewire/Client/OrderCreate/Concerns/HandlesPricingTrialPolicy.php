@@ -3,7 +3,7 @@
 namespace App\Livewire\Client\OrderCreate\Concerns;
 
 use App\Models\Order;
-use App\Support\Address\AddressPrecision;
+use App\Domain\Address\Precision;
 use Illuminate\Support\Facades\Auth;
 
 trait HandlesPricingTrialPolicy
@@ -62,7 +62,7 @@ trait HandlesPricingTrialPolicy
             return;
         }
 
-        if (AddressPrecision::fromNullable($this->address_precision)->isApprox() && ! $this->coordsFromAddressBook) {
+        if (Precision::fromNullable($this->address_precision)->isApprox() && ! $this->coordsFromAddressBook) {
             $this->addError('address_text', 'Будь ласка, уточніть точку на мапі.');
             return;
         }
