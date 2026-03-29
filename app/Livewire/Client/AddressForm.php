@@ -2,27 +2,21 @@
 
 namespace App\Livewire\Client;
 
-use App\Actions\Address\PersistClientAddress;
-use App\DTO\Address\AddressFieldsData;
-use App\DTO\Address\AddressFormData;
-use App\DTO\Address\AddressPointData;
-use App\DTO\Address\PersistAddressData;
-use App\DTO\Address\ResolvedAddressData;
-use App\Models\ClientAddress;
-use App\Services\Address\FilterClientAddressPayload;
-use App\Services\Address\PrepareAddressSavePayload;
-use App\Services\Address\ResolveAddressFromPoint;
-use App\Services\Address\ResolveAddressPointFromFields;
 use App\Domain\Address\AddressParser;
 use App\Domain\Address\CoordinateTrustPolicy;
-use App\Domain\Address\MarkerSyncContract;
 use App\Domain\Address\Precision;
-use Illuminate\Support\Facades\Log;
-use Illuminate\Validation\ValidationException;
+use App\Livewire\Client\AddressForm\Concerns\HandlesAddressPersistence;
+use App\Livewire\Client\AddressForm\Concerns\HandlesAddressPointResolution;
+use App\Livewire\Client\AddressForm\Concerns\HandlesAddressSearchUi;
+use App\Models\ClientAddress;
 use Livewire\Component;
 
 class AddressForm extends Component
 {
+    use HandlesAddressSearchUi;
+    use HandlesAddressPointResolution;
+    use HandlesAddressPersistence;
+
     public ?int $addressId = null;
 
     /** apartment | house */
@@ -77,299 +71,11 @@ class AddressForm extends Component
         $this->syncMarker();
     }
 
-    public function updatedHouse(): void
-    {
-        if (! app(CoordinateTrustPolicy::class)->shouldRunHooksForProgrammaticUpdate($this->updatingHouseFromMap)) {
-            return;
-        }
-
-        $this->houseTouchedManually = true;
-
-        $resolvedPoint = app(ResolveAddressPointFromFields::class)->execute(new AddressFieldsData(
-            street: $this->street,
-            house: $this->house,
-            city: $this->city,
-            search: $this->search,
-            lat: $this->lat,
-            lng: $this->lng,
-        ));
-
-        if ($resolvedPoint === null) {
-            return;
-        }
-
-        if (! app(CoordinateTrustPolicy::class)->shouldAcceptFieldGeocode(Precision::fromNullable($this->addressPrecision))) {
-            return;
-        }
-
-        $this->lat = $resolvedPoint->lat;
-        $this->lng = $resolvedPoint->lng;
-        $this->addressPrecision = app(CoordinateTrustPolicy::class)->precisionForFieldGeocode($this->lat, $this->lng)->value;
-
-        $this->syncMarker();
-    }
-
-    public function updatedSearch($value = null): void
-    {
-        $normalizedValue = $this->normalizeSearch($value ?? $this->search);
-
-        if ($this->search !== $normalizedValue) {
-            $this->search = $normalizedValue;
-        }
-
-        if (mb_strlen(trim((string) $this->search)) < 3) {
-            $this->clearSuggestions();
-        }
-    }
-
-    public function openAddressSearch(): void
-    {
-        $this->isAddressSearchOpen = true;
-    }
-
-    public function closeAddressSearch(): void
-    {
-        $this->isAddressSearchOpen = false;
-        $this->clearSuggestions();
-    }
-
-    public function clearSearch(): void
-    {
-        $this->search = null;
-        $this->summarySearch = null;
-        $this->selectedAddressLocked = false;
-        $this->resetManualHouseGuard();
-        $this->clearSuggestions();
-    }
-
     public function toggleBuildingType(): void
     {
         $this->building_type = $this->building_type === 'house'
             ? 'apartment'
             : 'house';
-    }
-
-    public function setPhotonSuggestions($items, $message = null): void
-    {
-        $this->suggestions = is_array($items)
-            ? collect($items)
-                ->map(function ($item): ?array {
-                    if (! is_array($item)) {
-                        return null;
-                    }
-
-                    $lat = isset($item['lat']) ? (float) $item['lat'] : null;
-                    $lng = isset($item['lng']) ? (float) $item['lng'] : null;
-
-                    if ($lat === null || $lng === null) {
-                        return null;
-                    }
-
-                    return [
-                        'lat' => $lat,
-                        'lng' => $lng,
-                        'street' => isset($item['street']) ? trim((string) $item['street']) : null,
-                        'house' => isset($item['house']) ? trim((string) $item['house']) : null,
-                        'city' => isset($item['city']) ? trim((string) $item['city']) : null,
-                        'region' => isset($item['region']) ? trim((string) $item['region']) : null,
-                        'line1' => isset($item['line1']) ? trim((string) $item['line1']) : null,
-                        'line2' => isset($item['line2']) ? trim((string) $item['line2']) : null,
-                        'label' => isset($item['label']) ? trim((string) $item['label']) : null,
-                    ];
-                })
-                ->filter()
-                ->values()
-                ->all()
-            : [];
-
-        $this->activeSuggestionIndex = -1;
-        $this->suggestionsMessage = is_string($message) && trim($message) !== ''
-            ? trim($message)
-            : null;
-    }
-
-    public function moveSuggestionDown(): void
-    {
-        $count = count($this->suggestions);
-
-        if ($count === 0) {
-            $this->activeSuggestionIndex = -1;
-
-            return;
-        }
-
-        $this->activeSuggestionIndex = ($this->activeSuggestionIndex + 1) % $count;
-    }
-
-    public function moveSuggestionUp(): void
-    {
-        $count = count($this->suggestions);
-
-        if ($count === 0) {
-            $this->activeSuggestionIndex = -1;
-
-            return;
-        }
-
-        if ($this->activeSuggestionIndex <= 0) {
-            $this->activeSuggestionIndex = $count - 1;
-
-            return;
-        }
-
-        $this->activeSuggestionIndex--;
-    }
-
-    public function selectActiveSuggestion(): void
-    {
-        if ($this->activeSuggestionIndex >= 0) {
-            $this->selectSuggestion($this->activeSuggestionIndex);
-        }
-    }
-
-    public function selectSuggestion(int $index): void
-    {
-        $item = $this->suggestions[$index] ?? null;
-
-        if (! is_array($item)) {
-            return;
-        }
-
-        $this->resetManualHouseGuard();
-        $this->selectedAddressLocked = true;
-        $this->place_id = null;
-        $this->search = $this->normalizeSearch($item['label'] ?? $item['line1'] ?? null);
-        $this->summarySearch = $this->search;
-        $this->lat = isset($item['lat']) ? (float) $item['lat'] : null;
-        $this->lng = isset($item['lng']) ? (float) $item['lng'] : null;
-        $this->addressPrecision = app(CoordinateTrustPolicy::class)->precisionForFieldGeocode($this->lat, $this->lng)->value;
-        $this->street = $item['street'] ?? $this->street;
-        $this->house = $item['house'] ?? $this->house;
-        $this->city = $item['city'] ?? $this->city;
-        $this->region = $item['region'] ?? $this->region;
-
-        $this->isAddressSearchOpen = false;
-        $this->clearSuggestions();
-
-        if ($this->lat !== null && $this->lng !== null) {
-            $this->syncMarker();
-            $this->dispatch('map:set-location', lat: $this->lat, lng: $this->lng, source: 'autocomplete', zoom: 17);
-            $this->dispatch('map:update', lat: $this->lat, lng: $this->lng, zoom: 17);
-        }
-    }
-
-    public function setCoords(float $lat, float $lng, ?string $source = null): void
-    {
-        if (! app(MarkerSyncContract::class)->shouldAcceptIncomingSource($source)) {
-            return;
-        }
-
-        if ($this->shouldIgnoreIncomingCoords($lat, $lng, $source)) {
-            return;
-        }
-
-        $this->lat = $lat;
-        $this->lng = $lng;
-        $this->addressPrecision = app(MarkerSyncContract::class)
-            ->precisionForIncomingSource($lat, $lng, $source, app(CoordinateTrustPolicy::class))
-            ->value;
-        $this->place_id = null;
-        $this->clearSuggestions();
-
-        $this->selectedAddressLocked = false;
-
-        $resolved = app(ResolveAddressFromPoint::class)->execute(new AddressPointData(
-            lat: $lat,
-            lng: $lng,
-            source: $source,
-        ));
-
-        if ($resolved !== null) {
-            $this->applyResolvedAddress($resolved);
-        }
-    }
-
-    protected function rules(): array
-    {
-        return [
-            'label' => 'required|in:home,work,other',
-            'title' => 'nullable|string|max:50',
-            'building_type' => 'required|in:apartment,house',
-            'search' => 'nullable|string|max:255',
-            'lat' => 'nullable|numeric|between:-90,90',
-            'lng' => 'nullable|numeric|between:-180,180',
-            'city' => 'required|string|max:80',
-            'region' => 'nullable|string|max:120',
-            'street' => 'required|string|min:2|max:120',
-            'house' => 'required|string|max:20',
-            'entrance' => 'required_if:building_type,apartment|nullable|string|max:10',
-            'floor' => 'required_if:building_type,apartment|nullable|string|max:10',
-            'intercom' => 'nullable|string|max:10',
-            'apartment' => 'required_if:building_type,apartment|nullable|string|max:10',
-        ];
-    }
-
-
-    protected function messages(): array
-    {
-        return [
-            "entrance.required_if" => "Вкажіть підʼїзд для квартири.",
-            'floor.required_if' => 'Вкажіть поверх для квартири.',
-            'apartment.required_if' => 'Вкажіть квартиру/офіс для квартири.',
-        ];
-    }
-
-    public function save(): void
-    {
-        try {
-            $formData = AddressFormData::fromComponent($this);
-            $payloadPreparer = app(PrepareAddressSavePayload::class);
-
-            foreach ($payloadPreparer->applyFallback($formData) as $field => $value) {
-                $this->{$field} = $value;
-            }
-
-            $this->validate();
-            $this->ensureCoordinatesArePresent();
-
-            $formData = AddressFormData::fromComponent($this);
-            $payload = $payloadPreparer->execute($formData);
-            $filteredPayload = app(FilterClientAddressPayload::class)->execute($payload->toArray());
-
-            app(PersistClientAddress::class)->execute(
-                $formData,
-                new PersistAddressData($filteredPayload),
-                auth()->id(),
-            );
-
-            $this->dispatch('address-saved');
-            $this->dispatch('address-saved')->to('client.address-manager');
-            $this->dispatch('sheet:close', name: 'addressForm');
-        } catch (ValidationException $e) {
-            if ($this->building_type === 'apartment' && collect(['entrance', 'floor', 'apartment'])->some(fn (string $field): bool => array_key_exists($field, $e->errors()))) {
-                $this->dispatch('notify', type: 'error', message: 'Для квартири заповніть підʼїзд, поверх і квартиру.');
-            }
-
-            Log::error('Address save failed', [
-                'user_id' => auth()->id(),
-                'payload' => $this->payloadForLogs(),
-                'errors' => $e->errors(),
-            ]);
-
-            throw $e;
-        } catch (\Throwable $e) {
-            report($e);
-
-            $this->addError('search', 'Сталася помилка при збереженні. Перевірте поля та спробуйте ще раз.');
-
-            Log::error('Address save exception', [
-                'user_id' => auth()->id(),
-                'payload' => $this->payloadForLogs(),
-                'errors' => $this->getErrorBag()->toArray(),
-                'message' => $e->getMessage(),
-                'trace' => $e->getTraceAsString(),
-            ]);
-        }
     }
 
     public function render()
@@ -408,82 +114,6 @@ class AddressForm extends Component
         $this->clearSuggestions();
         $this->resetManualHouseGuard();
         $this->updatingHouseFromMap = false;
-    }
-
-
-    protected function shouldIgnoreIncomingCoords(float $lat, float $lng, ?string $source): bool
-    {
-        return app(CoordinateTrustPolicy::class)->shouldIgnoreIncomingCoords(
-            $this->lat,
-            $this->lng,
-            Precision::fromNullable($this->addressPrecision),
-            $this->selectedAddressLocked,
-            $lat,
-            $lng,
-            $source,
-        );
-    }
-
-    protected function applyResolvedAddress(ResolvedAddressData $resolved): void
-    {
-        if ($resolved->street) {
-            $this->street = $resolved->street;
-        }
-
-        if ($resolved->city) {
-            $this->city = $resolved->city;
-        }
-
-        if ($resolved->region) {
-            $this->region = $resolved->region;
-        }
-
-        $this->search = $resolved->search;
-        $this->summarySearch = $resolved->search;
-
-        if (! app(CoordinateTrustPolicy::class)->shouldReverseFillHouse($this->houseTouchedManually)) {
-            return;
-        }
-
-        $this->updatingHouseFromMap = true;
-
-        if ($resolved->house) {
-            $this->house = $resolved->house;
-        }
-
-        $this->updatingHouseFromMap = false;
-    }
-
-    protected function ensureCoordinatesArePresent(): void
-    {
-        if ($this->lat !== null && $this->lng !== null) {
-            return;
-        }
-
-        throw ValidationException::withMessages([
-            'search' => 'Уточніть точку на мапі.',
-        ]);
-    }
-
-    protected function payloadForLogs(): array
-    {
-        return [
-            'addressId' => $this->addressId,
-            'label' => $this->label,
-            'title' => $this->title,
-            'building_type' => $this->building_type,
-            'search' => $this->search,
-            'city' => $this->city,
-            'region' => $this->region,
-            'street' => $this->street,
-            'house' => $this->house,
-            'lat' => $this->lat,
-            'lng' => $this->lng,
-            'entrance' => $this->entrance,
-            'intercom' => $this->intercom,
-            'floor' => $this->floor,
-            'apartment' => $this->apartment,
-        ];
     }
 
     protected function resetForm(): void
@@ -525,28 +155,6 @@ class AddressForm extends Component
     protected function resetManualHouseGuard(): void
     {
         $this->houseTouchedManually = false;
-    }
-
-    protected function clearSuggestions(): void
-    {
-        $this->suggestions = [];
-        $this->activeSuggestionIndex = -1;
-        $this->suggestionsMessage = null;
-    }
-
-    protected function syncMarker(): void
-    {
-        if ($this->lat === null || $this->lng === null) {
-            return;
-        }
-
-        $this->dispatch('map:set-marker', lat: $this->lat, lng: $this->lng);
-        $this->dispatch('map:set-marker-precision', precision: $this->addressPrecision);
-    }
-
-    protected function hasExistingPoint(): bool
-    {
-        return $this->lat !== null && $this->lng !== null;
     }
 
     protected function normalizeSearch($value): string
