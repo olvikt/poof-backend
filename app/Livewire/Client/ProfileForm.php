@@ -2,6 +2,8 @@
 
 namespace App\Livewire\Client;
 
+use App\Actions\Profile\PersistClientProfile;
+use App\DTO\Profile\ProfileFormData;
 use Livewire\Component;
 
 class ProfileForm extends Component
@@ -11,7 +13,13 @@ class ProfileForm extends Component
     public string $email = '';
 
     protected $listeners = [
-        "profile:open" => "loadUser",
+        'profile:open' => 'loadUser',
+    ];
+
+    protected $rules = [
+        'name' => 'required|string|min:2',
+        'phone' => 'nullable|string',
+        'email' => 'required|email',
     ];
 
     public function mount(): void
@@ -32,31 +40,20 @@ class ProfileForm extends Component
         $this->email = (string) $user->email;
     }
 
-    protected $rules = [
-        'name'  => 'required|string|min:2',
-        'phone' => 'nullable|string',
-        'email' => 'required|email',
-    ];
+    public function save(): void
+    {
+        $this->validate();
 
-	public function save()
-	{
-		$this->validate();
+        $user = app(PersistClientProfile::class)->execute(
+            auth()->user(),
+            ProfileFormData::fromComponent($this),
+        );
 
-		auth()->user()->update([
-			'name'  => $this->name,
-			'phone' => $this->phone,
-			'email' => $this->email,
-		]);
+        auth()->setUser($user);
 
-		// 👇 ВАЖНО: обновляем модель пользователя в памяти
-		auth()->setUser(auth()->user()->fresh());
-
-		// закрываем sheet
-		$this->dispatch('sheet:close');
-
-		// событие для обновления профиля
-		$this->dispatch('profile-saved');
-	}
+        $this->dispatch('sheet:close', name: 'editProfile');
+        $this->dispatch('profile-saved');
+    }
 
     public function render()
     {
