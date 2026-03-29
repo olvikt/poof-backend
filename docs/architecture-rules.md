@@ -169,3 +169,9 @@ Route layer = transport boundary.
 - route оставляем thin: URL + middleware + auth boundary + delegation;
 - source of truth для business transition — canonical domain/application entrypoint.
 
+
+## J. Naming & responsibility glossary
+
+Canonical naming and boundary rules for Form/Manager/Action/Policy/Controller roles are documented in [`docs/naming-responsibility-boundaries.md`](./naming-responsibility-boundaries.md).
+
+Use it as a quick audit checklist when introducing new UI orchestration, write-actions, or controller entry points.

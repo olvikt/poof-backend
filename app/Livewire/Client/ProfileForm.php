@@ -2,7 +2,7 @@
 
 namespace App\Livewire\Client;
 
-use App\Actions\Profile\PersistClientProfile;
+use App\Actions\Profile\PersistClientProfileAction;
 use App\DTO\Profile\ProfileFormData;
 use Livewire\Component;
 
@@ -44,7 +44,7 @@ class ProfileForm extends Component
     {
         $this->validate();
 
-        $user = app(PersistClientProfile::class)->execute(
+        $user = app(PersistClientProfileAction::class)->execute(
             auth()->user(),
             ProfileFormData::fromComponent($this),
         );

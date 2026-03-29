@@ -2,7 +2,7 @@
 
 namespace App\Livewire\Client;
 
-use App\Actions\Avatar\PersistClientAvatar;
+use App\Actions\Avatar\PersistClientAvatarAction;
 use App\DTO\Avatar\AvatarUploadData;
 use Livewire\Component;
 use Livewire\WithFileUploads;
@@ -23,7 +23,7 @@ class AvatarForm extends Component
             'avatar' => 'image|max:2048',
         ]);
 
-        $user = app(PersistClientAvatar::class)->execute(
+        $user = app(PersistClientAvatarAction::class)->execute(
             auth()->user(),
             new AvatarUploadData($this->avatar),
         );

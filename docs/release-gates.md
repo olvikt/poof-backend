@@ -111,7 +111,7 @@ Blocking jobs:
    - `tests/Unit/Address/PrepareAddressSavePayloadTest.php`;
    - `tests/Unit/Address/FilterClientAddressPayloadTest.php`;
    - `tests/Unit/Address/PersistAddressDataTest.php`;
-   - `tests/Unit/Address/PersistClientAddressTest.php`;
+   - `tests/Unit/Address/PersistClientAddressActionTest.php`;
    - `tests/Unit/Address/ResolveAddressFromPointTest.php`;
    - `tests/Unit/Address/ResolveAddressPointFromFieldsTest.php`;
    - `tests/Unit/Orders/LifecycleActionContractsTest.php`.
