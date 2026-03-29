@@ -4,15 +4,14 @@ namespace App\Livewire\Courier;
 
 use App\Models\Order;
 use App\Models\User;
-use Livewire\Component;
 use App\Services\Dispatch\OfferDispatcher;
+use App\Support\Courier\CourierNavigationRuntime;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Log;
+use Livewire\Component;
 
 class MyOrders extends Component
 {
-    private const MAX_CITY_NAVIGATION_DISTANCE_KM = 80;
-
     public bool $online = false;
 
     protected $listeners = [
@@ -46,10 +45,6 @@ class MyOrders extends Component
         }
     }
 
-    /* =========================================================
-     | START ORDER
-     ========================================================= */
-
     public function start(int $orderId): void
     {
         $courier = $this->resolveCourier();
@@ -64,21 +59,19 @@ class MyOrders extends Component
 
         if (! $order) {
             $this->dispatch('notify', type: 'error', message: 'Замовлення не знайдено');
+
             return;
         }
 
         if (! $order->startBy($courier)) {
             $this->dispatch('notify', type: 'error', message: 'Не можна почати це замовлення');
+
             return;
         }
 
         $this->dispatch('notify', type: 'success', message: 'Виконання розпочато');
         $this->dispatch('$refresh');
     }
-
-    /* =========================================================
-     | COMPLETE ORDER
-     ========================================================= */
 
     public function complete(int $orderId): void
     {
@@ -94,11 +87,13 @@ class MyOrders extends Component
 
         if (! $order) {
             $this->dispatch('notify', type: 'error', message: 'Замовлення не знайдено');
+
             return;
         }
 
         if (! $order->completeBy($courier)) {
             $this->dispatch('notify', type: 'error', message: 'Не можна завершити це замовлення');
+
             return;
         }
 
@@ -107,10 +102,6 @@ class MyOrders extends Component
         $this->dispatch('notify', type: 'success', message: 'Замовлення виконано');
         $this->dispatch('$refresh');
     }
-
-    /* =========================================================
-     | NAVIGATE
-     ========================================================= */
 
     public function navigate(int $orderId): void
     {
@@ -128,44 +119,43 @@ class MyOrders extends Component
             return;
         }
 
-        if (! $this->validCoords($courier->last_lat, $courier->last_lng)) {
+        $runtime = $this->navigationRuntime();
+
+        if (! $runtime->validCoords($courier->last_lat, $courier->last_lng)) {
             $this->dispatch('notify', type: 'error', message: 'Локація курʼєра недоступна');
 
             return;
         }
 
-        if (! $this->validCoords($order->lat, $order->lng)) {
+        if (! $runtime->validCoords($order->lat, $order->lng)) {
             $this->dispatch('notify', type: 'error', message: 'Локація замовлення недоступна');
 
             return;
         }
 
-        if (! $this->isCourierLocationConfirmedForOrder($courier, $order)) {
+        if (! $runtime->isCourierLocationConfirmedForOrder($courier, $order)) {
             $this->dispatch('notify', type: 'error', message: 'Локація курʼєра не підтверджена');
             $this->dispatch('map:ui-error', [
                 'message' => 'Локація курʼєра не підтверджена',
             ]);
+
             return;
         }
 
         $this->dispatch('map:courier-update', [
-            'courierLat' => (float)$courier->last_lat,
-            'courierLng' => (float)$courier->last_lng,
-            'orderLat'   => (float)$order->lat,
-            'orderLng'   => (float)$order->lng,
+            'courierLat' => (float) $courier->last_lat,
+            'courierLng' => (float) $courier->last_lng,
+            'orderLat' => (float) $order->lat,
+            'orderLng' => (float) $order->lng,
         ]);
 
         $this->dispatch('build-route', [
-            'fromLat' => (float)$courier->last_lat,
-            'fromLng' => (float)$courier->last_lng,
-            'toLat'   => (float)$order->lat,
-            'toLng'   => (float)$order->lng,
+            'fromLat' => (float) $courier->last_lat,
+            'fromLng' => (float) $courier->last_lng,
+            'toLat' => (float) $order->lat,
+            'toLng' => (float) $order->lng,
         ]);
     }
-
-    /* =========================================================
-     | RENDER
-     ========================================================= */
 
     public function render()
     {
@@ -181,7 +171,6 @@ class MyOrders extends Component
         $runtime = $courier->courierRuntimeSnapshot();
         $this->online = (bool) ($runtime['online'] ?? false);
 
-        // 🔥 БЕЗ scopeActiveForCourier — максимально безопасно
         $orders = Order::where('courier_id', $courier->id)
             ->whereIn('status', [
                 Order::STATUS_ACCEPTED,
@@ -201,50 +190,31 @@ class MyOrders extends Component
 
     private function resolveMapBootstrap(Collection $orders, User $courier): array
     {
+        $runtime = $this->navigationRuntime();
+
         $activeOrder = $orders
-            ->first(fn ($order) => $this->validCoords($order->lat, $order->lng));
+            ->first(fn ($order) => $runtime->validCoords($order->lat, $order->lng));
 
-        if (! $activeOrder) {
-            return [
-                'orderLat' => null,
-                'orderLng' => null,
-                'courierLat' => null,
-                'courierLng' => null,
-                'courierConfirmed' => false,
-            ];
-        }
+        $payload = $runtime->resolveMapBootstrap($courier, $activeOrder);
 
-        $hasCourier = $this->validCoords($courier->last_lat, $courier->last_lng);
-        $courierConfirmed = $this->isCourierLocationConfirmedForOrder($courier, $activeOrder);
-
-        $payload = [
-            'orderLat' => (float) $activeOrder->lat,
-            'orderLng' => (float) $activeOrder->lng,
-            'courierLat' => $hasCourier ? (float) $courier->last_lat : null,
-            'courierLng' => $hasCourier ? (float) $courier->last_lng : null,
-            'courierConfirmed' => $courierConfirmed,
-        ];
-
-        if (config('dispatch.courier_map_bootstrap_debug')) {
+        if (config('dispatch.courier_map_bootstrap_debug') && $activeOrder) {
             Log::debug('courier map bootstrap prepared', [
                 'courier_id' => $courier->id,
                 'order_id' => $activeOrder->id,
-                'has_courier_coordinates' => $hasCourier,
-                'courier_confirmed' => $courierConfirmed,
+                'has_courier_coordinates' => $payload['courierLat'] !== null && $payload['courierLng'] !== null,
+                'courier_confirmed' => $payload['courierConfirmed'],
             ]);
         }
 
         return $payload;
     }
 
-    /* =========================================================
-     | DISTANCE
-     ========================================================= */
-
     private function appendDistance(Collection $orders, User $courier): Collection
     {
-        return $orders->map(function ($order) use ($courier) {
-            if (! $this->isCourierLocationConfirmedForOrder($courier, $order)) {
+        $runtime = $this->navigationRuntime();
+
+        return $orders->map(function ($order) use ($courier, $runtime) {
+            if (! $runtime->isCourierLocationConfirmedForOrder($courier, $order)) {
                 $order->distance_km = null;
                 $order->eta_minutes = null;
 
@@ -252,62 +222,17 @@ class MyOrders extends Component
             }
 
             $order->distance_km = round(
-                $this->haversine(
+                $runtime->haversine(
                     (float) $courier->last_lat,
                     (float) $courier->last_lng,
                     (float) $order->lat,
-                    (float) $order->lng
+                    (float) $order->lng,
                 ),
-                2
+                2,
             );
 
             return $order;
         });
-    }
-
-    private function isCourierLocationConfirmedForOrder(User $courier, Order $order): bool
-    {
-        if (! $this->validCoords($courier->last_lat, $courier->last_lng)) {
-            return false;
-        }
-
-        if (! $this->validCoords($order->lat, $order->lng)) {
-            return false;
-        }
-
-        $distanceKm = $this->haversine(
-            (float) $courier->last_lat,
-            (float) $courier->last_lng,
-            (float) $order->lat,
-            (float) $order->lng
-        );
-
-        return $distanceKm <= self::MAX_CITY_NAVIGATION_DISTANCE_KM;
-    }
-
-    private function validCoords($lat, $lng): bool
-    {
-        if ($lat === null || $lng === null) return false;
-        if ($lat == 0 && $lng == 0) return false;
-        if ($lat < -90 || $lat > 90) return false;
-        if ($lng < -180 || $lng > 180) return false;
-        return true;
-    }
-
-    private function haversine(float $lat1, float $lon1, float $lat2, float $lon2): float
-    {
-        $earth = 6371;
-
-        $dLat = deg2rad($lat2 - $lat1);
-        $dLon = deg2rad($lon2 - $lon1);
-
-        $a = sin($dLat/2) * sin($dLat/2)
-            + cos(deg2rad($lat1))
-            * cos(deg2rad($lat2))
-            * sin($dLon/2)
-            * sin($dLon/2);
-
-        return $earth * (2 * atan2(sqrt($a), sqrt(1 - $a)));
     }
 
     private function resolveCourier(): ?User
@@ -321,4 +246,8 @@ class MyOrders extends Component
         return $user->fresh(['courierProfile']);
     }
 
+    private function navigationRuntime(): CourierNavigationRuntime
+    {
+        return app(CourierNavigationRuntime::class);
+    }
 }
