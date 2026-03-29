@@ -4,6 +4,7 @@ namespace App\Livewire\Client;
 
 use App\Actions\Avatar\PersistClientAvatarAction;
 use App\DTO\Avatar\AvatarUploadData;
+use Illuminate\Support\Facades\Log;
 use Livewire\Component;
 use Livewire\WithFileUploads;
 
@@ -19,19 +20,43 @@ class AvatarForm extends Component
             return;
         }
 
-        $this->validate([
-            'avatar' => 'image|max:2048',
+        Log::info('ui_save_flow_started', [
+            'flow' => 'avatar',
+            'boundary' => 'before_persistence',
+            'user_id' => auth()->id(),
         ]);
 
-        $user = app(PersistClientAvatarAction::class)->execute(
-            auth()->user(),
-            new AvatarUploadData($this->avatar),
-        );
+        try {
+            $this->validate([
+                'avatar' => 'image|max:2048',
+            ]);
 
-        $this->dispatch('avatar-saved', avatarUrl: $user->avatar_url);
-        $this->dispatch('sheet:close', name: 'editAvatar');
+            $user = app(PersistClientAvatarAction::class)->execute(
+                auth()->user(),
+                new AvatarUploadData($this->avatar),
+            );
 
-        $this->reset('avatar');
+            Log::info('ui_save_flow_succeeded', [
+                'flow' => 'avatar',
+                'boundary' => 'after_persistence',
+                'user_id' => auth()->id(),
+            ]);
+
+            $this->dispatch('avatar-saved', avatarUrl: $user->avatar_url);
+            $this->dispatch('sheet:close', name: 'editAvatar');
+
+            $this->reset('avatar');
+        } catch (\Throwable $e) {
+            Log::error('ui_save_flow_failed', [
+                'flow' => 'avatar',
+                'boundary' => 'after_persistence',
+                'user_id' => auth()->id(),
+                'failure_type' => 'exception',
+                'exception_class' => $e::class,
+            ]);
+
+            throw $e;
+        }
     }
 
     public function render()

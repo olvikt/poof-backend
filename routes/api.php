@@ -14,6 +14,7 @@ use App\Http\Controllers\Api\GeocodeController;
 use App\Http\Controllers\Api\CourierOrderController;
 use App\Http\Controllers\Api\CourierRuntimeController;
 use App\Http\Controllers\Api\AdminMapController;
+use App\Http\Controllers\Api\AdminRuntimeDiagnosticsController;
 
 
 Route::post('/register', [RegisterController::class, 'register'])
@@ -63,3 +64,6 @@ Route::middleware(['web', 'auth:web', AdminOnly::class])
 
 Route::middleware(['web', 'auth:web', AdminOnly::class])
     ->get('/dashboard/map', [AdminMapController::class, 'index']);
+
+Route::middleware(['web', 'auth:web', AdminOnly::class])
+    ->get('/admin/runtime-diagnostics', [AdminRuntimeDiagnosticsController::class, 'show']);

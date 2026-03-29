@@ -2,7 +2,11 @@ import test from 'node:test'
 import assert from 'node:assert/strict'
 
 import {
+  emitUiRuntimeMarker,
+  evaluateLivewireRuntimeBoot,
+  evaluateStandaloneAlpineBoot,
   POOF_BOOT_FLAGS,
+  POOF_RUNTIME_MARKER_EVENT,
   registerSharedAlpineComponents,
   shouldBootStandaloneAlpine,
   shouldStartLivewireRuntime,
@@ -46,6 +50,10 @@ test('livewire startup guard blocks duplicate boot and only allows a single vali
   globals[POOF_BOOT_FLAGS.livewireStarted] = true
 
   assert.equal(shouldStartLivewireRuntime({ livewire, alpine, globals }), false)
+  assert.deepEqual(evaluateLivewireRuntimeBoot({ livewire, alpine, globals }), {
+    allowed: false,
+    reason: 'duplicate_guarded',
+  })
 })
 
 test('standalone alpine startup guard does not run when livewire config exists and prevents duplicate init', () => {
@@ -58,4 +66,28 @@ test('standalone alpine startup guard does not run when livewire config exists a
   assert.equal(shouldStartStandaloneAlpine({ alpine, globals }), true)
   globals[POOF_BOOT_FLAGS.alpineStarted] = true
   assert.equal(shouldStartStandaloneAlpine({ alpine, globals }), false)
+  assert.deepEqual(evaluateStandaloneAlpineBoot({ alpine, globals }), {
+    allowed: false,
+    reason: 'duplicate_guarded',
+  })
+})
+
+test('ui runtime marker emits structured event payload without requiring diagnostics console noise', () => {
+  let captured = null
+  const globals = {
+    dispatchEvent(event) {
+      if (event.type === POOF_RUNTIME_MARKER_EVENT) {
+        captured = event.detail
+      }
+    },
+  }
+
+  const detail = emitUiRuntimeMarker('ui_runtime_bootstrap_skipped', {
+    source: 'livewire',
+    reason: 'duplicate_guarded',
+  }, { globals, diagnostics: false })
+
+  assert.equal(detail.event, 'ui_runtime_bootstrap_skipped')
+  assert.equal(detail.level, 'info')
+  assert.equal(captured?.context?.reason, 'duplicate_guarded')
 })

@@ -118,6 +118,50 @@ Snapshot payload keys (stable order):
 - `livewire:navigated` + Livewire morph hooks for map remount/recover.
 - auth-loss teardown (`poof:auth-session-lost`) followed by canonical runtime recovery path.
 
+## Canonical runtime observability markers
+
+High-signal markers that are now treated as canonical for incident triage:
+
+- `ui_runtime_bootstrap_started` / `ui_runtime_bootstrap_livewire_started` / `ui_runtime_bootstrap_alpine_started`;
+- `ui_runtime_bootstrap_skipped` (`reason=duplicate_guarded`) for duplicate-boot guard evidence;
+- `cross_tab_runtime_sync_repair_applied` (runtime self-heal triggered);
+- `optimistic_runtime_state_overridden` (optimistic courier state overridden by canonical snapshot);
+- `map_bootstrap_rejected` (`reason=invalid_payload|invalid_or_stale_coords`);
+- `reverse_geocode_degraded` (`reason=http_not_ok|empty_result|request_failed`);
+- `ui_save_flow_started` / `ui_save_flow_succeeded` / `ui_save_flow_failed` with explicit `boundary=before_persistence|after_persistence`.
+
+### Logging boundaries
+
+- **Bootstrap/runtime layer** logs only runtime guards, self-heal markers, and degraded map/geocode states.
+- **Application action boundary** logs save-flow lifecycle around persistence boundaries (`profile`, `avatar`, `address`).
+- **Must not log from UI-only state**:
+  - free-form address text, profile fields, phone/email, avatar blob metadata;
+  - verbose stack traces in expected validation flows.
+- **Required structured fields** for UI/runtime markers:
+  - `flow` (when action-boundary marker),
+  - `boundary` (`before_persistence`/`after_persistence` for save flows),
+  - `reason` (normalized compact reason code),
+  - `user_id` (if authenticated),
+  - minimal booleans/counters needed for triage (`has_coordinates`, `canonical_online`, etc).
+
+### Operator diagnostics surface
+
+- Admin API endpoint: `GET /api/admin/runtime-diagnostics` (web auth + admin only).
+- Returns lightweight runtime envelope:
+  - `runtime_mode`,
+  - `queue_driver`,
+  - `cache_driver`,
+  - latest `release_summary` file metadata.
+- Endpoint is intentionally minimal and excludes user/session/UI payloads.
+
+### PR observability hook (runtime-heavy changes)
+
+For runtime-heavy PRs touching Livewire/Alpine/map/geocode/save flows, include:
+
+1. at least one canonical marker for critical failure/degraded path;
+2. one marker proving self-heal/guard activation where applicable;
+3. targeted tests asserting marker emission and no duplicate-noise logging.
+
 ## Legacy ambiguities (remaining)
 
 - Cross-tab runtime sync still transports hint payloads without strict versioned schema enforcement.

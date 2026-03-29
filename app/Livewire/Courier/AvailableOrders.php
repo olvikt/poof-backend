@@ -6,6 +6,7 @@ use App\Models\Order;
 use App\Models\OrderOffer;
 use App\Models\User;
 use App\Support\Courier\CourierNavigationRuntime;
+use Illuminate\Support\Facades\Log;
 use Livewire\Component;
 
 class AvailableOrders extends Component
@@ -131,6 +132,16 @@ class AvailableOrders extends Component
             if ($optimisticAge <= self::UI_OPTIMISTIC_SYNC_TTL_SECONDS) {
                 return;
             }
+        }
+
+        if ($this->online !== $canonicalOnline) {
+            Log::warning('optimistic_runtime_state_overridden', [
+                'flow' => 'courier_online_state',
+                'user_id' => $courier->id,
+                'optimistic_online' => $this->online,
+                'canonical_online' => $canonicalOnline,
+                'last_ui_sync_at' => $this->lastUiOnlineSyncAt,
+            ]);
         }
 
         $this->online = $canonicalOnline;
