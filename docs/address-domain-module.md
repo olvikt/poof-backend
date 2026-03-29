@@ -53,6 +53,13 @@ The extraction keeps current UX and observable behavior intact.
 - **Form/input DTOs**: `app/DTO/Address/*`.
 - **UI/runtime orchestration**: Livewire components/concerns + browser event dispatching.
 
+## Construction compatibility contract
+
+- Preferred pattern in runtime code: resolve address services through the DI container (`app(...)` / constructor injection).
+- `PrepareAddressSavePayload` additionally supports manual `new PrepareAddressSavePayload()` for test/utilities backward compatibility.
+- Manual instantiation with explicit parser (`new PrepareAddressSavePayload(new AddressParser())`) is also supported.
+- Other extracted services (`ResolveAddressFromPoint`, `ResolveAddressPointFromFields`, `AddressGeocoding`) are expected to be container-resolved.
+
 ## Source of truth
 
 - Coordinates + precision source-of-truth is the pair:

@@ -8,8 +8,11 @@ use App\Domain\Address\AddressParser;
 
 class PrepareAddressSavePayload
 {
-    public function __construct(private readonly AddressParser $parser)
+    private AddressParser $parser;
+
+    public function __construct(?AddressParser $parser = null)
     {
+        $this->parser = $parser ?? new AddressParser();
     }
 
     public function execute(AddressFormData $data): PersistAddressData
