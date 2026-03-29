@@ -144,3 +144,28 @@ Browser events считаются публичным UI contract.
 - `release-gates.md` фиксирует **что должно пройти перед merge/deploy/release**.
 
 Если PR меняет critical flow, проверяем оба документа, но не дублируем один в другом.
+
+
+## I. Route-layer responsibility rules
+
+Route layer = transport boundary.
+
+Допустимо в route closure только transport glue:
+
+- тривиальный `view(...)` / `redirect(...)`;
+- health/readiness probes без доменной логики;
+- временный compatibility shim, если он явно documented и покрыт regression test.
+
+Нужно обязательно выносить в controller/action, если в route появляется хоть что-то из списка:
+
+- lifecycle переходы (`accept/start/complete/cancel/pay`);
+- runtime/business state mutations;
+- нетривиальная валидация/ветвление user-flow;
+- повторяемая orchestration logic, которая уже имеет canonical entrypoint.
+
+Практическое правило для PR:
+
+- если код route трогает model method, который меняет состояние, — route должен делегировать в controller/action, а не выполнять transition inline;
+- route оставляем thin: URL + middleware + auth boundary + delegation;
+- source of truth для business transition — canonical domain/application entrypoint.
+

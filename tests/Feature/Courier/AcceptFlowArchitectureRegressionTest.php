@@ -18,9 +18,11 @@ class AcceptFlowArchitectureRegressionTest extends TestCase
     public function test_web_and_api_accept_entry_points_delegate_to_domain_accept_by_method(): void
     {
         $webRoutes = $this->normalizedFile('routes/web.php');
+        $webLifecycleController = $this->normalizedFile('app/Http/Controllers/Courier/CourierOrderLifecycleController.php');
         $apiController = $this->normalizedFile('app/Http/Controllers/Api/CourierOrderController.php');
 
-        $this->assertStringContainsString('->acceptBy(auth()->user())', $webRoutes);
+        $this->assertStringContainsString("Route::post('/orders/{order}/accept', [CourierOrderLifecycleController::class, 'accept'])", $webRoutes);
+        $this->assertStringContainsString('->acceptBy($courier)', $webLifecycleController);
         $this->assertStringContainsString('->acceptBy($courier)', $apiController);
     }
 
@@ -84,19 +86,19 @@ class AcceptFlowArchitectureRegressionTest extends TestCase
     {
         $orderResource = $this->normalizedFile('app/Filament/Resources/OrderResource.php');
         $this->assertStringContainsString("Select::make('status')", $orderResource);
-        $this->assertStringContainsString("->disabled()", $orderResource);
-        $this->assertStringContainsString("->dehydrated(false)", $orderResource);
+        $this->assertStringContainsString('->disabled()', $orderResource);
+        $this->assertStringContainsString('->dehydrated(false)', $orderResource);
         $this->assertStringContainsString("Select::make('courier_id')", $orderResource);
         $this->assertStringContainsString("->relationship('courier', 'name')", $orderResource);
-        $this->assertStringContainsString("->dehydrated(false)", $orderResource);
+        $this->assertStringContainsString('->dehydrated(false)', $orderResource);
     }
 
     public function test_manual_admin_courier_flow_cannot_mutate_runtime_state_directly_on_edit(): void
     {
         $courierResource = $this->normalizedFile('app/Filament/Resources/CourierResource.php');
         $this->assertStringContainsString("Select::make('status')", $courierResource);
-        $this->assertStringContainsString("Courier::STATUS_ASSIGNED", $courierResource);
-        $this->assertStringContainsString("Courier::STATUS_DELIVERING", $courierResource);
+        $this->assertStringContainsString('Courier::STATUS_ASSIGNED', $courierResource);
+        $this->assertStringContainsString('Courier::STATUS_DELIVERING', $courierResource);
         $this->assertStringContainsString("->disabled(fn (?Courier \$record) => \$record !== null)", $courierResource);
         $this->assertStringContainsString("->dehydrated(fn (?Courier \$record) => \$record === null)", $courierResource);
     }
