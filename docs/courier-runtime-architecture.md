@@ -88,6 +88,36 @@ Snapshot payload keys (stable order):
   - cross-tab runtime sync emits/receives state hints;
   - each tab still heals via canonical backend snapshot, avoiding hidden local-only authoritative state.
 
+
+
+## Bootstrap/runtime wiring invariants
+
+### Single valid boot path
+
+- App runtime bootstrap is centralized in `resources/js/app.js` and must remain the only place where Livewire/Alpine start decisions are made.
+- Map bootstrap must enter via `mountAny()`/`mount()` in `resources/js/poof/map.js`; duplicate local map boot variants are not allowed.
+
+### Where repeat init is allowed vs forbidden
+
+- Allowed:
+  - navigation/reconnect remount through guarded hooks (`livewire:navigated`, Livewire morph hooks) with teardown/reset before remount;
+  - idempotent rebinding calls that are explicitly one-time guarded.
+- Forbidden:
+  - duplicate Livewire/Alpine startup in the same browser runtime;
+  - hidden dual map instances bound to one logical runtime state.
+
+### Required duplicate-boot guards
+
+- Global guards: `window.__poofLivewireStarted`, `window.__poofAlpineStarted`.
+- Shared component guard: `instance.__poofComponentsRegistered`.
+- Map singleton guard: existing instance reuse for same element + teardown on DOM target drift.
+
+### Hooks that must survive navigation/reconnect
+
+- `courier:runtime-sync`, `courier-online-toggled`, `courier:online`, `courier:offline`.
+- `livewire:navigated` + Livewire morph hooks for map remount/recover.
+- auth-loss teardown (`poof:auth-session-lost`) followed by canonical runtime recovery path.
+
 ## Legacy ambiguities (remaining)
 
 - Cross-tab runtime sync still transports hint payloads without strict versioned schema enforcement.
