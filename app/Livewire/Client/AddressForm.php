@@ -13,8 +13,10 @@ use App\Services\Address\FilterClientAddressPayload;
 use App\Services\Address\PrepareAddressSavePayload;
 use App\Services\Address\ResolveAddressFromPoint;
 use App\Services\Address\ResolveAddressPointFromFields;
-use App\Support\Address\AddressCoordinatePolicy;
-use App\Support\Address\AddressPrecision;
+use App\Domain\Address\AddressParser;
+use App\Domain\Address\CoordinateTrustPolicy;
+use App\Domain\Address\MarkerSyncContract;
+use App\Domain\Address\Precision;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Validation\ValidationException;
 use Livewire\Component;
@@ -51,7 +53,7 @@ class AddressForm extends Component
     public ?string $street = null;
     public ?string $house = null;
 
-    public string $addressPrecision = AddressPrecision::None->value;
+    public string $addressPrecision = Precision::None->value;
 
     public bool $houseTouchedManually = false;
     public bool $selectedAddressLocked = false;
@@ -77,7 +79,7 @@ class AddressForm extends Component
 
     public function updatedHouse(): void
     {
-        if (! AddressCoordinatePolicy::shouldRunHooksForProgrammaticUpdate($this->updatingHouseFromMap)) {
+        if (! app(CoordinateTrustPolicy::class)->shouldRunHooksForProgrammaticUpdate($this->updatingHouseFromMap)) {
             return;
         }
 
@@ -96,13 +98,13 @@ class AddressForm extends Component
             return;
         }
 
-        if (! AddressCoordinatePolicy::shouldAcceptFieldGeocode(AddressPrecision::fromNullable($this->addressPrecision))) {
+        if (! app(CoordinateTrustPolicy::class)->shouldAcceptFieldGeocode(Precision::fromNullable($this->addressPrecision))) {
             return;
         }
 
         $this->lat = $resolvedPoint->lat;
         $this->lng = $resolvedPoint->lng;
-        $this->addressPrecision = AddressCoordinatePolicy::precisionForFieldGeocode($this->lat, $this->lng)->value;
+        $this->addressPrecision = app(CoordinateTrustPolicy::class)->precisionForFieldGeocode($this->lat, $this->lng)->value;
 
         $this->syncMarker();
     }
@@ -240,7 +242,7 @@ class AddressForm extends Component
         $this->summarySearch = $this->search;
         $this->lat = isset($item['lat']) ? (float) $item['lat'] : null;
         $this->lng = isset($item['lng']) ? (float) $item['lng'] : null;
-        $this->addressPrecision = AddressCoordinatePolicy::precisionForFieldGeocode($this->lat, $this->lng)->value;
+        $this->addressPrecision = app(CoordinateTrustPolicy::class)->precisionForFieldGeocode($this->lat, $this->lng)->value;
         $this->street = $item['street'] ?? $this->street;
         $this->house = $item['house'] ?? $this->house;
         $this->city = $item['city'] ?? $this->city;
@@ -258,7 +260,7 @@ class AddressForm extends Component
 
     public function setCoords(float $lat, float $lng, ?string $source = null): void
     {
-        if (! in_array($source, ['map', 'user', 'geolocation'], true)) {
+        if (! app(MarkerSyncContract::class)->shouldAcceptIncomingSource($source)) {
             return;
         }
 
@@ -268,9 +270,9 @@ class AddressForm extends Component
 
         $this->lat = $lat;
         $this->lng = $lng;
-        $this->addressPrecision = $source === 'map'
-            ? AddressCoordinatePolicy::precisionForManualPointSelection($lat, $lng)->value
-            : AddressCoordinatePolicy::precisionForFieldGeocode($lat, $lng)->value;
+        $this->addressPrecision = app(MarkerSyncContract::class)
+            ->precisionForIncomingSource($lat, $lng, $source, app(CoordinateTrustPolicy::class))
+            ->value;
         $this->place_id = null;
         $this->clearSuggestions();
 
@@ -400,7 +402,7 @@ class AddressForm extends Component
             'region' => $address->region,
             'street' => $address->street,
             'house' => $address->house,
-            'addressPrecision' => AddressCoordinatePolicy::precisionForAddressBook($address->lat, $address->lng)->value,
+            'addressPrecision' => app(CoordinateTrustPolicy::class)->precisionForAddressBook($address->lat, $address->lng)->value,
         ]);
 
         $this->clearSuggestions();
@@ -411,23 +413,15 @@ class AddressForm extends Component
 
     protected function shouldIgnoreIncomingCoords(float $lat, float $lng, ?string $source): bool
     {
-        if ($source === 'geolocation') {
-            if ($this->selectedAddressLocked) {
-                return $this->hasExistingPoint()
-                    && (! $this->coordinatesMatch($this->lat, $lat) || ! $this->coordinatesMatch($this->lng, $lng));
-            }
-
-            return AddressPrecision::fromNullable($this->addressPrecision) === AddressPrecision::Exact
-                && $this->hasExistingPoint()
-                && (! $this->coordinatesMatch($this->lat, $lat) || ! $this->coordinatesMatch($this->lng, $lng));
-        }
-
-        return false;
-    }
-
-    protected function coordinatesMatch(float $left, float $right): bool
-    {
-        return abs($left - $right) <= 0.000001;
+        return app(CoordinateTrustPolicy::class)->shouldIgnoreIncomingCoords(
+            $this->lat,
+            $this->lng,
+            Precision::fromNullable($this->addressPrecision),
+            $this->selectedAddressLocked,
+            $lat,
+            $lng,
+            $source,
+        );
     }
 
     protected function applyResolvedAddress(ResolvedAddressData $resolved): void
@@ -447,7 +441,7 @@ class AddressForm extends Component
         $this->search = $resolved->search;
         $this->summarySearch = $resolved->search;
 
-        if (! AddressCoordinatePolicy::shouldReverseFillHouse($this->houseTouchedManually)) {
+        if (! app(CoordinateTrustPolicy::class)->shouldReverseFillHouse($this->houseTouchedManually)) {
             return;
         }
 
@@ -522,7 +516,7 @@ class AddressForm extends Component
         $this->label = 'home';
         $this->building_type = 'apartment';
         $this->selectedAddressLocked = false;
-        $this->addressPrecision = AddressPrecision::None->value;
+        $this->addressPrecision = Precision::None->value;
         $this->clearSuggestions();
         $this->resetManualHouseGuard();
         $this->updatingHouseFromMap = false;
@@ -557,14 +551,6 @@ class AddressForm extends Component
 
     protected function normalizeSearch($value): string
     {
-        if (is_array($value)) {
-            return trim((string) ($value['label'] ?? $value['name'] ?? ''));
-        }
-
-        if (is_object($value)) {
-            return trim((string) ($value->label ?? $value->name ?? ''));
-        }
-
-        return trim((string) $value);
+        return app(AddressParser::class)->normalizeSearch($value);
     }
 }

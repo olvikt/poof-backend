@@ -1,10 +1,8 @@
 <?php
 
-namespace App\Support\Address;
+namespace App\Domain\Address;
 
-use App\Domain\Address\Precision as DomainPrecision;
-
-enum AddressPrecision: string
+enum Precision: string
 {
     case None = 'none';
     case Approx = 'approx';
@@ -12,22 +10,16 @@ enum AddressPrecision: string
 
     public static function fromNullable(?string $value): self
     {
-        return self::fromDomain(DomainPrecision::fromNullable($value));
+        return self::tryFrom((string) $value) ?? self::None;
     }
 
     public static function fromCoordinates(?float $lat, ?float $lng, bool $isExact = false): self
     {
-        return self::fromDomain(DomainPrecision::fromCoordinates($lat, $lng, $isExact));
-    }
+        if ($lat === null || $lng === null) {
+            return self::None;
+        }
 
-    public static function fromDomain(DomainPrecision $precision): self
-    {
-        return self::from($precision->value);
-    }
-
-    public function toDomain(): DomainPrecision
-    {
-        return DomainPrecision::from($this->value);
+        return $isExact ? self::Exact : self::Approx;
     }
 
     public function isNone(): bool

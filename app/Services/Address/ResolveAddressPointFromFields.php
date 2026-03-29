@@ -4,10 +4,15 @@ namespace App\Services\Address;
 
 use App\DTO\Address\AddressFieldsData;
 use App\DTO\Address\ResolvedAddressPointData;
+use App\Domain\Address\AddressParser;
 use Illuminate\Support\Facades\Http;
 
 class ResolveAddressPointFromFields
 {
+    public function __construct(private readonly AddressParser $parser)
+    {
+    }
+
     public function execute(AddressFieldsData $fields): ?ResolvedAddressPointData
     {
         $prepared = $this->prepareQuery($fields);
@@ -47,17 +52,17 @@ class ResolveAddressPointFromFields
 
     public function prepareQuery(AddressFieldsData $fields): ?string
     {
-        $house = $this->normalizeString($fields->house);
+        $house = $this->parser->normalizeString($fields->house);
 
         if ($house === null) {
             return null;
         }
 
-        $street = $this->normalizeString($fields->street);
-        $city = $this->normalizeString($fields->city);
+        $street = $this->parser->normalizeString($fields->street);
+        $city = $this->parser->normalizeString($fields->city);
 
         if ($street === null) {
-            [$fallbackStreet, $fallbackCity] = $this->extractFromSearch($fields->search);
+            [$fallbackStreet, $fallbackCity] = $this->parser->extractStreetAndCityFromSearch($fields->search);
             $street = $fallbackStreet;
             $city ??= $fallbackCity;
         }
@@ -75,26 +80,4 @@ class ResolveAddressPointFromFields
         return $query;
     }
 
-    private function extractFromSearch(?string $search): array
-    {
-        $search = trim((string) $search);
-
-        if ($search === '') {
-            return [null, null];
-        }
-
-        $parts = array_map('trim', explode(',', $search));
-
-        return [
-            $this->normalizeString($parts[0] ?? null),
-            $this->normalizeString($parts[1] ?? null),
-        ];
-    }
-
-    private function normalizeString(?string $value): ?string
-    {
-        $value = trim((string) $value);
-
-        return $value !== '' ? $value : null;
-    }
 }

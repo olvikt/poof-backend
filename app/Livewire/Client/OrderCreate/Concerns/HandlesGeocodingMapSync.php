@@ -3,8 +3,8 @@
 namespace App\Livewire\Client\OrderCreate\Concerns;
 
 use App\Services\Geocoding\Geocoder;
-use App\Support\Address\AddressCoordinatePolicy;
-use App\Support\Address\AddressPrecision;
+use App\Domain\Address\CoordinateTrustPolicy;
+use App\Domain\Address\Precision;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Http;
 use Livewire\Attributes\On;
@@ -17,7 +17,7 @@ trait HandlesGeocodingMapSync
         $this->lat = $lat;
         $this->lng = $lng;
 
-        $this->address_precision = AddressCoordinatePolicy::precisionForManualPointSelection($lat, $lng)->value;
+        $this->address_precision = app(CoordinateTrustPolicy::class)->precisionForManualPointSelection($lat, $lng)->value;
         $this->coordsFromAddressBook = false;
         $this->address_id = null;
 
@@ -136,7 +136,7 @@ trait HandlesGeocodingMapSync
             return;
         }
 
-        if (AddressPrecision::fromNullable($this->address_precision)->isExact()) {
+        if (Precision::fromNullable($this->address_precision)->isExact()) {
             return;
         }
 
@@ -153,7 +153,7 @@ trait HandlesGeocodingMapSync
 
         $this->lat = (float) $location['lat'];
         $this->lng = (float) $location['lng'];
-        $this->address_precision = AddressCoordinatePolicy::precisionForFieldGeocode($this->lat, $this->lng)->value;
+        $this->address_precision = app(CoordinateTrustPolicy::class)->precisionForFieldGeocode($this->lat, $this->lng)->value;
 
         $this->pushMarkerToMap();
     }
@@ -201,7 +201,7 @@ trait HandlesGeocodingMapSync
                 }
             }
 
-            $this->address_precision = AddressCoordinatePolicy::precisionForFieldGeocode($this->lat, $this->lng)->value;
+            $this->address_precision = app(CoordinateTrustPolicy::class)->precisionForFieldGeocode($this->lat, $this->lng)->value;
         } catch (\Throwable) {
         } finally {
             $this->suppressAddressHooks = false;

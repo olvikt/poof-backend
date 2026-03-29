@@ -3,12 +3,20 @@
 namespace Tests\Unit\Address;
 
 use App\DTO\Address\AddressFormData;
+use App\Domain\Address\AddressParser;
 use App\Services\Address\PrepareAddressSavePayload;
 use Illuminate\Support\Carbon;
 use Tests\TestCase;
 
 class PrepareAddressSavePayloadTest extends TestCase
 {
+    public function test_it_supports_backward_compatible_manual_instantiation_without_constructor_args(): void
+    {
+        $service = new PrepareAddressSavePayload();
+
+        $this->assertInstanceOf(PrepareAddressSavePayload::class, $service);
+    }
+
     public function test_it_derives_street_and_city_from_search_and_builds_canonical_payload(): void
     {
         Carbon::setTestNow('2026-03-21 12:34:56');
@@ -79,5 +87,34 @@ class PrepareAddressSavePayloadTest extends TestCase
         $this->assertSame('Odesa', $payload['city']);
         $this->assertSame('2', $payload['entrance']);
         $this->assertSame('42', $payload['apartment']);
+    }
+
+    public function test_it_supports_explicit_parser_injection_without_changing_payload_semantics(): void
+    {
+        $service = new PrepareAddressSavePayload(new AddressParser());
+        $data = new AddressFormData(
+            addressId: null,
+            label: 'home',
+            title: null,
+            buildingType: 'house',
+            search: 'Main Street, Kyiv',
+            lat: 50.45,
+            lng: 30.52,
+            city: null,
+            region: null,
+            street: null,
+            house: '7A',
+            entrance: null,
+            intercom: null,
+            floor: null,
+            apartment: null,
+        );
+
+        $payload = $service->execute($data)->toArray();
+
+        $this->assertSame('Main Street', $payload['street']);
+        $this->assertSame('Kyiv', $payload['city']);
+        $this->assertSame('7A', $payload['house']);
+        $this->assertSame('Main Street, Kyiv', $payload['address_text']);
     }
 }
