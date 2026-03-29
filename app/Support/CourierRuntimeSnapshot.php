@@ -8,6 +8,24 @@ use App\Models\User;
 class CourierRuntimeSnapshot
 {
     /**
+     * Stable snapshot keys consumed by Livewire/API/JS runtime.
+     */
+    public const CONTRACT_KEYS = [
+        'online',
+        'busy',
+        'status',
+        'session_state',
+        'active_order_status',
+        'has_active_order',
+    ];
+
+    /**
+     * Fields that must come from backend runtime reconciliation.
+     * UI may project these values, but must self-heal to backend snapshot.
+     */
+    public const BACKEND_CANONICAL_KEYS = self::CONTRACT_KEYS;
+
+    /**
      * Canonical compact courier runtime contract for web/livewire/js/api reads.
      */
     public static function fromUser(User $user): ?array
