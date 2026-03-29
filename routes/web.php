@@ -4,6 +4,7 @@ use Illuminate\Support\Facades\Route;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Http\Request;
 use App\Http\Controllers\Auth\NewPasswordController;
+use App\Http\Controllers\Courier\CourierOrderLifecycleController;
 use App\Http\Controllers\Auth\PasswordResetLinkController;
 use App\Http\Controllers\Auth\RegisterController;
 use App\Http\Controllers\ProfileController;
@@ -234,53 +235,14 @@ Route::middleware('auth:web')
             ->name('my-orders');
 
         // ✅ Accept
-        Route::post('/orders/{order}/accept', function (Order $order) {
-
-            abort_if(! auth()->user()?->isCourier(), 403);
-
-            $ok = $order->acceptBy(auth()->user());
-
-            return $ok
-                ? redirect()->route('courier.my-orders')->with('success', 'Замовлення прийнято.')
-                : back()->with('error', 'Не вдалося прийняти замовлення.');
-
-        })->name('orders.accept');
-
+        Route::post('/orders/{order}/accept', [CourierOrderLifecycleController::class, 'accept'])
+            ->name('orders.accept');
 
         // ▶️ Start
-        Route::post('/orders/{order}/start', function (Order $order) {
-
-            abort_if(! auth()->user()?->isCourier(), 403);
-            abort_if($order->courier_id !== auth()->id(), 403);
-
-            if (! $order->canBeStarted()) {
-                return back()->with('error', 'Неможливо розпочати це замовлення.');
-            }
-
-            $order->startBy(auth()->user());
-
-            return redirect()
-                ->route('courier.my-orders')
-                ->with('success', 'Замовлення розпочато.');
-
-        })->name('orders.start');
-
+        Route::post('/orders/{order}/start', [CourierOrderLifecycleController::class, 'start'])
+            ->name('orders.start');
 
         // ✅ Complete
-        Route::post('/orders/{order}/complete', function (Order $order) {
-
-            abort_if(! auth()->user()?->isCourier(), 403);
-            abort_if($order->courier_id !== auth()->id(), 403);
-
-            if (! $order->canBeCompleted()) {
-                return back()->with('error', 'Неможливо завершити це замовлення.');
-            }
-
-            $order->completeBy(auth()->user());
-
-            return redirect()
-                ->route('courier.my-orders')
-                ->with('success', 'Замовлення завершено.');
-
-        })->name('orders.complete');
+        Route::post('/orders/{order}/complete', [CourierOrderLifecycleController::class, 'complete'])
+            ->name('orders.complete');
     });
