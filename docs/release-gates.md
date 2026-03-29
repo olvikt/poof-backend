@@ -89,10 +89,11 @@ Blocking jobs:
 2. `php-tests`
    - Laravel test environment на SQLite;
    - migrations;
-   - coverage reporting for the same blocking suite with CI artifact upload (`php-tests-critical-coverage`), containing:
+   - coverage reporting for the same blocking suite with conditional CI artifact upload (`php-tests-critical-coverage`), containing:
      - `clover.xml`;
      - HTML report (`html/`);
      - text summary (`summary.txt`).
+   - if the suite exits before coverage files are generated, upload step is skipped (it must not mask the real failing step).
 
    Current blocking CI gate:
    - `tests/Feature/Api/OrderStoreTest.php`;
@@ -121,7 +122,8 @@ Blocking jobs:
    - remaining wider Unit suites beyond the promoted address precision/policy/reverse-geocode/forward-geocode regression checks, address payload persistence checks, and order lifecycle action contracts.
 
    Coverage note:
-   - coverage is reporting-only in this gate (no minimum threshold enforcement in CI).
+   - coverage is reporting-only in this gate (no minimum threshold enforcement in CI);
+   - blocking suite remains mandatory, but coverage artifact upload is best-effort and only runs when coverage output files exist.
 
 3. `frontend-build`
    - `npm ci`;
