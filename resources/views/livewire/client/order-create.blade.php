@@ -132,6 +132,7 @@
 				{{-- Завтра --}}
 				<button
 					type="button"
+					data-e2e="scheduled-date-tomorrow"
 					@click="setDate(tomorrow)"
 					:class="isActive(tomorrow)
 						? 'bg-gradient-to-b from-yellow-300 to-yellow-400 text-black shadow-lg'
