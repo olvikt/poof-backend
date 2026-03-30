@@ -21,6 +21,7 @@
 ```bash
 # важно для e2e-login: persistent session storage
 echo "SESSION_DRIVER=file" >> .env
+echo "ASSET_URL=http://127.0.0.1:8000" >> .env
 php artisan migrate:fresh --force
 php artisan db:seed --class=BrowserE2eSeeder --force
 npm ci

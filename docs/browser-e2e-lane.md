@@ -45,6 +45,8 @@ Artifacts uploaded on every run (especially for failure triage):
 - `storage/logs/e2e-server.log`;
 - `storage/logs/laravel.log`.
 
+Before Playwright starts, CI also asserts that `/login` HTML does not reference `https://poof.com.ua/build/assets` and uses same-origin build asset paths.
+
 ## Local runbook
 
 ```bash
@@ -53,6 +55,7 @@ php artisan key:generate
 mkdir -p database
 touch database/database.sqlite
 echo "SESSION_DRIVER=file" >> .env
+echo "ASSET_URL=http://127.0.0.1:8000" >> .env
 php artisan migrate:fresh --force
 php artisan db:seed --class=BrowserE2eSeeder --force
 npm ci

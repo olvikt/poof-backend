@@ -49,6 +49,16 @@ class BrowserE2eLaneWiringTest extends TestCase
 
         $this->assertNotFalse($workflow);
         $this->assertStringContainsString('echo "SESSION_DRIVER=file"', $workflow);
+        $this->assertStringContainsString('echo "ASSET_URL=http://127.0.0.1:8000"', $workflow);
+    }
+
+    public function test_browser_e2e_workflow_guards_against_production_asset_origin_leakage(): void
+    {
+        $workflow = file_get_contents($this->repoRoot.'/.github/workflows/tests.yml');
+
+        $this->assertNotFalse($workflow);
+        $this->assertStringContainsString('Assert e2e pages do not leak production asset origin', $workflow);
+        $this->assertStringContainsString('https://poof.com.ua/build/assets', $workflow);
     }
 
     public function test_package_manifest_pins_project_local_playwright_dependency_and_scripts(): void

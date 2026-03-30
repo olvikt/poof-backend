@@ -262,6 +262,7 @@ jobs:
             echo "APP_ENV=testing"
             echo "APP_DEBUG=true"
             echo "APP_URL=http://127.0.0.1:8000"
+            echo "ASSET_URL=http://127.0.0.1:8000"
             echo "DB_CONNECTION=sqlite"
             echo "DB_DATABASE=${{ github.workspace }}/database/database.sqlite"
             echo "CACHE_STORE=array"
@@ -293,6 +294,18 @@ jobs:
           done
           echo "Server did not become ready in time."
           exit 1
+
+      - name: Assert e2e pages do not leak production asset origin
+        run: |
+          html=$(curl -fsS http://127.0.0.1:8000/login)
+          if echo "$html" | rg -q "https://poof.com.ua/build/assets"; then
+            echo "E2E runtime is leaking production asset origin (https://poof.com.ua/build/assets)."
+            exit 1
+          fi
+          if ! echo "$html" | rg -q "(/build/assets|http://127.0.0.1:8000/build/assets)"; then
+            echo "Expected built assets were not referenced as same-origin paths in /login HTML."
+            exit 1
+          fi
 
       - name: Run blocking browser e2e lane
         run: npm run e2e:test
