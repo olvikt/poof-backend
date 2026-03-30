@@ -120,6 +120,7 @@ class BrowserE2eLaneWiringTest extends TestCase
         $this->assertStringContainsString("Вийти з акаунту", $spec);
         $this->assertStringContainsString("getByTestId('courier-online-toggle')", $spec);
         $this->assertStringContainsString('Ви не на лінії', $spec);
+        $this->assertStringContainsString("data-e2e-online-state", $spec);
         $this->assertStringNotContainsString('wire\\:model\\.live', $spec);
     }
 
@@ -140,6 +141,8 @@ class BrowserE2eLaneWiringTest extends TestCase
         $this->assertStringContainsString('data-e2e="client-order-submit"', $orderCreate);
         $this->assertStringContainsString('data-e2e="{{ $name }}-sheet-panel"', $bottomSheet);
         $this->assertStringContainsString('data-e2e="courier-online-toggle"', $onlineToggle);
+        $this->assertStringContainsString('data-e2e-online-state="{{ $online ? \'online\' : \'offline\' }}"', $onlineToggle);
+        $this->assertStringContainsString('data-e2e-busy="{{ $busyWithActiveOrder ? \'1\' : \'0\' }}"', $onlineToggle);
         $this->assertStringContainsString('data-e2e="courier-accept-offer"', $offerCard);
     }
 }

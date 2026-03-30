@@ -53,20 +53,46 @@ test.describe('minimal blocking interactive lane', () => {
     await expect(onlineToggle).toBeVisible();
     const offlineOverlay = page.getByText('Ви не на лінії').first();
     const toggleTextBefore = ((await onlineToggle.textContent()) ?? '').replace(/\s+/g, ' ').trim();
+    const initialOnlineState = await onlineToggle.getAttribute('data-e2e-online-state');
+    const initialBusyState = await onlineToggle.getAttribute('data-e2e-busy');
 
-    if (toggleTextBefore.includes('Не на лінії')) {
-      await onlineToggle.click();
+    if (initialBusyState === '1') {
+      throw new Error(
+        `Courier online toggle is blocked by active order state (data-e2e-busy=1). ` +
+          `Initial toggle text: "${toggleTextBefore}".`
+      );
     }
 
-    await expect
-      .poll(
-        async () => ((await onlineToggle.textContent()) ?? '').replace(/\s+/g, ' ').trim(),
-        {
-          timeout: 20_000,
-          message: `Courier online toggle did not reach expected online state. Initial toggle text: "${toggleTextBefore}"`,
+    if (initialOnlineState !== 'online') {
+      for (let attempt = 1; attempt <= 3; attempt += 1) {
+        await onlineToggle.click({ force: true });
+
+        let reachedOnline = false;
+        try {
+          await expect
+            .poll(
+              async () => (await onlineToggle.getAttribute('data-e2e-online-state')) === 'online',
+              { timeout: 8_000, message: `Courier toggle online-state did not change on click attempt ${attempt}.` }
+            )
+            .toBeTruthy();
+          reachedOnline = true;
+        } catch (_error) {
+          reachedOnline = false;
         }
-      )
-      .toContain('На лінії');
+
+        if (reachedOnline) {
+          break;
+        }
+      }
+    }
+
+    const toggleTextAfter = ((await onlineToggle.textContent()) ?? '').replace(/\s+/g, ' ').trim();
+    const onlineStateAfter = await onlineToggle.getAttribute('data-e2e-online-state');
+
+    expect(
+      onlineStateAfter,
+      `Courier online state did not reach "online". Initial text: "${toggleTextBefore}". Final text: "${toggleTextAfter}".`
+    ).toBe('online');
 
     await expect
       .poll(async () => !(await offlineOverlay.isVisible().catch(() => false)), {

@@ -24,6 +24,7 @@ Playwright spec: `tests/e2e/specs/minimal-blocking-interactions.spec.js`
 
 - Prefer user-facing selectors (`getByRole`, `getByLabel`, `getByText`) where contract is stable.
 - For dynamic sheets/toggles/live widgets, use explicit `data-e2e` hooks.
+- Courier online transition uses explicit `data-e2e-online-state` / `data-e2e-busy` markers.
 - Current Playwright config uses `data-e2e` as `testIdAttribute`, so hooks stay minimal and intentional.
 
 ## Test fixtures
