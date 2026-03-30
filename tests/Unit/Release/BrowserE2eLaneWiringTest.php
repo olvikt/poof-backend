@@ -97,4 +97,16 @@ class BrowserE2eLaneWiringTest extends TestCase
         $this->assertStringContainsString("Невірний email/телефон або пароль", $helper);
         $this->assertStringContainsString('E2E login failed for', $helper);
     }
+
+    public function test_browser_e2e_spec_uses_stable_selectors_instead_of_livewire_css_paths(): void
+    {
+        $spec = file_get_contents($this->repoRoot.'/tests/e2e/specs/minimal-blocking-interactions.spec.js');
+
+        $this->assertNotFalse($spec);
+        $this->assertStringContainsString("getByTestId('open-address-picker')", $spec);
+        $this->assertStringContainsString("getByLabel('Вулиця')", $spec);
+        $this->assertStringContainsString("getByTestId('client-profile-name-input')", $spec);
+        $this->assertStringContainsString("getByTestId('courier-online-toggle')", $spec);
+        $this->assertStringNotContainsString('wire\\:model\\.live', $spec);
+    }
 }

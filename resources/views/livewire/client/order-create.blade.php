@@ -24,6 +24,7 @@
 						type="button"
 						x-data
 						@click="$dispatch('sheet:open', { name: 'addressPicker' })"
+						data-e2e="open-address-picker"
 						class="text-xs text-yellow-400 font-semibold hover:opacity-80 transition"
 					>
 						Обрати збережену

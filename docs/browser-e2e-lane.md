@@ -21,6 +21,12 @@ Playwright spec: `tests/e2e/specs/minimal-blocking-interactions.spec.js`
 3. **B:** client profile edit/save round-trip applies updated user name.
 4. **D + C:** courier `wire:navigate` and order lifecycle `available -> accept -> start -> complete`.
 
+## Selector policy (blocking lane stability)
+
+- Prefer user-facing selectors (`getByRole`, `getByLabel`, `getByText`) where contract is stable.
+- For dynamic sheets/toggles/live widgets, use explicit `data-e2e` hooks.
+- Current Playwright config uses `data-e2e` as `testIdAttribute`, so hooks stay minimal and intentional.
+
 ## Test fixtures
 
 `Database\Seeders\BrowserE2eSeeder` prepares deterministic accounts and state:

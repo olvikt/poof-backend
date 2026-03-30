@@ -39,6 +39,7 @@
                         <button
                             type="button"
                             @click="close()"
+                            data-e2e="bottom-sheet-close"
                             class="text-neutral-400 hover:text-white"
                         >
                             ✕

@@ -15,11 +15,11 @@ test.describe('minimal blocking interactive lane', () => {
     await page.goto('/client/order/create');
     await expect(page.locator('#order-create-root')).toBeVisible();
 
-    await page.getByRole('button', { name: 'Обрати збережену' }).click();
-    await expect(page.getByRole('heading', { name: 'Мої адреси' })).toBeVisible();
+    await page.getByTestId('open-address-picker').click();
+    await expect(page.getByText('Мої адреси').first()).toBeVisible();
 
-    await page.getByRole('button', { name: '✕' }).click();
-    await expect(page.getByRole('heading', { name: 'Мої адреси' })).toBeHidden();
+    await page.getByTestId('bottom-sheet-close').click();
+    await expect(page.getByText('Мої адреси').first()).toBeHidden();
 
     guards.assertHealthy();
   });
@@ -35,9 +35,8 @@ test.describe('minimal blocking interactive lane', () => {
 
     await page.goto('/client/order/create');
     await expect(page.locator('#order-create-root')).toBeVisible();
-
-    await page.locator('input[wire\:model\.live="street"]').fill('Test street');
-    await page.locator('input[wire\:model\.live="house"]').fill('99');
+    await page.getByLabel('Вулиця').fill('Test street');
+    await page.getByLabel('Дім').fill('99');
 
     await page.getByRole('button', { name: 'Завтра' }).click();
     await page.getByRole('button', { name: /08:00–10:00|10:00–12:00|12:00–14:00/ }).first().click();
@@ -58,11 +57,11 @@ test.describe('minimal blocking interactive lane', () => {
     });
 
     await page.goto('/client/profile');
-    await page.getByRole('button', { name: 'Редагувати' }).click();
+    await page.getByTestId('client-profile-edit-open').click();
 
     const updatedName = `Client E2E ${Date.now()}`;
-    await page.locator('input[autocomplete="name"]').fill(updatedName);
-    await page.getByRole('button', { name: 'Зберегти' }).click();
+    await page.getByTestId('client-profile-name-input').fill(updatedName);
+    await page.getByTestId('client-profile-save').click();
 
     await expect(page.getByText(updatedName).first()).toBeVisible();
 
@@ -79,15 +78,15 @@ test.describe('minimal blocking interactive lane', () => {
     });
 
     await page.goto('/courier/orders');
-    const onlineToggle = page.getByRole('button', { name: /На лінії|Не на лінії/ });
+    const onlineToggle = page.getByTestId('courier-online-toggle');
     await expect(onlineToggle).toBeVisible();
     if ((await onlineToggle.textContent())?.includes('Не на лінії')) {
       await onlineToggle.click();
-      await expect(page.getByRole('button', { name: /На лінії/ })).toBeVisible();
     }
 
-    await expect(page.getByRole('button', { name: 'Прийняти' })).toBeVisible();
-    await page.getByRole('button', { name: 'Прийняти' }).click();
+    const acceptButton = page.getByTestId('courier-accept-offer');
+    await expect(acceptButton).toBeVisible();
+    await acceptButton.click();
 
     await expect(page).toHaveURL(/\/courier\/my-orders/);
     await expect(page.getByRole('button', { name: /Почати виконання/ }).first()).toBeVisible();

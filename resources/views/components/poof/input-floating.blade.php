@@ -9,11 +9,14 @@
 
 @php
     $wireModelAttr = $live ? 'wire:model.live' : 'wire:model.defer';
+    $inputId = $attributes->get('id')
+        ?? 'poof-input-'.\Illuminate\Support\Str::slug($model.'-'.$label, '-');
 @endphp
 
 <div class="relative min-w-0">
 
     <input
+        id="{{ $inputId }}"
         {{ $wireModelAttr }}="{{ $model }}"
         placeholder=" "
         @if($inputmode) inputmode="{{ $inputmode }}" @endif
@@ -34,6 +37,7 @@
     >
 
     <label
+        for="{{ $inputId }}"
         class="
             pointer-events-none
             absolute left-3 px-1
