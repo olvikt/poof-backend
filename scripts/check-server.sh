@@ -389,14 +389,36 @@ run "Runtime cache/queue/session contract (production-like)" bash -lc '
     $productionLikeEnvs = ["production", "staging"];
     $isProductionLike = in_array($runtime["app_env"], $productionLikeEnvs, true);
 
-    if ($isProductionLike && $runtime["cache_store_driver"] === "database" && $runtime["db_default"] === "sqlite") {
-      fwrite(STDERR, "[check-server] runtime resolves to database/sqlite cache lock path in production-like runtime\n");
-      fwrite(STDERR, json_encode($runtime, JSON_UNESCAPED_SLASHES).PHP_EOL);
-      exit(1);
+    $errors = [];
+    $unsafeCachePath = false;
+
+    if ($isProductionLike && $runtime["cache_default"] !== "redis") {
+      $errors[] = "cache_default must resolve to redis in production-like runtime";
+      $unsafeCachePath = true;
     }
 
-    if ($isProductionLike && $runtime["cache_store_driver"] === "database") {
-      fwrite(STDERR, "[check-server] cache default resolves to database store in production-like runtime\n");
+    if ($isProductionLike && $runtime["cache_store_driver"] !== "redis") {
+      $errors[] = "cache_store_driver must resolve to redis in production-like runtime";
+      $unsafeCachePath = true;
+    }
+
+    if ($isProductionLike && $runtime["queue_default"] !== "redis") {
+      $errors[] = "queue_default must resolve to redis in production-like runtime";
+    }
+
+    if ($isProductionLike && $runtime["session_driver"] !== "redis") {
+      $errors[] = "session_driver must resolve to redis in production-like runtime";
+    }
+
+    if ($isProductionLike && $runtime["db_default"] === "sqlite" && $unsafeCachePath) {
+      $errors[] = "DANGEROUS: db_default=sqlite with non-redis cache/rate-limit path can trigger database lock regressions";
+    }
+
+    if ($errors !== []) {
+      fwrite(STDERR, "[check-server] runtime store contract violated in production-like runtime:\n");
+      foreach ($errors as $error) {
+        fwrite(STDERR, " - {$error}\n");
+      }
       fwrite(STDERR, json_encode($runtime, JSON_UNESCAPED_SLASHES).PHP_EOL);
       exit(1);
     }

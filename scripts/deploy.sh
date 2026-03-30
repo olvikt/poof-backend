@@ -23,6 +23,7 @@ DEPLOY_LOG_DIR="${DEPLOY_LOG_DIR:-$APP_DIR/storage/logs/deploy}"
 DEPLOY_STATE_FILE="${DEPLOY_STATE_FILE:-$APP_DIR/storage/app/current-release.json}"
 RELEASE_HISTORY_FILE="${RELEASE_HISTORY_FILE:-$APP_DIR/storage/app/release-history.jsonl}"
 RELEASE_SUMMARY_DIR="${RELEASE_SUMMARY_DIR:-$APP_DIR/docs/release-summaries}"
+RELEASE_GATE_STATE_DIR="${RELEASE_GATE_STATE_DIR:-$APP_DIR/storage/app/release-gates}"
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "$SCRIPT_DIR/release-state-lib.sh"
 
@@ -100,6 +101,14 @@ extract_release_summary() {
   ' "$summary_file"
 }
 
+release_gate_file_for_ref() {
+  local release_ref="$1"
+  local release_ref_hash
+  release_ref_hash="$(printf '%s' "$release_ref" | sha1sum | awk '{print $1}')"
+
+  echo "$RELEASE_GATE_STATE_DIR/${release_ref_hash}.json"
+}
+
 cd "$APP_DIR"
 
 mkdir -p "$DEPLOY_LOG_DIR" "$(dirname "$DEPLOY_STATE_FILE")" "$(dirname "$RELEASE_HISTORY_FILE")"
@@ -136,6 +145,8 @@ RESOLVED_REF="$(git describe --tags --exact-match "$RESOLVED_COMMIT" 2>/dev/null
 if [[ -z "$RESOLVED_REF" ]]; then
   RESOLVED_REF="$DEPLOY_REF"
 fi
+
+RELEASE_GATE_FILE="$(release_gate_file_for_ref "$RESOLVED_REF")"
 
 IS_TAG_RELEASE=0
 if git rev-parse --verify --quiet "refs/tags/$RESOLVED_REF" > /dev/null; then
@@ -179,12 +190,101 @@ echo "[deploy] deploy started at: $DEPLOYED_AT"
 echo "[deploy] deploy log: $DEPLOY_LOG_FILE"
 echo "[deploy] runtime evidence log: $DEPLOY_RUNTIME_EVIDENCE_FILE"
 echo "[deploy] release history: $RELEASE_HISTORY_FILE"
+echo "[deploy] required pre-deploy gate artifact: $RELEASE_GATE_FILE"
 if [[ -n "$RELEASE_SUMMARY_TEXT" ]]; then
   echo "[deploy] release summary: $RELEASE_SUMMARY_TEXT"
   echo "[deploy] release summary file: $RELEASE_SUMMARY_FILE"
 else
   echo "[deploy] release summary: <not required for non-tag ref>"
 fi
+
+echo "[deploy] validating mandatory pre-deploy gate (runtime contract + browser smoke)"
+if ! "$PHP_BIN" -r '
+  $gateFile = $argv[1];
+  $resolvedRef = $argv[2];
+  $resolvedCommit = $argv[3];
+  $now = new DateTimeImmutable("now", new DateTimeZone("UTC"));
+
+  if (!is_file($gateFile)) {
+    fwrite(STDERR, "[deploy] release blocked: pre-deploy gate artifact is missing: {$gateFile}\n");
+    fwrite(STDERR, "[deploy] run scripts/prepare-release-gate.sh for this release ref before deploy\n");
+    exit(1);
+  }
+
+  $gate = json_decode((string) file_get_contents($gateFile), true);
+  if (!is_array($gate)) {
+    fwrite(STDERR, "[deploy] release blocked: pre-deploy gate artifact is not valid JSON: {$gateFile}\n");
+    exit(1);
+  }
+
+  $required = [
+    "release_ref",
+    "resolved_commit",
+    "generated_at_utc",
+    "expires_at_utc",
+    "runtime_contract",
+    "browser_smoke",
+  ];
+
+  foreach ($required as $field) {
+    if (!array_key_exists($field, $gate)) {
+      fwrite(STDERR, "[deploy] release blocked: pre-deploy gate missing field: {$field}\n");
+      exit(1);
+    }
+  }
+
+  if ((string) $gate["release_ref"] !== $resolvedRef) {
+    fwrite(STDERR, "[deploy] release blocked: gate release_ref mismatch (expected {$resolvedRef}, got ".((string) $gate["release_ref"]).")\n");
+    exit(1);
+  }
+
+  if ((string) $gate["resolved_commit"] !== $resolvedCommit) {
+    fwrite(STDERR, "[deploy] release blocked: gate commit mismatch (expected {$resolvedCommit}, got ".((string) $gate["resolved_commit"]).")\n");
+    exit(1);
+  }
+
+  try {
+    $expiresAt = new DateTimeImmutable((string) $gate["expires_at_utc"], new DateTimeZone("UTC"));
+  } catch (Throwable $e) {
+    fwrite(STDERR, "[deploy] release blocked: invalid gate expires_at_utc value\n");
+    exit(1);
+  }
+
+  if ($expiresAt < $now) {
+    fwrite(STDERR, "[deploy] release blocked: pre-deploy gate expired at ".$expiresAt->format(DATE_ATOM)." UTC\n");
+    fwrite(STDERR, "[deploy] rerun scripts/prepare-release-gate.sh and repeat browser smoke\n");
+    exit(1);
+  }
+
+  $runtimeStatus = (string) ($gate["runtime_contract"]["status"] ?? "");
+  if ($runtimeStatus !== "passed") {
+    fwrite(STDERR, "[deploy] release blocked: runtime contract gate status must be passed\n");
+    exit(1);
+  }
+
+  $browserStatus = (string) ($gate["browser_smoke"]["status"] ?? "");
+  if ($browserStatus !== "passed") {
+    fwrite(STDERR, "[deploy] release blocked: browser smoke gate status must be passed\n");
+    exit(1);
+  }
+
+  $requiredSmoke = [
+    "home_page",
+    "client_order_create",
+    "address_profile_avatar_edit",
+    "courier_available_orders_and_my_orders",
+    "critical_popups_carousels_click_flows",
+  ];
+  foreach ($requiredSmoke as $key) {
+    if (!array_key_exists($key, $gate["browser_smoke"]["checklist"] ?? []) || !$gate["browser_smoke"]["checklist"][$key]) {
+      fwrite(STDERR, "[deploy] release blocked: browser smoke checklist item failed/missing: {$key}\n");
+      exit(1);
+    }
+  }
+' "$RELEASE_GATE_FILE" "$RESOLVED_REF" "$RESOLVED_COMMIT"; then
+  exit 1
+fi
+echo "[deploy] pre-deploy release gate: PASS"
 
 git reset --hard "$RESOLVED_COMMIT"
 git clean -fd

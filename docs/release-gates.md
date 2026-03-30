@@ -139,6 +139,11 @@ Canonical deploy script: `scripts/deploy.sh`.
 Blocking during deploy:
 
 - git fetch + explicit ref resolution (`DEPLOY_REF` / positional ref / legacy fallback `origin/main`);
+- mandatory pre-deploy gate artifact validation from `storage/app/release-gates/*.json` for the resolved release ref;
+- gate artifact must confirm both:
+  - runtime contract pass (`scripts/check-server.sh`);
+  - mandatory browser smoke checklist pass (home, client order create, address/profile/avatar edit, courier available/my-orders, critical popups/carousels/click flows);
+- expired/missing/mismatched gate artifact blocks deploy with non-zero exit (fail closed);
 - dependency install;
 - frontend build;
 - frontend manifest verification;
@@ -157,6 +162,19 @@ Operator note:
 - `storage/app/current-release.json` обновляется только после успешного health-check, а append-only `storage/app/release-history.jsonl` получает новую запись только для successful release transitions.
 
 Health gate теперь считается обязательным: если `https://api.poof.com.ua/up` не отвечает успешно после ограниченного числа retries, deploy завершается с non-zero exit code.
+
+### Pre-deploy release gate runner — mandatory
+
+Canonical script: `scripts/prepare-release-gate.sh`.
+
+Before ordinary production deploy оператор обязан:
+
+1. запустить `scripts/prepare-release-gate.sh <release-ref>`;
+2. пройти runtime contract (`scripts/check-server.sh`) без деградации в unsafe runtime store path;
+3. явно подтвердить browser smoke checklist;
+4. сохранить operator evidence (`BROWSER_SMOKE_EVIDENCE`) в gate artifact.
+
+Без этого артефакта `scripts/deploy.sh` блокирует релиз.
 
 ### Post-deploy smoke — mandatory contract
 

@@ -84,6 +84,23 @@ Release summary convention:
 
 Нормальный production path теперь формулируется однозначно: оператор **должен** передавать explicit release ref/tag. Во всех runbooks, примерах и ручных командах первым показывается именно этот путь.
 
+Перед самим deploy теперь обязателен pre-deploy gate:
+
+```bash
+cd /var/www/poof
+RELEASE_REF=release-YYYYMMDD-HHMM \
+GATE_OPERATOR=\"ops-oncall\" \
+BROWSER_SMOKE_EVIDENCE=\"JIRA-1234\" \
+SMOKE_HOME_OK=yes \
+SMOKE_CLIENT_ORDER_CREATE_OK=yes \
+SMOKE_PROFILE_ADDRESS_AVATAR_EDIT_OK=yes \
+SMOKE_COURIER_AVAILABLE_MY_ORDERS_OK=yes \
+SMOKE_CRITICAL_POPUPS_CAROUSELS_OK=yes \
+bash scripts/prepare-release-gate.sh release-YYYYMMDD-HHMM
+```
+
+`scripts/deploy.sh` fail-closed проверяет gate artifact для выбранного release ref. Если runtime contract или browser smoke не подтверждены, deploy блокируется.
+
 ```bash
 cd /var/www/poof
 bash scripts/deploy.sh release-YYYYMMDD-HHMM

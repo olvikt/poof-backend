@@ -33,7 +33,31 @@ Operator contract:
 - normal production path = deploy explicit release ref/tag;
 - `scripts/deploy.sh` без ref остаётся только legacy/emergency continuity path и не считается нормальным release workflow.
 
-## 2. Canonical deploy workflow
+## 2. Mandatory pre-deploy gate (blocking)
+
+Перед обычным production deploy оператор обязан открыть pre-deploy gate для конкретного release ref.
+
+```bash
+cd /var/www/poof
+git fetch --prune --tags origin
+RELEASE_REF=release-YYYYMMDD-HHMM \
+GATE_OPERATOR=\"ops-oncall\" \
+BROWSER_SMOKE_EVIDENCE=\"JIRA-1234 / screenshot-pack-2026-03-30\" \
+SMOKE_HOME_OK=yes \
+SMOKE_CLIENT_ORDER_CREATE_OK=yes \
+SMOKE_PROFILE_ADDRESS_AVATAR_EDIT_OK=yes \
+SMOKE_COURIER_AVAILABLE_MY_ORDERS_OK=yes \
+SMOKE_CRITICAL_POPUPS_CAROUSELS_OK=yes \
+bash scripts/prepare-release-gate.sh release-YYYYMMDD-HHMM
+```
+
+Этот шаг блокирующий и fail-closed:
+
+- `scripts/check-server.sh` запускается как runtime contract gate;
+- deploy не сможет продолжиться без валидного gate artifact в `storage/app/release-gates/*.json`;
+- browser smoke checklist обязателен и фиксируется как артефакт в gate JSON.
+
+## 3. Canonical deploy workflow
 
 На production host всегда используйте explicit release ref/tag:
 
@@ -64,7 +88,9 @@ DEPLOY_REF=release-YYYYMMDD-HHMM bash scripts/deploy.sh
 - записать successful known-good release в `storage/app/current-release.json`;
 - append successful transition в `storage/app/release-history.jsonl`.
 
-## 3. Immediate release verification
+`scripts/deploy.sh` теперь блокирует релиз, если для выбранного release ref отсутствует/просрочен pre-deploy gate artifact или не отмечен mandatory browser smoke checklist.
+
+## 4. Immediate release verification
 
 Сразу после successful deploy оператор обязан выполнить:
 
@@ -86,7 +112,7 @@ bash scripts/check-server.sh
 
 `bash scripts/check-server.sh` — mandatory smoke для каждого release candidate. Release не закрыт, пока этот smoke-runner не завершился успешно.
 
-## 4. Extra step for PWA-affecting releases
+## 5. Extra step for PWA-affecting releases
 
 Если релиз затрагивает `public/sw.js`, `public/manifest.json`, landing install shell/UI, Vite asset wiring или production HTML/cache behavior, после обязательного smoke-run дополнительно выполните:
 
@@ -102,7 +128,7 @@ Interpretation:
 
 `bash scripts/check-pwa.sh` остаётся узким operator smoke и не расширяет blocking CI/release gate до browser/E2E automation.
 
-## 5. Canonical rollback workflow
+## 6. Canonical rollback workflow
 
 Если release candidate не прошёл post-deploy verification, rollback выполняется на **previous known-good release ref/tag**, а не на произвольный remembered commit.
 
@@ -143,7 +169,7 @@ Rollback contract в текущих scripts:
 - записать successful rollback как новый current known-good state;
 - append rollback transition в release history.
 
-## 6. Mandatory post-rollback verification
+## 7. Mandatory post-rollback verification
 
 Сразу после successful rollback оператор снова обязан выполнить:
 
@@ -170,26 +196,28 @@ bash scripts/check-pwa.sh
 - mandatory smoke снова проходит успешно;
 - для PWA-affecting rollback `check-pwa.sh` снова подтверждает manifest / service-worker / landing wiring.
 
-## 7. One-page operator checklist
+## 8. One-page operator checklist
 
 ### Ordinary backend-only release
 
 1. Prepare and push explicit release tag.
 2. On host: `git fetch --prune --tags origin`.
-3. Deploy: `bash scripts/deploy.sh <release-tag>`.
-4. Inspect state: `bash scripts/show-release.sh`.
-5. Mandatory smoke: `bash scripts/check-server.sh`.
-6. If release is bad: read `previous_release_ref` from `show-release.sh` and run `bash scripts/rollback.sh <previous_release_ref>`.
-7. Verify rollback: `bash scripts/show-release.sh` + `bash scripts/check-server.sh`.
+3. Run blocking pre-deploy gate: `bash scripts/prepare-release-gate.sh <release-tag>` with mandatory browser smoke confirmations.
+4. Deploy: `bash scripts/deploy.sh <release-tag>`.
+5. Inspect state: `bash scripts/show-release.sh`.
+6. Mandatory smoke: `bash scripts/check-server.sh`.
+7. If release is bad: read `previous_release_ref` from `show-release.sh` and run `bash scripts/rollback.sh <previous_release_ref>`.
+8. Verify rollback: `bash scripts/show-release.sh` + `bash scripts/check-server.sh`.
 
 ### PWA-affecting release
 
 1. Prepare and push explicit release tag.
 2. On host: `git fetch --prune --tags origin`.
-3. Deploy: `bash scripts/deploy.sh <release-tag>`.
-4. Inspect state: `bash scripts/show-release.sh`.
-5. Mandatory smoke: `bash scripts/check-server.sh`.
-6. Additional PWA smoke: `bash scripts/check-pwa.sh`.
-7. If release is bad: use `previous_release_ref` from `show-release.sh` and run `bash scripts/rollback.sh <previous_release_ref>`.
-8. Verify rollback: `bash scripts/show-release.sh` + `bash scripts/check-server.sh`.
-9. If rollback touches PWA-visible behavior: `bash scripts/check-pwa.sh`.
+3. Run blocking pre-deploy gate: `bash scripts/prepare-release-gate.sh <release-tag>` with mandatory browser smoke confirmations.
+4. Deploy: `bash scripts/deploy.sh <release-tag>`.
+5. Inspect state: `bash scripts/show-release.sh`.
+6. Mandatory smoke: `bash scripts/check-server.sh`.
+7. Additional PWA smoke: `bash scripts/check-pwa.sh`.
+8. If release is bad: use `previous_release_ref` from `show-release.sh` and run `bash scripts/rollback.sh <previous_release_ref>`.
+9. Verify rollback: `bash scripts/show-release.sh` + `bash scripts/check-server.sh`.
+10. If rollback touches PWA-visible behavior: `bash scripts/check-pwa.sh`.
