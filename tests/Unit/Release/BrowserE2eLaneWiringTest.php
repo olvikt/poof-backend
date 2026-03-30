@@ -59,6 +59,8 @@ class BrowserE2eLaneWiringTest extends TestCase
         $this->assertNotFalse($workflow);
         $this->assertStringContainsString('Assert e2e pages do not leak production asset origin', $workflow);
         $this->assertStringContainsString('https://poof.com.ua/build/assets', $workflow);
+        $this->assertStringContainsString('grep -qE', $workflow);
+        $this->assertStringNotContainsString(' | rg -q', $workflow);
     }
 
     public function test_package_manifest_pins_project_local_playwright_dependency_and_scripts(): void

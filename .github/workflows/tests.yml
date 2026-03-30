@@ -298,11 +298,13 @@ jobs:
       - name: Assert e2e pages do not leak production asset origin
         run: |
           html=$(curl -fsS http://127.0.0.1:8000/login)
-          if echo "$html" | rg -q "https://poof.com.ua/build/assets"; then
+          echo "Rendered asset references in /login:"
+          echo "$html" | grep -Eo '(https?://[^"'"'"']+/build/assets/[^"'"'"']+|/build/assets/[^"'"'"']+)' | head -n 12 || true
+          if echo "$html" | grep -qE "https://poof.com.ua/build/assets"; then
             echo "E2E runtime is leaking production asset origin (https://poof.com.ua/build/assets)."
             exit 1
           fi
-          if ! echo "$html" | rg -q "(/build/assets|http://127.0.0.1:8000/build/assets)"; then
+          if ! echo "$html" | grep -qE "(/build/assets|http://127.0.0.1:8000/build/assets)"; then
             echo "Expected built assets were not referenced as same-origin paths in /login HTML."
             exit 1
           fi
