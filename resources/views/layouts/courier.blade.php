@@ -3,7 +3,7 @@
 <div x-data="{ settingsOpen: false }" class="min-h-dvh bg-[#05070b] text-white flex justify-center">
     <div class="relative w-full max-w-md min-h-dvh flex flex-col bg-[#070a10] [--courier-header-h:64px] [--courier-nav-h:92px] [--courier-screen-bottom-gap:0.75rem]">
 
-        <header class="sticky top-0 z-40 border-b border-white/15 bg-[#0b121c] shadow-[0_12px_30px_rgba(0,0,0,0.52)]">
+        <header class="sticky top-0 z-40 border-b border-white/10 bg-[#0b121c] shadow-[0_12px_30px_rgba(0,0,0,0.52)]">
             <div class="flex items-center justify-between gap-3 px-4 py-3">
                 <div class="min-w-0">
                     <p class="truncate text-sm font-semibold text-slate-100">POOF Courier</p>
@@ -20,7 +20,7 @@
         <div class="pointer-events-none fixed bottom-[calc(4.9rem+env(safe-area-inset-bottom))] left-1/2 z-40 h-1 w-full max-w-md -translate-x-1/2 bg-gradient-to-t from-[#070a10]/35 via-[#070a10]/10 to-transparent"></div>
 
         <nav class="fixed bottom-0 left-1/2 z-50 w-full max-w-md -translate-x-1/2 px-4 pb-[max(0.75rem,env(safe-area-inset-bottom))]">
-            <div class="rounded-2xl border border-white/20 bg-[#0e1622] p-1 shadow-[0_-14px_34px_rgba(0,0,0,0.62)] ring-1 ring-black/35">
+            <div class="rounded-2xl border border-white/12 bg-[#0e1622] p-1 shadow-[0_-14px_34px_rgba(0,0,0,0.62)] ring-1 ring-black/35">
                 <div class="grid grid-cols-3 gap-1 text-[11px] font-medium">
                     <a
                         href="{{ route('courier.orders') }}"
@@ -67,7 +67,7 @@
         <div x-show="settingsOpen" x-cloak x-transition.opacity class="fixed inset-0 z-[998] bg-black/82" @click="settingsOpen = false">
             <div
                 @click.stop
-                class="absolute inset-x-0 bottom-0 mx-auto w-full max-w-md rounded-t-3xl border border-white/18 bg-[#0c131d] p-5 pb-[max(1.25rem,env(safe-area-inset-bottom))] shadow-[0_-24px_64px_rgba(0,0,0,0.72)] isolation-auto"
+                class="absolute inset-x-0 bottom-0 mx-auto w-full max-w-md rounded-t-3xl border border-white/12 bg-[#0c131d] p-5 pb-[max(1.25rem,env(safe-area-inset-bottom))] shadow-[0_-24px_64px_rgba(0,0,0,0.72)] isolation-auto"
             >
                 <div class="mx-auto mb-4 h-1.5 w-12 rounded-full bg-white/35"></div>
                 <div class="mb-4 text-center text-base font-semibold text-white">Акаунт</div>
