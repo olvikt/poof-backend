@@ -16,7 +16,7 @@ test.describe('minimal blocking interactive lane', () => {
     await expect(page.locator('#order-create-root')).toBeVisible();
     await page.getByLabel('Вулиця').fill('Test street');
     await page.getByLabel('Дім').fill('99');
-    await page.getByRole('button', { name: 'Завтра' }).click();
+    await page.getByTestId('scheduled-date-tomorrow').click();
     await expect(page.getByTestId('client-order-submit')).toBeVisible();
 
     guards.assertHealthy();
