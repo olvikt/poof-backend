@@ -121,6 +121,7 @@ class BrowserE2eLaneWiringTest extends TestCase
         $this->assertStringContainsString("getByTestId('courier-online-toggle')", $spec);
         $this->assertStringContainsString('Ви не на лінії', $spec);
         $this->assertStringContainsString("data-e2e-online-state", $spec);
+        $this->assertStringContainsString("/livewire/update", $spec);
         $this->assertStringNotContainsString('wire\\:model\\.live', $spec);
     }
 

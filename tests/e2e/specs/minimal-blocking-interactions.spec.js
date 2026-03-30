@@ -64,8 +64,22 @@ test.describe('minimal blocking interactive lane', () => {
     }
 
     if (initialOnlineState !== 'online') {
+      let livewireUpdateTriggered = false;
+
       for (let attempt = 1; attempt <= 3; attempt += 1) {
-        await onlineToggle.click({ force: true });
+        const requestTriggered = await Promise.all([
+          page
+            .waitForResponse(
+              (response) =>
+                response.request().method() === 'POST' && response.url().includes('/livewire/update'),
+              { timeout: 5_000 }
+            )
+            .then(() => true)
+            .catch(() => false),
+          onlineToggle.click({ force: true }),
+        ]).then(([triggered]) => triggered);
+
+        livewireUpdateTriggered = livewireUpdateTriggered || requestTriggered;
 
         let reachedOnline = false;
         try {
@@ -83,6 +97,13 @@ test.describe('minimal blocking interactive lane', () => {
         if (reachedOnline) {
           break;
         }
+      }
+
+      if (!livewireUpdateTriggered) {
+        throw new Error(
+          `Courier online toggle click did not trigger Livewire update request. ` +
+            `Initial toggle text: "${toggleTextBefore}".`
+        );
       }
     }
 
