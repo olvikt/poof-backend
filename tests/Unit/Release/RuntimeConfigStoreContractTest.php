@@ -25,7 +25,8 @@ class RuntimeConfigStoreContractTest extends TestCase
         $this->assertNotFalse($queueConfig);
         $this->assertNotFalse($envExample);
 
-        $this->assertStringContainsString("'default' => env('CACHE_STORE', env('CACHE_DRIVER', 'redis'))", $cacheConfig);
+        $this->assertStringContainsString("'default' => env('CACHE_STORE', 'redis')", $cacheConfig);
+        $this->assertStringNotContainsString("env('CACHE_DRIVER'", $cacheConfig);
         $this->assertStringContainsString("'default' => env('QUEUE_CONNECTION', 'redis')", $queueConfig);
         $this->assertStringContainsString('CACHE_STORE=redis', $envExample);
         $this->assertStringContainsString('QUEUE_CONNECTION=redis', $envExample);
