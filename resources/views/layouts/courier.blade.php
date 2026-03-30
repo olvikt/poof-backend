@@ -67,9 +67,20 @@
         <div x-show="settingsOpen" x-cloak x-transition.opacity class="fixed inset-0 z-[998] bg-black/[0.82]" @click="settingsOpen = false">
             <div
                 @click.stop
-                class="absolute inset-x-0 bottom-0 mx-auto w-full max-w-md rounded-t-3xl border border-white/[0.12] bg-[#0c131d] p-5 pb-[max(1.25rem,env(safe-area-inset-bottom))] shadow-[0_-24px_64px_rgba(0,0,0,0.72)] isolation-auto"
+                class="absolute inset-x-0 bottom-0 mx-auto w-full max-w-md rounded-t-3xl border border-white/[0.12] bg-[#0c131d] p-5 pb-[max(1.25rem,env(safe-area-inset-bottom))] shadow-[0_-24px_64px_rgba(0,0,0,0.72)] isolation-auto relative"
             >
                 <div class="mx-auto mb-4 h-1.5 w-12 rounded-full bg-white/35"></div>
+                <button
+                    type="button"
+                    @click="settingsOpen = false"
+                    class="absolute right-4 top-4 inline-flex h-9 w-9 items-center justify-center rounded-full border border-white/15 bg-white/10 text-slate-200 transition hover:bg-white/20 hover:text-white"
+                    aria-label="Закрити акаунт"
+                >
+                    <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true">
+                        <path d="M18 6 6 18" />
+                        <path d="m6 6 12 12" />
+                    </svg>
+                </button>
                 <div class="mb-4 text-center text-base font-semibold text-white">Акаунт</div>
                 <div class="space-y-2">
                     <button type="button" class="flex w-full items-center justify-between rounded-2xl bg-[#131d2b] px-4 py-3 text-left text-sm font-semibold text-slate-100 transition hover:bg-[#1a2535]">
@@ -95,9 +106,6 @@
                             </svg>
                         </button>
                     </form>
-                </div>
-                <div class="mt-3">
-                    <button @click="settingsOpen = false" class="w-full rounded-2xl bg-[#131d2b] py-2.5 text-sm font-medium text-slate-100 transition hover:bg-[#1a2535]">Закрити</button>
                 </div>
             </div>
         </div>
