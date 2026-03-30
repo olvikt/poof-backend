@@ -280,7 +280,7 @@ jobs:
         run: npm run build
 
       - name: Install Playwright Chromium
-        run: npx --yes playwright@1.53.2 install --with-deps chromium
+        run: npm run e2e:install
 
       - name: Start app server
         run: |
@@ -295,7 +295,7 @@ jobs:
           exit 1
 
       - name: Run blocking browser e2e lane
-        run: npx --yes playwright@1.53.2 test --config=playwright.config.js
+        run: npm run e2e:test
 
       - name: Upload browser e2e artifacts
         if: always()

@@ -23,10 +23,10 @@ php artisan migrate:fresh --force
 php artisan db:seed --class=BrowserE2eSeeder --force
 npm ci
 npm run build
-npx --yes playwright@1.53.2 install --with-deps chromium
+npm run e2e:install
 php artisan serve --host=127.0.0.1 --port=8000
 # в отдельном терминале
-npx --yes playwright@1.53.2 test --config=playwright.config.js
+npm run e2e:test
 ```
 
 Подробности по scope, CI и triage: `docs/browser-e2e-lane.md`.

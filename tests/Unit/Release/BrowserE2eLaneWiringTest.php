@@ -32,6 +32,29 @@ class BrowserE2eLaneWiringTest extends TestCase
         $this->assertStringNotContainsString('--seeder=Database\\Seeders\\BrowserE2eSeeder', $workflow);
     }
 
+    public function test_browser_e2e_workflow_uses_project_local_playwright_commands(): void
+    {
+        $workflow = file_get_contents($this->repoRoot.'/.github/workflows/tests.yml');
+
+        $this->assertNotFalse($workflow);
+        $this->assertStringContainsString('run: npm ci', $workflow);
+        $this->assertStringContainsString('run: npm run e2e:install', $workflow);
+        $this->assertStringContainsString('run: npm run e2e:test', $workflow);
+        $this->assertStringNotContainsString('npx --yes playwright@1.53.2', $workflow);
+    }
+
+    public function test_package_manifest_pins_project_local_playwright_dependency_and_scripts(): void
+    {
+        $packageJson = file_get_contents($this->repoRoot.'/package.json');
+
+        $this->assertNotFalse($packageJson);
+        $package = json_decode((string) $packageJson, true, 512, JSON_THROW_ON_ERROR);
+
+        $this->assertSame('1.53.2', $package['devDependencies']['@playwright/test'] ?? null);
+        $this->assertSame('playwright install --with-deps chromium', $package['scripts']['e2e:install'] ?? null);
+        $this->assertSame('playwright test --config=playwright.config.js', $package['scripts']['e2e:test'] ?? null);
+    }
+
     public function test_browser_e2e_client_address_seed_payload_avoids_removed_is_verified_column(): void
     {
         $seeder = file_get_contents($this->repoRoot.'/database/seeders/BrowserE2eSeeder.php');
