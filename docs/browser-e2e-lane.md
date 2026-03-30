@@ -18,7 +18,7 @@ Playwright spec: `tests/e2e/specs/minimal-blocking-interactions.spec.js`
 
 1. **F + A(min):** runtime bootstrap + client order-create screen + basic form interaction milestone.
 2. **B(min):** authenticated client profile page remains interactive and logout flow works.
-3. **D + C(min):** courier can go online and reaches actionable/searching runtime state (`accept` when available).
+3. **D + C(min):** courier can switch online state and leave offline runtime overlay (`accept` when available).
 
 ## Selector policy (blocking lane stability)
 
