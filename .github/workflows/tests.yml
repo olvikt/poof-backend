@@ -218,6 +218,113 @@ jobs:
             tests/Feature/Pwa/LandingPagePwaManifestLinkTest.php
 
 
+  browser-e2e:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.3'
+          extensions: mbstring,bcmath,pdo_sqlite,sqlite3
+          coverage: none
+
+      - name: Cache Composer dependencies
+        uses: actions/cache@v4
+        with:
+          path: ~/.composer/cache/files
+          key: ${{ runner.os }}-composer-${{ hashFiles('**/composer.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-composer-
+
+      - name: Install dependencies
+        run: composer install --no-interaction --prefer-dist --no-progress
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install npm deps
+        run: npm ci
+
+      - name: Prepare browser e2e environment
+        run: |
+          cp .env.example .env
+          php artisan key:generate
+          mkdir -p database storage/logs
+          touch database/database.sqlite
+          {
+            echo "APP_ENV=testing"
+            echo "APP_DEBUG=true"
+            echo "APP_URL=http://127.0.0.1:8000"
+            echo "ASSET_URL=http://127.0.0.1:8000"
+            echo "DB_CONNECTION=sqlite"
+            echo "DB_DATABASE=${{ github.workspace }}/database/database.sqlite"
+            echo "CACHE_STORE=array"
+            echo "SESSION_DRIVER=file"
+            echo "QUEUE_CONNECTION=sync"
+            echo "MAIL_MAILER=array"
+          } >> .env
+
+      - name: Run migrations
+        run: php artisan migrate:fresh --force
+
+      - name: Seed deterministic browser e2e fixtures
+        run: php artisan db:seed --class=BrowserE2eSeeder --force
+
+      - name: Build frontend
+        run: npm run build
+
+      - name: Install Playwright Chromium
+        run: npm run e2e:install
+
+      - name: Start app server
+        run: |
+          php artisan serve --host=127.0.0.1 --port=8000 > storage/logs/e2e-server.log 2>&1 &
+          for i in {1..30}; do
+            if curl -fsS http://127.0.0.1:8000/login > /dev/null; then
+              exit 0
+            fi
+            sleep 1
+          done
+          echo "Server did not become ready in time."
+          exit 1
+
+      - name: Assert e2e pages do not leak production asset origin
+        run: |
+          html=$(curl -fsS http://127.0.0.1:8000/login)
+          echo "Rendered asset references in /login:"
+          echo "$html" | grep -Eo '(https?://[^"'"'"']+/build/assets/[^"'"'"']+|/build/assets/[^"'"'"']+)' | head -n 12 || true
+          if echo "$html" | grep -qE "https://poof.com.ua/build/assets"; then
+            echo "E2E runtime is leaking production asset origin (https://poof.com.ua/build/assets)."
+            exit 1
+          fi
+          if ! echo "$html" | grep -qE "(/build/assets|http://127.0.0.1:8000/build/assets)"; then
+            echo "Expected built assets were not referenced as same-origin paths in /login HTML."
+            exit 1
+          fi
+
+      - name: Run blocking browser e2e lane
+        run: npm run e2e:test
+
+      - name: Upload browser e2e artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: browser-e2e-artifacts
+          path: |
+            playwright-report
+            test-results
+            storage/logs/e2e-server.log
+            storage/logs/laravel.log
+          if-no-files-found: warn
+
+
   frontend-build:
     runs-on: ubuntu-latest
 

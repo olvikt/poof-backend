@@ -4,6 +4,9 @@
         wire:click="toggleOnlineState"
         wire:loading.attr="disabled"
         wire:target="toggleOnlineState"
+        data-e2e="courier-online-toggle"
+        data-e2e-online-state="{{ $online ? 'online' : 'offline' }}"
+        data-e2e-busy="{{ $busyWithActiveOrder ? '1' : '0' }}"
         @if($busyWithActiveOrder) disabled aria-disabled="true" @endif
         class="courier-chip-control min-w-[124px] {{ $online ? 'border-emerald-300/55 bg-emerald-500/20 text-emerald-100' : 'border-slate-400/40 bg-slate-700/40 text-slate-100 hover:bg-slate-700/60' }}"
     >

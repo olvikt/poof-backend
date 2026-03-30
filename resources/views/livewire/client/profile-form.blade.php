@@ -5,6 +5,7 @@
             type="text"
             wire:model.defer="name"
             autocomplete="name"
+            data-e2e="client-profile-name-input"
             class="poof-input w-full"
         >
     </div>
@@ -34,6 +35,7 @@
         wire:click="save"
         wire:loading.attr="disabled"
         wire:target="save"
+        data-e2e="client-profile-save"
         class="w-full bg-yellow-400 text-black font-bold py-3 rounded-xl"
     >
         <span wire:loading.remove wire:target="save">Зберегти</span>

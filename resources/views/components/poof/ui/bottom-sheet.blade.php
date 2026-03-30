@@ -28,6 +28,7 @@
 
             <div
                 x-ref="sheet"
+                data-e2e="{{ $name }}-sheet-panel"
                 class="absolute inset-x-0 bottom-0 flex h-[100dvh] flex-col {{ $panelClass }}"
             >
                 @unless($hideHeader)
@@ -39,6 +40,7 @@
                         <button
                             type="button"
                             @click="close()"
+                            data-e2e="bottom-sheet-close"
                             class="text-neutral-400 hover:text-white"
                         >
                             ✕

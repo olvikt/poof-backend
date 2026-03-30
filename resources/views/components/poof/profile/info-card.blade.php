@@ -6,6 +6,7 @@
 
         <button
             class="text-yellow-400 text-sm font-semibold"
+            data-e2e="client-profile-edit-open"
             onclick="window.dispatchEvent(new CustomEvent('sheet:open',{detail:{name:'editProfile'}})); if (window.Livewire) { window.Livewire.dispatch('profile:open'); }"
         >
             Редагувати

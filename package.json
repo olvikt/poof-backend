@@ -4,9 +4,12 @@
     "type": "module",
     "scripts": {
         "build": "vite build",
-        "dev": "vite"
+        "dev": "vite",
+        "e2e:install": "playwright install --with-deps chromium",
+        "e2e:test": "playwright test --config=playwright.config.js"
     },
     "devDependencies": {
+        "@playwright/test": "1.53.2",
         "alpinejs": "^3.15.4",
         "autoprefixer": "^10.4.19",
         "laravel-vite-plugin": "^2.0.1",

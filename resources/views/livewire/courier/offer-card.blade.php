@@ -109,7 +109,7 @@
                                 Пропустити
                             </button>
 
-                            <button type="button" wire:click="accept" class="courier-btn courier-btn-warning h-12 font-bold">
+                            <button type="button" wire:click="accept" data-e2e="courier-accept-offer" class="courier-btn courier-btn-warning h-12 font-bold">
                                 Прийняти
                             </button>
 

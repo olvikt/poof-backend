@@ -24,6 +24,7 @@
 						type="button"
 						x-data
 						@click="$dispatch('sheet:open', { name: 'addressPicker' })"
+						data-e2e="open-address-picker"
 						class="text-xs text-yellow-400 font-semibold hover:opacity-80 transition"
 					>
 						Обрати збережену
@@ -330,6 +331,7 @@
 		<x-poof.submit-button
 			wire:click="submit"
 			wire:loading.attr="disabled"
+			data-e2e="client-order-submit"
 			:disabled="!$scheduled_date || !$scheduled_time_from"
 			:label="$is_trial ? 'Пробний POOF винос' : 'Зроби чисто POOF!'"
 			class="{{ (!$scheduled_date || !$scheduled_time_from) ? 'opacity-60 cursor-not-allowed' : '' }}"
@@ -417,6 +419,7 @@
 				  <button
 					type="button"
 					wire:click="selectAddress({{ $address->id }})"
+					data-e2e="address-picker-item"
 					class="
 						w-full text-left p-4 rounded-xl
 						bg-neutral-800 hover:bg-neutral-700 transition
