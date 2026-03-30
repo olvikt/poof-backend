@@ -369,6 +369,45 @@ run "Current release state contract" bash -lc '
     }
   '\'' "$2"
 ' _ "$PHP_BIN" "$DEPLOY_STATE_FILE"
+run "Runtime cache/queue/session contract (production-like)" bash -lc '
+  cd "$1"
+  "$2" -r '\''
+    require "vendor/autoload.php";
+
+    $app = require "bootstrap/app.php";
+    $app->make(Illuminate\Contracts\Console\Kernel::class)->bootstrap();
+
+    $runtime = [
+      "app_env" => (string) config("app.env"),
+      "cache_default" => (string) config("cache.default"),
+      "queue_default" => (string) config("queue.default"),
+      "session_driver" => (string) config("session.driver"),
+      "db_default" => (string) config("database.default"),
+      "cache_store_driver" => (string) data_get(config("cache.stores"), config("cache.default").".driver", ""),
+    ];
+
+    $productionLikeEnvs = ["production", "staging"];
+    $isProductionLike = in_array($runtime["app_env"], $productionLikeEnvs, true);
+
+    if ($isProductionLike && $runtime["cache_store_driver"] === "database" && $runtime["db_default"] === "sqlite") {
+      fwrite(STDERR, "[check-server] runtime resolves to database/sqlite cache lock path in production-like runtime\n");
+      fwrite(STDERR, json_encode($runtime, JSON_UNESCAPED_SLASHES).PHP_EOL);
+      exit(1);
+    }
+
+    if ($isProductionLike && $runtime["cache_store_driver"] === "database") {
+      fwrite(STDERR, "[check-server] cache default resolves to database store in production-like runtime\n");
+      fwrite(STDERR, json_encode($runtime, JSON_UNESCAPED_SLASHES).PHP_EOL);
+      exit(1);
+    }
+
+    echo json_encode([
+      "status" => "ok",
+      "runtime" => $runtime,
+      "production_like" => $isProductionLike,
+    ], JSON_UNESCAPED_SLASHES), PHP_EOL;
+  '\''
+' _ "$APP_DIR" "$PHP_BIN"
 run_contract_with_degraded_fallback \
   "Scheduler activity contract" \
   "cd '$APP_DIR' && '$PHP_BIN' artisan ops:contract:scheduler --max-age-seconds=180" \

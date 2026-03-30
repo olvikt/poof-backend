@@ -26,6 +26,10 @@ class CheckServerScriptContractTest extends TestCase
         $this->assertStringContainsString('run_contract_with_degraded_fallback()', $script);
         $this->assertStringContainsString('run_deploy_runtime_evidence()', $script);
         $this->assertStringContainsString('run "Readiness endpoint contract" bash -lc', $script);
+        $this->assertStringContainsString('run "Runtime cache/queue/session contract (production-like)" bash -lc', $script);
+        $this->assertStringContainsString('cache default resolves to database store in production-like runtime', $script);
+        $this->assertStringContainsString('runtime resolves to database/sqlite cache lock path in production-like runtime', $script);
+        $this->assertStringContainsString('"cache_store_driver" => (string) data_get(config("cache.stores"), config("cache.default").".driver", "")', $script);
         $this->assertStringContainsString('[[ "$response" == "ok" ]]', $script);
         $this->assertStringContainsString("artisan ops:contract:scheduler --max-age-seconds=180", $script);
         $this->assertStringContainsString("artisan ops:contract:workers --program-prefix=poof-worker:", $script);
