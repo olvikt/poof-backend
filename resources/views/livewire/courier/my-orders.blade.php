@@ -35,7 +35,7 @@
         <div class="mb-4 overflow-hidden rounded-3xl border border-white/[0.08] bg-[#0d141e] shadow-[0_16px_36px_rgba(0,0,0,0.35)]">
             <div class="relative h-[50dvh] min-h-[360px] max-h-[560px] w-full overflow-hidden bg-[#0b131d]" data-map-bootstrap='@json($mapBootstrap ?? null)'>
                 <div wire:ignore id="my-orders-map" class="absolute inset-0" data-map-bootstrap='@json($mapBootstrap ?? null)'></div>
-                <div class="pointer-events-none absolute inset-x-0 top-0 h-16 bg-gradient-to-b from-[#0d141e]/75 to-transparent"></div>
+                <div class="pointer-events-none absolute inset-x-0 top-0 h-16 bg-gradient-to-b from-[#0d141e]/[0.75] to-transparent"></div>
 
                 @if($activeOrderForMap)
                     <div class="absolute bottom-3 right-3 z-20">
@@ -53,7 +53,7 @@
 
                 @unless($hasMapPreviewData)
                     <div class="absolute inset-0 flex items-center justify-center px-4">
-                        <div class="rounded-2xl border border-white/[0.12] bg-[#101722]/95 px-3 py-2 text-center text-xs text-slate-200">
+                        <div class="rounded-2xl border border-white/[0.12] bg-[#101722]/[0.95] px-3 py-2 text-center text-xs text-slate-200">
                             Карта маршруту з’явиться, щойно буде доступна геопозиція курʼєра.
                         </div>
                     </div>
@@ -185,7 +185,7 @@
 
         @if($primaryActionOrder)
             <div class="fixed bottom-[calc(var(--courier-nav-h)+env(safe-area-inset-bottom)+var(--courier-screen-bottom-gap))] left-1/2 z-40 w-full max-w-md -translate-x-1/2 px-4">
-                <div class="rounded-2xl border border-white/10 bg-[#0f1724]/95 p-2 shadow-[0_-10px_28px_rgba(0,0,0,0.45)] backdrop-blur-sm">
+                <div class="rounded-2xl border border-white/10 bg-[#0f1724]/[0.95] p-2 shadow-[0_-10px_28px_rgba(0,0,0,0.45)] backdrop-blur-sm">
                     @if($primaryActionOrder->status === \App\Models\Order::STATUS_ACCEPTED)
                         <button
                             type="button"
