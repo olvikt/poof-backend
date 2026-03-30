@@ -23,6 +23,8 @@ DEPLOY_LOG_DIR="${DEPLOY_LOG_DIR:-$APP_DIR/storage/logs/deploy}"
 DEPLOY_STATE_FILE="${DEPLOY_STATE_FILE:-$APP_DIR/storage/app/current-release.json}"
 RELEASE_HISTORY_FILE="${RELEASE_HISTORY_FILE:-$APP_DIR/storage/app/release-history.jsonl}"
 RELEASE_SUMMARY_DIR="${RELEASE_SUMMARY_DIR:-$APP_DIR/docs/release-summaries}"
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+source "$SCRIPT_DIR/release-state-lib.sh"
 
 json_field() {
   local file_path="$1"
@@ -43,30 +45,6 @@ json_field() {
     }
     echo (string) $data[$argv[2]];
   ' "$file_path" "$field_name"
-}
-
-json_string_or_null() {
-  local value="$1"
-
-  if [[ -z "$value" ]]; then
-    echo null
-  else
-    "$PHP_BIN" -r 'echo json_encode($argv[1], JSON_UNESCAPED_SLASHES);' -- "$value"
-  fi
-}
-
-append_history_entry() {
-  local state_file="$1"
-  local history_file="$2"
-
-  "$PHP_BIN" -r '
-    $data = json_decode(file_get_contents($argv[1]), true);
-    if (!is_array($data)) {
-        fwrite(STDERR, "failed to decode release state for history append\n");
-        exit(1);
-    }
-    echo json_encode($data, JSON_UNESCAPED_SLASHES) . PHP_EOL;
-  ' "$state_file" >> "$history_file"
 }
 
 append_runtime_evidence() {
@@ -255,7 +233,7 @@ for attempt in $(seq 1 "$HEALTHCHECK_ATTEMPTS"); do
     append_runtime_evidence "health_check_passed" "ok" "{\"attempt\":$attempt}"
 
     echo "[deploy] recording release state"
-    cat > "$DEPLOY_STATE_FILE" <<STATE
+    DEPLOY_STATE_PAYLOAD="$(cat <<STATE
 {
   "release_ref": "$RESOLVED_REF",
   "release_ref_kind": "$RELEASE_REF_KIND",
@@ -267,23 +245,24 @@ for attempt in $(seq 1 "$HEALTHCHECK_ATTEMPTS"); do
   "commit": "$RESOLVED_COMMIT",
   "deployed_at_utc": "$DEPLOYED_AT",
   "deployment_type": "deploy",
-  "previous_release_ref": $(json_string_or_null "$PREVIOUS_RELEASE_REF"),
-  "previous_commit": $(json_string_or_null "$PREVIOUS_COMMIT"),
-  "previous_deployed_at_utc": $(json_string_or_null "$PREVIOUS_DEPLOYED_AT"),
-  "previous_deployment_type": $(json_string_or_null "$PREVIOUS_DEPLOYMENT_TYPE"),
-  "previous_selection_mode": $(json_string_or_null "$PREVIOUS_SELECTION_MODE"),
+  "previous_release_ref": $(release_state_json_string_or_null "$PREVIOUS_RELEASE_REF" "$PHP_BIN"),
+  "previous_commit": $(release_state_json_string_or_null "$PREVIOUS_COMMIT" "$PHP_BIN"),
+  "previous_deployed_at_utc": $(release_state_json_string_or_null "$PREVIOUS_DEPLOYED_AT" "$PHP_BIN"),
+  "previous_deployment_type": $(release_state_json_string_or_null "$PREVIOUS_DEPLOYMENT_TYPE" "$PHP_BIN"),
+  "previous_selection_mode": $(release_state_json_string_or_null "$PREVIOUS_SELECTION_MODE" "$PHP_BIN"),
   "deploy_log": "$DEPLOY_LOG_FILE",
   "deploy_runtime_evidence": "$DEPLOY_RUNTIME_EVIDENCE_FILE",
   "release_history": "$RELEASE_HISTORY_FILE",
   "release_summary_required": $RELEASE_SUMMARY_REQUIRED,
   "release_summary_present": $RELEASE_SUMMARY_PRESENT,
-  "release_summary_file": $(json_string_or_null "$RELEASE_SUMMARY_FILE"),
-  "release_summary": $(json_string_or_null "$RELEASE_SUMMARY_TEXT")
+  "release_summary_file": $(release_state_json_string_or_null "$RELEASE_SUMMARY_FILE" "$PHP_BIN"),
+  "release_summary": $(release_state_json_string_or_null "$RELEASE_SUMMARY_TEXT" "$PHP_BIN")
 }
 STATE
+)"
+    write_release_state_and_history "$DEPLOY_STATE_PAYLOAD" "$DEPLOY_STATE_FILE" "$RELEASE_HISTORY_FILE" "$PHP_BIN"
     append_runtime_evidence "release_state_recorded" "ok"
     cp "$DEPLOY_STATE_FILE" "$DEPLOY_LOG_FILE"
-    append_history_entry "$DEPLOY_STATE_FILE" "$RELEASE_HISTORY_FILE"
 
     echo "[deploy] current release state: $DEPLOY_STATE_FILE"
     echo "[deploy] done"

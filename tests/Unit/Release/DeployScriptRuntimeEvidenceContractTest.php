@@ -29,20 +29,20 @@ class DeployScriptRuntimeEvidenceContractTest extends TestCase
         $this->assertStringContainsString('"deploy_runtime_evidence": "$DEPLOY_RUNTIME_EVIDENCE_FILE"', $script);
     }
 
-    public function test_deploy_script_json_string_or_null_handles_dash_prefixed_release_summary(): void
+    public function test_deploy_script_uses_shared_release_state_writer_for_dash_prefixed_values_and_history(): void
     {
         $script = file_get_contents($this->repoRoot.'/scripts/deploy.sh');
 
         $this->assertNotFalse($script);
         $this->assertStringContainsString(
-            '"$PHP_BIN" -r \'echo json_encode($argv[1], JSON_UNESCAPED_SLASHES);\' -- "$value"',
+            'source "$SCRIPT_DIR/release-state-lib.sh"',
             $script
         );
         $this->assertStringContainsString(
-            '"release_summary": $(json_string_or_null "$RELEASE_SUMMARY_TEXT")',
+            '"release_summary": $(release_state_json_string_or_null "$RELEASE_SUMMARY_TEXT" "$PHP_BIN")',
             $script
         );
-        $this->assertStringContainsString('append_history_entry "$DEPLOY_STATE_FILE" "$RELEASE_HISTORY_FILE"', $script);
+        $this->assertStringContainsString('write_release_state_and_history "$DEPLOY_STATE_PAYLOAD" "$DEPLOY_STATE_FILE" "$RELEASE_HISTORY_FILE" "$PHP_BIN"', $script);
     }
 
     public function test_rollback_script_rejects_empty_tag_release_summary_before_writing_state(): void

@@ -22,23 +22,25 @@ class ReleaseToolingContractsTest extends TestCase
         $this->assertNotFalse($deploy);
         $this->assertNotFalse($rollback);
 
+        $this->assertStringContainsString('source "$SCRIPT_DIR/release-state-lib.sh"', $deploy);
         $this->assertStringContainsString('current-release.json', $deploy);
         $this->assertStringContainsString('release-history.jsonl', $deploy);
         $this->assertStringContainsString('"release_summary_required": $RELEASE_SUMMARY_REQUIRED', $deploy);
         $this->assertStringContainsString('"release_summary_present": $RELEASE_SUMMARY_PRESENT', $deploy);
-        $this->assertStringContainsString('"release_summary_file": $(json_string_or_null "$RELEASE_SUMMARY_FILE")', $deploy);
-        $this->assertStringContainsString('"release_summary": $(json_string_or_null "$RELEASE_SUMMARY_TEXT")', $deploy);
+        $this->assertStringContainsString('"release_summary_file": $(release_state_json_string_or_null "$RELEASE_SUMMARY_FILE" "$PHP_BIN")', $deploy);
+        $this->assertStringContainsString('"release_summary": $(release_state_json_string_or_null "$RELEASE_SUMMARY_TEXT" "$PHP_BIN")', $deploy);
         $this->assertStringContainsString('"deployment_type": "deploy"', $deploy);
-        $this->assertStringContainsString('append_history_entry "$DEPLOY_STATE_FILE" "$RELEASE_HISTORY_FILE"', $deploy);
+        $this->assertStringContainsString('write_release_state_and_history "$DEPLOY_STATE_PAYLOAD" "$DEPLOY_STATE_FILE" "$RELEASE_HISTORY_FILE" "$PHP_BIN"', $deploy);
 
+        $this->assertStringContainsString('source "$SCRIPT_DIR/release-state-lib.sh"', $rollback);
         $this->assertStringContainsString('current-release.json', $rollback);
         $this->assertStringContainsString('release-history.jsonl', $rollback);
         $this->assertStringContainsString('"release_summary_required": $RELEASE_SUMMARY_REQUIRED', $rollback);
         $this->assertStringContainsString('"release_summary_present": $RELEASE_SUMMARY_PRESENT', $rollback);
-        $this->assertStringContainsString('"release_summary_file": $(json_string_or_null "$RELEASE_SUMMARY_FILE")', $rollback);
-        $this->assertStringContainsString('"release_summary": $(json_string_or_null "$RELEASE_SUMMARY_TEXT")', $rollback);
+        $this->assertStringContainsString('"release_summary_file": $(release_state_json_string_or_null "$RELEASE_SUMMARY_FILE" "$PHP_BIN")', $rollback);
+        $this->assertStringContainsString('"release_summary": $(release_state_json_string_or_null "$RELEASE_SUMMARY_TEXT" "$PHP_BIN")', $rollback);
         $this->assertStringContainsString('"deployment_type": "rollback"', $rollback);
-        $this->assertStringContainsString('append_history_entry "$DEPLOY_STATE_FILE" "$RELEASE_HISTORY_FILE"', $rollback);
+        $this->assertStringContainsString('write_release_state_and_history "$DEPLOY_STATE_PAYLOAD" "$DEPLOY_STATE_FILE" "$RELEASE_HISTORY_FILE" "$PHP_BIN"', $rollback);
     }
 
     public function test_show_release_script_exposes_current_release_contract_summary_and_invariants(): void
