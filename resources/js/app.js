@@ -1,5 +1,6 @@
 import './bootstrap'
 import Alpine from 'alpinejs'
+import { Livewire, Alpine as LivewireAlpine } from '../../vendor/livewire/livewire/dist/livewire.esm'
 import poofTimeCarousel from './poof/carousel'
 import addressAutocomplete from './address-autocomplete'
 import {
@@ -28,10 +29,11 @@ export function bootReactiveRuntime() {
     hasAlpine: Boolean(window.Alpine),
   }, { globals: window, diagnostics: runtimeDiagnostics })
 
-  const livewire = window.Livewire ?? null
-  const alpine = window.Alpine ?? Alpine
+  const livewire = window.Livewire ?? Livewire ?? null
+  const alpine = window.Alpine ?? LivewireAlpine ?? Alpine
 
   if (livewire && alpine) {
+    window.Livewire = livewire
     window.Alpine = alpine
     registerAlpineComponents(alpine)
     const livewireBoot = evaluateLivewireRuntimeBoot({ livewire, alpine, globals: window })

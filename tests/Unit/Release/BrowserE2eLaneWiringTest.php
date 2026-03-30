@@ -152,7 +152,10 @@ class BrowserE2eLaneWiringTest extends TestCase
         $appJs = file_get_contents($this->repoRoot.'/resources/js/app.js');
 
         $this->assertNotFalse($appJs);
-        $this->assertStringContainsString('const alpine = window.Alpine ?? Alpine', $appJs);
+        $this->assertStringContainsString("from '../../vendor/livewire/livewire/dist/livewire.esm'", $appJs);
+        $this->assertStringContainsString('const livewire = window.Livewire ?? Livewire ?? null', $appJs);
+        $this->assertStringContainsString('const alpine = window.Alpine ?? LivewireAlpine ?? Alpine', $appJs);
+        $this->assertStringContainsString('window.Livewire = livewire', $appJs);
         $this->assertStringContainsString('window.Alpine = alpine', $appJs);
         $this->assertStringContainsString('livewire.start()', $appJs);
     }
