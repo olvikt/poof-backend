@@ -31,4 +31,19 @@ class BrowserE2eLaneWiringTest extends TestCase
         $this->assertStringContainsString('php artisan db:seed --class=BrowserE2eSeeder --force', $workflow);
         $this->assertStringNotContainsString('--seeder=Database\\Seeders\\BrowserE2eSeeder', $workflow);
     }
+
+    public function test_browser_e2e_client_address_seed_payload_avoids_removed_is_verified_column(): void
+    {
+        $seeder = file_get_contents($this->repoRoot.'/database/seeders/BrowserE2eSeeder.php');
+
+        $this->assertNotFalse($seeder);
+
+        preg_match('/\$address\s*=\s*ClientAddress::updateOrCreate\((.*?)\);/s', (string) $seeder, $matches);
+        $this->assertNotEmpty($matches, 'ClientAddress::updateOrCreate payload block must exist in BrowserE2eSeeder');
+
+        $clientAddressPayloadBlock = $matches[1];
+
+        $this->assertStringNotContainsString("'is_verified' =>", $clientAddressPayloadBlock);
+        $this->assertStringContainsString("'geocoded_at' => now()", $clientAddressPayloadBlock);
+    }
 }

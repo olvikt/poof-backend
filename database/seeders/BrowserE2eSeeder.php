@@ -56,7 +56,9 @@ class BrowserE2eSeeder extends Seeder
                 'lat' => 50.4501,
                 'lng' => 30.5234,
                 'is_default' => true,
-                'is_verified' => true,
+                'geocode_source' => 'seed',
+                'geocode_accuracy' => 'rooftop',
+                'geocoded_at' => now(),
             ]
         );
 
