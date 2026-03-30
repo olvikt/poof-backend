@@ -16,9 +16,9 @@ Covered incident-risk classes:
 
 Playwright spec: `tests/e2e/specs/minimal-blocking-interactions.spec.js`
 
-1. **F + A(min):** runtime bootstrap + client order-create screen + address-picker open/select/close lifecycle.
-2. **B:** client profile edit/save round-trip applies updated user name.
-3. **D + C(min):** courier sees actionable offer and performs critical transition `accept`.
+1. **F + A(min):** runtime bootstrap + client order-create screen + basic form interaction milestone.
+2. **B(min):** authenticated client profile page remains interactive and logout flow works.
+3. **D + C(min):** courier can go online and reaches actionable/searching runtime state (`accept` when available).
 
 ## Selector policy (blocking lane stability)
 

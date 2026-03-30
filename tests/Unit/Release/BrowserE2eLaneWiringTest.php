@@ -103,10 +103,11 @@ class BrowserE2eLaneWiringTest extends TestCase
         $spec = file_get_contents($this->repoRoot.'/tests/e2e/specs/minimal-blocking-interactions.spec.js');
 
         $this->assertNotFalse($spec);
-        $this->assertStringContainsString("getByTestId('open-address-picker')", $spec);
-        $this->assertStringContainsString("getByTestId('address-picker-item')", $spec);
-        $this->assertStringContainsString("getByTestId('client-profile-name-input')", $spec);
+        $this->assertStringContainsString("getByLabel('Вулиця')", $spec);
+        $this->assertStringContainsString("getByTestId('client-order-submit')", $spec);
+        $this->assertStringContainsString("Вийти з акаунту", $spec);
         $this->assertStringContainsString("getByTestId('courier-online-toggle')", $spec);
+        $this->assertStringContainsString('Пошук замовлень...', $spec);
         $this->assertStringNotContainsString('wire\\:model\\.live', $spec);
     }
 
@@ -114,13 +115,11 @@ class BrowserE2eLaneWiringTest extends TestCase
     {
         $orderCreate = file_get_contents($this->repoRoot.'/resources/views/livewire/client/order-create.blade.php');
         $bottomSheet = file_get_contents($this->repoRoot.'/resources/views/components/poof/ui/bottom-sheet.blade.php');
-        $profileForm = file_get_contents($this->repoRoot.'/resources/views/livewire/client/profile-form.blade.php');
         $onlineToggle = file_get_contents($this->repoRoot.'/resources/views/livewire/courier/online-toggle.blade.php');
         $offerCard = file_get_contents($this->repoRoot.'/resources/views/livewire/courier/offer-card.blade.php');
 
         $this->assertNotFalse($orderCreate);
         $this->assertNotFalse($bottomSheet);
-        $this->assertNotFalse($profileForm);
         $this->assertNotFalse($onlineToggle);
         $this->assertNotFalse($offerCard);
 
@@ -128,8 +127,6 @@ class BrowserE2eLaneWiringTest extends TestCase
         $this->assertStringContainsString('data-e2e="address-picker-item"', $orderCreate);
         $this->assertStringContainsString('data-e2e="client-order-submit"', $orderCreate);
         $this->assertStringContainsString('data-e2e="{{ $name }}-sheet-panel"', $bottomSheet);
-        $this->assertStringContainsString('data-e2e="client-profile-name-input"', $profileForm);
-        $this->assertStringContainsString('data-e2e="client-profile-save"', $profileForm);
         $this->assertStringContainsString('data-e2e="courier-online-toggle"', $onlineToggle);
         $this->assertStringContainsString('data-e2e="courier-accept-offer"', $offerCard);
     }
