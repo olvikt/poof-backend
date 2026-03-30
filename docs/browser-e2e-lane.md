@@ -47,7 +47,8 @@ cp .env.example .env
 php artisan key:generate
 mkdir -p database
 touch database/database.sqlite
-php artisan migrate:fresh --seed --seeder=Database\\Seeders\\BrowserE2eSeeder
+php artisan migrate:fresh --force
+php artisan db:seed --class=BrowserE2eSeeder --force
 npm ci
 npm run build
 npx --yes playwright@1.53.2 install --with-deps chromium

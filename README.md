@@ -19,7 +19,8 @@
 Локальный прогон минимального browser/e2e lane:
 
 ```bash
-php artisan migrate:fresh --seed --seeder=Database\\Seeders\\BrowserE2eSeeder
+php artisan migrate:fresh --force
+php artisan db:seed --class=BrowserE2eSeeder --force
 npm ci
 npm run build
 npx --yes playwright@1.53.2 install --with-deps chromium

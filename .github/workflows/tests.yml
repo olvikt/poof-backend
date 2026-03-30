@@ -270,8 +270,11 @@ jobs:
             echo "MAIL_MAILER=array"
           } >> .env
 
-      - name: Run migrations and e2e fixtures
-        run: php artisan migrate:fresh --force --seed --seeder=Database\Seeders\BrowserE2eSeeder
+      - name: Run migrations
+        run: php artisan migrate:fresh --force
+
+      - name: Seed deterministic browser e2e fixtures
+        run: php artisan db:seed --class=BrowserE2eSeeder --force
 
       - name: Build frontend
         run: npm run build
