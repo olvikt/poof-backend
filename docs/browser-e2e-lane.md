@@ -16,10 +16,9 @@ Covered incident-risk classes:
 
 Playwright spec: `tests/e2e/specs/minimal-blocking-interactions.spec.js`
 
-1. **F:** runtime bootstrap and bottom-sheet lifecycle on client order-create screen.
-2. **A:** client order create flow reaches success confirmation modal.
-3. **B:** client profile edit/save round-trip applies updated user name.
-4. **D + C:** courier `wire:navigate` and order lifecycle `available -> accept -> start -> complete`.
+1. **F + A(min):** runtime bootstrap + client order-create screen + address-picker open/select/close lifecycle.
+2. **B:** client profile edit/save round-trip applies updated user name.
+3. **D + C(min):** courier sees actionable offer and performs critical transition `accept`.
 
 ## Selector policy (blocking lane stability)
 

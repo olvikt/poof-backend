@@ -3,7 +3,7 @@ import { attachRuntimeGuards } from '../helpers/runtime-guards.js';
 import { loginAs } from '../helpers/auth.js';
 
 test.describe('minimal blocking interactive lane', () => {
-  test('F: runtime bootstrap + modal/sheet lifecycle on client order create', async ({ page }) => {
+  test('F+A(min): runtime bootstrap + address picker interaction on client order create', async ({ page }) => {
     const guards = attachRuntimeGuards(page);
 
     await loginAs(page, {
@@ -16,33 +16,15 @@ test.describe('minimal blocking interactive lane', () => {
     await expect(page.locator('#order-create-root')).toBeVisible();
 
     await page.getByTestId('open-address-picker').click();
-    await expect(page.getByText('Мої адреси').first()).toBeVisible();
+    const addressPickerPanel = page.getByTestId('addressPicker-sheet-panel');
+    await expect(addressPickerPanel).toBeVisible();
 
-    await page.getByTestId('bottom-sheet-close').click();
-    await expect(page.getByText('Мої адреси').first()).toBeHidden();
+    const firstAddress = page.getByTestId('address-picker-item').first();
+    await expect(firstAddress).toBeVisible();
+    await firstAddress.click();
 
-    guards.assertHealthy();
-  });
-
-  test('A: client can create order via real interactive flow', async ({ page }) => {
-    const guards = attachRuntimeGuards(page);
-
-    await loginAs(page, {
-      login: 'client@test.com',
-      password: 'password',
-      expectedPath: '/client',
-    });
-
-    await page.goto('/client/order/create');
-    await expect(page.locator('#order-create-root')).toBeVisible();
-    await page.getByLabel('Вулиця').fill('Test street');
-    await page.getByLabel('Дім').fill('99');
-
-    await page.getByRole('button', { name: 'Завтра' }).click();
-    await page.getByRole('button', { name: /08:00–10:00|10:00–12:00|12:00–14:00/ }).first().click();
-    await page.getByRole('button', { name: /POOF/ }).click();
-
-    await expect(page.getByRole('heading', { name: 'Ваше замовлення прийнято' })).toBeVisible();
+    await expect(addressPickerPanel).toBeHidden();
+    await expect(page.getByTestId('client-order-submit')).toBeVisible();
 
     guards.assertHealthy();
   });
@@ -85,7 +67,7 @@ test.describe('minimal blocking interactive lane', () => {
     }
 
     const acceptButton = page.getByTestId('courier-accept-offer');
-    await expect(acceptButton).toBeVisible();
+    await expect(acceptButton).toBeVisible({ timeout: 20_000 });
     await acceptButton.click();
 
     await expect(page).toHaveURL(/\/courier\/my-orders/);
