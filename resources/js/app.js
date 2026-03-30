@@ -29,9 +29,10 @@ export function bootReactiveRuntime() {
   }, { globals: window, diagnostics: runtimeDiagnostics })
 
   const livewire = window.Livewire ?? null
-  const alpine = window.Alpine ?? null
+  const alpine = window.Alpine ?? Alpine
 
   if (livewire && alpine) {
+    window.Alpine = alpine
     registerAlpineComponents(alpine)
     const livewireBoot = evaluateLivewireRuntimeBoot({ livewire, alpine, globals: window })
     if (livewireBoot.allowed) {

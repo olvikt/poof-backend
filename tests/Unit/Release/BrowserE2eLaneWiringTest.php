@@ -146,4 +146,14 @@ class BrowserE2eLaneWiringTest extends TestCase
         $this->assertStringContainsString('data-e2e-busy="{{ $busyWithActiveOrder ? \'1\' : \'0\' }}"', $onlineToggle);
         $this->assertStringContainsString('data-e2e="courier-accept-offer"', $offerCard);
     }
+
+    public function test_app_runtime_bootstraps_livewire_with_alpine_fallback_for_e2e_interactions(): void
+    {
+        $appJs = file_get_contents($this->repoRoot.'/resources/js/app.js');
+
+        $this->assertNotFalse($appJs);
+        $this->assertStringContainsString('const alpine = window.Alpine ?? Alpine', $appJs);
+        $this->assertStringContainsString('window.Alpine = alpine', $appJs);
+        $this->assertStringContainsString('livewire.start()', $appJs);
+    }
 }
