@@ -218,6 +218,95 @@ jobs:
             tests/Feature/Pwa/LandingPagePwaManifestLinkTest.php
 
 
+  browser-e2e:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.3'
+          extensions: mbstring,bcmath,pdo_sqlite,sqlite3
+          coverage: none
+
+      - name: Cache Composer dependencies
+        uses: actions/cache@v4
+        with:
+          path: ~/.composer/cache/files
+          key: ${{ runner.os }}-composer-${{ hashFiles('**/composer.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-composer-
+
+      - name: Install dependencies
+        run: composer install --no-interaction --prefer-dist --no-progress
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install npm deps
+        run: npm ci
+
+      - name: Prepare browser e2e environment
+        run: |
+          cp .env.example .env
+          php artisan key:generate
+          mkdir -p database storage/logs
+          touch database/database.sqlite
+          {
+            echo "APP_ENV=testing"
+            echo "APP_DEBUG=true"
+            echo "APP_URL=http://127.0.0.1:8000"
+            echo "DB_CONNECTION=sqlite"
+            echo "DB_DATABASE=${{ github.workspace }}/database/database.sqlite"
+            echo "CACHE_STORE=array"
+            echo "SESSION_DRIVER=array"
+            echo "QUEUE_CONNECTION=sync"
+            echo "MAIL_MAILER=array"
+          } >> .env
+
+      - name: Run migrations and e2e fixtures
+        run: php artisan migrate:fresh --force --seed --seeder=Database\Seeders\BrowserE2eSeeder
+
+      - name: Build frontend
+        run: npm run build
+
+      - name: Install Playwright Chromium
+        run: npx --yes playwright@1.53.2 install --with-deps chromium
+
+      - name: Start app server
+        run: |
+          php artisan serve --host=127.0.0.1 --port=8000 > storage/logs/e2e-server.log 2>&1 &
+          for i in {1..30}; do
+            if curl -fsS http://127.0.0.1:8000/login > /dev/null; then
+              exit 0
+            fi
+            sleep 1
+          done
+          echo "Server did not become ready in time."
+          exit 1
+
+      - name: Run blocking browser e2e lane
+        run: npx --yes playwright@1.53.2 test --config=playwright.config.js
+
+      - name: Upload browser e2e artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: browser-e2e-artifacts
+          path: |
+            playwright-report
+            test-results
+            storage/logs/e2e-server.log
+            storage/logs/laravel.log
+          if-no-files-found: warn
+
+
   frontend-build:
     runs-on: ubuntu-latest
 
