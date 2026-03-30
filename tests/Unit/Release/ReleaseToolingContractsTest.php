@@ -30,6 +30,11 @@ class ReleaseToolingContractsTest extends TestCase
         $this->assertStringContainsString('"release_summary_file": $(release_state_json_string_or_null "$RELEASE_SUMMARY_FILE" "$PHP_BIN")', $deploy);
         $this->assertStringContainsString('"release_summary": $(release_state_json_string_or_null "$RELEASE_SUMMARY_TEXT" "$PHP_BIN")', $deploy);
         $this->assertStringContainsString('"deployment_type": "deploy"', $deploy);
+        $this->assertStringContainsString('release_gate_file_for_ref()', $deploy);
+        $this->assertStringContainsString('[deploy] validating mandatory pre-deploy gate (runtime contract + browser smoke)', $deploy);
+        $this->assertStringContainsString('release blocked: pre-deploy gate artifact is missing', $deploy);
+        $this->assertStringContainsString('browser smoke checklist item failed/missing', $deploy);
+        $this->assertStringContainsString('[deploy] pre-deploy release gate: PASS', $deploy);
         $this->assertStringContainsString('write_release_state_and_history "$DEPLOY_STATE_PAYLOAD" "$DEPLOY_STATE_FILE" "$RELEASE_HISTORY_FILE" "$PHP_BIN"', $deploy);
 
         $this->assertStringContainsString('source "$SCRIPT_DIR/release-state-lib.sh"', $rollback);
@@ -58,5 +63,22 @@ class ReleaseToolingContractsTest extends TestCase
         $this->assertStringContainsString('print_section(\'Current release\')', $showRelease);
         $this->assertStringContainsString('print_section(\'Previous known-good release\')', $showRelease);
         $this->assertStringContainsString('print_section("Recent release transitions (last {$historyLimit})")', $showRelease);
+    }
+
+    public function test_pre_deploy_gate_script_requires_runtime_contract_and_browser_smoke_attestation(): void
+    {
+        $script = file_get_contents($this->repoRoot.'/scripts/prepare-release-gate.sh');
+
+        $this->assertNotFalse($script);
+        $this->assertStringContainsString('BROWSER_SMOKE_EVIDENCE is required', $script);
+        $this->assertStringContainsString('SMOKE_HOME_OK', $script);
+        $this->assertStringContainsString('SMOKE_CLIENT_ORDER_CREATE_OK', $script);
+        $this->assertStringContainsString('SMOKE_PROFILE_ADDRESS_AVATAR_EDIT_OK', $script);
+        $this->assertStringContainsString('SMOKE_COURIER_AVAILABLE_MY_ORDERS_OK', $script);
+        $this->assertStringContainsString('SMOKE_CRITICAL_POPUPS_CAROUSELS_OK', $script);
+        $this->assertStringContainsString('scripts/check-server.sh', $script);
+        $this->assertStringContainsString('"gate_type" => "pre_deploy_release_gate"', $script);
+        $this->assertStringContainsString('"browser_smoke" => [', $script);
+        $this->assertStringContainsString('"status" => "passed"', $script);
     }
 }

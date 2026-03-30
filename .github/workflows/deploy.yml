@@ -1,13 +1,11 @@
 name: Build and Deploy
 
 on:
-  push:
-    branches: [ main ]
   workflow_dispatch:
     inputs:
       deploy_ref:
-        description: 'Explicit release ref or tag to deploy (defaults to origin/main if empty)'
-        required: false
+        description: 'Explicit release ref or tag to deploy (required)'
+        required: true
         type: string
 
 jobs:
@@ -63,11 +61,6 @@ jobs:
       - name: Deploy backend
         env:
           DEPLOY_REF_INPUT: ${{ inputs.deploy_ref }}
-          DEPLOY_SHA: ${{ github.sha }}
         run: |
-          if [ -n "$DEPLOY_REF_INPUT" ]; then
-            TARGET_REF="$DEPLOY_REF_INPUT"
-          else
-            TARGET_REF="$DEPLOY_SHA"
-          fi
+          TARGET_REF="$DEPLOY_REF_INPUT"
           ssh root@api.poof.com.ua "cd /var/www/poof && DEPLOY_REF='$TARGET_REF' bash scripts/deploy.sh"

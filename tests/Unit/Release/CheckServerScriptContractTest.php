@@ -27,8 +27,11 @@ class CheckServerScriptContractTest extends TestCase
         $this->assertStringContainsString('run_deploy_runtime_evidence()', $script);
         $this->assertStringContainsString('run "Readiness endpoint contract" bash -lc', $script);
         $this->assertStringContainsString('run "Runtime cache/queue/session contract (production-like)" bash -lc', $script);
-        $this->assertStringContainsString('cache default resolves to database store in production-like runtime', $script);
-        $this->assertStringContainsString('runtime resolves to database/sqlite cache lock path in production-like runtime', $script);
+        $this->assertStringContainsString('cache_default must resolve to redis in production-like runtime', $script);
+        $this->assertStringContainsString('cache_store_driver must resolve to redis in production-like runtime', $script);
+        $this->assertStringContainsString('queue_default must resolve to redis in production-like runtime', $script);
+        $this->assertStringContainsString('session_driver must resolve to redis in production-like runtime', $script);
+        $this->assertStringContainsString('DANGEROUS: db_default=sqlite with non-redis cache/rate-limit path can trigger database lock regressions', $script);
         $this->assertStringContainsString('"cache_store_driver" => (string) data_get(config("cache.stores"), config("cache.default").".driver", "")', $script);
         $this->assertStringContainsString('[[ "$response" == "ok" ]]', $script);
         $this->assertStringContainsString("artisan ops:contract:scheduler --max-age-seconds=180", $script);
