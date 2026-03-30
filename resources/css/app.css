@@ -28,7 +28,7 @@
     }
 
     .courier-surface {
-        @apply rounded-3xl border border-white/8 bg-[#111926] shadow-[0_18px_36px_rgba(0,0,0,0.32)];
+        @apply rounded-3xl border border-white/10 bg-[#111926] shadow-[0_18px_36px_rgba(0,0,0,0.32)];
     }
 }
 
