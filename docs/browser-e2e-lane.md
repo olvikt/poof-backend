@@ -47,6 +47,7 @@ cp .env.example .env
 php artisan key:generate
 mkdir -p database
 touch database/database.sqlite
+echo "SESSION_DRIVER=file" >> .env
 php artisan migrate:fresh --force
 php artisan db:seed --class=BrowserE2eSeeder --force
 npm ci

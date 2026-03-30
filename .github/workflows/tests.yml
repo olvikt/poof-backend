@@ -265,7 +265,7 @@ jobs:
             echo "DB_CONNECTION=sqlite"
             echo "DB_DATABASE=${{ github.workspace }}/database/database.sqlite"
             echo "CACHE_STORE=array"
-            echo "SESSION_DRIVER=array"
+            echo "SESSION_DRIVER=file"
             echo "QUEUE_CONNECTION=sync"
             echo "MAIL_MAILER=array"
           } >> .env

@@ -43,6 +43,14 @@ class BrowserE2eLaneWiringTest extends TestCase
         $this->assertStringNotContainsString('npx --yes playwright@1.53.2', $workflow);
     }
 
+    public function test_browser_e2e_workflow_uses_persistent_session_driver_for_real_login_flow(): void
+    {
+        $workflow = file_get_contents($this->repoRoot.'/.github/workflows/tests.yml');
+
+        $this->assertNotFalse($workflow);
+        $this->assertStringContainsString('echo "SESSION_DRIVER=file"', $workflow);
+    }
+
     public function test_package_manifest_pins_project_local_playwright_dependency_and_scripts(): void
     {
         $packageJson = file_get_contents($this->repoRoot.'/package.json');
@@ -68,5 +76,25 @@ class BrowserE2eLaneWiringTest extends TestCase
 
         $this->assertStringNotContainsString("'is_verified' =>", $clientAddressPayloadBlock);
         $this->assertStringContainsString("'geocoded_at' => now()", $clientAddressPayloadBlock);
+    }
+
+    public function test_browser_e2e_seeder_keeps_expected_login_credentials_contract(): void
+    {
+        $seeder = file_get_contents($this->repoRoot.'/database/seeders/BrowserE2eSeeder.php');
+
+        $this->assertNotFalse($seeder);
+        $this->assertStringContainsString("'email' => 'client@test.com'", $seeder);
+        $this->assertStringContainsString("'email' => 'courier@poof.app'", $seeder);
+        $this->assertStringContainsString("'password' => Hash::make('password')", $seeder);
+        $this->assertStringContainsString("'is_active' => true", $seeder);
+    }
+
+    public function test_browser_e2e_auth_helper_exposes_actionable_login_failure_context(): void
+    {
+        $helper = file_get_contents($this->repoRoot.'/tests/e2e/helpers/auth.js');
+
+        $this->assertNotFalse($helper);
+        $this->assertStringContainsString("Невірний email/телефон або пароль", $helper);
+        $this->assertStringContainsString('E2E login failed for', $helper);
     }
 }

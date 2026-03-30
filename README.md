@@ -19,6 +19,8 @@
 Локальный прогон минимального browser/e2e lane:
 
 ```bash
+# важно для e2e-login: persistent session storage
+echo "SESSION_DRIVER=file" >> .env
 php artisan migrate:fresh --force
 php artisan db:seed --class=BrowserE2eSeeder --force
 npm ci
