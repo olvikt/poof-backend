@@ -20,7 +20,7 @@
     }
 
     .courier-btn-secondary {
-        @apply border border-white/15 bg-white/10 text-slate-100 hover:bg-white/15;
+        @apply border border-white/10 bg-white/[0.08] text-slate-100 hover:bg-white/10;
     }
 
     .courier-chip-control {
@@ -28,7 +28,7 @@
     }
 
     .courier-surface {
-        @apply rounded-3xl bg-[#111926] shadow-[0_18px_36px_rgba(0,0,0,0.32)];
+        @apply rounded-3xl border border-white/10 bg-[#111926] shadow-[0_18px_36px_rgba(0,0,0,0.32)];
     }
 }
 
@@ -97,7 +97,7 @@ body {
 
 /* Bottom navigation separation */
 .bottom-nav {
-    border-top: 1.5px solid rgba(0, 0, 0, 0.7);
+    border-top: 1.5px solid rgba(148, 163, 184, 0.14);
     box-shadow: 0 -4px 14px rgba(0, 0, 0, 0.45);
 }
 
