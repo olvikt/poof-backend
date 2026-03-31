@@ -5,12 +5,20 @@ namespace App\Livewire\Client\OrderCreate\Concerns;
 use App\Models\Order;
 use App\Domain\Address\Precision;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Validation\ValidationException;
 
 trait HandlesPricingTrialPolicy
 {
     public function selectBags(int $count): void
     {
-        $this->bags_count = max(1, min(3, (int) $count));
+        $availableCounts = array_keys($this->bagPricingOptions);
+        $count = (int) $count;
+
+        if (! in_array($count, $availableCounts, true)) {
+            return;
+        }
+
+        $this->bags_count = $count;
 
         if ($this->is_trial) {
             $this->disableTrial();
@@ -50,9 +58,18 @@ trait HandlesPricingTrialPolicy
 
     protected function recalculatePrice(): void
     {
-        $this->price = $this->is_trial
-            ? 0
-            : (int) Order::calcPriceByBags($this->bags_count);
+        if ($this->is_trial) {
+            $this->price = 0;
+            return;
+        }
+
+        try {
+            $this->price = (int) Order::calcPriceByBags($this->bags_count);
+            $this->resetErrorBag('bags_count');
+        } catch (ValidationException $e) {
+            $this->price = 0;
+            $this->addError('bags_count', $e->errors()['bags_count'][0] ?? 'Тариф недоступний.');
+        }
     }
 
     protected function validateCoordinatesOrFail(): void

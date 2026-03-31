@@ -14,6 +14,7 @@ use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Validation\ValidationException;
 
 class Order extends Model
 {
@@ -284,16 +285,26 @@ public function markAsPaid(): void
 
     public static function bagsPricing(): array
     {
-        return [
-            1 => 40,
-            2 => 55,
-            3 => 70,
-        ];
+        return BagPricing::activeOptionsMap();
     }
 
     public static function calcPriceByBags(int $bags): int
     {
-        return self::bagsPricing()[$bags] ?? self::bagsPricing()[1];
+        $pricing = self::bagsPricing();
+
+        if ($pricing === []) {
+            throw ValidationException::withMessages([
+                'bags_count' => 'Немає активних тарифів на мішки. Зверніться до адміністратора.',
+            ]);
+        }
+
+        if (array_key_exists($bags, $pricing)) {
+            return (int) $pricing[$bags];
+        }
+
+        throw ValidationException::withMessages([
+            'bags_count' => 'Обраний тариф недоступний. Будь ласка, оновіть вибір кількості мішків.',
+        ]);
     }
 
     /* =========================================================

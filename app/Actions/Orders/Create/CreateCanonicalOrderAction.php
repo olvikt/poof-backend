@@ -22,6 +22,6 @@ class CreateCanonicalOrderAction
 
     private function calculatePrice(int $bags): int
     {
-        return 100 + ($bags - 1) * 25;
+        return Order::calcPriceByBags($bags);
     }
 }
