@@ -118,6 +118,14 @@ PREVIOUS_COMMIT="$(json_field "$DEPLOY_STATE_FILE" commit)"
 PREVIOUS_DEPLOYED_AT="$(json_field "$DEPLOY_STATE_FILE" deployed_at_utc)"
 PREVIOUS_DEPLOYMENT_TYPE="$(json_field "$DEPLOY_STATE_FILE" deployment_type)"
 PREVIOUS_SELECTION_MODE="$(json_field "$DEPLOY_STATE_FILE" selection_mode)"
+PREVIOUS_KNOWN_GOOD_RELEASE_REF="$(json_field "$DEPLOY_STATE_FILE" known_good_release_ref)"
+if [[ -z "$PREVIOUS_KNOWN_GOOD_RELEASE_REF" ]]; then
+  PREVIOUS_KNOWN_GOOD_RELEASE_REF="$PREVIOUS_RELEASE_REF"
+fi
+PREVIOUS_KNOWN_GOOD_COMMIT="$(json_field "$DEPLOY_STATE_FILE" known_good_commit)"
+if [[ -z "$PREVIOUS_KNOWN_GOOD_COMMIT" ]]; then
+  PREVIOUS_KNOWN_GOOD_COMMIT="$PREVIOUS_COMMIT"
+fi
 
 if [[ -n "$PREVIOUS_RELEASE_REF" ]]; then
   echo "[deploy] previous known-good release: $PREVIOUS_RELEASE_REF (${PREVIOUS_COMMIT:-unknown commit})"
@@ -345,11 +353,23 @@ for attempt in $(seq 1 "$HEALTHCHECK_ATTEMPTS"); do
   "commit": "$RESOLVED_COMMIT",
   "deployed_at_utc": "$DEPLOYED_AT",
   "deployment_type": "deploy",
+  "transition_type": "deploy",
+  "current_release_ref": "$RESOLVED_REF",
+  "current_commit": "$RESOLVED_COMMIT",
+  "known_good_release_ref": "$RESOLVED_REF",
+  "known_good_commit": "$RESOLVED_COMMIT",
+  "current_is_known_good": true,
   "previous_release_ref": $(release_state_json_string_or_null "$PREVIOUS_RELEASE_REF" "$PHP_BIN"),
   "previous_commit": $(release_state_json_string_or_null "$PREVIOUS_COMMIT" "$PHP_BIN"),
+  "previous_known_good_release_ref": $(release_state_json_string_or_null "$PREVIOUS_KNOWN_GOOD_RELEASE_REF" "$PHP_BIN"),
+  "previous_known_good_commit": $(release_state_json_string_or_null "$PREVIOUS_KNOWN_GOOD_COMMIT" "$PHP_BIN"),
   "previous_deployed_at_utc": $(release_state_json_string_or_null "$PREVIOUS_DEPLOYED_AT" "$PHP_BIN"),
   "previous_deployment_type": $(release_state_json_string_or_null "$PREVIOUS_DEPLOYMENT_TYPE" "$PHP_BIN"),
   "previous_selection_mode": $(release_state_json_string_or_null "$PREVIOUS_SELECTION_MODE" "$PHP_BIN"),
+  "rollback_source_release_ref": null,
+  "rollback_source_commit": null,
+  "rollback_target_release_ref": null,
+  "rollback_target_commit": null,
   "deploy_log": "$DEPLOY_LOG_FILE",
   "deploy_runtime_evidence": "$DEPLOY_RUNTIME_EVIDENCE_FILE",
   "release_history": "$RELEASE_HISTORY_FILE",

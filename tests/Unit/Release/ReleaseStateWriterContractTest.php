@@ -53,11 +53,23 @@ class ReleaseStateWriterContractTest extends TestCase
             'commit' => '1111222233334444555566667777888899990000',
             'deployed_at_utc' => '2026-03-30T10:00:00Z',
             'deployment_type' => 'rollback',
+            'transition_type' => 'rollback',
+            'current_release_ref' => 'release-20260330-fix-incident',
+            'current_commit' => '1111222233334444555566667777888899990000',
+            'known_good_release_ref' => 'release-20260330-fix-incident',
+            'known_good_commit' => '1111222233334444555566667777888899990000',
+            'current_is_known_good' => true,
             'previous_release_ref' => 'release-20260328-ops-hotfix-22',
             'previous_commit' => 'aaaabbbbccccdddd',
+            'previous_known_good_release_ref' => 'release-20260328-ops-hotfix-22',
+            'previous_known_good_commit' => 'aaaabbbbccccdddd',
             'previous_deployed_at_utc' => '2026-03-28T22:00:00Z',
             'previous_deployment_type' => 'deploy',
             'previous_selection_mode' => 'explicit',
+            'rollback_source_release_ref' => 'release-20260328-ops-hotfix-22',
+            'rollback_source_commit' => 'aaaabbbbccccdddd',
+            'rollback_target_release_ref' => 'release-20260330-fix-incident',
+            'rollback_target_commit' => '1111222233334444555566667777888899990000',
             'deploy_log' => $this->tmpDir.'/logs/deploy-rollback.json',
             'deploy_runtime_evidence' => $this->tmpDir.'/logs/deploy-rollback.runtime.jsonl',
             'release_history' => $this->historyFile,
@@ -75,6 +87,10 @@ class ReleaseStateWriterContractTest extends TestCase
         $this->assertSame($this->tmpDir.'/logs/deploy-rollback.json', $state['deploy_log'] ?? null);
         $this->assertSame($this->tmpDir.'/logs/deploy-rollback.runtime.jsonl', $state['deploy_runtime_evidence'] ?? null);
         $this->assertSame('release-20260328-ops-hotfix-22', $state['previous_release_ref'] ?? null);
+        $this->assertSame('release-20260330-fix-incident', $state['known_good_release_ref'] ?? null);
+        $this->assertSame('release-20260328-ops-hotfix-22', $state['previous_known_good_release_ref'] ?? null);
+        $this->assertSame('release-20260328-ops-hotfix-22', $state['rollback_source_release_ref'] ?? null);
+        $this->assertSame('release-20260330-fix-incident', $state['rollback_target_release_ref'] ?? null);
         $this->assertSame('aaaabbbbccccdddd', $state['previous_commit'] ?? null);
 
         $historyLines = file($this->historyFile, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES);

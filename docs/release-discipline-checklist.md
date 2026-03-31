@@ -23,9 +23,10 @@
 - `storage/app/current-release.json` confirms `selection_mode=explicit` and `fallback_used=false`.
 - `storage/app/release-history.jsonl` contains successful transition.
 - `scripts/show-release.sh` shows:
-  - `Current release` (`release_ref`, `commit`, `deployed_at_utc`, `deployment_type`);
-  - `Previous known-good release`;
-  - `Recent release transitions` (deploy vs rollback trail);
+  - `Current release` (`current_release_ref`, `known_good_release_ref`, `deployed_at_utc`, `deployment_type`);
+  - `Previous known-good release` (`previous_known_good_release_ref`);
+  - `Rollback context` (`rollback_source_release_ref` / `rollback_target_release_ref`);
+  - `Recent release transitions` (deploy vs rollback trail + incident readable trail);
   - `Merged state gap (informational)` with `Merged PRs ahead of confirmed production`.
 
 ## Operator proof: merged history vs deployed history
