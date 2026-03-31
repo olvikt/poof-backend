@@ -60,9 +60,12 @@ class ReleaseToolingContractsTest extends TestCase
         $this->assertStringContainsString('release_summary_present', $showRelease);
         $this->assertStringContainsString('release_summary_file', $showRelease);
         $this->assertStringContainsString('release_summary', $showRelease);
+        $this->assertStringContainsString('MERGED_HEAD_REF="${MERGED_HEAD_REF:-origin/main}"', $showRelease);
         $this->assertStringContainsString('print_section(\'Current release\')', $showRelease);
         $this->assertStringContainsString('print_section(\'Previous known-good release\')', $showRelease);
         $this->assertStringContainsString('print_section("Recent release transitions (last {$historyLimit})")', $showRelease);
+        $this->assertStringContainsString("echo 'Merged state gap (informational)'", $showRelease);
+        $this->assertStringContainsString('Merged PRs ahead of confirmed production', $showRelease);
     }
 
     public function test_pre_deploy_gate_script_requires_runtime_contract_and_browser_smoke_attestation(): void

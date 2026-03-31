@@ -6,6 +6,7 @@ PHP_BIN="${PHP_BIN:-php}"
 DEPLOY_STATE_FILE="${DEPLOY_STATE_FILE:-$APP_DIR/storage/app/current-release.json}"
 RELEASE_HISTORY_FILE="${RELEASE_HISTORY_FILE:-$APP_DIR/storage/app/release-history.jsonl}"
 HISTORY_LIMIT="${HISTORY_LIMIT:-5}"
+MERGED_HEAD_REF="${MERGED_HEAD_REF:-origin/main}"
 
 if ! [[ "$HISTORY_LIMIT" =~ ^[1-9][0-9]*$ ]]; then
   echo "[show-release] HISTORY_LIMIT must be a positive integer" >&2
@@ -173,3 +174,65 @@ foreach ($recent as $index => $line) {
     ), PHP_EOL;
 }
 PHP
+
+CONFIRMED_COMMIT="$($PHP_BIN -r '
+  $state = json_decode((string) file_get_contents($argv[1]), true);
+  if (!is_array($state)) {
+      exit(1);
+  }
+  echo trim((string) ($state["commit"] ?? ""));
+' "$DEPLOY_STATE_FILE")"
+
+echo
+echo 'Merged state gap (informational)'
+echo '--------------------------------'
+
+if [[ -z "$CONFIRMED_COMMIT" ]]; then
+  echo 'Confirmed production commit: <none>'
+  echo 'Gap analysis: unavailable (missing commit in release state)'
+  exit 0
+fi
+
+if ! git -C "$APP_DIR" rev-parse --is-inside-work-tree >/dev/null 2>&1; then
+  echo "Confirmed production commit: $CONFIRMED_COMMIT"
+  echo "Gap analysis: unavailable (APP_DIR is not a git work tree: $APP_DIR)"
+  exit 0
+fi
+
+if ! git -C "$APP_DIR" rev-parse --verify --quiet "$CONFIRMED_COMMIT^{commit}" >/dev/null; then
+  echo "Confirmed production commit: $CONFIRMED_COMMIT"
+  echo 'Gap analysis: unavailable (confirmed commit is not resolvable in local git object set)'
+  exit 0
+fi
+
+if ! MERGED_HEAD_COMMIT="$(git -C "$APP_DIR" rev-parse --verify --quiet "$MERGED_HEAD_REF^{commit}")"; then
+  echo "Confirmed production commit: $CONFIRMED_COMMIT"
+  echo "Merged head ref: $MERGED_HEAD_REF (<unresolvable>)"
+  echo 'Gap analysis: unavailable (set MERGED_HEAD_REF to a resolvable branch/ref)'
+  exit 0
+fi
+
+echo "Confirmed production commit: $CONFIRMED_COMMIT"
+echo "Merged head ref: $MERGED_HEAD_REF"
+echo "Merged head commit: $MERGED_HEAD_COMMIT"
+
+if [[ "$CONFIRMED_COMMIT" == "$MERGED_HEAD_COMMIT" ]]; then
+  echo 'Ahead commits: 0 (confirmed production state matches merged head ref)'
+  exit 0
+fi
+
+if git -C "$APP_DIR" merge-base --is-ancestor "$CONFIRMED_COMMIT" "$MERGED_HEAD_COMMIT" >/dev/null 2>&1; then
+  AHEAD_COUNT="$(git -C "$APP_DIR" rev-list --count "$CONFIRMED_COMMIT..$MERGED_HEAD_COMMIT")"
+  echo "Ahead commits: $AHEAD_COUNT"
+  echo "Ahead range: $CONFIRMED_COMMIT..$MERGED_HEAD_COMMIT"
+
+  PR_LIST="$(git -C "$APP_DIR" log --merges --first-parent --pretty=%s "$CONFIRMED_COMMIT..$MERGED_HEAD_COMMIT" | sed -n 's/^Merge pull request #\([0-9]\+\).*/#\1/p' | tr '\n' ' ' | sed 's/[[:space:]]*$//')"
+  if [[ -n "$PR_LIST" ]]; then
+    echo "Merged PRs ahead of confirmed production: $PR_LIST"
+  else
+    echo 'Merged PRs ahead of confirmed production: <none detected on first-parent merges>'
+  fi
+else
+  echo 'Ahead commits: <non-linear history>'
+  echo 'Gap analysis: confirmed production commit is not an ancestor of merged head ref'
+fi
