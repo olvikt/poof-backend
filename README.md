@@ -9,11 +9,14 @@
 `.env.example` intentionally keeps local-safe defaults for dev/CI (`APP_URL=http://localhost`, no production cookie domain).  
 For production, set explicit values in server `.env`:
 
+Nginx app vhost source-of-truth template: `docs/deployment/nginx-app.poof.com.ua.conf.example` (HTTP first, then certbot-managed HTTPS on server).
+
 ```dotenv
 APP_URL=https://app.poof.com.ua
-ASSET_URL=${APP_URL}
+ASSET_URL=https://app.poof.com.ua
 VITE_API_URL=https://api.poof.com.ua
 SESSION_DOMAIN=.poof.com.ua
+SESSION_SECURE_COOKIE=true
 SANCTUM_STATEFUL_DOMAINS=app.poof.com.ua
 ```
 

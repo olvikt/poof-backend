@@ -1,18 +1,35 @@
 # Poof API — Production Server Setup & Verification
 
 Проект: **Poof API (Laravel 12)**  
-Путь: `/var/www/poof`  
-Домен API: `api.poof.com.ua`
-Домен приложения: `app.poof.com.ua`
-Маркетинговый домен: `poof.com.ua`
+Путь: `/var/www/poof`
 
+## Production domain source of truth
+
+- `poof.com.ua` — marketing only.
+- `app.poof.com.ua` — user-facing web UI (Laravel web routes + Vite assets).
+- `api.poof.com.ua` — backend API, callbacks, webhooks, health checks.
 
 Канонический health/smoke target для production: `https://api.poof.com.ua/up`.
 Не используйте `/health` и не проверяйте `localhost` на сервере: на этом хосте `localhost` указывает на default nginx site, а не на production API.
 
-## 1) Nginx (virtual host)
+## Что хранится в Git vs что делается вручную на сервере
 
-### Рекомендуемый конфиг `/etc/nginx/sites-available/poof-api`
+### В Git (repository source of truth)
+
+- Документация доменной схемы и production env-контракт.
+- Пример app vhost: `docs/deployment/nginx-app.poof.com.ua.conf.example`.
+- Runbooks/checklists для deploy/smoke/rollback.
+
+### Только вручную на production сервере (не коммитить)
+
+- Реальные `/etc/nginx/sites-available/*` и `sites-enabled/*`.
+- Реальный production `.env` с секретами.
+- Выпуск/привязка TLS сертификатов (`certbot`).
+- Runtime operations (`nginx -t`, reload/restart, cache rebuild, smoke checks).
+
+## 1) Nginx (virtual hosts)
+
+### API vhost `/etc/nginx/sites-available/poof-api`
 
 ```nginx
 server {
@@ -42,16 +59,63 @@ server {
 }
 ```
 
-### Отдельный vhost для `app.poof.com.ua`
+### App vhost `/etc/nginx/sites-available/poof-app`
 
-Для web/client routes нужен отдельный `server_name app.poof.com.ua`, который указывает на тот же Laravel `public` и проксирует в тот же PHP-FPM пул. DNS/SSL для этого домена настраиваются отдельно и не управляются кодом репозитория.
+Канонический шаблон хранится в репозитории:  
+`docs/deployment/nginx-app.poof.com.ua.conf.example`
 
-### Подключение конфига
+Ключевой контракт для `app.poof.com.ua`:
+
+- `root /var/www/poof/public`
+- `php8.3-fpm` socket: `unix:/run/php/php8.3-fpm.sock`
+- Laravel `try_files $uri $uri/ /index.php?$query_string;`
+- HTTPS-блоки (`ssl_certificate*`) **не копируются вручную в шаблон**.
+- Сначала поднимается рабочий HTTP vhost, затем TLS добавляется `certbot`-ом.
+
+## 1.1) Production `.env` domain/session contract
+
+Ниже — обязательные production значения для текущей доменной архитектуры:
+
+```dotenv
+APP_URL=https://app.poof.com.ua
+ASSET_URL=https://app.poof.com.ua
+VITE_API_URL=https://api.poof.com.ua
+SESSION_DOMAIN=.poof.com.ua
+SESSION_SECURE_COOKIE=true
+SANCTUM_STATEFUL_DOMAINS=app.poof.com.ua
+```
+
+Пояснения:
+
+- `VITE_API_URL` используется только для API calls с UI.
+- Frontend build assets должны быть same-origin от `app.poof.com.ua`.
+- Нельзя направлять Vite assets на `api.poof.com.ua`, иначе получите browser/CORS/runtime поломки JS.
+
+## 1.2) Manual server checklist (outside Git)
+
+1. Создать `/etc/nginx/sites-available/poof-app` по шаблону `docs/deployment/nginx-app.poof.com.ua.conf.example`.
+2. Сделать symlink в `sites-enabled`.
+3. Проверить конфиг: `sudo nginx -t`.
+4. Применить Nginx-конфиг: `sudo systemctl reload nginx`.
+5. Выпустить/подключить TLS для `app.poof.com.ua` через certbot (после рабочего HTTP vhost).
+6. Выставить production `.env` значения (см. контракт выше).
+7. Выполнить post-deploy runtime шаги: Laravel cache rebuild, restart/reload php-fpm и smoke checks.
+
+Минимальные команды:
 
 ```bash
-sudo ln -sf /etc/nginx/sites-available/poof-api /etc/nginx/sites-enabled/poof-api
+sudo ln -sf /etc/nginx/sites-available/poof-app /etc/nginx/sites-enabled/poof-app
 sudo nginx -t
-sudo systemctl restart nginx
+sudo systemctl reload nginx
+sudo certbot --nginx -d app.poof.com.ua
+
+cd /var/www/poof
+php artisan optimize:clear
+php artisan config:cache
+php artisan route:cache
+php artisan view:cache
+sudo systemctl restart php8.3-fpm
+bash scripts/check-server.sh
 ```
 
 ## 2) PHP-FPM

@@ -11,6 +11,13 @@
 `.env.example` в репозитории intentionally local-safe (для dev/CI). Ниже — значения именно для production окружения.
 
 ```dotenv
+APP_URL=https://app.poof.com.ua
+ASSET_URL=https://app.poof.com.ua
+VITE_API_URL=https://api.poof.com.ua
+SESSION_DOMAIN=.poof.com.ua
+SESSION_SECURE_COOKIE=true
+SANCTUM_STATEFUL_DOMAINS=app.poof.com.ua
+
 PAYMENTS_PROVIDER=wayforpay
 PAYMENTS_DEV_FALLBACK_ENABLED=false
 
@@ -53,8 +60,15 @@ WAYFORPAY_PAY_URL=https://secure.wayforpay.com/pay
 
 ## Manual server steps (выполняются вне репозитория)
 
-1. Создать Nginx vhost для `app.poof.com.ua` (frontend/web routes).
-2. Выпустить/подключить SSL сертификат для `app.poof.com.ua`.
-3. Проставить production `.env` значения для доменов/Sanctum/session/WayForPay.
-4. После деплоя выполнить cache rebuild и reload/restart PHP-FPM/Nginx/workers по стандартному release runbook.
-5. В кабинете WayForPay заполнить production URL и merchant credentials.
+1. Создать `/etc/nginx/sites-available/poof-app` по шаблону `docs/deployment/nginx-app.poof.com.ua.conf.example`.
+2. Сделать symlink в `sites-enabled`, проверить `nginx -t`, затем reload nginx.
+3. После рабочего HTTP vhost выпустить HTTPS для `app.poof.com.ua` через certbot.
+4. Проставить production `.env` значения для доменов/Sanctum/session/WayForPay.
+5. После деплоя выполнить cache rebuild и reload/restart PHP-FPM/Nginx/workers по стандартному release runbook.
+6. В кабинете WayForPay заполнить production URL и merchant credentials.
+
+## Важно про assets/API origin
+
+- `VITE_API_URL` — это endpoint для API calls из UI.
+- Vite build assets должны раздаваться same-origin с `app.poof.com.ua` (через `APP_URL`/`ASSET_URL`).
+- Не направляйте frontend assets на `api.poof.com.ua`: это ломает загрузку JS/CSS в браузере и может привести к CORS/runtime ошибкам.
