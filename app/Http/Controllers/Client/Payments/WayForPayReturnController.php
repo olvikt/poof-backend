@@ -7,12 +7,14 @@ namespace App\Http\Controllers\Client\Payments;
 use App\Http\Controllers\Controller;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Log;
 
 class WayForPayReturnController extends Controller
 {
     public function __invoke(Request $request): RedirectResponse
     {
         $transactionStatus = strtolower((string) $request->input('transactionStatus', ''));
+        $orderReference = (string) $request->input('orderReference', '');
 
         $isApproved = $transactionStatus === 'approved';
 
@@ -30,6 +32,29 @@ class WayForPayReturnController extends Controller
             'payment' => $isApproved ? 'success' : 'failed',
             'source' => 'wayforpay_return',
         ]);
+
+        Log::info('WayForPay return endpoint visited.', [
+            'event' => 'wayforpay_return_visited',
+            'path' => $request->path(),
+            'method' => $request->method(),
+            'order_reference' => $orderReference,
+            'transaction_status' => $request->input('transactionStatus'),
+            'is_authenticated' => auth()->check(),
+        ]);
+
+        if (! auth()->check() && str_starts_with($destination, '/client/')) {
+            Log::warning('WayForPay return handled without active session; redirecting to login.', [
+                'event' => 'wayforpay_return_without_session',
+                'order_reference' => $orderReference,
+                'transaction_status' => $request->input('transactionStatus'),
+                'next' => $destination,
+            ]);
+
+            return redirect('/login?'.http_build_query([
+                'next' => $destination,
+                'source' => 'wayforpay_return',
+            ]));
+        }
 
         return str_starts_with($destination, '/')
             ? redirect($destination)

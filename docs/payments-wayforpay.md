@@ -57,12 +57,15 @@ WAYFORPAY_PAY_URL=https://secure.wayforpay.com/pay
 
 - **Callback** (`POST /api/payments/wayforpay/callback`) — единственный источник истины для payment status.
   - Endpoint работает в API-style и **не делает redirect** на ошибках валидации/обработки.
-  - Поддерживаются payload форматы `application/json` и `application/x-www-form-urlencoded` (с fallback для raw JSON body).
+  - Поддерживаются payload форматы:
+    - `application/json` (обычный JSON body),
+    - `application/x-www-form-urlencoded` (обычный form payload),
+    - нестандартный кейс: JSON строкой в одном form-urlencoded key/value.
   - Подпись callback проверяется по `merchantSecret`.
   - `orderReference` сопоставляется с `orders.id`.
   - Для статуса `Approved` заказ переводится в `paid` через доменное действие `markAsPaid()`.
-  - Обработка идемпотентна: повторный callback на уже оплаченный заказ не ломает состояние.
-  - Для неуспешных/ожидающих статусов заказ не помечается оплаченным.
+  - Обработка идемпотентна: повторный `Approved` callback на уже оплаченный заказ безопасно игнорируется.
+  - Для неуспешных/ожидающих статусов (`Refunded`, `Declined`, и т.д.) заказ не помечается оплаченным.
   - Коды ответов callback:
     - `200` — callback принят/обработан успешно (`status=accept`).
     - `422` — невалидный payload или невалидная подпись.
@@ -71,6 +74,7 @@ WAYFORPAY_PAY_URL=https://secure.wayforpay.com/pay
   - Не валидирует callback-подпись.
   - Не меняет `payment_status` заказа.
   - Лишь безопасно редиректит пользователя на `WAYFORPAY_APPROVED_URL` или `WAYFORPAY_DECLINED_URL`.
+  - Если активной web-сессии нет, user flow уходит на `/login` с `next`-параметром для возврата в закази/результат оплаты после авторизации.
 
 ## Диагностика callback в production
 
@@ -80,7 +84,12 @@ WAYFORPAY_PAY_URL=https://secure.wayforpay.com/pay
 - `WayForPay callback rejected: invalid payload.` — проблемы структуры payload + список отсутствующих required полей.
 - `WayForPay callback rejected: invalid signature.` — signature verify не прошёл.
 - `WayForPay callback rejected: order not found.` — `orderReference` не найден в `orders`.
+- `WayForPay transaction status received.` — лог входящего `transactionStatus` с `order_id`/`order_reference`.
+- `WayForPay callback received non-success transaction status.` — диагностический warning для `Refunded`, `Declined` и других non-success статусов.
+- `WayForPay duplicate callback ignored: order already paid.` — повторный `Approved` callback на уже оплаченный заказ.
 - `WayForPay callback processed successfully.` — success path, callback обработан.
+- `WayForPay return endpoint visited.` — пользователь вернулся с платёжной страницы.
+- `WayForPay return handled without active session; redirecting to login.` — return без активной сессии, включён degraded UX path через login.
 
 Практический triage:
 
@@ -88,6 +97,17 @@ WAYFORPAY_PAY_URL=https://secure.wayforpay.com/pay
 2. Если есть `invalid payload`, сравните фактический content-type и поля callback с требованиями endpoint.
 3. Если `invalid signature`, перепроверьте `WAYFORPAY_MERCHANT_SECRET` и порядок полей при подписании.
 4. Если callback падает, но пользователь вернулся в UI — это normal: `return` поток не подтверждает оплату и не должен использоваться как источник истины.
+
+## Production checklist (боевой прогон)
+
+1. Проверить в кабинете WayForPay, что merchant **не в test/tested режиме**.
+2. Проверить, что тестовые/проверочные платежи **не auto-refund-ятся**.
+3. Убедиться, что используется production merchant profile: `poof_com_ua`.
+4. Повторять боевой платеж только после подтверждения live-режима и актуальных merchant credentials.
+5. После оплаты проверить:
+   - что заказ перешел в `paid` только после callback,
+   - что в логах есть `WayForPay callback received.` и `WayForPay callback processed successfully.`,
+   - что return flow возвращает пользователя в UX маршрут (orders/result) и не меняет payment status сам по себе.
 
 ## Manual server steps (выполняются вне репозитория)
 
