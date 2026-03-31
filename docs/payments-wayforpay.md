@@ -56,15 +56,38 @@ WAYFORPAY_PAY_URL=https://secure.wayforpay.com/pay
 ## Callback vs return (разделение ответственности)
 
 - **Callback** (`POST /api/payments/wayforpay/callback`) — единственный источник истины для payment status.
+  - Endpoint работает в API-style и **не делает redirect** на ошибках валидации/обработки.
+  - Поддерживаются payload форматы `application/json` и `application/x-www-form-urlencoded` (с fallback для raw JSON body).
   - Подпись callback проверяется по `merchantSecret`.
   - `orderReference` сопоставляется с `orders.id`.
   - Для статуса `Approved` заказ переводится в `paid` через доменное действие `markAsPaid()`.
   - Обработка идемпотентна: повторный callback на уже оплаченный заказ не ломает состояние.
   - Для неуспешных/ожидающих статусов заказ не помечается оплаченным.
+  - Коды ответов callback:
+    - `200` — callback принят/обработан успешно (`status=accept`).
+    - `422` — невалидный payload или невалидная подпись.
+    - `404` — заказ по `orderReference` не найден.
 - **Return** (`GET|POST /payments/wayforpay/return`) — только пользовательский возврат в UI.
   - Не валидирует callback-подпись.
   - Не меняет `payment_status` заказа.
   - Лишь безопасно редиректит пользователя на `WAYFORPAY_APPROVED_URL` или `WAYFORPAY_DECLINED_URL`.
+
+## Диагностика callback в production
+
+Смотрите `storage/logs/laravel.log` на события:
+
+- `WayForPay callback received.` — входящий callback (логирует source IP, path, content-type, ключи payload).
+- `WayForPay callback rejected: invalid payload.` — проблемы структуры payload + список отсутствующих required полей.
+- `WayForPay callback rejected: invalid signature.` — signature verify не прошёл.
+- `WayForPay callback rejected: order not found.` — `orderReference` не найден в `orders`.
+- `WayForPay callback processed successfully.` — success path, callback обработан.
+
+Практический triage:
+
+1. Если в nginx access log есть `POST /api/payments/wayforpay/callback`, а в приложении нет `...received`, проверьте upstream/PHP-FPM path и фактический vhost.
+2. Если есть `invalid payload`, сравните фактический content-type и поля callback с требованиями endpoint.
+3. Если `invalid signature`, перепроверьте `WAYFORPAY_MERCHANT_SECRET` и порядок полей при подписании.
+4. Если callback падает, но пользователь вернулся в UI — это normal: `return` поток не подтверждает оплату и не должен использоваться как источник истины.
 
 ## Manual server steps (выполняются вне репозитория)
 
