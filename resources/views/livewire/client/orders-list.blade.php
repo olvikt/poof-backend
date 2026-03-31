@@ -99,7 +99,7 @@
                         <div class="flex gap-2 mt-4">
 
                             {{-- PAY --}}
-                            <a href="{{ route('client.payments.pay', $order) }}"
+                            <a href="{{ route('client.payments.show', $order) }}"
                                class="flex-1 text-center
                                       bg-yellow-400 hover:bg-yellow-500
                                       text-black font-semibold

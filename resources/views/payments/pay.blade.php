@@ -48,7 +48,7 @@
 </p>
 
 <p class="text-xs text-gray-400">
-LiqPay / Apple Pay / Google Pay
+WayForPay / Apple Pay / Google Pay
 </p>
 
 </div>
@@ -66,22 +66,32 @@ LiqPay / Apple Pay / Google Pay
 
 <span>🔒</span>
 
-<span>Безпечна оплата через LiqPay</span>
+<span>Безпечна карткова оплата</span>
 
 </div>
 
 {{-- Pay button --}}
-<form method="POST" action="{{ route('client.payments.dev-pay', $order) }}">
+<form method="POST" action="{{ route('client.payments.start', $order) }}">
 @csrf
 
 <button
 class="w-full py-4 rounded-2xl bg-green-500 hover:bg-green-400 active:scale-95 transition text-lg font-semibold shadow-lg shadow-green-500/30">
 
-✅ Оплатити
+✅ Оплатити зараз
 
 </button>
 
 </form>
+
+@if($devFallbackEnabled)
+<form method="POST" action="{{ route('client.payments.dev-pay', $order) }}" class="mt-3">
+@csrf
+<button
+class="w-full py-3 rounded-2xl border border-yellow-400/50 text-yellow-300 text-sm font-medium hover:bg-yellow-400/10 transition">
+Dev fallback: підтвердити оплату без еквайрингу
+</button>
+</form>
+@endif
 
 {{-- Back --}}
 <a href="{{ route('client.orders') }}"

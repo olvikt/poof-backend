@@ -15,6 +15,7 @@ use App\Http\Controllers\Api\CourierOrderController;
 use App\Http\Controllers\Api\CourierRuntimeController;
 use App\Http\Controllers\Api\AdminMapController;
 use App\Http\Controllers\Api\AdminRuntimeDiagnosticsController;
+use App\Http\Controllers\Api\Payments\WayForPayCallbackController;
 
 
 Route::post('/register', [RegisterController::class, 'register'])
@@ -22,6 +23,9 @@ Route::post('/register', [RegisterController::class, 'register'])
 
 Route::get('/geocode', [GeocodeController::class, 'search'])
     ->middleware('throttle:60,1');
+
+Route::post('/payments/wayforpay/callback', WayForPayCallbackController::class)
+    ->middleware('throttle:120,1');
 
 Route::middleware('auth:sanctum')->group(function () {
 

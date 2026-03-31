@@ -20,8 +20,8 @@
 
 <p>
 Увійти в систему:<br>
-<a href="https://api.poof.com.ua/login">
-https://api.poof.com.ua/login
+<a href="https://app.poof.com.ua/login">
+https://app.poof.com.ua/login
 </a>
 </p>
 

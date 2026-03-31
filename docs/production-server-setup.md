@@ -3,6 +3,8 @@
 Проект: **Poof API (Laravel 12)**  
 Путь: `/var/www/poof`  
 Домен API: `api.poof.com.ua`
+Домен приложения: `app.poof.com.ua`
+Маркетинговый домен: `poof.com.ua`
 
 
 Канонический health/smoke target для production: `https://api.poof.com.ua/up`.
@@ -39,6 +41,10 @@ server {
     }
 }
 ```
+
+### Отдельный vhost для `app.poof.com.ua`
+
+Для web/client routes нужен отдельный `server_name app.poof.com.ua`, который указывает на тот же Laravel `public` и проксирует в тот же PHP-FPM пул. DNS/SSL для этого домена настраиваются отдельно и не управляются кодом репозитория.
 
 ### Подключение конфига
 
