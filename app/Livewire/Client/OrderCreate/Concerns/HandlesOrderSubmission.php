@@ -15,6 +15,7 @@ trait HandlesOrderSubmission
             return;
         }
 
+        $this->refreshBagPricingOptions();
         $this->validate();
         $this->validateCoordinatesOrFail();
 

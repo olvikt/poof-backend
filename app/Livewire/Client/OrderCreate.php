@@ -11,6 +11,7 @@ use App\Models\Order;
 use App\Domain\Address\Precision;
 use Carbon\Carbon;
 use Illuminate\Support\Collection;
+use Illuminate\Validation\Rule;
 use Livewire\Component;
 
 class OrderCreate extends Component
@@ -59,6 +60,7 @@ class OrderCreate extends Component
     public bool $isCustomDate = false;
     public string $handover_type = Order::HANDOVER_DOOR;
     public int $bags_count = 1;
+    public array $bagPricingOptions = [];
 
     public ?string $promo_code = null;
     public bool $is_trial = false;
@@ -78,7 +80,7 @@ class OrderCreate extends Component
             'scheduled_time_from' => ['required', 'string'],
             'scheduled_time_to' => ['nullable', 'string'],
             'handover_type' => ['required', 'in:' . Order::HANDOVER_DOOR . ',' . Order::HANDOVER_HAND],
-            'bags_count' => ['required', 'integer', 'min:1', 'max:3'],
+            'bags_count' => ['required', 'integer', Rule::in(array_keys($this->bagPricingOptions))],
             'lat' => ['nullable', 'numeric', 'between:-90,90'],
             'lng' => ['nullable', 'numeric', 'between:-180,180'],
             'promo_code' => ['nullable', 'string', 'max:50'],
@@ -95,8 +97,7 @@ class OrderCreate extends Component
             'scheduled_date.required' => 'Оберіть дату.',
             'scheduled_date.date' => 'Некоректна дата.',
             'scheduled_time_from.required' => 'Оберіть час.',
-            'bags_count.min' => 'Мінімум 1 пакет.',
-            'bags_count.max' => 'Максимум 3 пакети.',
+            'bags_count.in' => 'Оберіть доступний тариф за кількістю мішків.',
         ];
     }
 
@@ -141,6 +142,7 @@ class OrderCreate extends Component
         $this->trial_used = $this->userAlreadyUsedTrial();
         $this->updateIsCustomDate();
         $this->applyTimeSlot($this->firstAvailableSlotIndex());
+        $this->refreshBagPricingOptions();
         $this->recalculatePrice();
 
         $this->dispatch('map:init');
@@ -150,8 +152,21 @@ class OrderCreate extends Component
     {
         return view('livewire.client.order-create', [
             'timeSlots' => $this->timeSlots,
-            'pricing' => Order::bagsPricing(),
+            'pricing' => $this->bagPricingOptions,
             'addresses' => $this->addresses,
         ])->layout('layouts.client');
+    }
+
+    protected function refreshBagPricingOptions(): void
+    {
+        $this->bagPricingOptions = Order::bagsPricing();
+
+        if ($this->bagPricingOptions === []) {
+            return;
+        }
+
+        if (! array_key_exists($this->bags_count, $this->bagPricingOptions)) {
+            $this->bags_count = (int) array_key_first($this->bagPricingOptions);
+        }
     }
 }
