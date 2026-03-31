@@ -13,6 +13,7 @@ return [
         'merchant_secret' => env('WAYFORPAY_MERCHANT_SECRET', ''),
         'merchant_domain' => env('WAYFORPAY_MERCHANT_DOMAIN', 'app.poof.com.ua'),
         'service_url' => env('WAYFORPAY_SERVICE_URL', 'https://api.poof.com.ua/api/payments/wayforpay/callback'),
+        'return_url' => env('WAYFORPAY_RETURN_URL', 'https://app.poof.com.ua/payments/wayforpay/return'),
         'approved_url' => env('WAYFORPAY_APPROVED_URL', 'https://app.poof.com.ua/client/orders'),
         'declined_url' => env('WAYFORPAY_DECLINED_URL', 'https://app.poof.com.ua/client/orders'),
         'currency' => env('WAYFORPAY_CURRENCY', 'UAH'),

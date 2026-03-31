@@ -58,7 +58,7 @@ class WayForPayCheckoutDataBuilder
             'productPrice' => $productPrice,
             'productCount' => $productCount,
             'serviceUrl' => (string) config('payments.wayforpay.service_url'),
-            'returnUrl' => (string) config('payments.wayforpay.approved_url'),
+            'returnUrl' => (string) config('payments.wayforpay.return_url'),
             'language' => $language,
             'merchantSignature' => $merchantSignature,
             'clientFirstName' => $order->client?->name,

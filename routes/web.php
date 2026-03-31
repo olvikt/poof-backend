@@ -6,6 +6,7 @@ use Illuminate\Http\Request;
 use App\Http\Controllers\Client\Payments\PaymentPageController;
 use App\Http\Controllers\Client\Payments\PaymentStartController;
 use App\Http\Controllers\Client\Payments\DevPaymentController;
+use App\Http\Controllers\Client\Payments\WayForPayReturnController;
 use App\Http\Controllers\Auth\NewPasswordController;
 use App\Http\Controllers\Courier\CourierOrderLifecycleController;
 use App\Http\Controllers\Auth\PasswordResetLinkController;
@@ -135,6 +136,10 @@ Route::post('/logout', function (Request $request) {
 | Client area
 |--------------------------------------------------------------------------
 */
+
+
+Route::match(['GET', 'POST'], '/payments/wayforpay/return', WayForPayReturnController::class)
+    ->name('payments.wayforpay.return');
 
 Route::middleware('auth:web')
     ->prefix('client')

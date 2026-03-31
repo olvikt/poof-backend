@@ -26,6 +26,10 @@ return Application::configure(basePath: dirname(__DIR__))
             \Illuminate\Routing\Middleware\SubstituteBindings::class,
         ]);
 
+        $middleware->validateCsrfTokens(except: [
+            'payments/wayforpay/return',
+        ]);
+
     })
     ->withExceptions(function (Exceptions $exceptions) {
         $exceptions->render(function (ThrottleRequestsException $exception, Request $request) {
