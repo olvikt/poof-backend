@@ -22,6 +22,27 @@
 - `docs/release-summaries/<tag>.md` exists.
 - `storage/app/current-release.json` confirms `selection_mode=explicit` and `fallback_used=false`.
 - `storage/app/release-history.jsonl` contains successful transition.
+- `scripts/show-release.sh` shows:
+  - `Current release` (`release_ref`, `commit`, `deployed_at_utc`, `deployment_type`);
+  - `Previous known-good release`;
+  - `Recent release transitions` (deploy vs rollback trail);
+  - `Merged state gap (informational)` with `Merged PRs ahead of confirmed production`.
+
+## Operator proof: merged history vs deployed history
+
+Use this sequence on the production host (or on a host with production release-state files mounted):
+
+1. `bash scripts/show-release.sh`  
+   Confirms exact current production ref/commit and whether merged history is ahead.
+2. `MERGED_HEAD_REF=origin/main bash scripts/show-release.sh`  
+   Repeats the same check with explicit merged baseline.
+3. `bash scripts/check-server.sh`  
+   Confirms runtime evidence file has events for the exact deploy window (`deployed_at_utc` + `commit`).
+
+Interpretation:
+- If `Ahead commits: 0`, confirmed production state equals merged head baseline.
+- If `Ahead commits: N (>0)`, commits/PRs in `Merged PRs ahead of confirmed production` are merged but **not proven deployed** yet.
+- If `deployment_type=rollback`, treat current state as rollback transition even if commit overlaps prior deploy trail.
 
 ## Anti-patterns (forbidden)
 
