@@ -378,7 +378,7 @@
 				Оплатити пізніше
 			</a>
 			<a
-				href="{{ url('/client/orders') }}"
+				href="{{ $createdOrderId ? route('client.payments.show', $createdOrderId) : route('client.orders') }}"
 				class="px-4 py-2 rounded-xl bg-yellow-400 text-black font-bold text-sm"
 			>
 				Оплатити зараз {{ $price }} грн

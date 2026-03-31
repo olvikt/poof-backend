@@ -3,14 +3,15 @@
 use Illuminate\Support\Facades\Route;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Http\Request;
+use App\Http\Controllers\Client\Payments\PaymentPageController;
+use App\Http\Controllers\Client\Payments\PaymentStartController;
+use App\Http\Controllers\Client\Payments\DevPaymentController;
 use App\Http\Controllers\Auth\NewPasswordController;
 use App\Http\Controllers\Courier\CourierOrderLifecycleController;
 use App\Http\Controllers\Auth\PasswordResetLinkController;
 use App\Http\Controllers\Auth\RegisterController;
 use App\Http\Controllers\ProfileController;
 use App\Support\Auth\PhoneNormalizer;
-
-use App\Models\Order;
 
 // Client Livewire
 use App\Livewire\Client\Home;
@@ -156,44 +157,14 @@ Route::middleware('auth:web')
         Route::get('/profile', Profile::class)
             ->name('profile');
 
-        /*
-        |--------------------------------------------------------------------------
-        | Payments (TEMP / MVP)
-        |--------------------------------------------------------------------------
-        */
+        Route::get('/payments/{order}', PaymentPageController::class)
+            ->name('payments.show');
 
-        Route::get('/payments/pay/{order}', function (Order $order) {
+        Route::post('/payments/{order}/start', PaymentStartController::class)
+            ->name('payments.start');
 
-            abort_if($order->client_id !== auth()->id(), 403);
-
-            if ($order->payment_status === Order::PAY_PAID) {
-                return redirect()
-                    ->route('client.orders')
-                    ->with('success', 'Замовлення вже оплачено.');
-            }
-
-            return view('payments.pay', [
-                'order' => $order,
-            ]);
-
-        })->name('payments.pay');
-
-
-        Route::post('/payments/dev-pay/{order}', function (Order $order) {
-
-            abort_if($order->client_id !== auth()->id(), 403);
-
-            if ($order->payment_status === Order::PAY_PAID) {
-                return redirect()->route('client.orders');
-            }
-
-            $order->markAsPaid();
-
-            return redirect()
-                ->route('client.orders')
-                ->with('success', 'Оплата успішна. Ми шукаємо курʼєра.');
-
-        })->name('payments.dev-pay');
+        Route::post('/payments/dev-pay/{order}', DevPaymentController::class)
+            ->name('payments.dev-pay');
     });
 
 Route::middleware('auth:web')

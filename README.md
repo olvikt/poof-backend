@@ -1,5 +1,21 @@
 # Poof Backend (Laravel 12)
 
+## Production domain architecture
+
+- `poof.com.ua` — marketing website.
+- `app.poof.com.ua` — client web application.
+- `api.poof.com.ua` — backend API, callbacks, webhooks.
+
+Базовые production env значения:
+
+```dotenv
+APP_URL=https://app.poof.com.ua
+ASSET_URL=${APP_URL}
+VITE_API_URL=https://api.poof.com.ua
+SESSION_DOMAIN=.poof.com.ua
+SANCTUM_STATEFUL_DOMAINS=app.poof.com.ua
+```
+
 ## Production operations
 
 Для прод-настройки и проверок сервера см.:
@@ -33,3 +49,10 @@ npm run e2e:test
 ```
 
 Подробности по scope, CI и triage: `docs/browser-e2e-lane.md`.
+
+## Payments (WayForPay-ready)
+
+- Основной провайдер: `PAYMENTS_PROVIDER=wayforpay`.
+- Dev-only fallback (`client.payments.dev-pay`) остаётся только для local/testing или при `PAYMENTS_DEV_FALLBACK_ENABLED=true`.
+- Callback endpoint: `POST /api/payments/wayforpay/callback` (домен `api.poof.com.ua`).
+- Детальный handoff по env и кабинету WayForPay: `docs/payments-wayforpay.md`.
