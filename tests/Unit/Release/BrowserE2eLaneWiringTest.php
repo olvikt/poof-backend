@@ -50,6 +50,29 @@ class BrowserE2eLaneWiringTest extends TestCase
         $this->assertNotFalse($workflow);
         $this->assertStringContainsString('echo "SESSION_DRIVER=file"', $workflow);
         $this->assertStringContainsString('echo "ASSET_URL=http://127.0.0.1:8000"', $workflow);
+        $this->assertStringContainsString('echo "SESSION_DOMAIN=null"', $workflow);
+        $this->assertStringContainsString('echo "SANCTUM_STATEFUL_DOMAINS=127.0.0.1,127.0.0.1:8000,localhost,localhost:3000,::1"', $workflow);
+    }
+
+    public function test_env_example_keeps_local_safe_session_defaults_for_ci_and_dev(): void
+    {
+        $envExample = file_get_contents($this->repoRoot.'/.env.example');
+
+        $this->assertNotFalse($envExample);
+        $this->assertStringContainsString('APP_URL=http://localhost', $envExample);
+        $this->assertStringContainsString('SESSION_DOMAIN=null', $envExample);
+        $this->assertStringContainsString('SESSION_SECURE_COOKIE=false', $envExample);
+        $this->assertStringContainsString('SANCTUM_STATEFUL_DOMAINS=localhost,localhost:3000,127.0.0.1,127.0.0.1:8000,::1', $envExample);
+    }
+
+    public function test_production_domain_split_guidance_remains_documented_even_with_local_safe_env_defaults(): void
+    {
+        $readme = file_get_contents($this->repoRoot.'/README.md');
+
+        $this->assertNotFalse($readme);
+        $this->assertStringContainsString('app.poof.com.ua', $readme);
+        $this->assertStringContainsString('api.poof.com.ua', $readme);
+        $this->assertStringContainsString('For production, set explicit values in server `.env`', $readme);
     }
 
     public function test_browser_e2e_workflow_guards_against_production_asset_origin_leakage(): void

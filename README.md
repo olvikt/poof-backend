@@ -6,7 +6,8 @@
 - `app.poof.com.ua` — client web application.
 - `api.poof.com.ua` — backend API, callbacks, webhooks.
 
-Базовые production env значения:
+`.env.example` intentionally keeps local-safe defaults for dev/CI (`APP_URL=http://localhost`, no production cookie domain).  
+For production, set explicit values in server `.env`:
 
 ```dotenv
 APP_URL=https://app.poof.com.ua

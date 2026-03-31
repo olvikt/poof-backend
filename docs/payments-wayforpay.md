@@ -8,6 +8,8 @@
 
 ## Env-переменные
 
+`.env.example` в репозитории intentionally local-safe (для dev/CI). Ниже — значения именно для production окружения.
+
 ```dotenv
 PAYMENTS_PROVIDER=wayforpay
 PAYMENTS_DEV_FALLBACK_ENABLED=false
