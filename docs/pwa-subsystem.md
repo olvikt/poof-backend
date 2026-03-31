@@ -206,7 +206,8 @@ The script intentionally automates only the stable post-deploy checks that are s
 
 Configuration:
 
-- `APP_BASE_URL` is the canonical target and defaults to `API_BASE_URL`, then `https://api.poof.com.ua`;
+- `APP_BASE_URL` is the canonical target and defaults to `https://app.poof.com.ua` (UI domain);
+- UI smoke checks must target `app.poof.com.ua` so HTML/assets stay same-origin; API health remains `https://api.poof.com.ua/up`.
 - `APP_DIR` defaults to `/var/www/poof`;
 - `PHP_BIN` and `CURL_BIN` may be overridden if the host uses non-default binaries.
 

@@ -1,0 +1,34 @@
+# Example vhost for app.poof.com.ua
+# Source of truth for app-domain routing in this repository.
+#
+# IMPORTANT:
+# 1) Keep this file HTTP-only.
+# 2) Do NOT paste ssl_certificate/ssl_certificate_key blocks here.
+# 3) After enabling this vhost and verifying `nginx -t`, issue HTTPS via certbot.
+
+server {
+    listen 80;
+    listen [::]:80;
+    server_name app.poof.com.ua;
+
+    root /var/www/poof/public;
+    index index.php index.html;
+
+    access_log /var/log/nginx/poof-app-access.log;
+    error_log  /var/log/nginx/poof-app-error.log;
+
+    location / {
+        try_files $uri $uri/ /index.php?$query_string;
+    }
+
+    location ~ \.php$ {
+        include snippets/fastcgi-php.conf;
+        fastcgi_pass unix:/run/php/php8.3-fpm.sock;
+        fastcgi_param SCRIPT_FILENAME $realpath_root$fastcgi_script_name;
+        include fastcgi_params;
+    }
+
+    location ~ /\. {
+        deny all;
+    }
+}
