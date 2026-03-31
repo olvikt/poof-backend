@@ -9,15 +9,15 @@
 
     <a
         href="{{ route('client.order.create') }}"
-        class="block w-full rounded-2xl bg-yellow-400 px-4 py-4 text-center text-2xl font-black leading-none text-black shadow-[0_10px_25px_rgba(250,204,21,0.18)] transition active:scale-[0.99]"
+        class="block w-full rounded-2xl bg-yellow-400 px-4 py-4 text-center text-xl font-black leading-none text-black shadow-[0_10px_25px_rgba(250,204,21,0.18)] transition active:scale-[0.99]"
     >
         Створити замовлення
     </a>
 
-    <section class="mt-5 grid grid-cols-2 gap-3">
-        <a href="{{ route('client.profile') }}" class="rounded-2xl border border-white/15 bg-gray-800/95 p-4 min-h-44 flex flex-col shadow-[0_10px_24px_rgba(0,0,0,0.32)] ring-1 ring-white/10">
+    <section class="mt-5 grid grid-cols-2 auto-rows-fr gap-3">
+        <a href="{{ route('client.profile') }}" class="h-full rounded-2xl border border-white/15 bg-gray-800/95 p-4 min-h-44 flex flex-col shadow-[0_10px_24px_rgba(0,0,0,0.32)] ring-1 ring-white/10">
             <div class="flex items-start justify-between gap-3">
-                <h2 class="text-xl font-extrabold leading-none text-white">Мої<br>Адреси</h2>
+                <h2 class="text-sm font-extrabold leading-none text-white">Мої<br>Адреси</h2>
                 <span class="text-yellow-400">
                     <svg class="h-9 w-9" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
                         <path d="M12 2a7 7 0 0 0-7 7c0 5.25 7 13 7 13s7-7.75 7-13a7 7 0 0 0-7-7zm0 9.5a2.5 2.5 0 1 1 0-5 2.5 2.5 0 0 1 0 5z"/>
@@ -25,14 +25,14 @@
                 </span>
             </div>
             <div class="mt-auto">
-                <p class="text-4xl font-extrabold leading-none text-gray-200">{{ $addressesCount }}</p>
-                <p class="mt-1 text-2xl text-gray-400">Адрес</p>
+                <p class="text-3xl font-extrabold leading-none text-gray-200">{{ $addressesCount }}</p>
+                <p class="mt-1 text-xl text-gray-400">Адрес</p>
             </div>
         </a>
 
-        <a href="{{ route('client.orders') }}" class="rounded-2xl border border-white/15 bg-gray-800/95 p-4 min-h-44 flex flex-col shadow-[0_10px_24px_rgba(0,0,0,0.32)] ring-1 ring-white/10">
+        <a href="{{ route('client.orders') }}" class="h-full rounded-2xl border border-white/15 bg-gray-800/95 p-4 min-h-44 flex flex-col shadow-[0_10px_24px_rgba(0,0,0,0.32)] ring-1 ring-white/10">
             <div class="flex items-start justify-between gap-3">
-                <h2 class="text-xl font-extrabold leading-none text-white">Мої<br>Замовлення</h2>
+                <h2 class="text-sm font-extrabold leading-none text-white">Мої<br>Замовлення</h2>
                 <span class="text-yellow-400">
                     <svg class="h-9 w-9" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true">
                         <rect x="4" y="3" width="16" height="18" rx="2"></rect>
@@ -41,8 +41,8 @@
                 </span>
             </div>
             <div class="mt-auto">
-                <p class="text-4xl font-extrabold leading-none text-gray-200">{{ $ordersCount }}</p>
-                <p class="mt-1 text-2xl text-gray-400">Замовлень</p>
+                <p class="text-3xl font-extrabold leading-none text-gray-200">{{ $ordersCount }}</p>
+                <p class="mt-1 text-xl text-gray-400">Замовлень</p>
             </div>
         </a>
 
@@ -50,10 +50,10 @@
             href="https://t.me/poofsupport"
             target="_blank"
             rel="noopener noreferrer"
-            class="rounded-2xl border border-white/15 bg-gray-800/95 p-4 min-h-44 flex flex-col shadow-[0_10px_24px_rgba(0,0,0,0.32)] ring-1 ring-white/10"
+            class="h-full rounded-2xl border border-white/15 bg-gray-800/95 p-4 min-h-44 flex flex-col shadow-[0_10px_24px_rgba(0,0,0,0.32)] ring-1 ring-white/10"
         >
             <div class="flex items-start justify-between gap-3">
-                <h2 class="text-xl font-extrabold leading-none text-white">Тех<br>Підтримка</h2>
+                <h2 class="text-sm font-extrabold leading-none text-white">Тех<br>Підтримка</h2>
                 <span class="text-yellow-400">
                     <svg class="h-9 w-9" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true">
                         <path d="M21 14a4 4 0 0 1-4 4H8l-5 4V6a4 4 0 0 1 4-4h10a4 4 0 0 1 4 4z"/>
@@ -61,16 +61,16 @@
                     </svg>
                 </span>
             </div>
-            <p class="mt-auto text-2xl text-gray-400">Перейти <span class="text-3xl">→</span></p>
+            <p class="mt-auto text-xl text-gray-400">Перейти <span class="text-2xl">→</span></p>
         </a>
 
         <button
             type="button"
             @click="aboutOpen = true"
-            class="rounded-2xl border border-white/15 bg-gray-800/95 p-4 min-h-44 flex flex-col text-left shadow-[0_10px_24px_rgba(0,0,0,0.32)] ring-1 ring-white/10"
+            class="h-full rounded-2xl border border-white/15 bg-gray-800/95 p-4 min-h-44 flex flex-col text-left shadow-[0_10px_24px_rgba(0,0,0,0.32)] ring-1 ring-white/10"
         >
             <div class="flex items-start justify-between gap-3">
-                <h2 class="text-xl font-extrabold leading-none text-white">Про<br>Сервіс</h2>
+                <h2 class="text-sm font-extrabold leading-none text-white">Про<br>Сервіс</h2>
                 <span class="text-yellow-400">
                     <svg class="h-9 w-9" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true">
                         <circle cx="12" cy="12" r="9"/>
@@ -78,7 +78,7 @@
                     </svg>
                 </span>
             </div>
-            <p class="mt-auto text-2xl text-gray-400">Перейти <span class="text-3xl">→</span></p>
+            <p class="mt-auto text-xl text-gray-400">Перейти <span class="text-2xl">→</span></p>
         </button>
     </section>
 
