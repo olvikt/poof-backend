@@ -68,13 +68,30 @@ function deployment_mode(array $state): string
 
 function format_summary(array $state): array
 {
+    $currentReleaseRef = stringify($state['current_release_ref'] ?? ($state['release_ref'] ?? null));
+    $currentCommit = stringify($state['current_commit'] ?? ($state['commit'] ?? null));
+    $knownGoodReleaseRef = stringify($state['known_good_release_ref'] ?? ($state['release_ref'] ?? null));
+    $knownGoodCommit = stringify($state['known_good_commit'] ?? ($state['commit'] ?? null));
+    $previousKnownGoodReleaseRef = stringify($state['previous_known_good_release_ref'] ?? ($state['previous_release_ref'] ?? null));
+    $previousKnownGoodCommit = stringify($state['previous_known_good_commit'] ?? ($state['previous_commit'] ?? null));
+    $deploymentType = stringify($state['deployment_type'] ?? null);
+    $transitionType = stringify($state['transition_type'] ?? ($state['deployment_type'] ?? null));
+
     return [
+        'current_release_ref' => $currentReleaseRef,
+        'current_commit' => $currentCommit,
+        'known_good_release_ref' => $knownGoodReleaseRef,
+        'known_good_commit' => $knownGoodCommit,
+        'previous_known_good_release_ref' => $previousKnownGoodReleaseRef,
+        'previous_known_good_commit' => $previousKnownGoodCommit,
         'release_ref' => stringify($state['release_ref'] ?? null),
         'release_ref_kind' => stringify($state['release_ref_kind'] ?? null),
-        'deployment_type' => stringify($state['deployment_type'] ?? null),
+        'deployment_type' => $deploymentType,
+        'transition_type' => $transitionType,
         'requested_ref' => stringify($state['requested_ref'] ?? null),
         'resolved_ref' => stringify($state['resolved_ref'] ?? null),
         'commit' => stringify($state['commit'] ?? null),
+        'current_is_known_good' => yes_no(($state['current_is_known_good'] ?? true) === true),
         'deployed_at_utc' => stringify($state['deployed_at_utc'] ?? null),
         'selection_mode' => stringify($state['selection_mode'] ?? null),
         'fallback_used' => yes_no(!empty($state['fallback_used'])),
@@ -83,6 +100,10 @@ function format_summary(array $state): array
         'previous_deployed_at_utc' => stringify($state['previous_deployed_at_utc'] ?? null),
         'previous_deployment_type' => stringify($state['previous_deployment_type'] ?? null),
         'previous_selection_mode' => stringify($state['previous_selection_mode'] ?? null),
+        'rollback_source_release_ref' => stringify($state['rollback_source_release_ref'] ?? null),
+        'rollback_source_commit' => stringify($state['rollback_source_commit'] ?? null),
+        'rollback_target_release_ref' => stringify($state['rollback_target_release_ref'] ?? null),
+        'rollback_target_commit' => stringify($state['rollback_target_commit'] ?? null),
         'deploy_log' => stringify($state['deploy_log'] ?? null),
         'release_history' => stringify($state['release_history'] ?? $GLOBALS['historyFile']),
         'release_summary_required' => yes_no(!empty($state['release_summary_required'])),
@@ -108,9 +129,15 @@ $summary = format_summary($state);
 
 print_section('Current release');
 echo 'Mode: ', deployment_mode($state), PHP_EOL;
-echo 'Release ref: ', $summary['release_ref'], PHP_EOL;
+echo 'Current release ref: ', $summary['current_release_ref'], PHP_EOL;
+echo 'Current commit: ', $summary['current_commit'], PHP_EOL;
+echo 'Known-good release ref: ', $summary['known_good_release_ref'], PHP_EOL;
+echo 'Known-good commit: ', $summary['known_good_commit'], PHP_EOL;
+echo 'Current is known-good: ', $summary['current_is_known_good'], PHP_EOL;
+echo 'Release ref (legacy field): ', $summary['release_ref'], PHP_EOL;
 echo 'Release ref kind: ', $summary['release_ref_kind'], PHP_EOL;
 echo 'Deployment type: ', $summary['deployment_type'], PHP_EOL;
+echo 'Transition type: ', $summary['transition_type'], PHP_EOL;
 echo 'Requested ref: ', $summary['requested_ref'], PHP_EOL;
 echo 'Resolved ref: ', $summary['resolved_ref'], PHP_EOL;
 echo 'Commit: ', $summary['commit'], PHP_EOL;
@@ -126,11 +153,28 @@ echo 'Release summary: ', $summary['release_summary'], PHP_EOL;
 echo PHP_EOL;
 
 print_section('Previous known-good release');
-echo 'Release ref: ', $summary['previous_release_ref'], PHP_EOL;
+echo 'Release ref: ', $summary['previous_known_good_release_ref'], PHP_EOL;
+echo 'Commit: ', $summary['previous_known_good_commit'], PHP_EOL;
+echo 'Release ref (legacy field): ', $summary['previous_release_ref'], PHP_EOL;
 echo 'Deployment type: ', $summary['previous_deployment_type'], PHP_EOL;
-echo 'Commit: ', $summary['previous_commit'], PHP_EOL;
+echo 'Commit (legacy field): ', $summary['previous_commit'], PHP_EOL;
 echo 'Deployed at (UTC): ', $summary['previous_deployed_at_utc'], PHP_EOL;
 echo 'Selection mode: ', $summary['previous_selection_mode'], PHP_EOL;
+echo PHP_EOL;
+
+print_section('Rollback context');
+echo 'Rollback source release ref: ', $summary['rollback_source_release_ref'], PHP_EOL;
+echo 'Rollback source commit: ', $summary['rollback_source_commit'], PHP_EOL;
+echo 'Rollback target release ref: ', $summary['rollback_target_release_ref'], PHP_EOL;
+echo 'Rollback target commit: ', $summary['rollback_target_commit'], PHP_EOL;
+echo PHP_EOL;
+
+print_section('Incident summary');
+if ($summary['deployment_type'] === 'rollback') {
+    echo 'Latest transition: rollback ', $summary['rollback_source_release_ref'], ' -> ', $summary['rollback_target_release_ref'], PHP_EOL;
+} else {
+    echo 'Latest transition: deploy ', $summary['previous_known_good_release_ref'], ' -> ', $summary['known_good_release_ref'], PHP_EOL;
+}
 echo PHP_EOL;
 
 print_section("Recent release transitions (last {$historyLimit})");
@@ -157,19 +201,25 @@ foreach ($recent as $index => $line) {
 
     $mode = deployment_mode($entry);
     $deploymentType = stringify($entry['deployment_type'] ?? null);
-    $releaseRef = stringify($entry['release_ref'] ?? null);
-    $commit = stringify($entry['commit'] ?? null);
+    $releaseRef = stringify($entry['known_good_release_ref'] ?? ($entry['release_ref'] ?? null));
+    $commit = stringify($entry['known_good_commit'] ?? ($entry['commit'] ?? null));
     $deployedAt = stringify($entry['deployed_at_utc'] ?? null);
-    $previousRelease = stringify($entry['previous_release_ref'] ?? null);
+    $previousRelease = stringify($entry['previous_known_good_release_ref'] ?? ($entry['previous_release_ref'] ?? null));
+    $rollbackSource = stringify($entry['rollback_source_release_ref'] ?? null);
+    $rollbackTarget = stringify($entry['rollback_target_release_ref'] ?? null);
+    $incidentTrail = $deploymentType === 'rollback'
+        ? "rollback {$rollbackSource} -> {$rollbackTarget}"
+        : "deploy {$previousRelease} -> {$releaseRef}";
 
     echo sprintf(
-        "%d. %s | %s | %s | %s | previous=%s | %s",
+        "%d. %s | %s | %s | %s | previous=%s | trail=%s | %s",
         $index + 1,
         $deployedAt,
         $deploymentType,
         $releaseRef,
         $commit,
         $previousRelease,
+        $incidentTrail,
         $mode
     ), PHP_EOL;
 }

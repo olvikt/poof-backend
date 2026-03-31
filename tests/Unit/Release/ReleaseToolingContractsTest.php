@@ -30,6 +30,9 @@ class ReleaseToolingContractsTest extends TestCase
         $this->assertStringContainsString('"release_summary_file": $(release_state_json_string_or_null "$RELEASE_SUMMARY_FILE" "$PHP_BIN")', $deploy);
         $this->assertStringContainsString('"release_summary": $(release_state_json_string_or_null "$RELEASE_SUMMARY_TEXT" "$PHP_BIN")', $deploy);
         $this->assertStringContainsString('"deployment_type": "deploy"', $deploy);
+        $this->assertStringContainsString('"known_good_release_ref": "$RESOLVED_REF"', $deploy);
+        $this->assertStringContainsString('"previous_known_good_release_ref": $(release_state_json_string_or_null "$PREVIOUS_KNOWN_GOOD_RELEASE_REF" "$PHP_BIN")', $deploy);
+        $this->assertStringContainsString('"rollback_target_release_ref": null', $deploy);
         $this->assertStringContainsString('release_gate_file_for_ref()', $deploy);
         $this->assertStringContainsString('[deploy] validating mandatory pre-deploy gate (runtime contract + browser smoke)', $deploy);
         $this->assertStringContainsString('release blocked: pre-deploy gate artifact is missing', $deploy);
@@ -45,6 +48,9 @@ class ReleaseToolingContractsTest extends TestCase
         $this->assertStringContainsString('"release_summary_file": $(release_state_json_string_or_null "$RELEASE_SUMMARY_FILE" "$PHP_BIN")', $rollback);
         $this->assertStringContainsString('"release_summary": $(release_state_json_string_or_null "$RELEASE_SUMMARY_TEXT" "$PHP_BIN")', $rollback);
         $this->assertStringContainsString('"deployment_type": "rollback"', $rollback);
+        $this->assertStringContainsString('"known_good_release_ref": "$RESOLVED_REF"', $rollback);
+        $this->assertStringContainsString('"previous_known_good_release_ref": $(release_state_json_string_or_null "$PREVIOUS_KNOWN_GOOD_RELEASE_REF" "$PHP_BIN")', $rollback);
+        $this->assertStringContainsString('"rollback_target_release_ref": "$RESOLVED_REF"', $rollback);
         $this->assertStringContainsString('write_release_state_and_history "$DEPLOY_STATE_PAYLOAD" "$DEPLOY_STATE_FILE" "$RELEASE_HISTORY_FILE" "$PHP_BIN"', $rollback);
     }
 
@@ -63,6 +69,8 @@ class ReleaseToolingContractsTest extends TestCase
         $this->assertStringContainsString('MERGED_HEAD_REF="${MERGED_HEAD_REF:-origin/main}"', $showRelease);
         $this->assertStringContainsString('print_section(\'Current release\')', $showRelease);
         $this->assertStringContainsString('print_section(\'Previous known-good release\')', $showRelease);
+        $this->assertStringContainsString('print_section(\'Rollback context\')', $showRelease);
+        $this->assertStringContainsString('print_section(\'Incident summary\')', $showRelease);
         $this->assertStringContainsString('print_section("Recent release transitions (last {$historyLimit})")', $showRelease);
         $this->assertStringContainsString("echo 'Merged state gap (informational)'", $showRelease);
         $this->assertStringContainsString('Merged PRs ahead of confirmed production', $showRelease);

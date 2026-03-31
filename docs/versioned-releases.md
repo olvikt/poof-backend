@@ -201,6 +201,11 @@ cat storage/app/current-release.json
 
 Ожидаемые поля:
 
+- `current_release_ref`;
+- `current_commit`;
+- `known_good_release_ref`;
+- `known_good_commit`;
+- `current_is_known_good`;
 - `release_ref`;
 - `release_ref_kind`;
 - `requested_ref`;
@@ -212,6 +217,12 @@ cat storage/app/current-release.json
 - `deployed_at_utc`;
 - `previous_release_ref`;
 - `previous_commit`;
+- `previous_known_good_release_ref`;
+- `previous_known_good_commit`;
+- `rollback_source_release_ref`;
+- `rollback_source_commit`;
+- `rollback_target_release_ref`;
+- `rollback_target_commit`;
 - `deploy_log`;
 - `release_history`;
 - `release_summary_required`;
@@ -232,7 +243,8 @@ tail -n 5 storage/app/release-history.jsonl
 - какой release был до текущего;
 - когда production переключили на новый release;
 - был ли выбран explicit ref или legacy fallback path;
-- какой rollback уже выполнялся на этом хосте.
+- какой rollback уже выполнялся на этом хосте;
+- source/target rollback transition без ручной реконструкции из логов.
 
 3. **Deploy log directory**
 
