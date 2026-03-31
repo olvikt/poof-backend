@@ -11,6 +11,7 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Str;
 
 class WayForPayCallbackController extends Controller
 {
@@ -23,6 +24,7 @@ class WayForPayCallbackController extends Controller
         $payload = $this->extractPayload($request);
 
         Log::info('WayForPay callback received.', [
+            'event' => 'wayforpay_callback_received',
             'source_ip' => $request->ip(),
             'path' => $request->path(),
             'content_type' => (string) $request->header('Content-Type', ''),
@@ -51,6 +53,7 @@ class WayForPayCallbackController extends Controller
             }
 
             Log::warning('WayForPay callback rejected: invalid payload.', [
+                'event' => 'wayforpay_callback_invalid_payload',
                 'source_ip' => $request->ip(),
                 'path' => $request->path(),
                 'content_type' => (string) $request->header('Content-Type', ''),
@@ -83,34 +86,73 @@ class WayForPayCallbackController extends Controller
 
         if (! $signatureValid) {
             Log::warning('WayForPay callback rejected: invalid signature.', [
+                'event' => 'wayforpay_callback_invalid_signature',
                 'source_ip' => $request->ip(),
                 'path' => $request->path(),
                 'order_reference' => $validated['orderReference'],
                 'transaction_status' => $validated['transactionStatus'],
             ]);
 
-            return response()->json(['status' => 'error'], 422);
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Invalid signature.',
+            ], 422);
         }
 
         $order = Order::query()->find($validated['orderReference']);
 
         if (! $order) {
             Log::warning('WayForPay callback rejected: order not found.', [
+                'event' => 'wayforpay_callback_order_not_found',
                 'source_ip' => $request->ip(),
                 'path' => $request->path(),
                 'order_reference' => $validated['orderReference'],
+                'transaction_status' => $validated['transactionStatus'],
             ]);
 
-            return response()->json(['status' => 'error'], 404);
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Order not found.',
+            ], 404);
         }
 
-        if (in_array($validated['transactionStatus'], self::SUCCESS_STATUSES, true) && ! $order->isPaid()) {
+        Log::info('WayForPay transaction status received.', [
+            'event' => 'wayforpay_callback_transaction_status_received',
+            'order_id' => $order->id,
+            'order_reference' => $validated['orderReference'],
+            'transaction_status' => $validated['transactionStatus'],
+        ]);
+
+        $isSuccessStatus = in_array($validated['transactionStatus'], self::SUCCESS_STATUSES, true);
+        $alreadyPaid = $order->isPaid();
+
+        if ($isSuccessStatus && ! $alreadyPaid) {
             $order->markAsPaid();
         }
 
+        if ($isSuccessStatus && $alreadyPaid) {
+            Log::info('WayForPay duplicate callback ignored: order already paid.', [
+                'event' => 'wayforpay_callback_duplicate_ignored',
+                'order_id' => $order->id,
+                'order_reference' => $validated['orderReference'],
+                'transaction_status' => $validated['transactionStatus'],
+            ]);
+        }
+
+        if (! $isSuccessStatus) {
+            Log::warning('WayForPay callback received non-success transaction status.', [
+                'event' => 'wayforpay_callback_non_success_status',
+                'order_id' => $order->id,
+                'order_reference' => $validated['orderReference'],
+                'transaction_status' => $validated['transactionStatus'],
+            ]);
+        }
+
         Log::info('WayForPay callback processed successfully.', [
+            'event' => 'wayforpay_callback_processed_successfully',
             'source_ip' => $request->ip(),
             'path' => $request->path(),
+            'order_id' => $order->id,
             'order_reference' => $validated['orderReference'],
             'transaction_status' => $validated['transactionStatus'],
             'order_marked_paid' => $order->isPaid(),
@@ -143,10 +185,16 @@ class WayForPayCallbackController extends Controller
      */
     private function extractPayload(Request $request): array
     {
+        $jsonPayload = $request->json()->all();
+
+        if (is_array($jsonPayload) && $jsonPayload !== []) {
+            return $jsonPayload;
+        }
+
         $payload = $request->all();
 
         if ($payload !== []) {
-            return $payload;
+            return $this->normalizeFormPayload($payload);
         }
 
         $rawBody = trim((string) $request->getContent());
@@ -161,6 +209,46 @@ class WayForPayCallbackController extends Controller
             return $decoded;
         }
 
+        $formDecoded = [];
+        parse_str($rawBody, $formDecoded);
+
+        if (is_array($formDecoded) && $formDecoded !== []) {
+            return $this->normalizeFormPayload($formDecoded);
+        }
+
         return [];
+    }
+
+    /**
+     * @param array<string, mixed> $payload
+     * @return array<string, mixed>
+     */
+    private function normalizeFormPayload(array $payload): array
+    {
+        if (count($payload) !== 1) {
+            return $payload;
+        }
+
+        $firstKey = (string) array_key_first($payload);
+        $firstValue = $payload[$firstKey];
+        $firstValueString = is_string($firstValue) ? trim($firstValue) : '';
+
+        if ($firstValueString !== '' && Str::startsWith($firstValueString, '{')) {
+            $decodedValue = json_decode($firstValueString, true);
+
+            if (is_array($decodedValue)) {
+                return $decodedValue;
+            }
+        }
+
+        if (Str::startsWith($firstKey, '{')) {
+            $decodedKey = json_decode($firstKey, true);
+
+            if (is_array($decodedKey)) {
+                return $decodedKey;
+            }
+        }
+
+        return $payload;
     }
 }
