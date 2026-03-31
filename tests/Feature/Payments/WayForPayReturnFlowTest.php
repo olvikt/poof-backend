@@ -110,4 +110,68 @@ class WayForPayReturnFlowTest extends TestCase
 
         $this->assertSame(Order::PAY_PAID, $order->fresh()->payment_status);
     }
+
+    public function test_callback_with_missing_required_fields_returns_json_422_not_redirect(): void
+    {
+        $response = $this->post('/api/payments/wayforpay/callback', []);
+
+        $response
+            ->assertStatus(422)
+            ->assertHeader('content-type', 'application/json')
+            ->assertJsonPath('status', 'error')
+            ->assertJsonPath('message', 'Validation failed.');
+    }
+
+    public function test_callback_with_invalid_signature_returns_json_422(): void
+    {
+        config()->set('payments.wayforpay.merchant_secret', 'test-secret');
+
+        $response = $this->postJson('/api/payments/wayforpay/callback', [
+            'merchantAccount' => 'poof_merchant',
+            'orderReference' => '999',
+            'amount' => '100',
+            'currency' => 'UAH',
+            'authCode' => '123456',
+            'cardPan' => '411111******1111',
+            'transactionStatus' => 'Approved',
+            'reasonCode' => '1100',
+            'merchantSignature' => 'invalid-signature',
+        ]);
+
+        $response
+            ->assertStatus(422)
+            ->assertJsonPath('status', 'error');
+    }
+
+    public function test_callback_with_unknown_order_reference_returns_json_404(): void
+    {
+        $secret = 'test-secret';
+        config()->set('payments.wayforpay.merchant_secret', $secret);
+
+        $payload = [
+            'merchantAccount' => 'poof_merchant',
+            'orderReference' => '999999',
+            'amount' => '100',
+            'currency' => 'UAH',
+            'authCode' => '123456',
+            'cardPan' => '411111******1111',
+            'transactionStatus' => 'Approved',
+            'reasonCode' => '1100',
+        ];
+
+        $payload['merchantSignature'] = app(WayForPaySignature::class)->sign([
+            $payload['merchantAccount'],
+            $payload['orderReference'],
+            (string) $payload['amount'],
+            $payload['currency'],
+            (string) $payload['authCode'],
+            (string) $payload['cardPan'],
+            $payload['transactionStatus'],
+            (string) $payload['reasonCode'],
+        ], $secret);
+
+        $this->postJson('/api/payments/wayforpay/callback', $payload)
+            ->assertStatus(404)
+            ->assertJsonPath('status', 'error');
+    }
 }
