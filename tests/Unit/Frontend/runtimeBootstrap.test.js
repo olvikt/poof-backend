@@ -1,5 +1,6 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
+import fs from 'node:fs'
 
 import {
   emitUiRuntimeMarker,
@@ -90,4 +91,14 @@ test('ui runtime marker emits structured event payload without requiring diagnos
   assert.equal(detail.event, 'ui_runtime_bootstrap_skipped')
   assert.equal(detail.level, 'info')
   assert.equal(captured?.context?.reason, 'duplicate_guarded')
+})
+
+
+test('app entry isolates standalone alpine boot from livewire-bundled alpine path', () => {
+  const appScript = fs.readFileSync('resources/js/app.js', 'utf8')
+
+  assert.equal(appScript.includes('LivewireAlpine'), false)
+  assert.equal(appScript.includes("if (!livewire && hasLivewireConfig) {"), true)
+  assert.equal(appScript.includes("standaloneAlpinePromise = import('alpinejs')"), true)
+  assert.equal(appScript.includes("if (shouldBootStandaloneAlpine({ hasLivewireConfig })) {"), true)
 })

@@ -1,5 +1,4 @@
 import './bootstrap'
-import { Livewire, Alpine as LivewireAlpine } from '../../vendor/livewire/livewire/dist/livewire.esm'
 import poofTimeCarousel from './poof/carousel'
 import addressAutocomplete from './address-autocomplete'
 import {
@@ -16,11 +15,30 @@ const sharedAlpineComponents = {
   addressAutocomplete,
 }
 
+let livewireRuntimePromise = null
+let standaloneAlpinePromise = null
+
+async function loadLivewireRuntime() {
+  if (!livewireRuntimePromise) {
+    livewireRuntimePromise = import('../../vendor/livewire/livewire/dist/livewire.esm')
+  }
+
+  return livewireRuntimePromise
+}
+
+async function loadStandaloneAlpineRuntime() {
+  if (!standaloneAlpinePromise) {
+    standaloneAlpinePromise = import('alpinejs')
+  }
+
+  return standaloneAlpinePromise
+}
+
 export function registerAlpineComponents(instance) {
   return registerSharedAlpineComponents(instance, sharedAlpineComponents)
 }
 
-export function bootReactiveRuntime() {
+export async function bootReactiveRuntime() {
   const runtimeDiagnostics = String(import.meta?.env?.VITE_MAP_RUNTIME_DIAGNOSTICS || '').toLowerCase() === 'true'
   emitUiRuntimeMarker('ui_runtime_bootstrap_started', {
     source: 'resources/js/app.js',
@@ -28,10 +46,15 @@ export function bootReactiveRuntime() {
     hasAlpine: Boolean(window.Alpine),
   }, { globals: window, diagnostics: runtimeDiagnostics })
 
-  const livewire = window.Livewire ?? Livewire ?? null
-  // Canonical Alpine runtime path: reuse existing window.Alpine first, then Livewire-bundled Alpine.
-  // Avoid importing an additional Alpine instance in this entrypoint to prevent duplicate plugin init ($persist).
-  const alpine = window.Alpine ?? LivewireAlpine ?? null
+  const hasLivewireConfig = Boolean(window.livewireScriptConfig)
+  let livewire = window.Livewire ?? null
+  let alpine = window.Alpine ?? null
+
+  if (!livewire && hasLivewireConfig) {
+    const livewireRuntime = await loadLivewireRuntime()
+    livewire = livewireRuntime?.Livewire ?? null
+    alpine = alpine ?? livewireRuntime?.Alpine ?? null
+  }
 
   if (livewire && alpine) {
     window.Livewire = livewire
@@ -54,10 +77,13 @@ export function bootReactiveRuntime() {
     return
   }
 
-  const hasLivewireConfig = Boolean(window.livewireScriptConfig)
-
   // Standalone Alpine pages (without Livewire runtime config)
   if (shouldBootStandaloneAlpine({ hasLivewireConfig })) {
+    if (!alpine) {
+      const standaloneAlpine = await loadStandaloneAlpineRuntime()
+      alpine = standaloneAlpine?.default ?? standaloneAlpine?.Alpine ?? null
+    }
+
     window.Alpine = alpine
     registerAlpineComponents(window.Alpine)
     const standaloneBoot = evaluateStandaloneAlpineBoot({ alpine: window.Alpine, globals: window })
@@ -76,8 +102,10 @@ export function bootReactiveRuntime() {
   }
 }
 
-bootReactiveRuntime()
-document.addEventListener('livewire:init', bootReactiveRuntime)
+void bootReactiveRuntime()
+document.addEventListener('livewire:init', () => {
+  void bootReactiveRuntime()
+})
 
 // CSS
 import '../css/app.css'
