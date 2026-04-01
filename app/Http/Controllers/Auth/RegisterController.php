@@ -16,19 +16,18 @@ use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\View\View;
+use App\Support\Auth\RoleEntrypoint;
 
 class RegisterController extends Controller
 {
     public function show(Request $request): View
     {
-        $role = $request->string('role')->toString();
-
-        if (! in_array($role, [User::ROLE_CLIENT, User::ROLE_COURIER], true)) {
-            $role = User::ROLE_CLIENT;
-        }
+        $entrypoint = RoleEntrypoint::detect($request);
+        $role = RoleEntrypoint::expectedRegistrationRole($request);
 
         return view('auth.register', [
             'defaultRole' => $role,
+            'entrypoint' => $entrypoint,
         ]);
     }
 
@@ -41,6 +40,9 @@ class RegisterController extends Controller
             ),
         ]);
 
+        $role = RoleEntrypoint::expectedRegistrationRole($request);
+        $request->merge(['role' => $role]);
+
         $rules = [
             'name' => 'required|string|max:255',
             'email' => 'required|email|unique:users,email',
@@ -50,7 +52,7 @@ class RegisterController extends Controller
             'terms_agreed' => 'accepted',
         ];
 
-        if ($request->role === 'courier') {
+        if ($role === User::ROLE_COURIER) {
             $rules['transport_type'] = 'required|string';
             $rules['city'] = 'required|string';
         }

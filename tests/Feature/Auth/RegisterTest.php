@@ -39,7 +39,7 @@ class RegisterTest extends TestCase
     {
         Mail::fake();
 
-        $response = $this->post('/register', [
+        $response = $this->withServerVariables(['HTTP_HOST' => 'courier.poof.com.ua'])->post('/register', [
             'name' => 'Courier User',
             'email' => 'courier@example.com',
             'phone' => '+380502222222',

@@ -2,6 +2,7 @@
 
 namespace App\Http\Middleware;
 
+use App\Support\Auth\RoleEntrypoint;
 use Illuminate\Auth\Middleware\Authenticate as Middleware;
 
 class Authenticate extends Middleware
@@ -12,12 +13,14 @@ class Authenticate extends Middleware
             return null;
         }
 
-        // клиентская часть
-        if ($request->is('client/*')) {
-            return '/login';
+        if ($request->is('courier/*')) {
+            return route('login.courier', ['next' => '/'.$request->path()]);
         }
 
-        // админку НЕ ТРОГАЕМ
-        return null;
+        if ($request->is('client/*')) {
+            return route('login', ['next' => '/'.$request->path()]);
+        }
+
+        return RoleEntrypoint::loginRouteForEntrypoint(RoleEntrypoint::detect($request));
     }
 }

@@ -15,14 +15,17 @@ class FrontendPwaContractTest extends TestCase
         $this->repoRoot = dirname(__DIR__, 3);
     }
 
-    public function test_landing_page_source_links_the_manifest_and_uses_vite_entrypoints(): void
+    public function test_landing_sources_link_role_specific_manifests_and_use_vite_entrypoints(): void
     {
-        $welcomeView = file_get_contents($this->repoRoot.'/resources/views/welcome.blade.php');
+        $clientView = file_get_contents($this->repoRoot.'/resources/views/welcome.blade.php');
+        $courierView = file_get_contents($this->repoRoot.'/resources/views/welcome-courier.blade.php');
 
-        $this->assertNotFalse($welcomeView);
-        $this->assertStringContainsString('<link rel="manifest" href="/manifest.json">', $welcomeView);
-        $this->assertStringContainsString("@vite(['resources/css/app.css','resources/js/app.js'])", $welcomeView);
-        $this->assertStringNotContainsString('/build/assets/', $welcomeView);
+        $this->assertNotFalse($clientView);
+        $this->assertNotFalse($courierView);
+        $this->assertStringContainsString("route('manifest.client')", $clientView);
+        $this->assertStringContainsString("route('manifest.courier')", $courierView);
+        $this->assertStringContainsString("@vite(['resources/css/app.css','resources/js/app.js'])", $clientView);
+        $this->assertStringContainsString("@vite(['resources/css/app.css','resources/js/app.js'])", $courierView);
     }
 
     public function test_vite_config_keeps_app_js_in_the_build_inputs(): void

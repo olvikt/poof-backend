@@ -8,7 +8,7 @@
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black">
     <title>POOF — швидкий винос сміття</title>
-    <link rel="manifest" href="/manifest.json">
+    <link rel="manifest" href="{{ route('manifest.client') }}">
     <link rel="preconnect" href="https://fonts.bunny.net">
     <link rel="preconnect" href="https://fonts.bunny.net" crossorigin>
     <link rel="preload"
@@ -59,7 +59,7 @@
 				</div>
 				<a href="{{ route('login') }}"
 				   class="rounded-xl bg-amber-400 px-4 py-2 text-xs font-bold text-zinc-900 hover:bg-amber-300 transition">
-					Увійти
+					Увійти як клієнт
 				</a>
 			</div>
 		</header>
@@ -266,7 +266,7 @@
 				</ul>	
 				<a href="{{ route('login') }}"
 				   class="mt-5 block w-full rounded-2xl bg-amber-400 py-3 text-center text-sm font-extrabold text-zinc-900 hover:bg-amber-300 transition">
-					Почати з POOF
+					Почати як клієнт
 				</a>	   
 			</section>
 			<!-- CTA -->
@@ -277,9 +277,9 @@
 
 			<!-- COURIER -->
 			<section class="rounded-3xl bg-gradient-to-b from-zinc-800 to-zinc-900 p-5 border border-zinc-700">
-				<h2 class="text-base font-bold">Стати курʼєром POOF</h2>
+				<h2 class="text-base font-bold">Хочете стати курʼєром?</h2>
 				<p class="text-sm text-zinc-400 mt-2">
-					Працюй коли зручно. Заробляй щодня.
+					Це окремий курʼєрський застосунок POOF з власним onboarding.
 				</p>
 
 				<div class="grid grid-cols-2 gap-3 mt-4 text-sm">
@@ -288,9 +288,9 @@
 					<div class="bg-zinc-800 rounded-xl p-3 text-center">📍 Замовлення поруч</div>
 					<div class="bg-zinc-800 rounded-xl p-3 text-center">🚲 Пішки або авто</div>
 				</div>
-				<a href="/courier/register"
+				<a href="https://courier.poof.com.ua"
 				   class="mt-5 block w-full rounded-2xl bg-amber-400 py-3 text-center text-sm font-extrabold text-zinc-900 hover:bg-amber-300 transition">
-					Стати курʼєром
+					Відкрити courier.poof.com.ua
 				</a>
 			</section>
 
@@ -301,7 +301,7 @@
 			</section>
 
 			<button id="installAppBtn" class="w-full rounded-2xl bg-emerald-500 px-4 py-3 text-sm font-bold text-white hover:bg-emerald-400 transition" style="display:none;">
-				📱 Встановити додаток
+				📱 Встановити клієнтський застосунок
 			</button>
 
 		</main>
@@ -310,7 +310,7 @@
 	<div id="installBanner" class="install-banner">
 		<div class="banner-content">
 			<div class="banner-title">
-				🚀 Встановіть додаток POOF
+				🚀 Встановіть клієнтський застосунок POOF
 			</div>
 			<div class="banner-subtitle">
 				Швидше оформляйте замовлення
