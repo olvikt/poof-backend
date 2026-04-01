@@ -55,6 +55,8 @@ class RuntimeBootstrapArchitectureSmokeTest extends TestCase
         $this->assertStringContainsString('window[POOF_BOOT_FLAGS.livewireStarted] = true', $appScript);
         $this->assertStringContainsString('if (shouldStartStandaloneAlpine({ alpine: window.Alpine, globals: window })) {', $appScript);
         $this->assertStringContainsString('window[POOF_BOOT_FLAGS.alpineStarted] = true', $appScript);
+        $this->assertStringNotContainsString("import Alpine from 'alpinejs'", $appScript);
+        $this->assertStringContainsString('const alpine = window.Alpine ?? LivewireAlpine ?? null', $appScript);
 
         // Single map runtime instance path (no hidden dual map instances per same element).
         $this->assertStringContainsString('if (state.instance && state.el === el) {', $mapScript);
