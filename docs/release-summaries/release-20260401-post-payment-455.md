@@ -1,0 +1,5 @@
+- PR #455
+- Fix post-payment return flow for WayForPay
+- Preserve intended destination after payment return
+- Restore redirect after login using fallback cookie when session is lost
+- Show payment result context on client orders page
