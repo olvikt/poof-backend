@@ -18,6 +18,8 @@ class RoleEntrypoint
             (string) $request->getHost(),
         ];
 
+        $hasAnyHost = false;
+
         foreach ($hostCandidates as $rawHost) {
             $host = mb_strtolower(trim(explode(':', explode(',', $rawHost)[0])[0]));
 
@@ -25,11 +27,11 @@ class RoleEntrypoint
                 continue;
             }
 
+            $hasAnyHost = true;
+
             if ($host === 'courier.poof.com.ua' || str_starts_with($host, 'courier.')) {
                 return self::ENTRY_COURIER;
             }
-
-            return self::ENTRY_CLIENT;
         }
 
         return self::ENTRY_CLIENT;
