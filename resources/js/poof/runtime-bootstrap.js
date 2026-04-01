@@ -1,6 +1,8 @@
 export const POOF_BOOT_FLAGS = Object.freeze({
   livewireStarted: '__poofLivewireStarted',
   alpineStarted: '__poofAlpineStarted',
+  livewireStarting: '__poofLivewireStarting',
+  alpineStarting: '__poofAlpineStarting',
 })
 
 export const POOF_RUNTIME_MARKER_EVENT = 'poof:ui-runtime-marker'
@@ -61,7 +63,7 @@ export function evaluateLivewireRuntimeBoot({ livewire = null, alpine = null, gl
     return { allowed: false, reason: 'missing_runtime_dependencies' }
   }
 
-  if (Boolean(globals?.[POOF_BOOT_FLAGS.livewireStarted])) {
+  if (Boolean(globals?.[POOF_BOOT_FLAGS.livewireStarted]) || Boolean(globals?.[POOF_BOOT_FLAGS.livewireStarting])) {
     return { allowed: false, reason: 'duplicate_guarded' }
   }
 
@@ -73,7 +75,7 @@ export function evaluateStandaloneAlpineBoot({ alpine = null, globals = globalTh
     return { allowed: false, reason: 'missing_alpine_runtime' }
   }
 
-  if (Boolean(globals?.[POOF_BOOT_FLAGS.alpineStarted])) {
+  if (Boolean(globals?.[POOF_BOOT_FLAGS.alpineStarted]) || Boolean(globals?.[POOF_BOOT_FLAGS.alpineStarting])) {
     return { allowed: false, reason: 'duplicate_guarded' }
   }
 

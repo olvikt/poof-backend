@@ -1,4 +1,5 @@
 import './bootstrap'
+import Alpine from 'alpinejs'
 import poofTimeCarousel from './poof/carousel'
 import addressAutocomplete from './address-autocomplete'
 import {
@@ -16,7 +17,6 @@ const sharedAlpineComponents = {
 }
 
 let livewireRuntimePromise = null
-let standaloneAlpinePromise = null
 
 async function loadLivewireRuntime() {
   if (!livewireRuntimePromise) {
@@ -24,14 +24,6 @@ async function loadLivewireRuntime() {
   }
 
   return livewireRuntimePromise
-}
-
-async function loadStandaloneAlpineRuntime() {
-  if (!standaloneAlpinePromise) {
-    standaloneAlpinePromise = import('alpinejs')
-  }
-
-  return standaloneAlpinePromise
 }
 
 export function registerAlpineComponents(instance) {
@@ -47,49 +39,21 @@ export async function bootReactiveRuntime() {
   }, { globals: window, diagnostics: runtimeDiagnostics })
 
   const hasLivewireConfig = Boolean(window.livewireScriptConfig)
-  let livewire = window.Livewire ?? null
-  let alpine = window.Alpine ?? null
 
-  if (!livewire && hasLivewireConfig) {
-    const livewireRuntime = await loadLivewireRuntime()
-    livewire = livewireRuntime?.Livewire ?? null
-    alpine = alpine ?? livewireRuntime?.Alpine ?? null
-  }
-
-  if (livewire && alpine) {
-    window.Livewire = livewire
-    window.Alpine = alpine
-    registerAlpineComponents(alpine)
-    const livewireBoot = evaluateLivewireRuntimeBoot({ livewire, alpine, globals: window })
-    if (livewireBoot.allowed) {
-      livewire.start()
-      window[POOF_BOOT_FLAGS.livewireStarted] = true
-      emitUiRuntimeMarker('ui_runtime_bootstrap_livewire_started', {
-        source: 'livewire',
-      }, { globals: window, diagnostics: runtimeDiagnostics })
-    } else if (livewireBoot.reason === 'duplicate_guarded') {
-      emitUiRuntimeMarker('ui_runtime_bootstrap_skipped', {
-        source: 'livewire',
-        reason: livewireBoot.reason,
-      }, { globals: window, diagnostics: runtimeDiagnostics })
-    }
-
-    return
-  }
-
-  // Standalone Alpine pages (without Livewire runtime config)
-  if (shouldBootStandaloneAlpine({ hasLivewireConfig })) {
-    if (!alpine) {
-      const standaloneAlpine = await loadStandaloneAlpineRuntime()
-      alpine = standaloneAlpine?.default ?? standaloneAlpine?.Alpine ?? null
-    }
-
-    window.Alpine = alpine
+  if (!hasLivewireConfig && shouldBootStandaloneAlpine({ hasLivewireConfig })) {
+    window.Alpine = window.Alpine ?? Alpine
     registerAlpineComponents(window.Alpine)
+
     const standaloneBoot = evaluateStandaloneAlpineBoot({ alpine: window.Alpine, globals: window })
     if (standaloneBoot.allowed) {
-      window.Alpine.start()
-      window[POOF_BOOT_FLAGS.alpineStarted] = true
+      window[POOF_BOOT_FLAGS.alpineStarting] = true
+      try {
+        window.Alpine.start()
+        window[POOF_BOOT_FLAGS.alpineStarted] = true
+      } finally {
+        window[POOF_BOOT_FLAGS.alpineStarting] = false
+      }
+
       emitUiRuntimeMarker('ui_runtime_bootstrap_alpine_started', {
         source: 'standalone_alpine',
       }, { globals: window, diagnostics: runtimeDiagnostics })
@@ -99,6 +63,50 @@ export async function bootReactiveRuntime() {
         reason: standaloneBoot.reason,
       }, { globals: window, diagnostics: runtimeDiagnostics })
     }
+
+    return
+  }
+
+  let livewire = window.Livewire ?? null
+  let alpine = window.Alpine ?? null
+
+  if (!livewire || !alpine) {
+    const livewireRuntime = await loadLivewireRuntime()
+    livewire = livewire ?? livewireRuntime?.Livewire ?? null
+    alpine = alpine ?? livewireRuntime?.Alpine ?? null
+  }
+
+  if (!livewire || !alpine) {
+    emitUiRuntimeMarker('ui_runtime_bootstrap_skipped', {
+      source: 'livewire',
+      reason: 'missing_runtime_dependencies',
+      level: 'warn',
+    }, { globals: window, diagnostics: runtimeDiagnostics })
+    return
+  }
+
+  window.Livewire = livewire
+  window.Alpine = alpine
+  registerAlpineComponents(alpine)
+
+  const livewireBoot = evaluateLivewireRuntimeBoot({ livewire, alpine, globals: window })
+  if (livewireBoot.allowed) {
+    window[POOF_BOOT_FLAGS.livewireStarting] = true
+    try {
+      livewire.start()
+      window[POOF_BOOT_FLAGS.livewireStarted] = true
+    } finally {
+      window[POOF_BOOT_FLAGS.livewireStarting] = false
+    }
+
+    emitUiRuntimeMarker('ui_runtime_bootstrap_livewire_started', {
+      source: 'livewire',
+    }, { globals: window, diagnostics: runtimeDiagnostics })
+  } else if (livewireBoot.reason === 'duplicate_guarded') {
+    emitUiRuntimeMarker('ui_runtime_bootstrap_skipped', {
+      source: 'livewire',
+      reason: livewireBoot.reason,
+    }, { globals: window, diagnostics: runtimeDiagnostics })
   }
 }
 

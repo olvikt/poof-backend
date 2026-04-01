@@ -51,6 +51,10 @@ test('livewire startup guard blocks duplicate boot and only allows a single vali
   globals[POOF_BOOT_FLAGS.livewireStarted] = true
 
   assert.equal(shouldStartLivewireRuntime({ livewire, alpine, globals }), false)
+
+  globals[POOF_BOOT_FLAGS.livewireStarted] = false
+  globals[POOF_BOOT_FLAGS.livewireStarting] = true
+  assert.equal(shouldStartLivewireRuntime({ livewire, alpine, globals }), false)
   assert.deepEqual(evaluateLivewireRuntimeBoot({ livewire, alpine, globals }), {
     allowed: false,
     reason: 'duplicate_guarded',
@@ -66,6 +70,10 @@ test('standalone alpine startup guard does not run when livewire config exists a
 
   assert.equal(shouldStartStandaloneAlpine({ alpine, globals }), true)
   globals[POOF_BOOT_FLAGS.alpineStarted] = true
+  assert.equal(shouldStartStandaloneAlpine({ alpine, globals }), false)
+
+  globals[POOF_BOOT_FLAGS.alpineStarted] = false
+  globals[POOF_BOOT_FLAGS.alpineStarting] = true
   assert.equal(shouldStartStandaloneAlpine({ alpine, globals }), false)
   assert.deepEqual(evaluateStandaloneAlpineBoot({ alpine, globals }), {
     allowed: false,
@@ -98,7 +106,9 @@ test('app entry isolates standalone alpine boot from livewire-bundled alpine pat
   const appScript = fs.readFileSync('resources/js/app.js', 'utf8')
 
   assert.equal(appScript.includes('LivewireAlpine'), false)
-  assert.equal(appScript.includes("if (!livewire && hasLivewireConfig) {"), true)
-  assert.equal(appScript.includes("standaloneAlpinePromise = import('alpinejs')"), true)
-  assert.equal(appScript.includes("if (shouldBootStandaloneAlpine({ hasLivewireConfig })) {"), true)
+  assert.equal(appScript.includes("if (!livewire || !alpine) {"), true)
+  assert.equal(appScript.includes("import Alpine from 'alpinejs'"), true)
+  assert.equal(appScript.includes("if (!hasLivewireConfig && shouldBootStandaloneAlpine({ hasLivewireConfig })) {"), true)
+  assert.equal(appScript.includes('window.Alpine = window.Alpine ?? Alpine'), true)
+  assert.equal(appScript.includes('window.Alpine ?? LivewireAlpine ?? Alpine'), false)
 })
