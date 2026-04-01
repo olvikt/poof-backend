@@ -9,6 +9,21 @@
         Мої замовлення
     </h1>
 
+    @if($paymentStatus === 'success')
+        <div class="mb-4 rounded-lg border border-green-400/40 bg-green-500/10 px-4 py-3 text-sm text-green-300">
+            Оплату успішно підтверджено
+            @if($paymentOrderId)
+                для замовлення #{{ $paymentOrderId }}.
+            @else
+                .
+            @endif
+        </div>
+    @elseif($paymentStatus === 'failed')
+        <div class="mb-4 rounded-lg border border-red-400/40 bg-red-500/10 px-4 py-3 text-sm text-red-300">
+            Платіж не був підтверджений. Спробуйте ще раз.
+        </div>
+    @endif
+
     {{-- TABS --}}
     <div class="flex gap-2 mb-6">
         <button

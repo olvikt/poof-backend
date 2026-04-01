@@ -11,10 +11,12 @@ use Illuminate\Support\Facades\Log;
 
 class WayForPayReturnController extends Controller
 {
+    public const LOGIN_FALLBACK_NEXT_COOKIE = 'poof_payment_return_next';
+
     public function __invoke(Request $request): RedirectResponse
     {
         $transactionStatus = strtolower((string) $request->input('transactionStatus', ''));
-        $orderReference = (string) $request->input('orderReference', '');
+        $orderReference = trim((string) $request->input('orderReference', ''));
 
         $isApproved = $transactionStatus === 'approved';
 
@@ -26,12 +28,7 @@ class WayForPayReturnController extends Controller
             $target = route('client.orders');
         }
 
-        $separator = str_contains($target, '?') ? '&' : '?';
-
-        $destination = $target.$separator.http_build_query([
-            'payment' => $isApproved ? 'success' : 'failed',
-            'source' => 'wayforpay_return',
-        ]);
+        $destination = $this->appendPaymentStateToTarget($target, $isApproved, $orderReference);
 
         Log::info('WayForPay return endpoint visited.', [
             'event' => 'wayforpay_return_visited',
@@ -53,12 +50,38 @@ class WayForPayReturnController extends Controller
             return redirect('/login?'.http_build_query([
                 'next' => $destination,
                 'source' => 'wayforpay_return',
-            ]));
+            ]))->cookie(cookie(
+                self::LOGIN_FALLBACK_NEXT_COOKIE,
+                $destination,
+                15,
+                '/',
+                null,
+                $request->isSecure(),
+                true,
+                false,
+                'lax'
+            ));
         }
 
         return str_starts_with($destination, '/')
             ? redirect($destination)
             : redirect()->away($destination);
+    }
+
+    private function appendPaymentStateToTarget(string $target, bool $isApproved, string $orderReference): string
+    {
+        $separator = str_contains($target, '?') ? '&' : '?';
+
+        $query = [
+            'payment' => $isApproved ? 'success' : 'failed',
+            'source' => 'wayforpay_return',
+        ];
+
+        if ($orderReference !== '' && ctype_digit($orderReference)) {
+            $query['order'] = $orderReference;
+        }
+
+        return $target.$separator.http_build_query($query);
     }
 
     private function isAllowedRedirectTarget(string $url): bool

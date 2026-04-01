@@ -2,6 +2,7 @@
 
 namespace Tests\Feature\Payments;
 
+use App\Http\Controllers\Client\Payments\WayForPayReturnController;
 use App\Models\Order;
 use App\Models\User;
 use App\Services\Payments\WayForPay\WayForPaySignature;
@@ -20,11 +21,12 @@ class WayForPayReturnFlowTest extends TestCase
 
         $response = $this->post('/payments/wayforpay/return', [
             'transactionStatus' => 'Approved',
+            'orderReference' => '42',
         ]);
 
         $response
             ->assertStatus(302)
-            ->assertRedirect('/login?next=%2Fclient%2Forders%3Fpayment%3Dsuccess%26source%3Dwayforpay_return&source=wayforpay_return');
+            ->assertRedirect('/login?next=%2Fclient%2Forders%3Fpayment%3Dsuccess%26source%3Dwayforpay_return%26order%3D42&source=wayforpay_return');
     }
 
     public function test_wayforpay_return_accepts_get_and_redirects(): void
@@ -51,11 +53,44 @@ class WayForPayReturnFlowTest extends TestCase
 
         $response = $this->actingAs($user)->post('/payments/wayforpay/return', [
             'transactionStatus' => 'Approved',
+            'orderReference' => '77',
         ]);
 
         $response
             ->assertStatus(302)
-            ->assertRedirect('/client/orders?payment=success&source=wayforpay_return');
+            ->assertRedirect('/client/orders?payment=success&source=wayforpay_return&order=77');
+    }
+
+    public function test_authenticated_client_success_return_stays_in_session_and_sees_payment_success_context(): void
+    {
+        config()->set('payments.wayforpay.approved_url', '/client/orders');
+
+        $client = User::factory()->create([
+            'role' => User::ROLE_CLIENT,
+            'is_active' => true,
+        ]);
+
+        $order = Order::createForTesting([
+            'client_id' => $client->id,
+            'status' => Order::STATUS_NEW,
+            'payment_status' => Order::PAY_PAID,
+            'address_text' => 'вул. Success Path, 1',
+            'price' => 100,
+        ]);
+
+        $returnResponse = $this->actingAs($client)->post('/payments/wayforpay/return', [
+            'transactionStatus' => 'Approved',
+            'orderReference' => (string) $order->id,
+        ]);
+
+        $returnResponse
+            ->assertStatus(302)
+            ->assertRedirect('/client/orders?payment=success&source=wayforpay_return&order='.$order->id);
+
+        $this->get('/client/orders?payment=success&source=wayforpay_return&order='.$order->id)
+            ->assertOk()
+            ->assertSee('Оплату успішно підтверджено', false)
+            ->assertSee('#'.$order->id, false);
     }
 
     public function test_wayforpay_return_does_not_mark_order_as_paid(): void
@@ -321,13 +356,46 @@ class WayForPayReturnFlowTest extends TestCase
         $this->post('/payments/wayforpay/return', [
             'transactionStatus' => 'Approved',
             'orderReference' => '12345',
-        ])->assertRedirect('/login?next=%2Fclient%2Forders%3Fpayment%3Dsuccess%26source%3Dwayforpay_return&source=wayforpay_return');
+        ])->assertRedirect('/login?next=%2Fclient%2Forders%3Fpayment%3Dsuccess%26source%3Dwayforpay_return%26order%3D12345&source=wayforpay_return');
 
         Log::shouldHaveReceived('warning')->withArgs(function (string $message, array $context): bool {
             return $message === 'WayForPay return handled without active session; redirecting to login.'
                 && ($context['event'] ?? null) === 'wayforpay_return_without_session'
                 && ($context['order_reference'] ?? null) === '12345';
         });
+    }
+
+    public function test_session_loss_after_return_redirects_to_login_and_then_back_to_order_after_login(): void
+    {
+        config()->set('payments.wayforpay.approved_url', '/client/orders');
+
+        $client = User::factory()->create([
+            'role' => User::ROLE_CLIENT,
+            'is_active' => true,
+            'password' => bcrypt('top-secret-pass'),
+        ]);
+
+        $order = Order::createForTesting([
+            'client_id' => $client->id,
+            'status' => Order::STATUS_NEW,
+            'payment_status' => Order::PAY_PAID,
+            'address_text' => 'вул. Recovery, 1',
+            'price' => 100,
+        ]);
+
+        $next = '/client/orders?payment=success&source=wayforpay_return&order='.$order->id;
+
+        $this->post('/payments/wayforpay/return', [
+            'transactionStatus' => 'Approved',
+            'orderReference' => (string) $order->id,
+        ])
+            ->assertRedirect('/login?next='.urlencode($next).'&source=wayforpay_return')
+            ->assertCookie(WayForPayReturnController::LOGIN_FALLBACK_NEXT_COOKIE, $next);
+
+        $this->post('/login', [
+            'login' => $client->email,
+            'password' => 'top-secret-pass',
+        ])->assertRedirect($next);
     }
 
     /**

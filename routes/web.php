@@ -96,17 +96,21 @@ Route::post('/login', function (Request $request) {
 
     /** @var User $user */
     $user = auth()->user();
-    $next = RoleEntrypoint::normalizeNextWithinRoleSpace($request->string('next')->toString(), (string) $user->role);
+    $nextFromRequest = $request->string('next')->toString();
+    $nextFromFallbackCookie = (string) $request->cookie(WayForPayReturnController::LOGIN_FALLBACK_NEXT_COOKIE, '');
 
-    if ($next !== null) {
-        return redirect($next);
-    }
+    $next = RoleEntrypoint::normalizeNextWithinRoleSpace($nextFromRequest, (string) $user->role)
+        ?? RoleEntrypoint::normalizeNextWithinRoleSpace($nextFromFallbackCookie, (string) $user->role);
 
-    return match (true) {
+    $redirect = $next !== null
+        ? redirect($next)
+        : match (true) {
         $user->isAdmin() => redirect('/admin'),
         $user->isCourier() => redirect()->route('courier.home'),
         default => redirect()->route('client.home'),
     };
+
+    return $redirect->withoutCookie(WayForPayReturnController::LOGIN_FALLBACK_NEXT_COOKIE);
 })->name('login.post');
 
 Route::post('/logout', function (Request $request) {
