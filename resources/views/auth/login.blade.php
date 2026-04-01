@@ -1,5 +1,6 @@
 <x-layouts.auth>
     @php($courierRegisterUrl = 'https://courier.poof.com.ua/register')
+    @php($clientRegisterUrl = 'https://app.poof.com.ua/register')
 
     <div class="min-h-[100dvh] flex flex-col justify-center items-center px-4 overflow-hidden">
         <x-auth.logo />
@@ -43,7 +44,7 @@
             <div class="mt-4 rounded-xl border border-white/10 bg-white/5 p-4 text-sm text-gray-300">
                 @if (($entrypoint ?? 'client') === 'courier')
                     Потрібен клієнтський акаунт?
-                    <a href="{{ $courierRegisterUrl }}" class="font-semibold text-yellow-400">Клієнтська реєстрація</a>
+                    <a href="{{ $clientRegisterUrl }}" class="font-semibold text-yellow-400">Клієнтська реєстрація</a>
                 @else
                     Хочете стати курʼєром?
                     <a href="{{ $courierRegisterUrl }}" class="font-semibold text-yellow-400">Курʼєрська реєстрація</a>

@@ -1,5 +1,6 @@
 <x-layouts.auth>
     @php($courierRegisterUrl = 'https://courier.poof.com.ua/register')
+    @php($clientRegisterUrl = 'https://app.poof.com.ua/register')
 
     <div class="min-h-[100dvh] flex flex-col items-center px-4 pt-12 pb-12">
         <x-auth.logo />
@@ -93,7 +94,7 @@
             <div class="mt-4 rounded-xl border border-white/10 bg-white/5 p-4 text-sm text-gray-300">
                 @if ($defaultRole === 'courier')
                     Хочете стати клієнтом?
-                    <a href="{{ route('register') }}" class="font-semibold text-yellow-400">Перейти до клієнтської реєстрації</a>
+                    <a href="{{ $clientRegisterUrl }}" class="font-semibold text-yellow-400">Перейти до клієнтської реєстрації</a>
                 @else
                     Хочете стати курʼєром?
                     <a href="{{ $courierRegisterUrl }}" class="font-semibold text-yellow-400">Перейти до курʼєрської реєстрації</a>
