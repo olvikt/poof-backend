@@ -1,0 +1,5 @@
+- PR #456
+- Avoid session loss on WayForPay cross-site return
+- Add same-site finalize hop before auth decision
+- Preserve fallback redirect after login only for real session loss
+- Add structured diagnostics for payment return/finalize flow
