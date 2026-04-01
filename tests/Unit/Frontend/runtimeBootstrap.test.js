@@ -1,5 +1,6 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
+import fs from 'node:fs'
 
 import {
   emitUiRuntimeMarker,
@@ -50,6 +51,10 @@ test('livewire startup guard blocks duplicate boot and only allows a single vali
   globals[POOF_BOOT_FLAGS.livewireStarted] = true
 
   assert.equal(shouldStartLivewireRuntime({ livewire, alpine, globals }), false)
+
+  globals[POOF_BOOT_FLAGS.livewireStarted] = false
+  globals[POOF_BOOT_FLAGS.livewireStarting] = true
+  assert.equal(shouldStartLivewireRuntime({ livewire, alpine, globals }), false)
   assert.deepEqual(evaluateLivewireRuntimeBoot({ livewire, alpine, globals }), {
     allowed: false,
     reason: 'duplicate_guarded',
@@ -65,6 +70,10 @@ test('standalone alpine startup guard does not run when livewire config exists a
 
   assert.equal(shouldStartStandaloneAlpine({ alpine, globals }), true)
   globals[POOF_BOOT_FLAGS.alpineStarted] = true
+  assert.equal(shouldStartStandaloneAlpine({ alpine, globals }), false)
+
+  globals[POOF_BOOT_FLAGS.alpineStarted] = false
+  globals[POOF_BOOT_FLAGS.alpineStarting] = true
   assert.equal(shouldStartStandaloneAlpine({ alpine, globals }), false)
   assert.deepEqual(evaluateStandaloneAlpineBoot({ alpine, globals }), {
     allowed: false,
@@ -90,4 +99,16 @@ test('ui runtime marker emits structured event payload without requiring diagnos
   assert.equal(detail.event, 'ui_runtime_bootstrap_skipped')
   assert.equal(detail.level, 'info')
   assert.equal(captured?.context?.reason, 'duplicate_guarded')
+})
+
+
+test('app entry isolates standalone alpine boot from livewire-bundled alpine path', () => {
+  const appScript = fs.readFileSync('resources/js/app.js', 'utf8')
+
+  assert.equal(appScript.includes('LivewireAlpine'), false)
+  assert.equal(appScript.includes("if (!livewire || !alpine) {"), true)
+  assert.equal(appScript.includes("import Alpine from 'alpinejs'"), true)
+  assert.equal(appScript.includes("if (!hasLivewireConfig && shouldBootStandaloneAlpine({ hasLivewireConfig })) {"), true)
+  assert.equal(appScript.includes('window.Alpine = window.Alpine ?? Alpine'), true)
+  assert.equal(appScript.includes('window.Alpine ?? LivewireAlpine ?? Alpine'), false)
 })

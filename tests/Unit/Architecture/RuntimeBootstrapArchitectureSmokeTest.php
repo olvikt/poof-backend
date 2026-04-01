@@ -17,10 +17,10 @@ class RuntimeBootstrapArchitectureSmokeTest extends TestCase
         $this->assertNotFalse($mapScript);
 
         // Livewire / Alpine startup entrypoints.
-        $this->assertStringContainsString('bootReactiveRuntime()', $appScript);
-        $this->assertStringContainsString("document.addEventListener('livewire:init', bootReactiveRuntime)", $appScript);
-        $this->assertStringContainsString('shouldStartLivewireRuntime({ livewire, alpine, globals: window })', $appScript);
-        $this->assertStringContainsString('shouldStartStandaloneAlpine({ alpine: window.Alpine, globals: window })', $appScript);
+        $this->assertStringContainsString('void bootReactiveRuntime()', $appScript);
+        $this->assertStringContainsString("document.addEventListener('livewire:init', () => {", $appScript);
+        $this->assertStringContainsString('const livewireBoot = evaluateLivewireRuntimeBoot({ livewire, alpine, globals: window })', $appScript);
+        $this->assertStringContainsString('const standaloneBoot = evaluateStandaloneAlpineBoot({ alpine: window.Alpine, globals: window })', $appScript);
 
         // Shared registration boundary.
         $this->assertStringContainsString('registerSharedAlpineComponents(instance, sharedAlpineComponents)', $appScript);
@@ -49,14 +49,19 @@ class RuntimeBootstrapArchitectureSmokeTest extends TestCase
         // Single valid boot path + duplicate guards.
         $this->assertStringContainsString("livewireStarted: '__poofLivewireStarted'", $runtimeBootstrapScript);
         $this->assertStringContainsString("alpineStarted: '__poofAlpineStarted'", $runtimeBootstrapScript);
+        $this->assertStringContainsString("livewireStarting: '__poofLivewireStarting'", $runtimeBootstrapScript);
+        $this->assertStringContainsString("alpineStarting: '__poofAlpineStarting'", $runtimeBootstrapScript);
         $this->assertStringContainsString('if (!instance || instance.__poofComponentsRegistered) return false', $runtimeBootstrapScript);
         $this->assertStringContainsString('instance.__poofComponentsRegistered = true', $runtimeBootstrapScript);
-        $this->assertStringContainsString('if (shouldStartLivewireRuntime({ livewire, alpine, globals: window })) {', $appScript);
         $this->assertStringContainsString('window[POOF_BOOT_FLAGS.livewireStarted] = true', $appScript);
-        $this->assertStringContainsString('if (shouldStartStandaloneAlpine({ alpine: window.Alpine, globals: window })) {', $appScript);
         $this->assertStringContainsString('window[POOF_BOOT_FLAGS.alpineStarted] = true', $appScript);
-        $this->assertStringNotContainsString("import Alpine from 'alpinejs'", $appScript);
-        $this->assertStringContainsString('const alpine = window.Alpine ?? LivewireAlpine ?? null', $appScript);
+        $this->assertStringContainsString('if (!livewire || !alpine) {', $appScript);
+        $this->assertStringContainsString("livewireRuntimePromise = import('../../vendor/livewire/livewire/dist/livewire.esm')", $appScript);
+        $this->assertStringContainsString("import Alpine from 'alpinejs'", $appScript);
+        $this->assertStringContainsString('if (!hasLivewireConfig && shouldBootStandaloneAlpine({ hasLivewireConfig })) {', $appScript);
+        $this->assertStringContainsString('window.Alpine = window.Alpine ?? Alpine', $appScript);
+        $this->assertStringNotContainsString('LivewireAlpine', $appScript);
+        $this->assertStringNotContainsString('window.Alpine ?? LivewireAlpine ?? Alpine', $appScript);
 
         // Single map runtime instance path (no hidden dual map instances per same element).
         $this->assertStringContainsString('if (state.instance && state.el === el) {', $mapScript);

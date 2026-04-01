@@ -1,5 +1,5 @@
 import './bootstrap'
-import { Livewire, Alpine as LivewireAlpine } from '../../vendor/livewire/livewire/dist/livewire.esm'
+import Alpine from 'alpinejs'
 import poofTimeCarousel from './poof/carousel'
 import addressAutocomplete from './address-autocomplete'
 import {
@@ -16,11 +16,21 @@ const sharedAlpineComponents = {
   addressAutocomplete,
 }
 
+let livewireRuntimePromise = null
+
+async function loadLivewireRuntime() {
+  if (!livewireRuntimePromise) {
+    livewireRuntimePromise = import('../../vendor/livewire/livewire/dist/livewire.esm')
+  }
+
+  return livewireRuntimePromise
+}
+
 export function registerAlpineComponents(instance) {
   return registerSharedAlpineComponents(instance, sharedAlpineComponents)
 }
 
-export function bootReactiveRuntime() {
+export async function bootReactiveRuntime() {
   const runtimeDiagnostics = String(import.meta?.env?.VITE_MAP_RUNTIME_DIAGNOSTICS || '').toLowerCase() === 'true'
   emitUiRuntimeMarker('ui_runtime_bootstrap_started', {
     source: 'resources/js/app.js',
@@ -28,42 +38,22 @@ export function bootReactiveRuntime() {
     hasAlpine: Boolean(window.Alpine),
   }, { globals: window, diagnostics: runtimeDiagnostics })
 
-  const livewire = window.Livewire ?? Livewire ?? null
-  // Canonical Alpine runtime path: reuse existing window.Alpine first, then Livewire-bundled Alpine.
-  // Avoid importing an additional Alpine instance in this entrypoint to prevent duplicate plugin init ($persist).
-  const alpine = window.Alpine ?? LivewireAlpine ?? null
-
-  if (livewire && alpine) {
-    window.Livewire = livewire
-    window.Alpine = alpine
-    registerAlpineComponents(alpine)
-    const livewireBoot = evaluateLivewireRuntimeBoot({ livewire, alpine, globals: window })
-    if (livewireBoot.allowed) {
-      livewire.start()
-      window[POOF_BOOT_FLAGS.livewireStarted] = true
-      emitUiRuntimeMarker('ui_runtime_bootstrap_livewire_started', {
-        source: 'livewire',
-      }, { globals: window, diagnostics: runtimeDiagnostics })
-    } else if (livewireBoot.reason === 'duplicate_guarded') {
-      emitUiRuntimeMarker('ui_runtime_bootstrap_skipped', {
-        source: 'livewire',
-        reason: livewireBoot.reason,
-      }, { globals: window, diagnostics: runtimeDiagnostics })
-    }
-
-    return
-  }
-
   const hasLivewireConfig = Boolean(window.livewireScriptConfig)
 
-  // Standalone Alpine pages (without Livewire runtime config)
-  if (shouldBootStandaloneAlpine({ hasLivewireConfig })) {
-    window.Alpine = alpine
+  if (!hasLivewireConfig && shouldBootStandaloneAlpine({ hasLivewireConfig })) {
+    window.Alpine = window.Alpine ?? Alpine
     registerAlpineComponents(window.Alpine)
+
     const standaloneBoot = evaluateStandaloneAlpineBoot({ alpine: window.Alpine, globals: window })
     if (standaloneBoot.allowed) {
-      window.Alpine.start()
-      window[POOF_BOOT_FLAGS.alpineStarted] = true
+      window[POOF_BOOT_FLAGS.alpineStarting] = true
+      try {
+        window.Alpine.start()
+        window[POOF_BOOT_FLAGS.alpineStarted] = true
+      } finally {
+        window[POOF_BOOT_FLAGS.alpineStarting] = false
+      }
+
       emitUiRuntimeMarker('ui_runtime_bootstrap_alpine_started', {
         source: 'standalone_alpine',
       }, { globals: window, diagnostics: runtimeDiagnostics })
@@ -73,11 +63,57 @@ export function bootReactiveRuntime() {
         reason: standaloneBoot.reason,
       }, { globals: window, diagnostics: runtimeDiagnostics })
     }
+
+    return
+  }
+
+  let livewire = window.Livewire ?? null
+  let alpine = window.Alpine ?? null
+
+  if (!livewire || !alpine) {
+    const livewireRuntime = await loadLivewireRuntime()
+    livewire = livewire ?? livewireRuntime?.Livewire ?? null
+    alpine = alpine ?? livewireRuntime?.Alpine ?? null
+  }
+
+  if (!livewire || !alpine) {
+    emitUiRuntimeMarker('ui_runtime_bootstrap_skipped', {
+      source: 'livewire',
+      reason: 'missing_runtime_dependencies',
+      level: 'warn',
+    }, { globals: window, diagnostics: runtimeDiagnostics })
+    return
+  }
+
+  window.Livewire = livewire
+  window.Alpine = alpine
+  registerAlpineComponents(alpine)
+
+  const livewireBoot = evaluateLivewireRuntimeBoot({ livewire, alpine, globals: window })
+  if (livewireBoot.allowed) {
+    window[POOF_BOOT_FLAGS.livewireStarting] = true
+    try {
+      livewire.start()
+      window[POOF_BOOT_FLAGS.livewireStarted] = true
+    } finally {
+      window[POOF_BOOT_FLAGS.livewireStarting] = false
+    }
+
+    emitUiRuntimeMarker('ui_runtime_bootstrap_livewire_started', {
+      source: 'livewire',
+    }, { globals: window, diagnostics: runtimeDiagnostics })
+  } else if (livewireBoot.reason === 'duplicate_guarded') {
+    emitUiRuntimeMarker('ui_runtime_bootstrap_skipped', {
+      source: 'livewire',
+      reason: livewireBoot.reason,
+    }, { globals: window, diagnostics: runtimeDiagnostics })
   }
 }
 
-bootReactiveRuntime()
-document.addEventListener('livewire:init', bootReactiveRuntime)
+void bootReactiveRuntime()
+document.addEventListener('livewire:init', () => {
+  void bootReactiveRuntime()
+})
 
 // CSS
 import '../css/app.css'
