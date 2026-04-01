@@ -9,10 +9,12 @@ class RuntimeBootstrapArchitectureSmokeTest extends TestCase
     public function test_runtime_bootstrap_entry_points_are_explicitly_pinned(): void
     {
         $appScript = file_get_contents(resource_path('js/app.js'));
+        $authScript = file_get_contents(resource_path('js/auth.js'));
         $orderCreateScript = file_get_contents(resource_path('js/poof/order-create.js'));
         $mapScript = file_get_contents(resource_path('js/poof/map.js'));
 
         $this->assertNotFalse($appScript);
+        $this->assertNotFalse($authScript);
         $this->assertNotFalse($orderCreateScript);
         $this->assertNotFalse($mapScript);
 
@@ -21,6 +23,14 @@ class RuntimeBootstrapArchitectureSmokeTest extends TestCase
         $this->assertStringContainsString("document.addEventListener('livewire:init', () => {", $appScript);
         $this->assertStringContainsString('const livewireBoot = evaluateLivewireRuntimeBoot({ livewire, alpine, globals: window })', $appScript);
         $this->assertStringContainsString('const standaloneBoot = evaluateStandaloneAlpineBoot({ alpine: window.Alpine, globals: window })', $appScript);
+        $this->assertStringContainsString('const runtimeBoot = beginRuntimeBoot({ globals: window })', $appScript);
+        $this->assertStringContainsString('const runtimeMode = lockRuntimeMode(POOF_RUNTIME_MODE.standalone, { globals: window })', $appScript);
+        $this->assertStringContainsString('const runtimeMode = lockRuntimeMode(POOF_RUNTIME_MODE.livewire, { globals: window })', $appScript);
+        $this->assertStringContainsString('if (runtimeBootPromise) {', $appScript);
+        $this->assertStringContainsString("document.addEventListener('livewire:init', () => {", $appScript);
+        $this->assertStringContainsString("}, { once: true })", $appScript);
+        $this->assertStringContainsString('const runtimeMode = lockRuntimeMode(POOF_RUNTIME_MODE.standalone, { globals: window })', $authScript);
+        $this->assertStringContainsString('const standaloneBoot = evaluateStandaloneAlpineBoot({ alpine: window.Alpine, globals: window })', $authScript);
 
         // Shared registration boundary.
         $this->assertStringContainsString('registerSharedAlpineComponents(instance, sharedAlpineComponents)', $appScript);
@@ -51,6 +61,12 @@ class RuntimeBootstrapArchitectureSmokeTest extends TestCase
         $this->assertStringContainsString("alpineStarted: '__poofAlpineStarted'", $runtimeBootstrapScript);
         $this->assertStringContainsString("livewireStarting: '__poofLivewireStarting'", $runtimeBootstrapScript);
         $this->assertStringContainsString("alpineStarting: '__poofAlpineStarting'", $runtimeBootstrapScript);
+        $this->assertStringContainsString("runtimeMode: '__poofRuntimeMode'", $runtimeBootstrapScript);
+        $this->assertStringContainsString("runtimeBooting: '__poofRuntimeBooting'", $runtimeBootstrapScript);
+        $this->assertStringContainsString("livewire: 'livewire'", $runtimeBootstrapScript);
+        $this->assertStringContainsString("standalone: 'standalone'", $runtimeBootstrapScript);
+        $this->assertStringContainsString("return { allowed: false, reason: 'mode_conflict', mode: currentMode }", $runtimeBootstrapScript);
+        $this->assertStringContainsString("return { allowed: false, reason: 'reentrant_guarded' }", $runtimeBootstrapScript);
         $this->assertStringContainsString('if (!instance || instance.__poofComponentsRegistered) return false', $runtimeBootstrapScript);
         $this->assertStringContainsString('instance.__poofComponentsRegistered = true', $runtimeBootstrapScript);
         $this->assertStringContainsString('window[POOF_BOOT_FLAGS.livewireStarted] = true', $appScript);

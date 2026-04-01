@@ -3,10 +3,14 @@ import assert from 'node:assert/strict'
 import fs from 'node:fs'
 
 import {
+  beginRuntimeBoot,
+  endRuntimeBoot,
   emitUiRuntimeMarker,
   evaluateLivewireRuntimeBoot,
   evaluateStandaloneAlpineBoot,
+  lockRuntimeMode,
   POOF_BOOT_FLAGS,
+  POOF_RUNTIME_MODE,
   POOF_RUNTIME_MARKER_EVENT,
   registerSharedAlpineComponents,
   shouldBootStandaloneAlpine,
@@ -81,6 +85,41 @@ test('standalone alpine startup guard does not run when livewire config exists a
   })
 })
 
+test('runtime mode lock is mutually exclusive between standalone and livewire boot paths', () => {
+  const globals = {}
+
+  assert.deepEqual(lockRuntimeMode(POOF_RUNTIME_MODE.standalone, { globals }), {
+    allowed: true,
+    reason: 'locked',
+    mode: POOF_RUNTIME_MODE.standalone,
+  })
+  assert.deepEqual(lockRuntimeMode(POOF_RUNTIME_MODE.livewire, { globals }), {
+    allowed: false,
+    reason: 'mode_conflict',
+    mode: POOF_RUNTIME_MODE.standalone,
+  })
+})
+
+test('runtime boot lock prevents re-entrant bootstrap execution in the same cycle', () => {
+  const globals = {}
+
+  assert.deepEqual(beginRuntimeBoot({ globals }), {
+    allowed: true,
+    reason: 'ready',
+  })
+  assert.deepEqual(beginRuntimeBoot({ globals }), {
+    allowed: false,
+    reason: 'reentrant_guarded',
+  })
+
+  endRuntimeBoot({ globals })
+
+  assert.deepEqual(beginRuntimeBoot({ globals }), {
+    allowed: true,
+    reason: 'ready',
+  })
+})
+
 test('ui runtime marker emits structured event payload without requiring diagnostics console noise', () => {
   let captured = null
   const globals = {
@@ -109,6 +148,9 @@ test('app entry isolates standalone alpine boot from livewire-bundled alpine pat
   assert.equal(appScript.includes("if (!livewire || !alpine) {"), true)
   assert.equal(appScript.includes("import Alpine from 'alpinejs'"), true)
   assert.equal(appScript.includes("if (!hasLivewireConfig && shouldBootStandaloneAlpine({ hasLivewireConfig })) {"), true)
+  assert.equal(appScript.includes('const runtimeMode = lockRuntimeMode(POOF_RUNTIME_MODE.standalone, { globals: window })'), true)
+  assert.equal(appScript.includes('const runtimeBoot = beginRuntimeBoot({ globals: window })'), true)
   assert.equal(appScript.includes('window.Alpine = window.Alpine ?? Alpine'), true)
+  assert.equal(appScript.includes("}, { once: true })"), true)
   assert.equal(appScript.includes('window.Alpine ?? LivewireAlpine ?? Alpine'), false)
 })

@@ -3,10 +3,14 @@ import Alpine from 'alpinejs'
 import poofTimeCarousel from './poof/carousel'
 import addressAutocomplete from './address-autocomplete'
 import {
+  beginRuntimeBoot,
+  endRuntimeBoot,
   emitUiRuntimeMarker,
   evaluateLivewireRuntimeBoot,
   evaluateStandaloneAlpineBoot,
+  lockRuntimeMode,
   POOF_BOOT_FLAGS,
+  POOF_RUNTIME_MODE,
   registerSharedAlpineComponents,
   shouldBootStandaloneAlpine,
 } from './poof/runtime-bootstrap'
@@ -17,6 +21,7 @@ const sharedAlpineComponents = {
 }
 
 let livewireRuntimePromise = null
+let runtimeBootPromise = null
 
 async function loadLivewireRuntime() {
   if (!livewireRuntimePromise) {
@@ -31,6 +36,11 @@ export function registerAlpineComponents(instance) {
 }
 
 export async function bootReactiveRuntime() {
+  if (runtimeBootPromise) {
+    return runtimeBootPromise
+  }
+
+  runtimeBootPromise = (async () => {
   const runtimeDiagnostics = String(import.meta?.env?.VITE_MAP_RUNTIME_DIAGNOSTICS || '').toLowerCase() === 'true'
   emitUiRuntimeMarker('ui_runtime_bootstrap_started', {
     source: 'resources/js/app.js',
@@ -38,9 +48,28 @@ export async function bootReactiveRuntime() {
     hasAlpine: Boolean(window.Alpine),
   }, { globals: window, diagnostics: runtimeDiagnostics })
 
+  const runtimeBoot = beginRuntimeBoot({ globals: window })
+  if (!runtimeBoot.allowed) {
+    emitUiRuntimeMarker('ui_runtime_bootstrap_skipped', {
+      source: 'resources/js/app.js',
+      reason: runtimeBoot.reason,
+    }, { globals: window, diagnostics: runtimeDiagnostics })
+    return
+  }
+
+  try {
   const hasLivewireConfig = Boolean(window.livewireScriptConfig)
 
   if (!hasLivewireConfig && shouldBootStandaloneAlpine({ hasLivewireConfig })) {
+    const runtimeMode = lockRuntimeMode(POOF_RUNTIME_MODE.standalone, { globals: window })
+    if (!runtimeMode.allowed) {
+      emitUiRuntimeMarker('ui_runtime_bootstrap_skipped', {
+        source: 'standalone_alpine',
+        reason: runtimeMode.reason,
+      }, { globals: window, diagnostics: runtimeDiagnostics })
+      return
+    }
+
     window.Alpine = window.Alpine ?? Alpine
     registerAlpineComponents(window.Alpine)
 
@@ -64,6 +93,15 @@ export async function bootReactiveRuntime() {
       }, { globals: window, diagnostics: runtimeDiagnostics })
     }
 
+    return
+  }
+
+  const runtimeMode = lockRuntimeMode(POOF_RUNTIME_MODE.livewire, { globals: window })
+  if (!runtimeMode.allowed) {
+    emitUiRuntimeMarker('ui_runtime_bootstrap_skipped', {
+      source: 'livewire',
+      reason: runtimeMode.reason,
+    }, { globals: window, diagnostics: runtimeDiagnostics })
     return
   }
 
@@ -106,14 +144,24 @@ export async function bootReactiveRuntime() {
     emitUiRuntimeMarker('ui_runtime_bootstrap_skipped', {
       source: 'livewire',
       reason: livewireBoot.reason,
-    }, { globals: window, diagnostics: runtimeDiagnostics })
+      }, { globals: window, diagnostics: runtimeDiagnostics })
+  }
+  } finally {
+    endRuntimeBoot({ globals: window })
+  }
+  })()
+
+  try {
+    return await runtimeBootPromise
+  } finally {
+    runtimeBootPromise = null
   }
 }
 
 void bootReactiveRuntime()
 document.addEventListener('livewire:init', () => {
   void bootReactiveRuntime()
-})
+}, { once: true })
 
 // CSS
 import '../css/app.css'
