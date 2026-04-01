@@ -3,6 +3,13 @@ export const POOF_BOOT_FLAGS = Object.freeze({
   alpineStarted: '__poofAlpineStarted',
   livewireStarting: '__poofLivewireStarting',
   alpineStarting: '__poofAlpineStarting',
+  runtimeMode: '__poofRuntimeMode',
+  runtimeBooting: '__poofRuntimeBooting',
+})
+
+export const POOF_RUNTIME_MODE = Object.freeze({
+  livewire: 'livewire',
+  standalone: 'standalone',
 })
 
 export const POOF_RUNTIME_MARKER_EVENT = 'poof:ui-runtime-marker'
@@ -44,6 +51,41 @@ export function registerSharedAlpineComponents(instance, components = {}) {
   instance.__poofComponentsRegistered = true
 
   return true
+}
+
+export function getRuntimeMode({ globals = globalThis } = {}) {
+  const mode = globals?.[POOF_BOOT_FLAGS.runtimeMode]
+  return mode === POOF_RUNTIME_MODE.livewire || mode === POOF_RUNTIME_MODE.standalone ? mode : null
+}
+
+export function lockRuntimeMode(mode, { globals = globalThis } = {}) {
+  const normalizedMode = mode === POOF_RUNTIME_MODE.livewire || mode === POOF_RUNTIME_MODE.standalone ? mode : null
+  if (!normalizedMode) {
+    return { allowed: false, reason: 'invalid_mode' }
+  }
+
+  const currentMode = getRuntimeMode({ globals })
+  if (currentMode && currentMode !== normalizedMode) {
+    return { allowed: false, reason: 'mode_conflict', mode: currentMode }
+  }
+
+  globals[POOF_BOOT_FLAGS.runtimeMode] = normalizedMode
+  return { allowed: true, reason: 'locked', mode: normalizedMode }
+}
+
+export function beginRuntimeBoot({ globals = globalThis } = {}) {
+  if (Boolean(globals?.[POOF_BOOT_FLAGS.runtimeBooting])) {
+    return { allowed: false, reason: 'reentrant_guarded' }
+  }
+
+  globals[POOF_BOOT_FLAGS.runtimeBooting] = true
+  return { allowed: true, reason: 'ready' }
+}
+
+export function endRuntimeBoot({ globals = globalThis } = {}) {
+  if (globals) {
+    globals[POOF_BOOT_FLAGS.runtimeBooting] = false
+  }
 }
 
 export function shouldBootStandaloneAlpine({ hasLivewireConfig = false } = {}) {
