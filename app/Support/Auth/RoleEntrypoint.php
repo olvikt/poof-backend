@@ -18,19 +18,19 @@ class RoleEntrypoint
             (string) $request->getHost(),
         ];
 
-        $hasAnyHost = false;
-
         foreach ($hostCandidates as $rawHost) {
-            $host = mb_strtolower(trim(explode(':', explode(',', $rawHost)[0])[0]));
+            $parts = array_filter(array_map('trim', explode(',', $rawHost)));
 
-            if ($host === '') {
-                continue;
-            }
+            foreach ($parts as $part) {
+                $host = mb_strtolower(trim(explode(':', $part)[0]));
 
-            $hasAnyHost = true;
+                if ($host === '') {
+                    continue;
+                }
 
-            if ($host === 'courier.poof.com.ua' || str_starts_with($host, 'courier.')) {
-                return self::ENTRY_COURIER;
+                if ($host === 'courier.poof.com.ua' || str_starts_with($host, 'courier.')) {
+                    return self::ENTRY_COURIER;
+                }
             }
         }
 

@@ -39,7 +39,7 @@ class RegisterTest extends TestCase
     {
         Mail::fake();
 
-        $response = $this->withServerVariables(['HTTP_HOST' => 'courier.poof.com.ua', 'SERVER_NAME' => 'courier.poof.com.ua'])->post('/register', [
+        $response = $this->withServerVariables(['HTTP_HOST' => 'courier.poof.com.ua', 'SERVER_NAME' => 'courier.poof.com.ua', 'HTTP_X_FORWARDED_HOST' => 'courier.poof.com.ua'])->post('/register', [
             'name' => 'Courier User',
             'email' => 'courier@example.com',
             'phone' => '+380502222222',
@@ -76,7 +76,7 @@ class RegisterTest extends TestCase
             $mock->shouldReceive('createCourierProfile')->once()->andThrow(new \RuntimeException('Courier create failed'));
         });
 
-        $response = $this->withServerVariables(['HTTP_HOST' => 'courier.poof.com.ua', 'SERVER_NAME' => 'courier.poof.com.ua'])->post('/register', [
+        $response = $this->withServerVariables(['HTTP_HOST' => 'courier.poof.com.ua', 'SERVER_NAME' => 'courier.poof.com.ua', 'HTTP_X_FORWARDED_HOST' => 'courier.poof.com.ua'])->post('/register', [
             'name' => 'Broken Courier',
             'email' => 'broken-courier@example.com',
             'phone' => '+380504444444',
