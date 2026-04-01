@@ -1,37 +1,33 @@
 <?php
 
-use Illuminate\Support\Facades\Route;
-use Illuminate\Support\Facades\Auth;
-use Illuminate\Http\Request;
-use App\Http\Controllers\Client\Payments\PaymentPageController;
-use App\Http\Controllers\Client\Payments\PaymentStartController;
-use App\Http\Controllers\Client\Payments\DevPaymentController;
-use App\Http\Controllers\Client\Payments\WayForPayReturnController;
 use App\Http\Controllers\Auth\NewPasswordController;
-use App\Http\Controllers\Courier\CourierOrderLifecycleController;
 use App\Http\Controllers\Auth\PasswordResetLinkController;
 use App\Http\Controllers\Auth\RegisterController;
+use App\Http\Controllers\Client\Payments\DevPaymentController;
+use App\Http\Controllers\Client\Payments\PaymentPageController;
+use App\Http\Controllers\Client\Payments\PaymentStartController;
+use App\Http\Controllers\Client\Payments\WayForPayReturnController;
+use App\Http\Controllers\Courier\CourierOrderLifecycleController;
 use App\Http\Controllers\ProfileController;
-use App\Support\Auth\PhoneNormalizer;
-
-// Client Livewire
+use App\Http\Controllers\Pwa\ManifestController;
 use App\Livewire\Client\Home;
 use App\Livewire\Client\OrderCreate;
 use App\Livewire\Client\OrdersList;
 use App\Livewire\Client\Profile;
-
-// Courier Livewire
 use App\Livewire\Courier\AvailableOrders;
 use App\Livewire\Courier\MyOrders;
+use App\Models\User;
+use App\Support\Auth\PhoneNormalizer;
+use App\Support\Auth\RoleEntrypoint;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Route;
 
-/*
-|--------------------------------------------------------------------------
-| Public
-|--------------------------------------------------------------------------
-*/
-
-Route::get('/', fn () => view('welcome'));
-
+Route::get('/', function (Request $request) {
+    return RoleEntrypoint::detect($request) === RoleEntrypoint::ENTRY_COURIER
+        ? view('welcome-courier')
+        : view('welcome');
+});
 
 Route::get('/readyz', function () {
     return response('ok', 200)
@@ -39,22 +35,22 @@ Route::get('/readyz', function () {
         ->header('Cache-Control', 'no-store, no-cache, must-revalidate, max-age=0');
 });
 
+Route::get('/manifest-client.json', [ManifestController::class, 'client'])->name('manifest.client');
+Route::get('/manifest-courier.json', [ManifestController::class, 'courier'])->name('manifest.courier');
 
-/*
-|--------------------------------------------------------------------------
-| Auth
-|--------------------------------------------------------------------------
-| Единый логин для client / courier / admin
-|--------------------------------------------------------------------------
-*/
-
-// 📄 Login form
-Route::get('/login', fn () => view('auth.login'))
+Route::get('/login', fn () => view('auth.login', ['entrypoint' => RoleEntrypoint::ENTRY_CLIENT]))
     ->name('login');
+
+Route::get('/courier/login', fn () => view('auth.login', ['entrypoint' => RoleEntrypoint::ENTRY_COURIER]))
+    ->name('login.courier');
 
 Route::get('/register', [RegisterController::class, 'show'])
     ->middleware('guest')
     ->name('register');
+
+Route::get('/courier/register', [RegisterController::class, 'show'])
+    ->middleware('guest')
+    ->name('courier.register');
 
 Route::view('/forgot-password', 'auth.forgot-password')
     ->middleware('guest')
@@ -76,19 +72,13 @@ Route::view('/verify-email', 'auth.verify-email')
     ->middleware('auth')
     ->name('verification.notice');
 
-Route::get('/courier/register', fn () => redirect()->route('register', ['role' => 'courier']))
-    ->middleware('guest')
-    ->name('courier.register');
-
 Route::post('/register', [RegisterController::class, 'register'])
     ->middleware(['guest', 'throttle:10,1'])
     ->name('register.store');
 
-// 🔐 Login submit
 Route::post('/login', function (Request $request) {
-
     $credentials = $request->validate([
-        'login'    => ['required', 'string', 'max:255'],
+        'login' => ['required', 'string', 'max:255'],
         'password' => ['required'],
     ]);
 
@@ -99,44 +89,35 @@ Route::post('/login', function (Request $request) {
         : PhoneNormalizer::normalize($credentials['login']);
 
     if (! Auth::attempt([$identifier => $loginValue, 'password' => $credentials['password']])) {
-        return back()->withErrors([
-            'login' => 'Невірний email/телефон або пароль',
-        ]);
+        return back()->withErrors(['login' => 'Невірний email/телефон або пароль']);
     }
 
     $request->session()->regenerate();
 
+    /** @var User $user */
     $user = auth()->user();
+    $next = RoleEntrypoint::normalizeNextWithinRoleSpace($request->string('next')->toString(), (string) $user->role);
 
-    // 🔀 Redirect by role
+    if ($next !== null) {
+        return redirect($next);
+    }
+
     return match (true) {
-        $user->isAdmin()   => redirect('/admin'),
-        $user->isCourier() => redirect()->route('courier.orders'),
-        default            => redirect()->route('client.home'),
+        $user->isAdmin() => redirect('/admin'),
+        $user->isCourier() => redirect()->route('courier.home'),
+        default => redirect()->route('client.home'),
     };
-
 })->name('login.post');
 
-
-// 🚪 Logout
 Route::post('/logout', function (Request $request) {
-
     Auth::logout();
-
     $request->session()->invalidate();
     $request->session()->regenerateToken();
 
-    return redirect('/login');
+    $entrypoint = RoleEntrypoint::detect($request);
 
+    return redirect(RoleEntrypoint::loginRouteForEntrypoint($entrypoint));
 })->name('logout');
-
-
-/*
-|--------------------------------------------------------------------------
-| Client area
-|--------------------------------------------------------------------------
-*/
-
 
 Route::match(['GET', 'POST'], '/payments/wayforpay/return', WayForPayReturnController::class)
     ->name('payments.wayforpay.return');
@@ -145,80 +126,33 @@ Route::middleware('auth:web')
     ->prefix('client')
     ->name('client.')
     ->group(function () {
-
-        // 🏠 Home
-        Route::get('/', Home::class)
-            ->name('home');
-
-        // ➕ Create order
-        Route::get('/order/create', OrderCreate::class)
-            ->name('order.create');
-
-        // 📋 My orders
-        Route::get('/orders', OrdersList::class)
-            ->name('orders');
-
-        // 👤 Profile
-        Route::get('/profile', Profile::class)
-            ->name('profile');
-
-        Route::get('/payments/{order}', PaymentPageController::class)
-            ->name('payments.show');
-
-        Route::post('/payments/{order}/start', PaymentStartController::class)
-            ->name('payments.start');
-
-        Route::post('/payments/dev-pay/{order}', DevPaymentController::class)
-            ->name('payments.dev-pay');
+        Route::get('/', Home::class)->name('home');
+        Route::get('/order/create', OrderCreate::class)->name('order.create');
+        Route::get('/orders', OrdersList::class)->name('orders');
+        Route::get('/profile', Profile::class)->name('profile');
+        Route::get('/payments/{order}', PaymentPageController::class)->name('payments.show');
+        Route::post('/payments/{order}/start', PaymentStartController::class)->name('payments.start');
+        Route::post('/payments/dev-pay/{order}', DevPaymentController::class)->name('payments.dev-pay');
     });
 
 Route::middleware('auth:web')
     ->get('/dashboard', fn () => redirect()->route('client.home'))
     ->name('dashboard');
 
-
 Route::middleware('auth')->group(function () {
-    Route::post('/profile/address', [ProfileController::class, 'storeAddress'])
-        ->name('profile.address.store');
-
-    Route::post('/profile/avatar', [ProfileController::class, 'updateAvatar'])
-        ->name('profile.avatar.update');
-
-    Route::post('/profile/update', [ProfileController::class, 'update'])
-        ->name('profile.update');
+    Route::post('/profile/address', [ProfileController::class, 'storeAddress'])->name('profile.address.store');
+    Route::post('/profile/avatar', [ProfileController::class, 'updateAvatar'])->name('profile.avatar.update');
+    Route::post('/profile/update', [ProfileController::class, 'update'])->name('profile.update');
 });
-
-/*
-|--------------------------------------------------------------------------
-| Courier area
-|--------------------------------------------------------------------------
-*/
 
 Route::middleware('auth:web')
     ->prefix('courier')
     ->name('courier.')
     ->group(function () {
-
-        Route::get('/', fn () => redirect()->route('courier.orders'))
-            ->name('home');
-
-        // 📦 Available orders
-        Route::get('/orders', AvailableOrders::class)
-            ->name('orders');
-
-        // 🚴‍♂️ My active orders
-        Route::get('/my-orders', MyOrders::class)
-            ->name('my-orders');
-
-        // ✅ Accept
-        Route::post('/orders/{order}/accept', [CourierOrderLifecycleController::class, 'accept'])
-            ->name('orders.accept');
-
-        // ▶️ Start
-        Route::post('/orders/{order}/start', [CourierOrderLifecycleController::class, 'start'])
-            ->name('orders.start');
-
-        // ✅ Complete
-        Route::post('/orders/{order}/complete', [CourierOrderLifecycleController::class, 'complete'])
-            ->name('orders.complete');
+        Route::get('/', fn () => redirect()->route('courier.orders'))->name('home');
+        Route::get('/orders', AvailableOrders::class)->name('orders');
+        Route::get('/my-orders', MyOrders::class)->name('my-orders');
+        Route::post('/orders/{order}/accept', [CourierOrderLifecycleController::class, 'accept'])->name('orders.accept');
+        Route::post('/orders/{order}/start', [CourierOrderLifecycleController::class, 'start'])->name('orders.start');
+        Route::post('/orders/{order}/complete', [CourierOrderLifecycleController::class, 'complete'])->name('orders.complete');
     });
