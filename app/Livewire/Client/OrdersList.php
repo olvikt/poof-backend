@@ -14,9 +14,17 @@ class OrdersList extends Component
     /** Data */
     public Collection $activeOrders;
     public Collection $historyOrders;
+    public ?string $paymentStatus = null;
+    public ?int $paymentOrderId = null;
 
     public function mount(): void
     {
+        $payment = request()->query('payment');
+        $this->paymentStatus = in_array($payment, ['success', 'failed'], true) ? $payment : null;
+
+        $orderId = request()->query('order');
+        $this->paymentOrderId = is_numeric($orderId) ? (int) $orderId : null;
+
         $this->loadOrders();
     }
 
