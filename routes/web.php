@@ -125,6 +125,8 @@ Route::post('/logout', function (Request $request) {
 
 Route::match(['GET', 'POST'], '/payments/wayforpay/return', WayForPayReturnController::class)
     ->name('payments.wayforpay.return');
+Route::get('/payments/wayforpay/return/finalize', [WayForPayReturnController::class, 'finalize'])
+    ->name('payments.wayforpay.return.finalize');
 
 Route::middleware('auth:web')
     ->prefix('client')

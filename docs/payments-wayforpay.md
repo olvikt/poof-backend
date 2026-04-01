@@ -16,6 +16,7 @@ ASSET_URL=https://app.poof.com.ua
 VITE_API_URL=https://api.poof.com.ua
 SESSION_DOMAIN=.poof.com.ua
 SESSION_SECURE_COOKIE=true
+SESSION_SAME_SITE=lax
 SANCTUM_STATEFUL_DOMAINS=app.poof.com.ua
 
 PAYMENTS_PROVIDER=wayforpay
@@ -73,8 +74,10 @@ WAYFORPAY_PAY_URL=https://secure.wayforpay.com/pay
 - **Return** (`GET|POST /payments/wayforpay/return`) — только пользовательский возврат в UI.
   - Не валидирует callback-подпись.
   - Не меняет `payment_status` заказа.
-  - Лишь безопасно редиректит пользователя на `WAYFORPAY_APPROVED_URL` или `WAYFORPAY_DECLINED_URL`.
-  - Если активной web-сессии нет, user flow уходит на `/login` с `next`-параметром для возврата в закази/результат оплаты после авторизации.
+  - Сначала делает технический переход на same-site endpoint `GET /payments/wayforpay/return/finalize`, и только там проверяет auth/session.
+  - Это устраняет production-кейс, когда cross-site POST return не присылает `laravel_session` (типичное поведение при `SameSite=Lax`) и преждевременно отправляет пользователя на `/login`.
+  - При успешном восстановлении сессии на finalize-step пользователь сразу уходит на `WAYFORPAY_APPROVED_URL`/`WAYFORPAY_DECLINED_URL` без повторного логина.
+  - Если сессия реально утрачена даже после same-site re-entry, flow уходит на `/login` с `next`-параметром и fallback-cookie для автоматического возврата.
 
 ## Диагностика callback в production
 
@@ -88,8 +91,9 @@ WAYFORPAY_PAY_URL=https://secure.wayforpay.com/pay
 - `WayForPay callback received non-success transaction status.` — диагностический warning для `Refunded`, `Declined` и других non-success статусов.
 - `WayForPay duplicate callback ignored: order already paid.` — повторный `Approved` callback на уже оплаченный заказ.
 - `WayForPay callback processed successfully.` — success path, callback обработан.
-- `WayForPay return endpoint visited.` — пользователь вернулся с платёжной страницы.
-- `WayForPay return handled without active session; redirecting to login.` — return без активной сессии, включён degraded UX path через login.
+- `WayForPay return endpoint visited.` — вход на return endpoint (method/host/path/query_keys + флаги наличия session/XSRF cookies + выбранный redirect).
+- `WayForPay return finalize resolved with active session.` — после same-site re-entry сессия валидна, выполнен прямой redirect в orders flow.
+- `WayForPay return finalize handled without active session; redirecting to login.` — даже после same-site re-entry user остался guest, включён fallback через login.
 
 Практический triage:
 
@@ -107,6 +111,7 @@ WAYFORPAY_PAY_URL=https://secure.wayforpay.com/pay
 5. После оплаты проверить:
    - что заказ перешел в `paid` только после callback,
    - что в логах есть `WayForPay callback received.` и `WayForPay callback processed successfully.`,
+   - что в логах return-потока есть `...return_visited` + `...return_finalize_authenticated` для штатного сценария,
    - что return flow возвращает пользователя в UX маршрут (orders/result) и не меняет payment status сам по себе.
 
 ## Manual server steps (выполняются вне репозитория)

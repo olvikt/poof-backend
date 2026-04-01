@@ -24,9 +24,11 @@ class WayForPayReturnFlowTest extends TestCase
             'orderReference' => '42',
         ]);
 
-        $response
-            ->assertStatus(302)
-            ->assertRedirect('/login?next=%2Fclient%2Forders%3Fpayment%3Dsuccess%26source%3Dwayforpay_return%26order%3D42&source=wayforpay_return');
+        $response->assertStatus(302);
+
+        $location = (string) $response->headers->get('Location');
+        $this->assertStringStartsWith('/payments/wayforpay/return/finalize?', $location);
+        $this->assertStringContainsString('next=%2Fclient%2Forders%3Fpayment%3Dsuccess%26source%3Dwayforpay_return%26order%3D42', $location);
     }
 
     public function test_wayforpay_return_accepts_get_and_redirects(): void
@@ -36,9 +38,11 @@ class WayForPayReturnFlowTest extends TestCase
 
         $response = $this->get('/payments/wayforpay/return?transactionStatus=Declined');
 
-        $response
-            ->assertStatus(302)
-            ->assertRedirect('/login?next=%2Fclient%2Forders%3Fpayment%3Dfailed%26source%3Dwayforpay_return&source=wayforpay_return');
+        $response->assertStatus(302);
+
+        $location = (string) $response->headers->get('Location');
+        $this->assertStringStartsWith('/payments/wayforpay/return/finalize?', $location);
+        $this->assertStringContainsString('next=%2Fclient%2Forders%3Fpayment%3Dfailed%26source%3Dwayforpay_return', $location);
     }
 
     public function test_wayforpay_return_for_authenticated_user_redirects_to_orders_without_login(): void
@@ -56,9 +60,27 @@ class WayForPayReturnFlowTest extends TestCase
             'orderReference' => '77',
         ]);
 
-        $response
-            ->assertStatus(302)
-            ->assertRedirect('/client/orders?payment=success&source=wayforpay_return&order=77');
+        $response->assertStatus(302);
+        $this->assertStringStartsWith(
+            '/payments/wayforpay/return/finalize?',
+            (string) $response->headers->get('Location')
+        );
+    }
+
+    public function test_cross_site_style_post_return_does_not_force_immediate_login_redirect(): void
+    {
+        config()->set('payments.wayforpay.approved_url', '/client/orders');
+
+        $response = $this->post('/payments/wayforpay/return', [
+            'transactionStatus' => 'Approved',
+            'orderReference' => '99',
+        ]);
+
+        $response->assertStatus(302);
+
+        $location = (string) $response->headers->get('Location');
+        $this->assertStringStartsWith('/payments/wayforpay/return/finalize?', $location);
+        $this->assertStringNotStartsWith('/login', $location);
     }
 
     public function test_authenticated_client_success_return_stays_in_session_and_sees_payment_success_context(): void
@@ -83,8 +105,12 @@ class WayForPayReturnFlowTest extends TestCase
             'orderReference' => (string) $order->id,
         ]);
 
-        $returnResponse
-            ->assertStatus(302)
+        $returnResponse->assertStatus(302);
+        $finalizeUrl = (string) $returnResponse->headers->get('Location');
+
+        $this->assertStringStartsWith('/payments/wayforpay/return/finalize?', $finalizeUrl);
+
+        $this->actingAs($client)->get($finalizeUrl)
             ->assertRedirect('/client/orders?payment=success&source=wayforpay_return&order='.$order->id);
 
         $this->get('/client/orders?payment=success&source=wayforpay_return&order='.$order->id)
@@ -346,21 +372,26 @@ class WayForPayReturnFlowTest extends TestCase
         $this->assertSame(Order::PAY_PAID, $order->fresh()->payment_status);
     }
 
-    public function test_wayforpay_return_without_session_is_logged_as_degraded_path(): void
+    public function test_wayforpay_return_without_session_is_logged_as_cross_site_reentry_path(): void
     {
         Log::spy();
 
         config()->set('payments.wayforpay.approved_url', '/client/orders');
         config()->set('payments.wayforpay.declined_url', '/client/orders');
 
-        $this->post('/payments/wayforpay/return', [
+        $response = $this->post('/payments/wayforpay/return', [
             'transactionStatus' => 'Approved',
             'orderReference' => '12345',
-        ])->assertRedirect('/login?next=%2Fclient%2Forders%3Fpayment%3Dsuccess%26source%3Dwayforpay_return%26order%3D12345&source=wayforpay_return');
+        ])->assertStatus(302);
 
-        Log::shouldHaveReceived('warning')->withArgs(function (string $message, array $context): bool {
-            return $message === 'WayForPay return handled without active session; redirecting to login.'
-                && ($context['event'] ?? null) === 'wayforpay_return_without_session'
+        $this->assertStringStartsWith(
+            '/payments/wayforpay/return/finalize?',
+            (string) $response->headers->get('Location')
+        );
+
+        Log::shouldHaveReceived('info')->withArgs(function (string $message, array $context): bool {
+            return $message === 'WayForPay return endpoint visited.'
+                && ($context['event'] ?? null) === 'wayforpay_return_visited'
                 && ($context['order_reference'] ?? null) === '12345';
         });
     }
@@ -385,10 +416,15 @@ class WayForPayReturnFlowTest extends TestCase
 
         $next = '/client/orders?payment=success&source=wayforpay_return&order='.$order->id;
 
-        $this->post('/payments/wayforpay/return', [
+        $returnResponse = $this->post('/payments/wayforpay/return', [
             'transactionStatus' => 'Approved',
             'orderReference' => (string) $order->id,
-        ])
+        ])->assertStatus(302);
+
+        $finalizeUrl = (string) $returnResponse->headers->get('Location');
+        $this->assertStringStartsWith('/payments/wayforpay/return/finalize?', $finalizeUrl);
+
+        $this->get($finalizeUrl)
             ->assertRedirect('/login?next='.urlencode($next).'&source=wayforpay_return')
             ->assertCookie(WayForPayReturnController::LOGIN_FALLBACK_NEXT_COOKIE, $next);
 
