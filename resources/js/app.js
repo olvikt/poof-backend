@@ -1,5 +1,4 @@
 import './bootstrap'
-import Alpine from 'alpinejs'
 import { Livewire, Alpine as LivewireAlpine } from '../../vendor/livewire/livewire/dist/livewire.esm'
 import poofTimeCarousel from './poof/carousel'
 import addressAutocomplete from './address-autocomplete'
@@ -30,7 +29,9 @@ export function bootReactiveRuntime() {
   }, { globals: window, diagnostics: runtimeDiagnostics })
 
   const livewire = window.Livewire ?? Livewire ?? null
-  const alpine = window.Alpine ?? LivewireAlpine ?? Alpine
+  // Canonical Alpine runtime path: reuse existing window.Alpine first, then Livewire-bundled Alpine.
+  // Avoid importing an additional Alpine instance in this entrypoint to prevent duplicate plugin init ($persist).
+  const alpine = window.Alpine ?? LivewireAlpine ?? null
 
   if (livewire && alpine) {
     window.Livewire = livewire
@@ -57,7 +58,7 @@ export function bootReactiveRuntime() {
 
   // Standalone Alpine pages (without Livewire runtime config)
   if (shouldBootStandaloneAlpine({ hasLivewireConfig })) {
-    window.Alpine = alpine || Alpine
+    window.Alpine = alpine
     registerAlpineComponents(window.Alpine)
     const standaloneBoot = evaluateStandaloneAlpineBoot({ alpine: window.Alpine, globals: window })
     if (standaloneBoot.allowed) {
