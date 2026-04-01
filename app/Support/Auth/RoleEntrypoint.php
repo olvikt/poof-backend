@@ -12,10 +12,24 @@ class RoleEntrypoint
 
     public static function detect(Request $request): string
     {
-        $host = mb_strtolower((string) $request->getHost());
+        $hostCandidates = [
+            (string) $request->headers->get('x-forwarded-host', ''),
+            (string) $request->server('HTTP_HOST', ''),
+            (string) $request->getHost(),
+        ];
 
-        if ($host === 'courier.poof.com.ua' || str_starts_with($host, 'courier.')) {
-            return self::ENTRY_COURIER;
+        foreach ($hostCandidates as $rawHost) {
+            $host = mb_strtolower(trim(explode(':', explode(',', $rawHost)[0])[0]));
+
+            if ($host === '') {
+                continue;
+            }
+
+            if ($host === 'courier.poof.com.ua' || str_starts_with($host, 'courier.')) {
+                return self::ENTRY_COURIER;
+            }
+
+            return self::ENTRY_CLIENT;
         }
 
         return self::ENTRY_CLIENT;

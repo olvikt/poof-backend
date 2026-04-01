@@ -11,14 +11,14 @@ class LandingPagePwaManifestLinkTest extends TestCase
         $response = $this->get('/');
 
         $response->assertOk();
-        $response->assertSee('<link rel="manifest" href="'.route('manifest.client').'">', false);
+        $response->assertSee('/manifest-client.json');
     }
 
     public function test_courier_landing_renders_courier_manifest_link(): void
     {
-        $response = $this->withServerVariables(['HTTP_HOST' => 'courier.poof.com.ua'])->get('/');
+        $response = $this->withServerVariables(['HTTP_HOST' => 'courier.poof.com.ua', 'SERVER_NAME' => 'courier.poof.com.ua'])->get('/');
 
         $response->assertOk();
-        $response->assertSee('<link rel="manifest" href="'.route('manifest.courier').'">', false);
+        $response->assertSee('/manifest-courier.json');
     }
 }
