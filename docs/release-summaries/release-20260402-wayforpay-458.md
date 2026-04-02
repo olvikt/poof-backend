@@ -1,0 +1,5 @@
+- PR #458
+- Fix WayForPay return session replacement on cross-site POST
+- Make POST /payments/wayforpay/return stateless re-entry
+- Prevent replacement laravel-session cookie on cross-site return
+- Add response cookie/session continuity diagnostics for payment start and return
