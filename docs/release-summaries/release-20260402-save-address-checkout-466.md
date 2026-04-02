@@ -1,0 +1,6 @@
+- PR #466
+- Add optional save-address prompt in checkout flow
+- Prevent duplicate saved addresses during checkout
+- Skip save prompt for addresses chosen from saved list
+- Keep order submit and payment flow compatible after save or skip
+- Add UX notification when duplicate address already exists
