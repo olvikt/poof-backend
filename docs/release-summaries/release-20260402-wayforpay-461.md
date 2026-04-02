@@ -1,0 +1,5 @@
+- PR #461
+- Improve orders payment success UX after WayForPay return
+- Show dismissible success popup/notification for paid order
+- Add order number to paid order card in My Orders
+- Keep existing payment return flow intact
