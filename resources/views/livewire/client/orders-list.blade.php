@@ -9,14 +9,35 @@
         Мої замовлення
     </h1>
 
-    @if($paymentStatus === 'success')
-        <div class="mb-4 rounded-lg border border-green-400/40 bg-green-500/10 px-4 py-3 text-sm text-green-300">
-            Оплату успішно підтверджено
-            @if($paymentOrderId)
-                для замовлення #{{ $paymentOrderId }}.
-            @else
-                .
-            @endif
+    @if($paymentStatus === 'success' && $showPaymentSuccessModal)
+        <div class="fixed inset-0 z-50 flex items-center justify-center bg-black/60 px-4" wire:key="payment-success-modal">
+            <div class="w-full max-w-sm rounded-2xl border border-green-400/25 bg-gray-900 p-5 shadow-2xl">
+                <div class="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-green-500">
+                    <svg class="h-9 w-9 text-white" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                        <path d="M6 12.5L10 16.5L18 8.5" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+                    </svg>
+                </div>
+
+                <h2 class="mt-4 text-center text-lg font-semibold text-white">
+                    Оплату успішно підтверджено
+                </h2>
+
+                <p class="mt-2 text-center text-sm text-gray-300">
+                    @if($paymentOrderId)
+                        Замовлення #{{ $paymentOrderId }} успішно оплачено.
+                    @else
+                        Ваш платіж успішно підтверджено.
+                    @endif
+                </p>
+
+                <button
+                    type="button"
+                    wire:click="dismissPaymentSuccessModal"
+                    class="mt-5 w-full rounded-xl bg-yellow-400 px-4 py-2.5 text-sm font-semibold text-black transition hover:bg-yellow-500"
+                >
+                    Закрити
+                </button>
+            </div>
         </div>
     @elseif($paymentStatus === 'failed')
         <div class="mb-4 rounded-lg border border-red-400/40 bg-red-500/10 px-4 py-3 text-sm text-red-300">
@@ -106,7 +127,11 @@
                     {{-- PAYMENT STATUS --}}
                     <div class="mt-2 text-xs font-medium
                         {{ $isPayPending ? 'text-yellow-400' : 'text-green-400' }}">
-                        {{ \App\Models\Order::PAYMENT_LABELS[$order->payment_status] }}
+                        @if($order->payment_status === \App\Models\Order::PAY_PAID)
+                            Замовлення #{{ $order->id }} оплачено!
+                        @else
+                            Замовлення #{{ $order->id }} · {{ \App\Models\Order::PAYMENT_LABELS[$order->payment_status] }}
+                        @endif
                     </div>
 
                     {{-- CTA --}}
