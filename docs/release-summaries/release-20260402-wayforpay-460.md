@@ -1,0 +1,5 @@
+- PR #460
+- Fix stateless WayForPay return middleware mismatch
+- Remove VerifyCsrfToken from POST /payments/wayforpay/return
+- Keep return route fully stateless-compatible
+- Prevent 500 "Session store not set on request" after successful payment
