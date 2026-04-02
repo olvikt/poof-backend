@@ -20,6 +20,7 @@ use App\Models\User;
 use App\Support\Auth\PhoneNormalizer;
 use App\Support\Auth\RoleEntrypoint;
 use Illuminate\Http\Request;
+use Illuminate\Foundation\Http\Middleware\VerifyCsrfToken;
 use Illuminate\Session\Middleware\StartSession;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Route;
@@ -129,6 +130,7 @@ Route::match(['GET', 'POST'], '/payments/wayforpay/return', WayForPayReturnContr
     ->withoutMiddleware([
         StartSession::class,
         ShareErrorsFromSession::class,
+        VerifyCsrfToken::class,
     ])
     ->name('payments.wayforpay.return');
 Route::get('/payments/wayforpay/return/finalize', [WayForPayReturnController::class, 'finalize'])

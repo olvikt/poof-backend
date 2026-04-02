@@ -6,7 +6,9 @@ use App\Http\Controllers\Client\Payments\WayForPayReturnController;
 use App\Models\Order;
 use App\Models\User;
 use App\Services\Payments\WayForPay\WayForPaySignature;
+use Illuminate\Foundation\Http\Middleware\VerifyCsrfToken;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Session\Middleware\StartSession;
 use Illuminate\Support\Facades\Log;
 use Tests\TestCase;
 
@@ -30,6 +32,39 @@ class WayForPayReturnFlowTest extends TestCase
         $this->assertStringStartsWith('/payments/wayforpay/return/finalize?', $location);
         $this->assertStringContainsString('next=%2Fclient%2Forders%3Fpayment%3Dsuccess%26source%3Dwayforpay_return%26order%3D42', $location);
         $this->assertFalse($this->responseSetsCookie($response, config('session.cookie')));
+    }
+
+    public function test_stateless_post_return_without_session_cookie_does_not_500_and_redirects_to_finalize_without_setting_cookies(): void
+    {
+        config()->set('payments.wayforpay.approved_url', '/client/orders');
+        config()->set('payments.wayforpay.declined_url', '/client/orders');
+
+        $response = $this->withCookie(config('session.cookie'), '')
+            ->post('/payments/wayforpay/return', [
+                'transactionStatus' => 'Approved',
+                'orderReference' => '54',
+            ]);
+
+        $response->assertStatus(302);
+        $this->assertNotSame(500, $response->getStatusCode());
+        $this->assertStringStartsWith(
+            '/payments/wayforpay/return/finalize?',
+            (string) $response->headers->get('Location')
+        );
+        $this->assertFalse($this->responseSetsCookie($response, config('session.cookie')));
+        $this->assertFalse($this->responseSetsCookie($response, 'XSRF-TOKEN'));
+    }
+
+    public function test_wayforpay_return_route_excludes_session_and_csrf_middlewares_for_stateless_compatibility(): void
+    {
+        $route = app('router')->getRoutes()->getByName('payments.wayforpay.return');
+
+        $this->assertNotNull($route);
+
+        $routeMiddleware = $route->gatherMiddleware();
+
+        $this->assertNotContains(StartSession::class, $routeMiddleware);
+        $this->assertNotContains(VerifyCsrfToken::class, $routeMiddleware);
     }
 
     public function test_wayforpay_return_accepts_get_and_redirects(): void
