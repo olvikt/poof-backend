@@ -16,6 +16,7 @@ class OrdersList extends Component
     public Collection $historyOrders;
     public ?string $paymentStatus = null;
     public ?int $paymentOrderId = null;
+    public bool $showPaymentSuccessModal = false;
 
     public function mount(): void
     {
@@ -24,6 +25,7 @@ class OrdersList extends Component
 
         $orderId = request()->query('order');
         $this->paymentOrderId = is_numeric($orderId) ? (int) $orderId : null;
+        $this->showPaymentSuccessModal = $this->paymentStatus === 'success';
 
         $this->loadOrders();
     }
@@ -64,6 +66,11 @@ class OrdersList extends Component
         }
 
         $this->tab = $tab;
+    }
+
+    public function dismissPaymentSuccessModal(): void
+    {
+        $this->showPaymentSuccessModal = false;
     }
 
     /**
