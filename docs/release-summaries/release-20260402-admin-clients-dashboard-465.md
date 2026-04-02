@@ -1,0 +1,6 @@
+- PR #465
+- Add Clients admin resource
+- Add client profile view with orders, addresses, and payment stats
+- Align admin dashboard stats with business rules
+- Add total clients and total couriers dashboard cards
+- Fix today revenue metric to count paid orders only
