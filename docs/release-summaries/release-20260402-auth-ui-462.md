@@ -1,0 +1,5 @@
+- PR #462
+- Update courier auth icon and registration/login cross-links
+- Add client and courier registration links under login forms
+- Update courier registration helper copy
+- Switch courier manifest to courier-specific icons
