@@ -1,0 +1,5 @@
+- PR #459
+- Fix PaymentStartController response-type regression on WayForPay start
+- Restore valid controller return type for payment start happy path
+- Keep PR #458 session-continuity/stateless-return changes intact
+- Prevent 500 before redirect to WayForPay
