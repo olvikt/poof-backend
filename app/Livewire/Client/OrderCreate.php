@@ -70,7 +70,10 @@ class OrderCreate extends Component
 
     public bool $showPaymentModal = false;
     public bool $showTrialBlockedModal = false;
+    public bool $showSaveAddressConfirmModal = false;
     public ?int $createdOrderId = null;
+    public bool $skipSaveAddressPromptOnce = false;
+    public ?int $duplicateAddressId = null;
 
     protected function rules(): array
     {
