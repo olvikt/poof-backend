@@ -1,0 +1,5 @@
+- PR #464
+- Make shared auth entrypoints host-aware for courier origin
+- Prevent courier host from rendering client login/register UI
+- Keep courier PWA opening courier auth flow
+- Ensure /login and /register respect courier.poof.com.ua
