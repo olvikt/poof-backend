@@ -23,15 +23,13 @@ class ManifestContractTest extends TestCase
         $this->assertStringContainsString("'start_url' => '/client'", $controller);
         $this->assertStringContainsString("'start_url' => '/courier'", $controller);
         $this->assertStringContainsString("'id' => '/courier'", $controller);
+        $this->assertStringContainsString('RoleEntrypoint::detect($request)', $controller);
     }
 
-    public function test_public_manifest_file_is_kept_for_backward_compatibility(): void
+    public function test_static_public_manifest_file_is_removed_to_avoid_host_conflicts(): void
     {
         $manifestPath = $this->repoRoot.'/public/manifest.json';
 
-        $this->assertFileExists($manifestPath);
-
-        $manifest = json_decode((string) file_get_contents($manifestPath), true);
-        $this->assertIsArray($manifest);
+        $this->assertFileDoesNotExist($manifestPath);
     }
 }

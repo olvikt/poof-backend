@@ -132,5 +132,10 @@ class RoleEntrypointSeparationTest extends TestCase
         $this->get(route('manifest.courier'))
             ->assertOk()
             ->assertJsonPath('start_url', '/courier');
+
+        $this->withServerVariables(['HTTP_HOST' => 'courier.poof.com.ua'])
+            ->get(route('manifest.default'))
+            ->assertOk()
+            ->assertJsonPath('start_url', '/courier');
     }
 }

@@ -2,10 +2,19 @@
 
 namespace App\Http\Controllers\Pwa;
 
+use App\Support\Auth\RoleEntrypoint;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Http\Request;
 
 class ManifestController
 {
+    public function default(Request $request): JsonResponse
+    {
+        return RoleEntrypoint::detect($request) === RoleEntrypoint::ENTRY_COURIER
+            ? $this->courier()
+            : $this->client();
+    }
+
     public function client(): JsonResponse
     {
         return response()->json([

@@ -45,15 +45,26 @@ class RoleManifestAssetsTest extends TestCase
         }
     }
 
-    public function test_public_manifest_remains_backward_compatible(): void
+    public function test_default_manifest_route_is_client_oriented_on_client_host(): void
     {
-        $manifestPath = public_path('manifest.json');
-
-        $this->assertFileExists($manifestPath);
-
-        $manifest = json_decode((string) file_get_contents($manifestPath), true, 512, JSON_THROW_ON_ERROR);
+        $manifest = $this->get('/manifest.json')
+            ->assertOk()
+            ->json();
 
         $this->assertSame('/client', $manifest['start_url'] ?? null);
+        $this->assertSame('/', $manifest['id'] ?? null);
         $this->assertNotEmpty($manifest['icons'] ?? []);
+    }
+
+    public function test_default_manifest_route_is_courier_oriented_on_courier_host(): void
+    {
+        $manifest = $this->withServerVariables(['HTTP_HOST' => 'courier.poof.com.ua'])
+            ->get('/manifest.json')
+            ->assertOk()
+            ->json();
+
+        $this->assertSame('/courier', $manifest['start_url'] ?? null);
+        $this->assertSame('/courier', $manifest['scope'] ?? null);
+        $this->assertSame('/courier', $manifest['id'] ?? null);
     }
 }
