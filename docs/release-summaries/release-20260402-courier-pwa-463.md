@@ -1,0 +1,5 @@
+- PR #463
+- Fix courier PWA install/start manifest conflict
+- Ensure courier origin does not resolve to client-oriented manifest
+- Keep courier installed app opening in courier flow
+- Prevent courier app icon from launching client login
