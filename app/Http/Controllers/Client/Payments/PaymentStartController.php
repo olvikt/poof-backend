@@ -42,10 +42,11 @@ class PaymentStartController extends Controller
 
         $checkoutData = $builder->build($order);
 
-        $response = response()->view('payments.wayforpay-redirect', [
+        $view = view('payments.wayforpay-redirect', [
             'payUrl' => (string) config('payments.wayforpay.pay_url'),
             'checkoutData' => $checkoutData,
         ]);
+        $response = response($view);
 
         Log::info('WayForPay payment start response diagnostics.', [
             'event' => 'wayforpay_payment_start_response',
@@ -64,7 +65,7 @@ class PaymentStartController extends Controller
             'request_xsrf_cookie_present' => $request->cookies->has('XSRF-TOKEN'),
         ]);
 
-        return $response;
+        return $view;
     }
 
     private function storeReturnDiagnosticsBaseline(Request $request, Order $order): void
