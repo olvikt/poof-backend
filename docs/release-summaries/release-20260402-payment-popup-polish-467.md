@@ -1,0 +1,6 @@
+- PR #467
+- Polish checkout payment popup UI in unified POOF style
+- Add order number to accepted-order popup
+- Replace old success mark with project green SVG check icon
+- Make payment popup CTAs full-width and visually aligned
+- Keep pay-now and pay-later flow unchanged
