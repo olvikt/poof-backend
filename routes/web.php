@@ -40,6 +40,7 @@ Route::get('/readyz', function () {
 
 Route::get('/manifest-client.json', [ManifestController::class, 'client'])->name('manifest.client');
 Route::get('/manifest-courier.json', [ManifestController::class, 'courier'])->name('manifest.courier');
+Route::get('/manifest.json', [ManifestController::class, 'default'])->name('manifest.default');
 
 Route::get('/login', fn () => view('auth.login', ['entrypoint' => RoleEntrypoint::ENTRY_CLIENT]))
     ->name('login');
