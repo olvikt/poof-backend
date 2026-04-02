@@ -29,6 +29,7 @@ class WayForPayReturnFlowTest extends TestCase
         $location = (string) $response->headers->get('Location');
         $this->assertStringStartsWith('/payments/wayforpay/return/finalize?', $location);
         $this->assertStringContainsString('next=%2Fclient%2Forders%3Fpayment%3Dsuccess%26source%3Dwayforpay_return%26order%3D42', $location);
+        $this->assertFalse($this->responseSetsCookie($response, config('session.cookie')));
     }
 
     public function test_wayforpay_return_accepts_get_and_redirects(): void
@@ -494,6 +495,8 @@ class WayForPayReturnFlowTest extends TestCase
             'orderReference' => (string) $order->id,
         ])->assertStatus(302);
 
+        $this->assertFalse($this->responseSetsCookie($returnResponse, config('session.cookie')));
+
         $finalizeUrl = (string) $returnResponse->headers->get('Location');
 
         $this->get($finalizeUrl)
@@ -504,8 +507,20 @@ class WayForPayReturnFlowTest extends TestCase
                 && ($context['event'] ?? null) === 'wayforpay_return_finalize_authenticated'
                 && ($context['session_baseline_available'] ?? false) === true
                 && ($context['session_id_changed_since_pre_payment'] ?? null) === false
-                && ($context['web_guard_authenticated'] ?? false) === true;
+                && ($context['web_guard_authenticated'] ?? false) === true
+                && ($context['response_sets_session_cookie'] ?? true) === false;
         });
+    }
+
+    public function test_finalize_fallback_to_login_only_for_real_unauthenticated_session(): void
+    {
+        config()->set('payments.wayforpay.approved_url', '/client/orders');
+
+        $response = $this->get('/payments/wayforpay/return/finalize?next=%2Fclient%2Forders%3Fpayment%3Dsuccess');
+
+        $response
+            ->assertRedirect('/login?next=%2Fclient%2Forders%3Fpayment%3Dsuccess&source=wayforpay_return')
+            ->assertCookie(WayForPayReturnController::LOGIN_FALLBACK_NEXT_COOKIE, '/client/orders?payment=success');
     }
 
     /**
@@ -536,5 +551,16 @@ class WayForPayReturnFlowTest extends TestCase
         ], $secret);
 
         return $payload;
+    }
+
+    private function responseSetsCookie(\Illuminate\Testing\TestResponse $response, string $cookieName): bool
+    {
+        foreach ($response->headers->getCookies() as $cookie) {
+            if ($cookie->getName() === $cookieName) {
+                return true;
+            }
+        }
+
+        return false;
     }
 }

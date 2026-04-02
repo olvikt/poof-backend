@@ -20,8 +20,10 @@ use App\Models\User;
 use App\Support\Auth\PhoneNormalizer;
 use App\Support\Auth\RoleEntrypoint;
 use Illuminate\Http\Request;
+use Illuminate\Session\Middleware\StartSession;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Route;
+use Illuminate\View\Middleware\ShareErrorsFromSession;
 
 Route::get('/', function (Request $request) {
     return RoleEntrypoint::detect($request) === RoleEntrypoint::ENTRY_COURIER
@@ -124,6 +126,10 @@ Route::post('/logout', function (Request $request) {
 })->name('logout');
 
 Route::match(['GET', 'POST'], '/payments/wayforpay/return', WayForPayReturnController::class)
+    ->withoutMiddleware([
+        StartSession::class,
+        ShareErrorsFromSession::class,
+    ])
     ->name('payments.wayforpay.return');
 Route::get('/payments/wayforpay/return/finalize', [WayForPayReturnController::class, 'finalize'])
     ->name('payments.wayforpay.return.finalize');
