@@ -42,13 +42,28 @@ Route::get('/manifest-client.json', [ManifestController::class, 'client'])->name
 Route::get('/manifest-courier.json', [ManifestController::class, 'courier'])->name('manifest.courier');
 Route::get('/manifest.json', [ManifestController::class, 'default'])->name('manifest.default');
 
-Route::get('/login', fn () => view('auth.login', ['entrypoint' => RoleEntrypoint::ENTRY_CLIENT]))
-    ->name('login');
+Route::get('/login', function (Request $request) {
+    if (RoleEntrypoint::detect($request) === RoleEntrypoint::ENTRY_COURIER) {
+        $parameters = $request->query('next') !== null
+            ? ['next' => (string) $request->query('next')]
+            : [];
+
+        return redirect()->route('login.courier', $parameters);
+    }
+
+    return view('auth.login', ['entrypoint' => RoleEntrypoint::ENTRY_CLIENT]);
+})->name('login');
 
 Route::get('/courier/login', fn () => view('auth.login', ['entrypoint' => RoleEntrypoint::ENTRY_COURIER]))
     ->name('login.courier');
 
-Route::get('/register', [RegisterController::class, 'show'])
+Route::get('/register', function (Request $request) {
+    if (RoleEntrypoint::detect($request) === RoleEntrypoint::ENTRY_COURIER) {
+        return redirect()->route('courier.register', $request->query());
+    }
+
+    return app(RegisterController::class)->show($request);
+})
     ->middleware('guest')
     ->name('register');
 
