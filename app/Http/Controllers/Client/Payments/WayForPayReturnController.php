@@ -9,6 +9,7 @@ use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Log;
+use Symfony\Component\HttpFoundation\Response;
 
 class WayForPayReturnController extends Controller
 {
@@ -35,6 +36,8 @@ class WayForPayReturnController extends Controller
             'payment' => $isApproved ? 'success' : 'failed',
         ]);
 
+        $response = redirect($finalizeUrl);
+
         Log::info('WayForPay return endpoint visited.', $this->buildDiagnosticsContext($request, [
             'event' => 'wayforpay_return_visited',
             'order_reference' => $orderReference !== '' ? $orderReference : null,
@@ -44,9 +47,9 @@ class WayForPayReturnController extends Controller
             'selected_redirect' => 'finalize_redirect',
             'selected_redirect_reason' => 'cross_site_return_requires_same_site_reentry_before_auth_check',
             'finalize_url' => $finalizeUrl,
-        ]));
+        ], $response));
 
-        return redirect($finalizeUrl);
+        return $response;
     }
 
     public function finalize(Request $request): RedirectResponse
@@ -58,25 +61,20 @@ class WayForPayReturnController extends Controller
         }
 
         if (Auth::guard('web')->check()) {
+            $response = str_starts_with($destination, '/')
+                ? redirect($destination)
+                : redirect()->away($destination);
+
             Log::info('WayForPay return finalize resolved with active session.', $this->buildDiagnosticsContext($request, [
                 'event' => 'wayforpay_return_finalize_authenticated',
                 'selected_redirect' => $destination,
                 'selected_redirect_reason' => 'session_restored_on_same_site_navigation',
-            ]));
+            ], $response));
 
-            return str_starts_with($destination, '/')
-                ? redirect($destination)
-                : redirect()->away($destination);
+            return $response;
         }
 
-        Log::warning('WayForPay return finalize handled without active session; redirecting to login.', $this->buildDiagnosticsContext($request, [
-            'event' => 'wayforpay_return_finalize_without_session',
-            'selected_redirect' => '/login',
-            'selected_redirect_reason' => 'no_authenticated_user_after_same_site_reentry',
-            'next' => $destination,
-        ]));
-
-        return redirect('/login?'.http_build_query([
+        $response = redirect('/login?'.http_build_query([
             'next' => $destination,
             'source' => 'wayforpay_return',
         ]))->cookie(cookie(
@@ -90,6 +88,15 @@ class WayForPayReturnController extends Controller
             false,
             'lax'
         ));
+
+        Log::warning('WayForPay return finalize handled without active session; redirecting to login.', $this->buildDiagnosticsContext($request, [
+            'event' => 'wayforpay_return_finalize_without_session',
+            'selected_redirect' => '/login',
+            'selected_redirect_reason' => 'no_authenticated_user_after_same_site_reentry',
+            'next' => $destination,
+        ], $response));
+
+        return $response;
     }
 
     private function appendPaymentStateToTarget(string $target, bool $isApproved, string $orderReference): string
@@ -128,7 +135,7 @@ class WayForPayReturnController extends Controller
      * @param  array<string, mixed>  $extra
      * @return array<string, mixed>
      */
-    private function buildDiagnosticsContext(Request $request, array $extra = []): array
+    private function buildDiagnosticsContext(Request $request, array $extra = [], ?Response $response = null): array
     {
         $queryKeys = array_keys($request->query());
         sort($queryKeys);
@@ -168,6 +175,7 @@ class WayForPayReturnController extends Controller
             'host' => $request->getHost(),
             'path' => '/'.$request->path(),
             'query_keys' => $queryKeys,
+            'request_cookie_names' => $this->sanitizeCookieNames(array_keys($request->cookies->all())),
             'session_id' => $request->hasSession() ? $request->session()->getId() : null,
             'session_keys' => $sessionKeys,
             'auth_session_key_hints' => $authSessionKeyHints,
@@ -191,8 +199,82 @@ class WayForPayReturnController extends Controller
             'user_id' => auth()->id(),
             'referer_present' => $request->headers->has('referer'),
             'origin_present' => $request->headers->has('origin'),
+            'response_cookie_names' => $response !== null ? $this->extractResponseCookieNames($response) : [],
+            'response_sets_session_cookie' => $response !== null
+                ? $this->responseSetsCookie($response, (string) config('session.cookie'))
+                : false,
+            'request_host_matches_app_url' => $this->hostEqualsAppUrl($request->getHost()),
+            'request_host_matches_return_url' => $this->hostEqualsConfiguredUrl($request->getHost(), (string) config('payments.wayforpay.return_url')),
+            'request_host_matches_wayforpay_domain' => $this->hostEqualsConfiguredUrl($request->getHost(), (string) config('payments.wayforpay.pay_url')),
+            'app_url_host' => parse_url((string) config('app.url'), PHP_URL_HOST),
+            'return_url_host' => parse_url((string) config('payments.wayforpay.return_url'), PHP_URL_HOST),
+            'wayforpay_pay_url_host' => parse_url((string) config('payments.wayforpay.pay_url'), PHP_URL_HOST),
         ];
 
         return array_merge($context, $extra);
+    }
+
+    /**
+     * @param  list<string>  $cookieNames
+     * @return list<string>
+     */
+    private function sanitizeCookieNames(array $cookieNames): array
+    {
+        $names = [];
+
+        foreach ($cookieNames as $name) {
+            if ($name === '' || str_starts_with($name, '__')) {
+                continue;
+            }
+
+            $names[] = $name;
+        }
+
+        $names = array_values(array_unique($names));
+        sort($names);
+
+        return $names;
+    }
+
+    /**
+     * @return list<string>
+     */
+    private function extractResponseCookieNames(Response $response): array
+    {
+        $names = [];
+
+        foreach ($response->headers->getCookies() as $cookie) {
+            $names[] = $cookie->getName();
+        }
+
+        $names = array_values(array_unique($names));
+        sort($names);
+
+        return $names;
+    }
+
+    private function responseSetsCookie(Response $response, string $cookieName): bool
+    {
+        foreach ($response->headers->getCookies() as $cookie) {
+            if ($cookie->getName() === $cookieName) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private function hostEqualsAppUrl(string $requestHost): bool
+    {
+        return $this->hostEqualsConfiguredUrl($requestHost, (string) config('app.url'));
+    }
+
+    private function hostEqualsConfiguredUrl(string $requestHost, string $url): bool
+    {
+        $configuredHost = parse_url($url, PHP_URL_HOST);
+
+        return is_string($configuredHost)
+            && $configuredHost !== ''
+            && strcasecmp($configuredHost, $requestHost) === 0;
     }
 }
