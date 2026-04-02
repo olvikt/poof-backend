@@ -1,0 +1,5 @@
+- PR #457
+- Ensure WayForPay finalize restores web session auth
+- Use web guard explicitly on finalize instead of default guard
+- Add session continuity diagnostics for pre-payment and finalize
+- Preserve login fallback only for real lost web session
