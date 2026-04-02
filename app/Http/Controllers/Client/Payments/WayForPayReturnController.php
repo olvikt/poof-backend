@@ -7,6 +7,7 @@ namespace App\Http\Controllers\Client\Payments;
 use App\Http\Controllers\Controller;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Log;
 
 class WayForPayReturnController extends Controller
@@ -56,7 +57,7 @@ class WayForPayReturnController extends Controller
             $destination = route('client.orders');
         }
 
-        if (auth()->check()) {
+        if (Auth::guard('web')->check()) {
             Log::info('WayForPay return finalize resolved with active session.', $this->buildDiagnosticsContext($request, [
                 'event' => 'wayforpay_return_finalize_authenticated',
                 'selected_redirect' => $destination,
@@ -131,15 +132,61 @@ class WayForPayReturnController extends Controller
     {
         $queryKeys = array_keys($request->query());
         sort($queryKeys);
+        $sessionKeys = [];
+        $authSessionKeyHints = [];
+        $baseline = null;
+        $sessionContextCompared = null;
+        $sessionIdChangedSincePrePayment = null;
+
+        if ($request->hasSession()) {
+            $sessionPayload = $request->session()->all();
+            $sessionKeys = array_keys($sessionPayload);
+            sort($sessionKeys);
+
+            $authSessionKeyHints = array_values(array_filter(
+                $sessionKeys,
+                static fn (string $key): bool => str_contains($key, 'login_') || str_contains($key, '_token')
+            ));
+
+            $baseline = $sessionPayload['wayforpay_return_baseline'] ?? null;
+
+            if (is_array($baseline) && isset($baseline['session_id'])) {
+                $sessionIdChangedSincePrePayment = $baseline['session_id'] !== $request->session()->getId();
+                $sessionContextCompared = [
+                    'baseline_session_id_present' => $baseline['session_id'] !== '',
+                    'baseline_order_id' => $baseline['order_id'] ?? null,
+                    'baseline_captured_at' => $baseline['captured_at'] ?? null,
+                    'baseline_auth_key_hints' => $baseline['auth_key_hints'] ?? [],
+                    'baseline_default_guard' => $baseline['default_guard'] ?? null,
+                    'baseline_web_guard_user_id' => $baseline['web_guard_user_id'] ?? null,
+                ];
+            }
+        }
 
         $context = [
             'method' => $request->method(),
             'host' => $request->getHost(),
             'path' => '/'.$request->path(),
             'query_keys' => $queryKeys,
+            'session_id' => $request->hasSession() ? $request->session()->getId() : null,
+            'session_keys' => $sessionKeys,
+            'auth_session_key_hints' => $authSessionKeyHints,
+            'session_baseline_available' => is_array($baseline),
+            'session_context_compared' => $sessionContextCompared,
+            'session_id_changed_since_pre_payment' => $sessionIdChangedSincePrePayment,
+            'default_guard' => (string) config('auth.defaults.guard', 'web'),
+            'session_driver' => (string) config('session.driver'),
+            'session_cookie' => (string) config('session.cookie'),
+            'session_domain' => config('session.domain'),
+            'session_secure_cookie' => (bool) config('session.secure'),
+            'session_same_site' => (string) config('session.same_site', 'lax'),
+            'session_lifetime' => (int) config('session.lifetime'),
             'has_session_cookie' => $request->cookies->has((string) config('session.cookie')),
             'has_xsrf_cookie' => $request->cookies->has('XSRF-TOKEN'),
             'session_id_present' => $request->hasSession() && $request->session()->getId() !== '',
+            'active_guard_for_finalize' => 'web',
+            'web_guard_authenticated' => Auth::guard('web')->check(),
+            'web_guard_user_id' => Auth::guard('web')->id(),
             'is_authenticated' => auth()->check(),
             'user_id' => auth()->id(),
             'referer_present' => $request->headers->has('referer'),
