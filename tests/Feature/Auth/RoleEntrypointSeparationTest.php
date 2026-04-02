@@ -34,12 +34,34 @@ class RoleEntrypointSeparationTest extends TestCase
         $this->get('/register')
             ->assertOk()
             ->assertDontSee('Тип транспорту')
-            ->assertSee('Перейти до курʼєрської реєстрації');
+            ->assertSee('Реєстрація курʼєра');
 
         $this->get('/courier/register')
             ->assertOk()
             ->assertSee('Тип транспорту')
-            ->assertSee('Перейти до клієнтської реєстрації');
+            ->assertSee('Реєстрація клієнта');
+    }
+
+    public function test_login_forms_render_role_specific_logo_and_role_aware_registration_links(): void
+    {
+        $this->get('/login')
+            ->assertOk()
+            ->assertSee('/images/logo-poof.png')
+            ->assertSee('Ще немає акаунту?')
+            ->assertSee('https://app.poof.com.ua/register')
+            ->assertSee('Хочете стати курʼєром?')
+            ->assertSee('Реєстрація курʼєра')
+            ->assertSee('https://courier.poof.com.ua/register');
+
+        $this->withServerVariables(['HTTP_HOST' => 'courier.poof.com.ua'])
+            ->get('/courier/login')
+            ->assertOk()
+            ->assertSee('/assets/icons/courier-icon-192.png')
+            ->assertSee('Ще немає акаунту?')
+            ->assertSee('https://courier.poof.com.ua/register')
+            ->assertSee('Хочете стати клієнтом?')
+            ->assertSee('Реєстрація клієнта')
+            ->assertSee('https://app.poof.com.ua/register');
     }
 
     public function test_courier_registration_flow_is_separate_and_redirects_to_courier_space(): void

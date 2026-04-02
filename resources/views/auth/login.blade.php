@@ -3,7 +3,7 @@
     @php($clientRegisterUrl = 'https://app.poof.com.ua/register')
 
     <div class="min-h-[100dvh] flex flex-col justify-center items-center px-4 overflow-hidden">
-        <x-auth.logo />
+        <x-auth.logo :entrypoint="$entrypoint ?? 'client'" />
 
         <x-auth.title
             title="{{ ($entrypoint ?? 'client') === 'courier' ? 'Увійти як курʼєр' : 'Увійти як клієнт' }}"
@@ -42,12 +42,17 @@
             <p class="text-center text-gray-400 text-sm mt-4">Забули пароль? <a href="{{ url('/forgot-password') }}" class="text-yellow-400 font-semibold">Відновити</a></p>
 
             <div class="mt-4 rounded-xl border border-white/10 bg-white/5 p-4 text-sm text-gray-300">
+                Ще немає акаунту?
+                <a href="{{ ($entrypoint ?? 'client') === 'courier' ? $courierRegisterUrl : $clientRegisterUrl }}" class="font-semibold text-yellow-400">Реєстрація</a>
+            </div>
+
+            <div class="mt-4 rounded-xl border border-white/10 bg-white/5 p-4 text-sm text-gray-300">
                 @if (($entrypoint ?? 'client') === 'courier')
-                    Потрібен клієнтський акаунт?
-                    <a href="{{ $clientRegisterUrl }}" class="font-semibold text-yellow-400">Клієнтська реєстрація</a>
+                    Хочете стати клієнтом?
+                    <a href="{{ $clientRegisterUrl }}" class="font-semibold text-yellow-400">Реєстрація клієнта</a>
                 @else
                     Хочете стати курʼєром?
-                    <a href="{{ $courierRegisterUrl }}" class="font-semibold text-yellow-400">Курʼєрська реєстрація</a>
+                    <a href="{{ $courierRegisterUrl }}" class="font-semibold text-yellow-400">Реєстрація курʼєра</a>
                 @endif
             </div>
         </x-auth.card>
