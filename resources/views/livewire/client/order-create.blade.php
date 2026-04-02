@@ -386,6 +386,39 @@
 		</div>
 	</x-poof.modal>
 
+	<x-poof.modal
+		wire:model="showSaveAddressConfirmModal"
+		maxWidth="max-w-md"
+	>
+		<div class="text-2xl mb-3 text-center">📍</div>
+
+		<h3 class="text-lg font-extrabold text-white text-center mb-2">
+			Зберегти цю адресу в Мої адреси?
+		</h3>
+
+		<p class="text-sm text-gray-300 text-center mb-5">
+			Це допоможе швидше оформлювати наступні замовлення.
+		</p>
+
+		<div class="flex gap-3 justify-end flex-wrap">
+			<button
+				type="button"
+				wire:click="declineSaveAddressAndContinue"
+				class="px-4 py-2 rounded-xl border border-neutral-700 text-gray-200 text-sm"
+			>
+				Не зараз
+			</button>
+
+			<button
+				type="button"
+				wire:click="confirmSaveAddressAndContinue"
+				class="px-4 py-2 rounded-xl bg-yellow-400 text-black font-bold text-sm"
+			>
+				Так, зберегти
+			</button>
+		</div>
+	</x-poof.modal>
+
 	{{-- ================= TRIAL BLOCKED MODAL ================= --}}
 		<x-poof.modal
 			wire:model="showTrialBlockedModal"
