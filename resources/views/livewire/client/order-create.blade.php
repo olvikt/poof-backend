@@ -354,35 +354,39 @@
 		wire:model="showPaymentModal"
 		maxWidth="max-w-md"
 	>
-		<div class="text-2xl mb-3 text-center">✅</div>
+		<div class="rounded-2xl border border-gray-700 bg-gradient-to-b from-gray-900 to-gray-800 p-1 shadow-[0_18px_45px_rgba(0,0,0,0.45)]">
+			<div class="rounded-[14px] bg-gray-900/90 p-5 sm:p-6">
+				<x-poof.icons.success-check class="h-14 w-14" />
 
-		<h3 class="text-lg font-extrabold text-white text-center mb-2">
-			Ваше замовлення прийнято
-		</h3>
+				<h3 class="mt-4 text-center text-xl font-semibold text-gray-100">
+					Ваше замовлення #{{ $createdOrderId ?? '—' }} прийнято
+				</h3>
 
-		<p class="text-sm text-gray-300 text-center mb-4">
-			Після оплати ми підберемо курʼєра для виконання замовлення.
-		</p>
+				<p class="mt-2 text-center text-sm leading-relaxed text-gray-300">
+					Після оплати ми підберемо курʼєра та розпочнемо виконання вашого замовлення.
+				</p>
 
-		<div class="text-sm text-gray-400 leading-relaxed mb-5 space-y-1">
-			<div>🕒 Курʼєр зазвичай знаходиться протягом 5–15 хвилин</div>
-			<div>🛡 Оплата безпечна, замовлення можна скасувати</div>
-			<div>🔄 Оплатити можна пізніше в історії замовлень</div>
-		</div>
+				<div class="mt-4 rounded-xl border border-green-400/20 bg-green-500/5 px-4 py-3 text-xs leading-relaxed text-gray-300">
+					<div>• Курʼєра зазвичай знаходимо протягом 5–15 хвилин.</div>
+					<div>• Оплата захищена через WayForPay.</div>
+					<div>• Можна оплатити зараз або пізніше в «Моїх замовленнях».</div>
+				</div>
 
-		<div class="flex gap-3 justify-end flex-wrap">
-			<a
-				href="{{ route('client.orders') }}"
-				class="px-4 py-2 rounded-xl border border-neutral-700 text-gray-200 text-sm"
-			>
-				Оплатити пізніше
-			</a>
-			<a
-				href="{{ $createdOrderId ? route('client.payments.show', $createdOrderId) : route('client.orders') }}"
-				class="px-4 py-2 rounded-xl bg-yellow-400 text-black font-bold text-sm"
-			>
-				Оплатити зараз {{ $price }} грн
-			</a>
+				<div class="mt-5 space-y-3">
+					<a
+						href="{{ $createdOrderId ? route('client.payments.show', $createdOrderId) : route('client.orders') }}"
+						class="block w-full rounded-2xl bg-green-500 px-4 py-3.5 text-center text-sm font-semibold text-white shadow-lg shadow-green-500/30 transition hover:bg-green-400"
+					>
+						Оплатити зараз {{ $price }} грн
+					</a>
+					<a
+						href="{{ route('client.orders') }}"
+						class="block w-full rounded-2xl border border-yellow-400/40 bg-yellow-400/10 px-4 py-3.5 text-center text-sm font-semibold text-yellow-200 transition hover:bg-yellow-400/20"
+					>
+						Оплатити пізніше
+					</a>
+				</div>
+			</div>
 		</div>
 	</x-poof.modal>
 

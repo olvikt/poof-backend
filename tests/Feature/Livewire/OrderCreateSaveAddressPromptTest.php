@@ -129,6 +129,36 @@ class OrderCreateSaveAddressPromptTest extends TestCase
         $this->assertDatabaseCount('orders', 1);
     }
 
+
+    public function test_payment_modal_shows_order_number_and_both_payment_ctas(): void
+    {
+        $user = User::factory()->create();
+        $this->actingAs($user);
+
+        $component = Livewire::test(OrderCreate::class)
+            ->set('street', 'Саксаганського')
+            ->set('house', '15')
+            ->set('city', 'Київ')
+            ->set('address_text', 'Саксаганського 15')
+            ->set('lat', 50.4382)
+            ->set('lng', 30.5127)
+            ->set('coordsFromAddressBook', true)
+            ->set('address_precision', 'exact')
+            ->call('submit')
+            ->assertSet('showSaveAddressConfirmModal', true)
+            ->call('declineSaveAddressAndContinue')
+            ->assertSet('showPaymentModal', true);
+
+        $orderId = (int) \App\Models\Order::query()->value('id');
+
+        $component
+            ->assertSee("Ваше замовлення #{$orderId} прийнято")
+            ->assertSee('Оплатити зараз')
+            ->assertSee('Оплатити пізніше')
+            ->assertSeeHtml(route('client.payments.show', $orderId))
+            ->assertSeeHtml(route('client.orders'));
+    }
+
     public function test_geolocation_map_selection_can_still_reach_save_prompt(): void
     {
         $user = User::factory()->create();
