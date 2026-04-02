@@ -38,6 +38,7 @@ class RoleManifestAssetsTest extends TestCase
         $this->assertContains('/assets/icons/courier-icon-512.png', $iconSources);
         $this->assertContains('/assets/icons/courier-icon-512-maskable.png', $iconSources);
         $this->assertContains('/assets/screenshots/courier-home.png', $screenshotSources);
+        $this->assertTrue(collect($manifest['icons'] ?? [])->contains(fn (array $icon): bool => ($icon['src'] ?? null) === '/assets/icons/courier-icon-512-maskable.png' && ($icon['purpose'] ?? null) === 'maskable'));
 
         foreach (array_merge($iconSources, $screenshotSources) as $src) {
             $this->assertStringNotContainsString('client-', $src);
