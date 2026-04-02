@@ -434,6 +434,80 @@ class WayForPayReturnFlowTest extends TestCase
         ])->assertRedirect($next);
     }
 
+    public function test_finalize_uses_web_guard_even_when_default_guard_is_not_web(): void
+    {
+        config()->set('auth.defaults.guard', 'api');
+        config()->set('payments.wayforpay.approved_url', '/client/orders');
+
+        $client = User::factory()->create([
+            'role' => User::ROLE_CLIENT,
+            'is_active' => true,
+        ]);
+
+        $order = Order::createForTesting([
+            'client_id' => $client->id,
+            'status' => Order::STATUS_NEW,
+            'payment_status' => Order::PAY_PAID,
+            'address_text' => 'вул. Guard, 1',
+            'price' => 100,
+        ]);
+
+        $returnResponse = $this->post('/payments/wayforpay/return', [
+            'transactionStatus' => 'Approved',
+            'orderReference' => (string) $order->id,
+        ])->assertStatus(302);
+
+        $finalizeUrl = (string) $returnResponse->headers->get('Location');
+        $this->assertStringStartsWith('/payments/wayforpay/return/finalize?', $finalizeUrl);
+
+        $this->actingAs($client, 'web')
+            ->get($finalizeUrl)
+            ->assertRedirect('/client/orders?payment=success&source=wayforpay_return&order='.$order->id);
+    }
+
+    public function test_session_continuity_is_logged_and_preserved_from_payment_start_to_finalize(): void
+    {
+        Log::spy();
+        config()->set('payments.wayforpay.approved_url', '/client/orders');
+        config()->set('payments.default_provider', 'wayforpay');
+        config()->set('payments.wayforpay.enabled', true);
+
+        $client = User::factory()->create([
+            'role' => User::ROLE_CLIENT,
+            'is_active' => true,
+        ]);
+
+        $order = Order::createForTesting([
+            'client_id' => $client->id,
+            'status' => Order::STATUS_NEW,
+            'payment_status' => Order::PAY_PENDING,
+            'address_text' => 'вул. Baseline, 1',
+            'price' => 100,
+        ]);
+
+        $this->actingAs($client, 'web')
+            ->post(route('client.payments.start', $order))
+            ->assertOk();
+
+        $returnResponse = $this->post('/payments/wayforpay/return', [
+            'transactionStatus' => 'Approved',
+            'orderReference' => (string) $order->id,
+        ])->assertStatus(302);
+
+        $finalizeUrl = (string) $returnResponse->headers->get('Location');
+
+        $this->get($finalizeUrl)
+            ->assertRedirect('/client/orders?payment=success&source=wayforpay_return&order='.$order->id);
+
+        Log::shouldHaveReceived('info')->withArgs(function (string $message, array $context): bool {
+            return $message === 'WayForPay return finalize resolved with active session.'
+                && ($context['event'] ?? null) === 'wayforpay_return_finalize_authenticated'
+                && ($context['session_baseline_available'] ?? false) === true
+                && ($context['session_id_changed_since_pre_payment'] ?? null) === false
+                && ($context['web_guard_authenticated'] ?? false) === true;
+        });
+    }
+
     /**
      * @return array<string, string>
      */
