@@ -46,6 +46,7 @@ class RoleEntrypointSeparationTest extends TestCase
     {
         $this->get('/login')
             ->assertOk()
+            ->assertDontSee('/assets/icons/courier-icon-192.png')
             ->assertSee('/images/logo-poof.png')
             ->assertSee('Ще немає акаунту?')
             ->assertSee('https://app.poof.com.ua/register')
@@ -62,6 +63,37 @@ class RoleEntrypointSeparationTest extends TestCase
             ->assertSee('Хочете стати клієнтом?')
             ->assertSee('Реєстрація клієнта')
             ->assertSee('https://app.poof.com.ua/register');
+    }
+
+    public function test_login_on_courier_host_redirects_to_courier_login_and_keeps_next(): void
+    {
+        $this->withServerVariables(['HTTP_HOST' => 'courier.poof.com.ua'])
+            ->get('/login?next=%2Fcourier%2Forders')
+            ->assertRedirect(route('login.courier', ['next' => '/courier/orders']));
+
+        $this->withServerVariables(['HTTP_HOST' => 'courier.poof.com.ua'])
+            ->get('/login')
+            ->assertRedirect(route('login.courier'));
+
+        $this->withServerVariables(['HTTP_HOST' => 'courier.poof.com.ua'])
+            ->get('/courier/login')
+            ->assertOk()
+            ->assertSee('Увійти як курʼєр')
+            ->assertDontSee('Увійти як клієнт');
+    }
+
+    public function test_register_on_courier_host_redirects_to_courier_register_and_renders_courier_flow(): void
+    {
+        $this->withServerVariables(['HTTP_HOST' => 'courier.poof.com.ua'])
+            ->get('/register')
+            ->assertRedirect(route('courier.register'));
+
+        $this->withServerVariables(['HTTP_HOST' => 'courier.poof.com.ua'])
+            ->get('/courier/register')
+            ->assertOk()
+            ->assertSee('Реєстрація курʼєра')
+            ->assertSee('Тип транспорту')
+            ->assertDontSee('Реєстрація клієнта');
     }
 
     public function test_courier_registration_flow_is_separate_and_redirects_to_courier_space(): void
