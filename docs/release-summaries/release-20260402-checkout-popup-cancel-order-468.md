@@ -1,0 +1,7 @@
+- PR #468
+- Remove double payment popup wrapper in checkout
+- Improve payment popup spacing and typography
+- Update courier ETA copy to 20-30 minutes
+- Make pay-now CTA larger and more readable
+- Implement working client-side order cancellation in My Orders
+- Move cancelled orders to history with visible cancelled status styling
