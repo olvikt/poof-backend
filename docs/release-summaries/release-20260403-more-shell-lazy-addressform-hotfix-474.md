@@ -1,0 +1,6 @@
+- PR #474
+- Lazy-load More child screens instead of eager mounting them in the shell
+- Keep one canonical AddressForm host for client flows
+- Remove duplicated address form sheet instances from profile and More addresses
+- Reduce More shell runtime collisions around address add flow
+- Preserve stacked More navigation while fixing address layering and map regressions
