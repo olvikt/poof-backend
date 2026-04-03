@@ -15,6 +15,8 @@ class BrowserE2eSeeder extends Seeder
 {
     public function run(): void
     {
+        $this->call(SubscriptionPlanSeeder::class);
+
         $client = User::updateOrCreate(
             ['email' => 'client@test.com'],
             [

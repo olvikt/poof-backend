@@ -6,7 +6,10 @@ use App\Actions\Orders\Create\CreateLegacyWebOrderAction;
 use App\Domain\Address\AddressParser;
 use App\DTO\Orders\LegacyWebOrderCreatePayload;
 use App\Models\ClientAddress;
+use App\Models\ClientSubscription;
 use App\Models\Order;
+use App\Models\SubscriptionPlan;
+use Carbon\Carbon;
 use Illuminate\Support\Facades\Auth;
 
 trait HandlesOrderSubmission
@@ -68,6 +71,8 @@ trait HandlesOrderSubmission
     {
         $this->recalculatePrice();
 
+        $isSubscriptionCheckout = $this->selected_subscription_plan_id !== null;
+        $subscriptionId = $this->createClientSubscriptionIfSelected();
         $courierPayoutAmount = (int) Order::calcPriceByBags($this->bags_count);
         $clientChargeAmount = (int) $this->price;
         $systemSubsidyAmount = max(0, $courierPayoutAmount - $clientChargeAmount);
@@ -97,7 +102,8 @@ trait HandlesOrderSubmission
                 'funding_source' => $isWelcomeBenefit ? Order::FUNDING_SYSTEM_PROMO : Order::FUNDING_CLIENT,
                 'benefit_type' => $isWelcomeBenefit ? Order::BENEFIT_WELCOME_FIRST_ORDER_FREE : null,
                 'origin' => Order::ORIGIN_CHECKOUT,
-                'subscription_id' => null,
+                'subscription_id' => $subscriptionId,
+                'order_type' => $isSubscriptionCheckout ? Order::TYPE_SUBSCRIPTION : Order::TYPE_ONE_TIME,
                 'payment_status' => $isWelcomeBenefit ? Order::PAY_PAID : Order::PAY_PENDING,
                 'promo_code' => $this->promo_code,
                 'is_trial' => $this->is_trial,
@@ -111,6 +117,35 @@ trait HandlesOrderSubmission
         if ($this->is_trial) {
             $this->trial_used = true;
         }
+    }
+
+    protected function createClientSubscriptionIfSelected(): ?int
+    {
+        if (! $this->selected_subscription_plan_id) {
+            return null;
+        }
+
+        $plan = SubscriptionPlan::query()->active()->find($this->selected_subscription_plan_id);
+
+        if (! $plan) {
+            return null;
+        }
+
+        $subscription = ClientSubscription::unguarded(function () use ($plan): ClientSubscription {
+            return ClientSubscription::query()->create([
+                'client_id' => (int) Auth::id(),
+                'subscription_plan_id' => (int) $plan->id,
+                'address_id' => $this->address_id,
+                'status' => ClientSubscription::STATUS_ACTIVE,
+                'next_run_at' => Carbon::parse(sprintf('%s %s', (string) $this->scheduled_date, (string) $this->scheduled_time_from)),
+                'meta' => [
+                    'frequency_type' => $plan->frequency_type,
+                    'checkout_origin' => 'checkout',
+                ],
+            ]);
+        });
+
+        return (int) $subscription->id;
     }
 
     protected function shouldAskToSaveAddress(): bool

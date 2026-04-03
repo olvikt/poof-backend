@@ -3,6 +3,7 @@
 namespace App\Livewire\Client\OrderCreate\Concerns;
 
 use App\Models\Order;
+use App\Models\SubscriptionPlan;
 use App\Domain\Address\Precision;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Validation\ValidationException;
@@ -41,6 +42,8 @@ trait HandlesPricingTrialPolicy
 
         $this->is_trial = true;
         $this->trial_days = 1;
+        $this->selected_subscription_plan_id = null;
+        $this->subscription_frequency = null;
         $this->bags_count = 1;
         $this->price = 0;
     }
@@ -65,13 +68,19 @@ trait HandlesPricingTrialPolicy
         $this->showSubscriptionModal = true;
     }
 
-    public function selectSubscriptionPlan(string $frequency): void
+    public function selectSubscriptionPlan(int $planId): void
     {
-        if (! in_array($frequency, ['every_3_days', 'daily'], true)) {
+        $plan = SubscriptionPlan::query()->active()->find($planId);
+
+        if (! $plan) {
             return;
         }
 
-        $this->subscription_frequency = $frequency;
+        $this->selected_subscription_plan_id = (int) $plan->id;
+        $this->subscription_frequency = $plan->frequency_type;
+        $this->is_trial = false;
+        $this->trial_days = 1;
+        $this->price = (int) $plan->monthly_price;
         $this->showSubscriptionModal = false;
     }
 
@@ -80,6 +89,18 @@ trait HandlesPricingTrialPolicy
         if ($this->is_trial) {
             $this->price = 0;
             return;
+        }
+
+        if ($this->selected_subscription_plan_id) {
+            $plan = SubscriptionPlan::query()->active()->find($this->selected_subscription_plan_id);
+
+            if ($plan) {
+                $this->price = (int) $plan->monthly_price;
+                return;
+            }
+
+            $this->selected_subscription_plan_id = null;
+            $this->subscription_frequency = null;
         }
 
         try {

@@ -14,6 +14,8 @@ class DevSeeder extends Seeder
 {
     public function run(): void
     {
+        $this->call(SubscriptionPlanSeeder::class);
+
         // ✅ ADMIN
         $admin = User::updateOrCreate(
             ['email' => 'admin@poof.app'],

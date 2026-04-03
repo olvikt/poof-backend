@@ -5,6 +5,7 @@ namespace Tests\Feature\Livewire;
 use App\Livewire\Client\OrderCreate;
 use App\Models\ClientAddress;
 use App\Models\Order;
+use App\Models\SubscriptionPlan;
 use App\Models\User;
 use Carbon\Carbon;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -80,7 +81,7 @@ class OrderCreateCriticalFlowsRegressionTest extends TestCase
             ->assertSet('showSubscriptionModal', false)
             ->call('openSubscriptionModal')
             ->assertSet('showSubscriptionModal', true)
-            ->call('selectSubscriptionPlan', 'every_3_days')
+            ->call('selectSubscriptionPlan', (int) SubscriptionPlan::query()->where('slug', 'every-3-days')->value('id'))
             ->assertSet('showSubscriptionModal', false)
             ->assertSet('subscription_frequency', 'every_3_days');
     }

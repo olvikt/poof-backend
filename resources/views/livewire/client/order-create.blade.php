@@ -299,6 +299,12 @@
 			<p class="text-xs text-gray-400 mt-2">
 				До 6 кг у мішку
 			</p>
+
+			@if($selected_subscription_plan_id)
+				<p class="text-xs text-yellow-300 mt-2">
+					У підписку включено до 3 пакетів (18 кг) за один винос
+				</p>
+			@endif
 		</x-poof.section>
 
 	</div>
@@ -328,6 +334,12 @@
 			:price="$price"
 			:is-trial="$is_trial"
 		/>
+
+		@if($selected_subscription_plan_id)
+			<p class="text-center text-xs text-gray-300">
+				Підписка: фінальна місячна ціна вже врахована у «До оплати».
+			</p>
+		@endif
 
 		<x-poof.submit-button
 			wire:click="submit"
@@ -410,28 +422,32 @@
 		maxWidth="max-w-md"
 	>
 		<div class="space-y-4">
-			<h3 class="text-lg font-semibold text-white">Підписка</h3>
-			<p class="text-sm text-gray-300">Регулярний винос без зайвих дій</p>
+			<h3 class="text-lg font-semibold text-white">Підписка POOF</h3>
+			<p class="text-sm text-gray-300">Фіксована ціна на місяць. До 3 пакетів (18 кг) за один винос.</p>
 
 			<div class="space-y-3">
 				@foreach($subscriptionOptions as $option)
 					<button
 						type="button"
-						wire:click="selectSubscriptionPlan('{{ $option['key'] }}')"
+						wire:click="selectSubscriptionPlan({{ $option['id'] }})"
 						class="w-full rounded-2xl border border-neutral-700 bg-neutral-800 px-4 py-3 text-left hover:border-yellow-400/50"
 					>
-						<div class="flex items-center justify-between gap-3">
+						<div class="flex items-start justify-between gap-3">
 							<div>
 								<div class="text-sm font-semibold text-white">{{ $option['title'] }}</div>
 								<div class="text-xs text-gray-400">{{ $option['description'] }}</div>
 							</div>
 							<div class="text-right">
-								<div class="text-sm font-bold text-yellow-300">{{ $option['subscription_price'] }} ₴</div>
-								<div class="text-[11px] text-green-400">-{{ $option['saving_percent'] }}% до разового</div>
+								<div class="text-sm font-bold text-yellow-300">{{ $option['monthly_price'] }} грн / міс</div>
+								<div class="text-[11px] text-green-400">Економія {{ $option['saving_percent'] }}%</div>
 							</div>
 						</div>
-						<div class="mt-2 text-[11px] text-gray-400">
-							Разовий: {{ $option['single_price'] }} ₴
+						<div class="mt-2 grid grid-cols-2 gap-2 text-[11px] text-gray-300">
+							<div>{{ $option['pickups_per_month'] }} виносів на місяць</div>
+							<div class="text-right">≈ {{ $option['approx_price_per_pickup'] }} грн за винос</div>
+						</div>
+						<div class="mt-1 text-[11px] text-gray-400">
+							До {{ $option['max_bags'] }} пакетів ({{ $option['max_weight_kg'] }} кг) за один винос
 						</div>
 					</button>
 				@endforeach
