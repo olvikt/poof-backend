@@ -1,0 +1,7 @@
+- PR #470
+- Add subscription plans catalog with fixed monthly pricing
+- Move checkout subscription modal from hardcoded plans to DB-driven plans
+- Update checkout total to use selected subscription monthly price
+- Add admin CRUD for subscription plans with economy preview
+- Link client subscriptions to subscription plans and retire legacy pricing fields
+- Keep welcome benefit and one-time bag pricing flow compatible
