@@ -8,6 +8,7 @@ use App\Livewire\Client\OrderCreate\Concerns\HandlesOrderSubmission;
 use App\Livewire\Client\OrderCreate\Concerns\HandlesPricingTrialPolicy;
 use App\Livewire\Client\OrderCreate\Concerns\HandlesScheduleSlots;
 use App\Models\Order;
+use App\Models\SubscriptionPlan;
 use App\Domain\Address\Precision;
 use Carbon\Carbon;
 use Illuminate\Support\Collection;
@@ -68,6 +69,7 @@ class OrderCreate extends Component
     public bool $trial_used = false;
     public bool $showSubscriptionModal = false;
     public ?string $subscription_frequency = null;
+    public ?int $selected_subscription_plan_id = null;
     public int $price = 0;
 
     public bool $showPaymentModal = false;
@@ -165,30 +167,26 @@ class OrderCreate extends Component
 
     protected function subscriptionOptions(): array
     {
-        $singleOrderPrice = (int) ($this->bagPricingOptions[$this->bags_count] ?? $this->price);
-        $singleOrderPrice = max(0, $singleOrderPrice);
+        $plans = SubscriptionPlan::query()
+            ->active()
+            ->ordered()
+            ->get();
 
-        $everyThreeDaysPrice = (int) round($singleOrderPrice * 0.92);
-        $dailyPrice = (int) round($singleOrderPrice * 0.85);
-
-        return [
-            [
-                'key' => 'every_3_days',
-                'title' => '1 раз в 3 дні',
-                'description' => 'Оптимально для стабільного побутового ритму.',
-                'subscription_price' => $everyThreeDaysPrice,
-                'single_price' => $singleOrderPrice,
-                'saving_percent' => 8,
-            ],
-            [
-                'key' => 'daily',
-                'title' => 'Щодня',
-                'description' => 'Максимальний комфорт для щоденного виносу.',
-                'subscription_price' => $dailyPrice,
-                'single_price' => $singleOrderPrice,
-                'saving_percent' => 15,
-            ],
-        ];
+        return $plans->map(function (SubscriptionPlan $plan): array {
+            return [
+                'id' => (int) $plan->id,
+                'key' => $plan->slug,
+                'title' => $plan->name,
+                'description' => $plan->description,
+                'monthly_price' => (int) $plan->monthly_price,
+                'pickups_per_month' => (int) $plan->pickups_per_month,
+                'approx_price_per_pickup' => $plan->approxPricePerPickup(),
+                'saving_percent' => $plan->economyPercent(),
+                'max_bags' => (int) $plan->max_bags,
+                'max_weight_kg' => (int) $plan->max_weight_kg,
+                'is_selected' => (int) $this->selected_subscription_plan_id === (int) $plan->id,
+            ];
+        })->all();
     }
 
     protected function refreshBagPricingOptions(): void

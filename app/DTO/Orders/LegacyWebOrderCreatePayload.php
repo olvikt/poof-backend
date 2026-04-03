@@ -18,7 +18,7 @@ class LegacyWebOrderCreatePayload
     public function toOrderAttributes(int $clientId): array
     {
         return [
-            'order_type' => Order::TYPE_ONE_TIME,
+            'order_type' => $this->attributes['order_type'] ?? Order::TYPE_ONE_TIME,
             'client_id' => $clientId,
             'status' => Order::STATUS_NEW,
             'payment_status' => $this->attributes['payment_status'] ?? ($this->attributes['is_trial'] ? Order::PAY_PAID : Order::PAY_PENDING),
