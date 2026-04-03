@@ -3,9 +3,7 @@
 namespace App\Listeners;
 
 use App\Events\OrderCreated;
-use App\Models\Order;
 use App\Services\Dispatch\OfferDispatcher;
-use Illuminate\Support\Facades\Event;
 
 class DispatchOfferForOrder
 {
@@ -15,10 +13,9 @@ class DispatchOfferForOrder
      */
     public function handle(OrderCreated $event): void
     {
-        $order = $event->order;
+        $order = $event->order->fresh();
 
-        // 🔒 Защита: заказ уже не в поиске
-        if ($order->status !== Order::STATUS_SEARCHING) {
+        if (! $order || ! $order->isDispatchableForOfferPipeline()) {
             return;
         }
 

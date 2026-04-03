@@ -303,6 +303,20 @@ public function markAsPaid(): void
         ], true);
     }
 
+    public function isSubscriptionExecution(): bool
+    {
+        return $this->subscription_id !== null
+            || $this->origin === self::ORIGIN_SUBSCRIPTION
+            || $this->order_type === self::TYPE_SUBSCRIPTION;
+    }
+
+    public function isDispatchableForOfferPipeline(): bool
+    {
+        return $this->payment_status === self::PAY_PAID
+            && $this->status === self::STATUS_SEARCHING
+            && $this->courier_id === null;
+    }
+
     /* =========================================================
      |  TIME SLOTS & PRICING
      | ========================================================= */
