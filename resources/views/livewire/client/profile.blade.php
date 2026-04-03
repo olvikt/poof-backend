@@ -20,7 +20,6 @@
 		<x-poof.ui.bottom-sheet name="editProfile" title="Редагувати профіль">
 			<livewire:client.profile-form />
 		</x-poof.ui.bottom-sheet>
-		@include('livewire.client.partials.address-form-sheet', ['wireKey' => 'profile'])
 		<x-poof.ui.bottom-sheet name="editAvatar" title="Аватар">
 			<livewire:client.avatar-form />
 		</x-poof.ui.bottom-sheet>

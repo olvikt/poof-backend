@@ -35,7 +35,12 @@ class ClientMoreMenuModuleTest extends TestCase
             ->assertSee('@click="openMoreScreen(\'settings\')"', false)
             ->assertSee('aria-label="Назад"', false)
             ->assertSee(route('client.support'), false)
-            ->assertDontSee('open_more=1');
+            ->assertDontSee('open_more=1')
+            ->assertDontSee('data-more-shell-screen="subscriptions"', false)
+            ->assertDontSee('data-more-shell-screen="addresses"', false)
+            ->assertDontSee('data-more-shell-screen="billing"', false)
+            ->assertDontSee('data-more-shell-screen="promocodes"', false)
+            ->assertDontSee('data-more-shell-screen="settings"', false);
 
         $this->actingAs($client, 'web')
             ->get(route('client.support'))
@@ -345,6 +350,19 @@ class ClientMoreMenuModuleTest extends TestCase
             ->get(route('client.more.placeholder', ['page' => 'promocodes', 'open_more' => 1, 'more_screen' => 'promocodes']))
             ->assertOk()
             ->assertSee(route('client.home', ['open_more' => 1, 'more_screen' => 'promocodes']), false);
+    }
+
+
+    public function test_profile_and_addresses_pages_share_single_canonical_address_form_host(): void
+    {
+        $client = User::factory()->create(['role' => User::ROLE_CLIENT]);
+
+        $profileResponse = $this->actingAs($client, 'web')->get(route('client.profile'));
+        $addressesResponse = $this->actingAs($client, 'web')->get(route('client.addresses'));
+
+        $this->assertSame(1, substr_count($profileResponse->getContent(), 'name="addressForm"'));
+        $this->assertSame(1, substr_count($addressesResponse->getContent(), 'name="addressForm"'));
+
     }
 
     public function test_addresses_manager_uses_profile_address_form_flow_when_adding_address(): void
