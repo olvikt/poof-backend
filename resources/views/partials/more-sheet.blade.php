@@ -64,7 +64,7 @@
 <nav class="text-sm text-gray-200">
 
     {{-- Item --}}
-    <a href="#"
+    <a href="{{ route('client.subscriptions') }}" @click="moreOpen = false"
        class="flex items-center gap-4 py-4
               border-b border-gray-800/60
               hover:bg-gray-800/60 transition
@@ -81,7 +81,7 @@
         </svg>
     </a>
 
-    <a href="#"
+    <a href="{{ route('client.addresses') }}" @click="moreOpen = false"
        class="flex items-center gap-4 py-4
               border-b border-gray-800/60
               hover:bg-gray-800/60 transition
@@ -94,7 +94,7 @@
         </svg>
     </a>
 
-    <a href="#"
+    <a href="{{ route('client.billing') }}" @click="moreOpen = false"
        class="flex items-center gap-4 py-4
               border-b border-gray-800/60
               hover:bg-gray-800/60 transition
@@ -107,7 +107,7 @@
         </svg>
     </a>
 
-    <a href="#"
+    <a href="{{ route('client.more.placeholder', ['page' => 'promocodes']) }}" @click="moreOpen = false"
        class="flex items-center gap-4 py-4
               border-b border-gray-800/60
               hover:bg-gray-800/60 transition
@@ -120,7 +120,7 @@
         </svg>
     </a>
 
-    <a href="#"
+    <a href="{{ route('client.support') }}" @click="moreOpen = false"
        class="flex items-center gap-4 py-4
               border-b border-gray-800/60
               hover:bg-gray-800/60 transition
@@ -134,7 +134,7 @@
     </a>
 
     {{-- Last item (NO divider) --}}
-    <a href="#"
+    <a href="{{ route('client.more.placeholder', ['page' => 'settings']) }}" @click="moreOpen = false"
        class="flex items-center gap-4 py-4
               hover:bg-gray-800/60 transition
               group">

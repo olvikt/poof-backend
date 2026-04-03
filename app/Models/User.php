@@ -486,6 +486,11 @@ class User extends Authenticatable implements FilamentUser
         return $this->hasMany(Order::class, 'client_id');
     }
 
+    public function subscriptions(): HasMany
+    {
+        return $this->hasMany(ClientSubscription::class, 'client_id');
+    }
+
     /**
      * Заказы, взятые курʼєром
      */

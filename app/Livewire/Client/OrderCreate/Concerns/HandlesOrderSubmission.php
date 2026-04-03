@@ -138,6 +138,9 @@ trait HandlesOrderSubmission
                 'address_id' => $this->address_id,
                 'status' => ClientSubscription::STATUS_ACTIVE,
                 'next_run_at' => Carbon::parse(sprintf('%s %s', (string) $this->scheduled_date, (string) $this->scheduled_time_from)),
+                'ends_at' => Carbon::now()->addMonth(),
+                'auto_renew' => true,
+                'renewals_count' => 0,
                 'meta' => [
                     'frequency_type' => $plan->frequency_type,
                     'checkout_origin' => 'checkout',
