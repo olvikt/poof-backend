@@ -4,21 +4,22 @@
     'trialUsed',
 ])
 
-<x-poof.section title="Пробний винос">
+<x-poof.section title="Спецпропозиції">
     <div class="grid grid-cols-2 gap-4 w-full">
         <div wire:click="selectTrial(1)">
             <x-poof.trial-option
-                :days="1"
+                title="1 день безкоштовно"
+                subtitle="Перший винос за рахунок сервісу"
                 :active="$isTrial && $trialDays === 1"
                 :disabled="$trialUsed"
+                :used="$trialUsed"
             />
         </div>
 
-        <div wire:click="selectTrial(3)">
+        <div wire:click="openSubscriptionModal">
             <x-poof.trial-option
-                :days="3"
-                :active="$isTrial && $trialDays === 3"
-                :disabled="$trialUsed"
+                title="Підписка"
+                subtitle="Регулярний винос без зайвих дій"
             />
         </div>
     </div>

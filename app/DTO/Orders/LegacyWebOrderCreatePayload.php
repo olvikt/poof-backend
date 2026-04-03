@@ -18,10 +18,10 @@ class LegacyWebOrderCreatePayload
     public function toOrderAttributes(int $clientId): array
     {
         return [
-            'client_id' => $clientId,
             'order_type' => Order::TYPE_ONE_TIME,
+            'client_id' => $clientId,
             'status' => Order::STATUS_NEW,
-            'payment_status' => $this->attributes['is_trial'] ? Order::PAY_PAID : Order::PAY_PENDING,
+            'payment_status' => $this->attributes['payment_status'] ?? ($this->attributes['is_trial'] ? Order::PAY_PAID : Order::PAY_PENDING),
 
             'address_id' => $this->attributes['address_id'],
             'address_text' => $this->attributes['address_text'],
@@ -41,6 +41,13 @@ class LegacyWebOrderCreatePayload
             'handover_type' => $this->attributes['handover_type'],
             'bags_count' => $this->attributes['bags_count'],
             'price' => $this->attributes['price'],
+            'client_charge_amount' => $this->attributes['client_charge_amount'] ?? (int) $this->attributes['price'],
+            'courier_payout_amount' => $this->attributes['courier_payout_amount'] ?? (int) $this->attributes['price'],
+            'system_subsidy_amount' => $this->attributes['system_subsidy_amount'] ?? 0,
+            'funding_source' => $this->attributes['funding_source'] ?? Order::FUNDING_CLIENT,
+            'benefit_type' => $this->attributes['benefit_type'] ?? null,
+            'origin' => $this->attributes['origin'] ?? Order::ORIGIN_CHECKOUT,
+            'subscription_id' => $this->attributes['subscription_id'] ?? null,
 
             'promo_code' => $this->attributes['promo_code'],
             'is_trial' => $this->attributes['is_trial'],

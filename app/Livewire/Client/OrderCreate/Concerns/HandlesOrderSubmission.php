@@ -6,6 +6,7 @@ use App\Actions\Orders\Create\CreateLegacyWebOrderAction;
 use App\Domain\Address\AddressParser;
 use App\DTO\Orders\LegacyWebOrderCreatePayload;
 use App\Models\ClientAddress;
+use App\Models\Order;
 use Illuminate\Support\Facades\Auth;
 
 trait HandlesOrderSubmission
@@ -67,6 +68,11 @@ trait HandlesOrderSubmission
     {
         $this->recalculatePrice();
 
+        $courierPayoutAmount = (int) Order::calcPriceByBags($this->bags_count);
+        $clientChargeAmount = (int) $this->price;
+        $systemSubsidyAmount = max(0, $courierPayoutAmount - $clientChargeAmount);
+        $isWelcomeBenefit = $this->is_trial && $this->trial_days === 1;
+
         $order = app(CreateLegacyWebOrderAction::class)->handle(
             clientId: (int) Auth::id(),
             payload: LegacyWebOrderCreatePayload::fromArray([
@@ -85,6 +91,14 @@ trait HandlesOrderSubmission
                 'handover_type' => $this->handover_type,
                 'bags_count' => $this->bags_count,
                 'price' => $this->price,
+                'client_charge_amount' => $clientChargeAmount,
+                'courier_payout_amount' => $courierPayoutAmount,
+                'system_subsidy_amount' => $systemSubsidyAmount,
+                'funding_source' => $isWelcomeBenefit ? Order::FUNDING_SYSTEM_PROMO : Order::FUNDING_CLIENT,
+                'benefit_type' => $isWelcomeBenefit ? Order::BENEFIT_WELCOME_FIRST_ORDER_FREE : null,
+                'origin' => Order::ORIGIN_CHECKOUT,
+                'subscription_id' => null,
+                'payment_status' => $isWelcomeBenefit ? Order::PAY_PAID : Order::PAY_PENDING,
                 'promo_code' => $this->promo_code,
                 'is_trial' => $this->is_trial,
                 'trial_days' => $this->trial_days,

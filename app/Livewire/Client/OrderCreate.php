@@ -66,6 +66,8 @@ class OrderCreate extends Component
     public bool $is_trial = false;
     public int $trial_days = 1;
     public bool $trial_used = false;
+    public bool $showSubscriptionModal = false;
+    public ?string $subscription_frequency = null;
     public int $price = 0;
 
     public bool $showPaymentModal = false;
@@ -88,7 +90,7 @@ class OrderCreate extends Component
             'lng' => ['nullable', 'numeric', 'between:-180,180'],
             'promo_code' => ['nullable', 'string', 'max:50'],
             'is_trial' => ['boolean'],
-            'trial_days' => ['nullable', 'integer', 'in:1,3'],
+            'trial_days' => ['nullable', 'integer', 'in:1'],
         ];
     }
 
@@ -157,7 +159,36 @@ class OrderCreate extends Component
             'timeSlots' => $this->timeSlots,
             'pricing' => $this->bagPricingOptions,
             'addresses' => $this->addresses,
+            'subscriptionOptions' => $this->subscriptionOptions(),
         ])->layout('layouts.client');
+    }
+
+    protected function subscriptionOptions(): array
+    {
+        $singleOrderPrice = (int) ($this->bagPricingOptions[$this->bags_count] ?? $this->price);
+        $singleOrderPrice = max(0, $singleOrderPrice);
+
+        $everyThreeDaysPrice = (int) round($singleOrderPrice * 0.92);
+        $dailyPrice = (int) round($singleOrderPrice * 0.85);
+
+        return [
+            [
+                'key' => 'every_3_days',
+                'title' => '1 раз в 3 дні',
+                'description' => 'Оптимально для стабільного побутового ритму.',
+                'subscription_price' => $everyThreeDaysPrice,
+                'single_price' => $singleOrderPrice,
+                'saving_percent' => 8,
+            ],
+            [
+                'key' => 'daily',
+                'title' => 'Щодня',
+                'description' => 'Максимальний комфорт для щоденного виносу.',
+                'subscription_price' => $dailyPrice,
+                'single_price' => $singleOrderPrice,
+                'saving_percent' => 15,
+            ],
+        ];
     }
 
     protected function refreshBagPricingOptions(): void

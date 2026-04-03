@@ -334,7 +334,7 @@
 			wire:loading.attr="disabled"
 			data-e2e="client-order-submit"
 			:disabled="!$scheduled_date || !$scheduled_time_from"
-			:label="$is_trial ? 'Пробний POOF винос' : 'Зроби чисто POOF!'"
+			:label="$is_trial ? 'Перший безкоштовний винос' : 'Зроби чисто POOF!'"
 			class="{{ (!$scheduled_date || !$scheduled_time_from) ? 'opacity-60 cursor-not-allowed' : '' }}"
 		/>
 
@@ -363,7 +363,11 @@
 				</h3>
 
 				<p class="text-sm leading-relaxed text-gray-300">
-					Після оплати ми підберемо курʼєра та розпочнемо виконання вашого замовлення.
+					@if($is_trial)
+						Замовлення оформлено як welcome-бонус. Курʼєра підберемо як для звичайного оплачуваного замовлення.
+					@else
+						Після оплати ми підберемо курʼєра та розпочнемо виконання вашого замовлення.
+					@endif
 				</p>
 			</div>
 
@@ -376,18 +380,61 @@
 			</div>
 
 			<div class="space-y-3">
-				<a
-					href="{{ $createdOrderId ? route('client.payments.show', $createdOrderId) : route('client.orders') }}"
-					class="block w-full rounded-2xl bg-green-500 px-4 py-3.5 text-center text-xl font-semibold text-white shadow-lg shadow-green-500/30 transition hover:bg-green-400"
-				>
-					Оплатити зараз {{ $price }} грн
-				</a>
+				@if($is_trial)
+					<a
+						href="{{ route('client.orders') }}"
+						class="block w-full rounded-2xl bg-green-500 px-4 py-3.5 text-center text-xl font-semibold text-white shadow-lg shadow-green-500/30 transition hover:bg-green-400"
+					>
+						Перейти до замовлень
+					</a>
+				@else
+					<a
+						href="{{ $createdOrderId ? route('client.payments.show', $createdOrderId) : route('client.orders') }}"
+						class="block w-full rounded-2xl bg-green-500 px-4 py-3.5 text-center text-xl font-semibold text-white shadow-lg shadow-green-500/30 transition hover:bg-green-400"
+					>
+						Оплатити зараз {{ $price }} грн
+					</a>
+				@endif
 				<a
 					href="{{ route('client.orders') }}"
 					class="block w-full rounded-2xl border border-yellow-400/40 bg-yellow-400/10 px-4 py-3.5 text-center text-sm font-semibold text-yellow-200 transition hover:bg-yellow-400/20"
 				>
-					Оплатити пізніше
+					{{ $is_trial ? 'Добре, зрозуміло' : 'Оплатити пізніше' }}
 				</a>
+			</div>
+		</div>
+	</x-poof.modal>
+
+	<x-poof.modal
+		wire:model="showSubscriptionModal"
+		maxWidth="max-w-md"
+	>
+		<div class="space-y-4">
+			<h3 class="text-lg font-semibold text-white">Підписка</h3>
+			<p class="text-sm text-gray-300">Регулярний винос без зайвих дій</p>
+
+			<div class="space-y-3">
+				@foreach($subscriptionOptions as $option)
+					<button
+						type="button"
+						wire:click="selectSubscriptionPlan('{{ $option['key'] }}')"
+						class="w-full rounded-2xl border border-neutral-700 bg-neutral-800 px-4 py-3 text-left hover:border-yellow-400/50"
+					>
+						<div class="flex items-center justify-between gap-3">
+							<div>
+								<div class="text-sm font-semibold text-white">{{ $option['title'] }}</div>
+								<div class="text-xs text-gray-400">{{ $option['description'] }}</div>
+							</div>
+							<div class="text-right">
+								<div class="text-sm font-bold text-yellow-300">{{ $option['subscription_price'] }} ₴</div>
+								<div class="text-[11px] text-green-400">-{{ $option['saving_percent'] }}% до разового</div>
+							</div>
+						</div>
+						<div class="mt-2 text-[11px] text-gray-400">
+							Разовий: {{ $option['single_price'] }} ₴
+						</div>
+					</button>
+				@endforeach
 			</div>
 		</div>
 	</x-poof.modal>
