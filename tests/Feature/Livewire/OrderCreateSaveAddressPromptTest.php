@@ -155,6 +155,12 @@ class OrderCreateSaveAddressPromptTest extends TestCase
             ->assertSee("Ваше замовлення #{$orderId} прийнято")
             ->assertSee('Оплатити зараз')
             ->assertSee('Оплатити пізніше')
+            ->assertSee('Курʼєра зазвичай знаходимо протягом 20–30 хвилин.')
+            ->assertSee('Оплата захищена через WayForPay.')
+            ->assertSee('Можна оплатити зараз або пізніше в «Моїх замовленнях».')
+            ->assertDontSee('Курʼєра зазвичай знаходимо протягом 5–15 хвилин.')
+            ->assertSeeHtml('text-xl')
+            ->assertDontSeeHtml('rounded-[14px] bg-gray-900/90')
             ->assertSeeHtml(route('client.payments.show', $orderId))
             ->assertSeeHtml(route('client.orders'));
     }

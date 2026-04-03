@@ -9,6 +9,17 @@
         Мої замовлення
     </h1>
 
+    @if($cancelFeedback)
+        <div
+            class="mb-4 rounded-lg border px-4 py-3 text-sm
+                {{ $cancelFeedbackType === 'success'
+                    ? 'border-green-400/40 bg-green-500/10 text-green-300'
+                    : 'border-red-400/40 bg-red-500/10 text-red-300' }}"
+        >
+            {{ $cancelFeedback }}
+        </div>
+    @endif
+
     @if($paymentStatus === 'success' && $showPaymentSuccessModal)
         <div class="fixed inset-0 z-50 flex items-center justify-center bg-black/60 px-4" wire:key="payment-success-modal">
             <div class="w-full max-w-sm rounded-2xl border border-green-400/25 bg-gray-900 p-5 shadow-2xl">
@@ -131,26 +142,33 @@
                     </div>
 
                     {{-- CTA --}}
-                    @if($isPayPending)
+                    @if($isPayPending || $order->canBeCancelled())
                         <div class="flex gap-2 mt-4">
+                            @if($isPayPending)
+                                {{-- PAY --}}
+                                <a href="{{ route('client.payments.show', $order) }}"
+                                   class="flex-1 text-center
+                                          bg-yellow-400 hover:bg-yellow-500
+                                          text-black font-semibold
+                                          py-2 rounded-lg transition">
+                                    Оплатити {{ $order->price }} ₴
+                                </a>
+                            @endif
 
-                            {{-- PAY --}}
-                            <a href="{{ route('client.payments.show', $order) }}"
-                               class="flex-1 text-center
-                                      bg-yellow-400 hover:bg-yellow-500
-                                      text-black font-semibold
-                                      py-2 rounded-lg transition">
-                                Оплатити {{ $order->price }} ₴
-                            </a>
-
-                            {{-- CANCEL --}}
+                            @if($order->canBeCancelled())
+                                {{-- CANCEL --}}
                             <button
+                                type="button"
+                                wire:click="cancelOrder({{ $order->id }})"
+                                wire:loading.attr="disabled"
+                                wire:target="cancelOrder({{ $order->id }})"
                                 class="px-4 py-2 rounded-lg
                                        border border-gray-600
                                        text-gray-300 text-sm
                                        hover:bg-gray-700 transition">
                                 Скасувати
                             </button>
+                            @endif
                         </div>
                     @endif
 
@@ -174,11 +192,17 @@
 
             @forelse($historyOrders as $order)
 
-                <div class="rounded-xl px-4 py-4 bg-gray-800 border border-gray-700">
+                @php $isCancelled = $order->status === \App\Models\Order::STATUS_CANCELLED; @endphp
+
+                <div class="rounded-xl px-4 py-4 border
+                    {{ $isCancelled
+                        ? 'bg-red-950/40 border-red-500/40'
+                        : 'bg-gray-800 border-gray-700' }}">
 
                     {{-- STATUS + PRICE --}}
                     <div class="flex items-center justify-between mb-2">
-                        <span class="text-xs font-semibold text-gray-300">
+                        <span class="text-xs font-semibold
+                            {{ $isCancelled ? 'text-red-300' : 'text-gray-300' }}">
                             {{ \App\Models\Order::STATUS_LABELS[$order->status] ?? $order->status }}
                         </span>
 

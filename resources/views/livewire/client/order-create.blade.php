@@ -354,38 +354,40 @@
 		wire:model="showPaymentModal"
 		maxWidth="max-w-md"
 	>
-		<div class="rounded-2xl border border-gray-700 bg-gradient-to-b from-gray-900 to-gray-800 p-1 shadow-[0_18px_45px_rgba(0,0,0,0.45)]">
-			<div class="rounded-[14px] bg-gray-900/90 p-5 sm:p-6">
-				<x-poof.icons.success-check class="h-14 w-14" />
+		<div class="space-y-5">
+			<x-poof.icons.success-check class="h-14 w-14" />
 
-				<h3 class="mt-4 text-center text-xl font-semibold text-gray-100">
+			<div class="space-y-2 text-center">
+				<h3 class="text-xl font-semibold text-gray-100">
 					Ваше замовлення #{{ $createdOrderId ?? '—' }} прийнято
 				</h3>
 
-				<p class="mt-2 text-center text-sm leading-relaxed text-gray-300">
+				<p class="text-sm leading-relaxed text-gray-300">
 					Після оплати ми підберемо курʼєра та розпочнемо виконання вашого замовлення.
 				</p>
+			</div>
 
-				<div class="mt-4 rounded-xl border border-green-400/20 bg-green-500/5 px-4 py-3 text-xs leading-relaxed text-gray-300">
-					<div>• Курʼєра зазвичай знаходимо протягом 5–15 хвилин.</div>
+			<div class="rounded-xl border border-green-400/20 bg-green-500/5 px-4 py-4 text-base leading-relaxed text-gray-200 sm:text-lg">
+				<div class="space-y-2">
+					<div>• Курʼєра зазвичай знаходимо протягом 20–30 хвилин.</div>
 					<div>• Оплата захищена через WayForPay.</div>
 					<div>• Можна оплатити зараз або пізніше в «Моїх замовленнях».</div>
 				</div>
+			</div>
 
-				<div class="mt-5 space-y-3">
-					<a
-						href="{{ $createdOrderId ? route('client.payments.show', $createdOrderId) : route('client.orders') }}"
-						class="block w-full rounded-2xl bg-green-500 px-4 py-3.5 text-center text-sm font-semibold text-white shadow-lg shadow-green-500/30 transition hover:bg-green-400"
-					>
-						Оплатити зараз {{ $price }} грн
-					</a>
-					<a
-						href="{{ route('client.orders') }}"
-						class="block w-full rounded-2xl border border-yellow-400/40 bg-yellow-400/10 px-4 py-3.5 text-center text-sm font-semibold text-yellow-200 transition hover:bg-yellow-400/20"
-					>
-						Оплатити пізніше
-					</a>
-				</div>
+			<div class="space-y-3">
+				<a
+					href="{{ $createdOrderId ? route('client.payments.show', $createdOrderId) : route('client.orders') }}"
+					class="block w-full rounded-2xl bg-green-500 px-4 py-3.5 text-center text-xl font-semibold text-white shadow-lg shadow-green-500/30 transition hover:bg-green-400"
+				>
+					Оплатити зараз {{ $price }} грн
+				</a>
+				<a
+					href="{{ route('client.orders') }}"
+					class="block w-full rounded-2xl border border-yellow-400/40 bg-yellow-400/10 px-4 py-3.5 text-center text-sm font-semibold text-yellow-200 transition hover:bg-yellow-400/20"
+				>
+					Оплатити пізніше
+				</a>
 			</div>
 		</div>
 	</x-poof.modal>
