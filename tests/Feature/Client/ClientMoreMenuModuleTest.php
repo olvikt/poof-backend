@@ -162,7 +162,9 @@ class ClientMoreMenuModuleTest extends TestCase
             ->assertOk()
             ->assertSee('Не оплачена')
             ->assertSee('Оплатити')
-            ->assertDontSee('Продовжити');
+            ->assertDontSee('Продовжити')
+            ->assertSee('Початок: <span class="text-white">—</span>', false)
+            ->assertSee('Активна до: <span class="text-white">—</span>', false);
     }
 
     public function test_subscriptions_page_marks_paid_subscription_as_active(): void
@@ -199,10 +201,11 @@ class ClientMoreMenuModuleTest extends TestCase
             ->assertOk()
             ->assertSee('Активна')
             ->assertSee('Продовжити')
+            ->assertSee('Докладніше')
             ->assertDontSee('Не оплачена');
     }
 
-    public function test_subscription_pause_and_cancel_actions_change_status_without_server_error(): void
+    public function test_subscription_pause_and_resume_actions_change_generation_state(): void
     {
         $client = User::factory()->create(['role' => User::ROLE_CLIENT]);
         $plan = SubscriptionPlan::factory()->create();
@@ -233,14 +236,102 @@ class ClientMoreMenuModuleTest extends TestCase
         Livewire::test(SubscriptionsPage::class)
             ->call('pause', $subscription->id)
             ->assertSet('stats.paused', 1)
-            ->assertSet('stats.active', 0)
-            ->call('cancel', $subscription->id)
-            ->assertSet('stats.completed', 1);
+            ->assertSet('stats.active', 0);
+
+        $this->assertFalse($subscription->fresh()->canGenerateNextOrderAutomatically());
+
+        Livewire::test(SubscriptionsPage::class)
+            ->call('resume', $subscription->id)
+            ->assertSet('stats.active', 1);
 
         $subscription->refresh();
 
-        $this->assertSame(ClientSubscription::STATUS_CANCELLED, $subscription->status);
-        $this->assertFalse((bool) $subscription->auto_renew);
+        $this->assertSame(ClientSubscription::STATUS_ACTIVE, $subscription->status);
+        $this->assertTrue($subscription->canGenerateNextOrderAutomatically());
+    }
+
+    public function test_auto_renew_toggle_is_blocked_for_unpaid_and_available_for_paid_subscription(): void
+    {
+        $client = User::factory()->create(['role' => User::ROLE_CLIENT]);
+        $plan = SubscriptionPlan::factory()->create();
+
+        $unpaid = ClientSubscription::unguarded(fn (): ClientSubscription => ClientSubscription::query()->create([
+            'client_id' => $client->id,
+            'subscription_plan_id' => $plan->id,
+            'status' => ClientSubscription::STATUS_ACTIVE,
+            'auto_renew' => true,
+        ]));
+
+        $paid = ClientSubscription::unguarded(fn (): ClientSubscription => ClientSubscription::query()->create([
+            'client_id' => $client->id,
+            'subscription_plan_id' => $plan->id,
+            'status' => ClientSubscription::STATUS_ACTIVE,
+            'auto_renew' => true,
+        ]));
+
+        Order::createForTesting([
+            'client_id' => $client->id,
+            'subscription_id' => $paid->id,
+            'payment_status' => Order::PAY_PAID,
+            'status' => Order::STATUS_DONE,
+            'order_type' => Order::TYPE_SUBSCRIPTION,
+            'price' => 450,
+            'client_charge_amount' => 450,
+            'address_text' => 'вул. Платіжна, 9',
+        ]);
+
+        $this->actingAs($client, 'web');
+
+        Livewire::test(SubscriptionsPage::class)
+            ->call('toggleAutoRenew', $unpaid->id)
+            ->call('toggleAutoRenew', $paid->id);
+
+        $this->assertTrue((bool) $unpaid->fresh()->auto_renew);
+        $this->assertFalse((bool) $paid->fresh()->auto_renew);
+    }
+
+    public function test_details_layer_builds_timeline_with_plan_run_count_and_completed_marks(): void
+    {
+        $client = User::factory()->create(['role' => User::ROLE_CLIENT]);
+        $plan = SubscriptionPlan::factory()->create(['pickups_per_month' => 10]);
+        $subscription = ClientSubscription::unguarded(fn (): ClientSubscription => ClientSubscription::query()->create([
+            'client_id' => $client->id,
+            'subscription_plan_id' => $plan->id,
+            'status' => ClientSubscription::STATUS_ACTIVE,
+            'auto_renew' => true,
+            'ends_at' => now()->addMonth(),
+            'next_run_at' => now()->addDay(),
+        ]));
+
+        Order::createForTesting([
+            'client_id' => $client->id,
+            'subscription_id' => $subscription->id,
+            'payment_status' => Order::PAY_PAID,
+            'status' => Order::STATUS_DONE,
+            'order_type' => Order::TYPE_SUBSCRIPTION,
+            'price' => 500,
+            'client_charge_amount' => 500,
+            'address_text' => 'вул. Детальна, 1',
+        ]);
+
+        Order::createForTesting([
+            'client_id' => $client->id,
+            'subscription_id' => $subscription->id,
+            'payment_status' => Order::PAY_PAID,
+            'status' => Order::STATUS_DONE,
+            'order_type' => Order::TYPE_SUBSCRIPTION,
+            'price' => 500,
+            'client_charge_amount' => 500,
+            'address_text' => 'вул. Детальна, 1',
+        ]);
+
+        $this->actingAs($client, 'web');
+
+        Livewire::test(SubscriptionsPage::class)
+            ->call('openDetails', $subscription->id)
+            ->assertSet('showDetailsModal', true)
+            ->assertSet('details.total_runs', 10)
+            ->assertSet('details.completed_runs', 2);
     }
 
     public function test_addresses_page_uses_same_saved_addresses_source_as_profile(): void

@@ -23,6 +23,10 @@ class SubscriptionsPage extends Component
         'total_paid' => 0,
     ];
 
+    public bool $showDetailsModal = false;
+    public ?int $detailsSubscriptionId = null;
+    public array $details = [];
+
     public function mount(bool $embedded = false): void
     {
         $this->embedded = $embedded;
@@ -91,7 +95,8 @@ class SubscriptionsPage extends Component
     {
         $subscription = $this->findOwnSubscription($subscriptionId);
 
-        if (! $subscription) {
+        if (! $subscription || ! $subscription->canToggleAutoRenew()) {
+            $this->dispatch('notify', type: 'error', message: 'Автопродовження доступне лише після першої оплати.');
             return;
         }
 
@@ -100,6 +105,19 @@ class SubscriptionsPage extends Component
         ])->save();
 
         $this->reload();
+    }
+
+    public function openDetails(int $subscriptionId): void
+    {
+        $subscription = $this->findOwnSubscription($subscriptionId);
+
+        if (! $subscription || ! $subscription->canOpenDetails()) {
+            return;
+        }
+
+        $this->detailsSubscriptionId = $subscriptionId;
+        $this->details = $this->buildDetailsPayload($subscription);
+        $this->showDetailsModal = true;
     }
 
     protected function reload(): void
@@ -144,7 +162,43 @@ class SubscriptionsPage extends Component
         return ClientSubscription::query()
             ->where('id', $subscriptionId)
             ->where('client_id', auth()->id())
+            ->with(['plan', 'address', 'generatedOrders' => fn ($query) => $query->orderBy('scheduled_date')])
             ->first();
+    }
+
+    protected function buildDetailsPayload(ClientSubscription $subscription): array
+    {
+        $planRuns = max(1, (int) ($subscription->plan?->pickups_per_month ?? 0));
+        $orders = $subscription->generatedOrders;
+        $completedRuns = $orders->where('status', \App\Models\Order::STATUS_DONE)->count();
+        $remainingRuns = max(0, $planRuns - $completedRuns);
+        $nextPlanned = $orders
+            ->whereIn('status', [\App\Models\Order::STATUS_NEW, \App\Models\Order::STATUS_SEARCHING, \App\Models\Order::STATUS_ACCEPTED, \App\Models\Order::STATUS_IN_PROGRESS])
+            ->sortBy('scheduled_date')
+            ->first();
+
+        $startDate = $subscription->startsAtForDisplay() ?? $subscription->next_run_at ?? now();
+        $timeline = collect(range(1, $planRuns))->map(function (int $index) use ($startDate, $completedRuns): array {
+            $date = $startDate->copy()->addDays(($index - 1) * 3);
+
+            return [
+                'date' => $date->format('d.m'),
+                'completed' => $index <= $completedRuns,
+            ];
+        })->all();
+
+        return [
+            'plan_name' => (string) ($subscription->plan?->name ?? 'План підписки'),
+            'period_start' => $subscription->startsAtForDisplay()?->format('d.m.Y') ?? '—',
+            'period_end' => $subscription->activeUntilForDisplay()?->format('d.m.Y') ?? '—',
+            'completed_runs' => $completedRuns,
+            'total_runs' => $planRuns,
+            'remaining_runs' => $remainingRuns,
+            'next_planned' => $nextPlanned?->scheduled_date?->format('d.m.Y') ?? '—',
+            'status' => $subscription->status_label,
+            'auto_renew' => (bool) $subscription->auto_renew,
+            'timeline' => $timeline,
+        ];
     }
 
     public function render()
