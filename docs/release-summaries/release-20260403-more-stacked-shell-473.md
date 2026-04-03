@@ -1,0 +1,6 @@
+- PR #473
+- Replace More reopen flow with stacked modal shell navigation
+- Add layered back navigation for More child screens
+- Remove More overlay conflict above child content
+- Reuse profile address add flow in More addresses screen
+- Improve More transitions to avoid visual jump to home
