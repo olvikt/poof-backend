@@ -1,0 +1,6 @@
+- PR #469
+- Add welcome first-order benefit funding model to checkout
+- Keep first free order in normal courier order flow with system-funded subsidy markers
+- Replace 3-day free trial block with subscription checkout modal MVP
+- Add subscription foundation schema and order-to-subscription linkage
+- Keep POOF checkout and payment flow compatible with new benefit logic
