@@ -79,6 +79,9 @@
     {{-- More shell --}}
     @include('partials.more-sheet')
 
+    {{-- Canonical address form host (single runtime instance) --}}
+    @include('livewire.client.partials.address-form-sheet')
+
     {{-- 🔑 Sheets slot (ВАЖНО) --}}
     {{ $sheets ?? '' }}
 

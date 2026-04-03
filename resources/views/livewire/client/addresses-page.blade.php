@@ -11,5 +11,4 @@
 
     <livewire:client.address-manager />
 
-    @include('livewire.client.partials.address-form-sheet', ['wireKey' => $embedded ? 'more-addresses' : 'addresses-page'])
 </div>
