@@ -65,6 +65,14 @@ public function markAsPaid(): void
     public const HANDOVER_DOOR = 'door';
     public const HANDOVER_HAND = 'hand';
 
+    public const FUNDING_CLIENT = 'client';
+    public const FUNDING_SYSTEM_PROMO = 'system_promo';
+
+    public const BENEFIT_WELCOME_FIRST_ORDER_FREE = 'welcome_first_order_free';
+
+    public const ORIGIN_CHECKOUT = 'checkout';
+    public const ORIGIN_SUBSCRIPTION = 'subscription';
+
     public const HANDOVER_LABELS = [
         self::HANDOVER_DOOR => 'Забрати біля дверей',
         self::HANDOVER_HAND => 'Передача в руки',
@@ -110,6 +118,13 @@ public function markAsPaid(): void
         'handover_type',
         'bags_count',
         'price',
+        'client_charge_amount',
+        'courier_payout_amount',
+        'system_subsidy_amount',
+        'funding_source',
+        'benefit_type',
+        'origin',
+        'subscription_id',
         'promo_code',
         'is_trial',
         'trial_days',
@@ -123,6 +138,13 @@ public function markAsPaid(): void
         'order_type',
         'bags_count',
         'price',
+        'client_charge_amount',
+        'courier_payout_amount',
+        'system_subsidy_amount',
+        'funding_source',
+        'benefit_type',
+        'origin',
+        'subscription_id',
         'address_id',
         'address_text',
         'lat',
@@ -191,8 +213,12 @@ public function markAsPaid(): void
         'bags_count'     => 'int',
         'total_weight_kg'=> 'float',
         'price'          => 'int',
+        'client_charge_amount' => 'int',
+        'courier_payout_amount' => 'int',
+        'system_subsidy_amount' => 'int',
         'is_trial'       => 'bool',
         'trial_days'     => 'int',
+        'subscription_id' => 'int',
 
         'accepted_at'  => 'datetime',
         'started_at'   => 'datetime',
@@ -210,6 +236,11 @@ public function markAsPaid(): void
     public function courier(): BelongsTo
     {
         return $this->belongsTo(User::class, 'courier_id');
+    }
+
+    public function subscription(): BelongsTo
+    {
+        return $this->belongsTo(ClientSubscription::class, 'subscription_id');
     }
 	
 	public function offers(): HasMany
@@ -255,6 +286,11 @@ public function markAsPaid(): void
     public function isTrial(): bool
     {
         return (bool) $this->is_trial;
+    }
+
+    public function isWelcomeBenefitOrder(): bool
+    {
+        return $this->benefit_type === self::BENEFIT_WELCOME_FIRST_ORDER_FREE;
     }
 
     public function isActive(): bool

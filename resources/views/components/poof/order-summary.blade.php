@@ -36,7 +36,7 @@
 
             @if($isTrial)
                 <div class="text-xs text-green-400">
-                    тестовий період
+                    перший винос безкоштовно
                 </div>
             @endif
         </div>

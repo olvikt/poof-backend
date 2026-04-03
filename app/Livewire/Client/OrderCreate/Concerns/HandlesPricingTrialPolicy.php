@@ -30,13 +30,17 @@ trait HandlesPricingTrialPolicy
 
     public function selectTrial(int $days): void
     {
+        if ($days !== 1) {
+            return;
+        }
+
         if ($this->trial_used) {
             $this->showTrialBlockedModal = true;
             return;
         }
 
         $this->is_trial = true;
-        $this->trial_days = in_array($days, [1, 3], true) ? (int) $days : 1;
+        $this->trial_days = 1;
         $this->bags_count = 1;
         $this->price = 0;
     }
@@ -54,6 +58,21 @@ trait HandlesPricingTrialPolicy
         $this->is_trial = false;
         $this->trial_days = 1;
         $this->recalculatePrice();
+    }
+
+    public function openSubscriptionModal(): void
+    {
+        $this->showSubscriptionModal = true;
+    }
+
+    public function selectSubscriptionPlan(string $frequency): void
+    {
+        if (! in_array($frequency, ['every_3_days', 'daily'], true)) {
+            return;
+        }
+
+        $this->subscription_frequency = $frequency;
+        $this->showSubscriptionModal = false;
     }
 
     protected function recalculatePrice(): void

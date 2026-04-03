@@ -48,7 +48,7 @@ class OrderCreateCriticalFlowsRegressionTest extends TestCase
             ->assertSet('scheduled_time_to', '20:00');
     }
 
-    public function test_handover_bags_and_trial_pricing_flow_is_stable_and_observable(): void
+    public function test_handover_bags_and_welcome_benefit_pricing_flow_is_stable_and_observable(): void
     {
         $user = User::factory()->create();
         $this->actingAs($user);
@@ -59,9 +59,9 @@ class OrderCreateCriticalFlowsRegressionTest extends TestCase
             ->assertSet('price', Order::calcPriceByBags(3))
             ->set('handover_type', Order::HANDOVER_HAND)
             ->assertSet('handover_type', Order::HANDOVER_HAND)
-            ->call('selectTrial', 3)
+            ->call('selectTrial', 1)
             ->assertSet('is_trial', true)
-            ->assertSet('trial_days', 3)
+            ->assertSet('trial_days', 1)
             ->assertSet('bags_count', 1)
             ->assertSet('price', 0)
             ->call('selectBags', 2)
@@ -69,6 +69,20 @@ class OrderCreateCriticalFlowsRegressionTest extends TestCase
             ->assertSet('trial_days', 1)
             ->assertSet('bags_count', 2)
             ->assertSet('price', Order::calcPriceByBags(2));
+    }
+
+    public function test_subscription_popup_can_be_opened_and_plan_selection_is_persisted_in_component_state(): void
+    {
+        $user = User::factory()->create();
+        $this->actingAs($user);
+
+        Livewire::test(OrderCreate::class)
+            ->assertSet('showSubscriptionModal', false)
+            ->call('openSubscriptionModal')
+            ->assertSet('showSubscriptionModal', true)
+            ->call('selectSubscriptionPlan', 'every_3_days')
+            ->assertSet('showSubscriptionModal', false)
+            ->assertSet('subscription_frequency', 'every_3_days');
     }
 
     public function test_trial_flag_is_blocked_when_user_has_previous_trial_order(): void

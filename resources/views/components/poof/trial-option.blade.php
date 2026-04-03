@@ -1,29 +1,32 @@
 @props([
-    'days',
+    'title',
+    'subtitle',
     'active' => false,
     'disabled' => false,
+    'used' => false,
 ])
 
 <div
     class="
-        flex-1 cursor-pointer
-        px-4 py-4 rounded-2xl
-        text-center
+        flex min-h-[112px] flex-col justify-between
+        rounded-2xl border px-4 py-4 text-left
         transition-all duration-150 active:scale-95
         {{ $active && ! $disabled
-            ? 'bg-gradient-to-b from-green-300 to-green-400 text-black shadow-lg'
-            : 'bg-neutral-800 text-gray-200 border border-neutral-700 shadow-sm'
+            ? 'border-green-300 bg-gradient-to-b from-green-300 to-green-400 text-black shadow-lg'
+            : 'border-neutral-700 bg-neutral-800 text-gray-100 shadow-sm'
         }}
-        {{ $disabled ? 'opacity-50 pointer-events-none' : '' }}
+        {{ $disabled ? 'opacity-60' : 'cursor-pointer' }}
     "
 >
-@use(App\Support\UaPlural)
-
-<div class="text-lg font-extrabold">
-    {{ $days }} {{ UaPlural::days($days) }}
-</div>
+    <div class="text-sm font-bold leading-tight">
+        {{ $title }}
+    </div>
 
     <div class="text-xs opacity-80">
-        безкоштовно
+        @if($used)
+            Уже використано
+        @else
+            {{ $subtitle }}
+        @endif
     </div>
 </div>
