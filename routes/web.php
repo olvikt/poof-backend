@@ -7,6 +7,7 @@ use App\Http\Controllers\Client\Payments\DevPaymentController;
 use App\Http\Controllers\Client\Payments\PaymentPageController;
 use App\Http\Controllers\Client\Payments\PaymentStartController;
 use App\Http\Controllers\Client\Payments\WayForPayReturnController;
+use App\Http\Controllers\Client\Subscriptions\SubscriptionCheckoutController;
 use App\Http\Controllers\Courier\CourierOrderLifecycleController;
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\Pwa\ManifestController;
@@ -172,6 +173,8 @@ Route::middleware('auth:web')
         Route::get('/payments/{order}', PaymentPageController::class)->name('payments.show');
         Route::post('/payments/{order}/start', PaymentStartController::class)->name('payments.start');
         Route::post('/payments/dev-pay/{order}', DevPaymentController::class)->name('payments.dev-pay');
+        Route::post('/subscriptions/{subscription}/pay', [SubscriptionCheckoutController::class, 'pay'])->name('subscriptions.pay');
+        Route::post('/subscriptions/{subscription}/renew', [SubscriptionCheckoutController::class, 'renew'])->name('subscriptions.renew');
     });
 
 Route::middleware('auth:web')

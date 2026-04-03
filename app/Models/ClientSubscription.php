@@ -17,6 +17,10 @@ class ClientSubscription extends Model
     public const STATUS_CANCELLED = 'cancelled';
     public const STATUS_UNPAID = 'unpaid';
     public const STATUS_COMPLETED = 'completed';
+    public const BILLING_UNPAID = 'unpaid';
+    public const BILLING_PAID = 'paid';
+    public const BILLING_PAYMENT_FAILED = 'payment_failed';
+    public const BILLING_RENEWAL_DUE = 'renewal_due';
 
     public const STATUS_LABELS = [
         self::STATUS_DRAFT => 'Чернетка',
@@ -66,11 +70,32 @@ class ClientSubscription extends Model
 
     public function getDisplayStatusAttribute(): string
     {
-        if ($this->isCancelled()) {
+        if ($this->lifecycle_state === self::STATUS_CANCELLED) {
             return self::STATUS_CANCELLED;
         }
 
-        if ($this->isCompleted()) {
+        if ($this->lifecycle_state === self::STATUS_COMPLETED) {
+            return self::STATUS_COMPLETED;
+        }
+
+        if ($this->lifecycle_state === self::STATUS_PAUSED) {
+            return self::STATUS_PAUSED;
+        }
+
+        if ($this->billing_state === self::BILLING_UNPAID) {
+            return self::STATUS_UNPAID;
+        }
+
+        return self::STATUS_ACTIVE;
+    }
+
+    public function getLifecycleStateAttribute(): string
+    {
+        if ($this->status === self::STATUS_CANCELLED) {
+            return self::STATUS_CANCELLED;
+        }
+
+        if ($this->ends_at !== null && $this->ends_at->isPast() && $this->status !== self::STATUS_CANCELLED) {
             return self::STATUS_COMPLETED;
         }
 
@@ -78,11 +103,20 @@ class ClientSubscription extends Model
             return self::STATUS_PAUSED;
         }
 
-        if ($this->isUnpaid()) {
-            return self::STATUS_UNPAID;
+        return self::STATUS_ACTIVE;
+    }
+
+    public function getBillingStateAttribute(): string
+    {
+        if (! $this->hasPaidOrders()) {
+            return self::BILLING_UNPAID;
         }
 
-        return self::STATUS_ACTIVE;
+        if ($this->ends_at !== null && $this->ends_at->isPast() && (bool) $this->auto_renew) {
+            return self::BILLING_RENEWAL_DUE;
+        }
+
+        return self::BILLING_PAID;
     }
 
     public function getStatusBadgeClassesAttribute(): string
@@ -108,7 +142,7 @@ class ClientSubscription extends Model
 
     public function isUnpaid(): bool
     {
-        return in_array($this->status, [self::STATUS_DRAFT, self::STATUS_ACTIVE], true) && ! $this->hasPaidOrders();
+        return $this->billing_state === self::BILLING_UNPAID;
     }
 
     public function isCancelled(): bool
@@ -118,12 +152,12 @@ class ClientSubscription extends Model
 
     public function isCompleted(): bool
     {
-        return $this->ends_at !== null && $this->ends_at->isPast() && ! $this->isCancelled();
+        return $this->lifecycle_state === self::STATUS_COMPLETED;
     }
 
     public function canPause(): bool
     {
-        return $this->display_status === self::STATUS_ACTIVE;
+        return $this->display_status === self::STATUS_ACTIVE && $this->billing_state === self::BILLING_PAID;
     }
 
     public function canResume(): bool
@@ -133,17 +167,56 @@ class ClientSubscription extends Model
 
     public function canCancel(): bool
     {
-        return ! in_array($this->display_status, [self::STATUS_CANCELLED, self::STATUS_COMPLETED], true);
+        return $this->billing_state === self::BILLING_UNPAID
+            && ! in_array($this->display_status, [self::STATUS_CANCELLED, self::STATUS_COMPLETED], true);
     }
 
     public function canRenew(): bool
     {
-        return in_array($this->display_status, [self::STATUS_ACTIVE, self::STATUS_PAUSED], true);
+        return $this->billing_state === self::BILLING_PAID
+            && in_array($this->display_status, [self::STATUS_ACTIVE, self::STATUS_PAUSED, self::STATUS_COMPLETED], true);
     }
 
     public function canPay(): bool
     {
-        return $this->display_status === self::STATUS_UNPAID;
+        return $this->billing_state === self::BILLING_UNPAID;
+    }
+
+    public function canToggleAutoRenew(): bool
+    {
+        return $this->billing_state === self::BILLING_PAID
+            && ! in_array($this->lifecycle_state, [self::STATUS_CANCELLED], true);
+    }
+
+    public function startsAtForDisplay(): ?\Illuminate\Support\Carbon
+    {
+        if ($this->billing_state === self::BILLING_UNPAID) {
+            return null;
+        }
+
+        $firstPaidOrder = $this->generatedOrders()
+            ->where('payment_status', Order::PAY_PAID)
+            ->orderBy('created_at')
+            ->first();
+
+        return $firstPaidOrder?->created_at;
+    }
+
+    public function activeUntilForDisplay(): ?\Illuminate\Support\Carbon
+    {
+        return $this->billing_state === self::BILLING_UNPAID ? null : $this->ends_at;
+    }
+
+    public function canOpenDetails(): bool
+    {
+        return $this->billing_state === self::BILLING_PAID;
+    }
+
+    public function canGenerateNextOrderAutomatically(): bool
+    {
+        return $this->lifecycle_state === self::STATUS_ACTIVE
+            && $this->billing_state === self::BILLING_PAID
+            && (bool) $this->auto_renew;
     }
 
     public function getFrequencyLabelAttribute(): string

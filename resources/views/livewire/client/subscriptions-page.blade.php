@@ -49,43 +49,46 @@
                 <div class="mt-3 grid grid-cols-2 gap-3 text-sm text-gray-300">
                     <p>Частота: <span class="text-white">{{ $subscription->frequency_label }}</span></p>
                     <p>Місячна вартість: <span class="text-white">{{ number_format((int) ($subscription->plan?->monthly_price ?? 0), 0, ',', ' ') }} ₴</span></p>
-                    <p>Початок: <span class="text-white">{{ optional($subscription->created_at)->format('d.m.Y') }}</span></p>
-                    <p>Активна до: <span class="text-white">{{ optional($subscription->ends_at)->format('d.m.Y') ?? '—' }}</span></p>
+                    <p>Початок: <span class="text-white">{{ optional($subscription->startsAtForDisplay())->format('d.m.Y') ?? '—' }}</span></p>
+                    <p>Активна до: <span class="text-white">{{ optional($subscription->activeUntilForDisplay())->format('d.m.Y') ?? '—' }}</span></p>
                 </div>
 
-                <p class="mt-2 text-xs text-gray-400">
-                    Автопродовження {{ $subscription->auto_renew ? 'увімкнено' : 'вимкнено' }}
-                </p>
+                <div class="mt-3 flex items-center justify-between rounded-xl border border-gray-800 bg-gray-950/60 px-3 py-2">
+                    <span class="text-sm text-gray-200">Автопродовження</span>
+                    <button
+                        wire:click="toggleAutoRenew({{ $subscription->id }})"
+                        type="button"
+                        @disabled(!$subscription->canToggleAutoRenew())
+                        class="relative inline-flex h-6 w-11 items-center rounded-full transition {{ $subscription->auto_renew ? 'bg-yellow-400' : 'bg-gray-700' }} disabled:cursor-not-allowed disabled:opacity-50"
+                        aria-label="Перемкнути автопродовження"
+                    >
+                        <span class="inline-block h-5 w-5 transform rounded-full bg-white transition {{ $subscription->auto_renew ? 'translate-x-5' : 'translate-x-1' }}"></span>
+                    </button>
+                </div>
+                @if(! $subscription->canToggleAutoRenew())
+                    <p class="mt-1 text-xs text-gray-500">Автопродовження можна налаштувати після першої оплати.</p>
+                @endif
 
                 <div class="mt-4 flex flex-wrap gap-2">
                     @if($subscription->canPay())
-                        <a
-                            href="{{ route('client.order.create', ['address_id' => $subscription->address_id, 'subscription_id' => $subscription->id, 'source' => 'subscription_payment']) }}"
-                            class="rounded-xl bg-yellow-400 px-4 py-2 text-sm font-semibold text-black"
-                        >
-                            Оплатити
-                        </a>
+                        <form method="POST" action="{{ route('client.subscriptions.pay', $subscription) }}">
+                            @csrf
+                            <button type="submit" class="rounded-xl bg-yellow-400 px-4 py-2 text-sm font-semibold text-black">Оплатити</button>
+                        </form>
+                        <button wire:click="cancel({{ $subscription->id }})" type="button" class="rounded-xl border border-red-500/50 px-3 py-2 text-sm text-red-200">Скасувати</button>
                     @elseif($subscription->canRenew())
-                        <a
-                            href="{{ route('client.order.create', ['address_id' => $subscription->address_id, 'subscription_id' => $subscription->id, 'source' => 'subscription_renew']) }}"
-                            class="rounded-xl bg-yellow-400 px-4 py-2 text-sm font-semibold text-black"
-                        >
-                            Продовжити
-                        </a>
-                    @endif
-
-                    <button wire:click="toggleAutoRenew({{ $subscription->id }})" type="button" class="rounded-xl border border-gray-700 px-3 py-2 text-sm text-gray-200">
-                        {{ $subscription->auto_renew ? 'Вимкнути автопродовження' : 'Увімкнути автопродовження' }}
-                    </button>
-
-                    @if($subscription->canPause())
-                        <button wire:click="pause({{ $subscription->id }})" type="button" class="rounded-xl border border-gray-700 px-3 py-2 text-sm text-gray-200">Пауза</button>
-                    @elseif($subscription->canResume())
-                        <button wire:click="resume({{ $subscription->id }})" type="button" class="rounded-xl border border-gray-700 px-3 py-2 text-sm text-gray-200">Відновити</button>
-                    @endif
-
-                    @if($subscription->canCancel())
-                        <button wire:click="cancel({{ $subscription->id }})" type="button" class="rounded-xl border border-red-500/50 px-3 py-2 text-sm text-red-200">Зупинити</button>
+                        <form method="POST" action="{{ route('client.subscriptions.renew', $subscription) }}">
+                            @csrf
+                            <button type="submit" class="rounded-xl bg-yellow-400 px-4 py-2 text-sm font-semibold text-black">Продовжити</button>
+                        </form>
+                        @if($subscription->canPause())
+                            <button wire:click="pause({{ $subscription->id }})" type="button" class="rounded-xl border border-gray-700 px-3 py-2 text-sm text-gray-200">Пауза</button>
+                        @elseif($subscription->canResume())
+                            <button wire:click="resume({{ $subscription->id }})" type="button" class="rounded-xl border border-gray-700 px-3 py-2 text-sm text-gray-200">Запустити</button>
+                        @endif
+                        @if($subscription->canOpenDetails())
+                            <button wire:click="openDetails({{ $subscription->id }})" type="button" class="rounded-xl border border-gray-700 px-3 py-2 text-sm text-gray-200">Докладніше</button>
+                        @endif
                     @endif
                 </div>
             </article>
@@ -95,4 +98,30 @@
             </div>
         @endforelse
     </section>
+
+    <x-poof.modal wire:model="showDetailsModal" maxWidth="max-w-lg">
+        <div class="space-y-3">
+            <h3 class="text-lg font-semibold text-white">Докладніше</h3>
+            <p class="text-sm text-gray-300">{{ $details['plan_name'] ?? 'План' }}</p>
+            <div class="grid grid-cols-2 gap-2 text-sm text-gray-300">
+                <p>Період: <span class="text-white">{{ ($details['period_start'] ?? '—') }} — {{ ($details['period_end'] ?? '—') }}</span></p>
+                <p>Статус: <span class="text-white">{{ $details['status'] ?? '—' }}</span></p>
+                <p>Виконано: <span class="text-white">{{ $details['completed_runs'] ?? 0 }} з {{ $details['total_runs'] ?? 0 }}</span></p>
+                <p>Залишилось: <span class="text-white">{{ $details['remaining_runs'] ?? 0 }}</span></p>
+                <p>Наступний винос: <span class="text-white">{{ $details['next_planned'] ?? '—' }}</span></p>
+                <p>Автопродовження: <span class="text-white">{{ !empty($details['auto_renew']) ? 'Увімкнено' : 'Вимкнено' }}</span></p>
+            </div>
+
+            <div class="max-h-56 overflow-y-auto rounded-xl border border-gray-800 bg-gray-950 p-3">
+                <div class="grid grid-cols-5 gap-2">
+                    @foreach(($details['timeline'] ?? []) as $run)
+                        <div class="text-center">
+                            <div class="mx-auto h-4 w-4 rounded-full border {{ $run['completed'] ? 'border-yellow-400 bg-yellow-400' : 'border-gray-600 bg-transparent' }}"></div>
+                            <div class="mt-1 text-[10px] text-gray-400">{{ $run['date'] }}</div>
+                        </div>
+                    @endforeach
+                </div>
+            </div>
+        </div>
+    </x-poof.modal>
 </div>
