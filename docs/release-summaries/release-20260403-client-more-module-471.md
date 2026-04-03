@@ -1,0 +1,6 @@
+- PR #471
+- Add client More module pages for subscriptions, addresses, and payments
+- Wire More sheet items to real client routes
+- Add Telegram support redirect and product placeholders for promo codes and settings
+- Add subscription lifecycle foundation for client subscription management
+- Keep profile, saved addresses, checkout, and payment flows compatible
