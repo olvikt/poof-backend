@@ -1,6 +1,11 @@
 <div class="min-h-screen rounded-xl bg-gray-950 px-4 pb-28 pt-4 text-white shadow-[0_0_0_1px_rgba(74,222,128,0.25)]">
-    <h1 class="text-xl font-bold">Підписка</h1>
-    <p class="mt-1 text-sm text-gray-400">Керуйте підписками для себе та близьких в одному місці.</p>
+    <div class="flex items-center justify-between gap-3">
+        <div>
+            <h1 class="text-xl font-bold">Підписка</h1>
+            <p class="mt-1 text-sm text-gray-400">Керуйте підписками для себе та близьких в одному місці.</p>
+        </div>
+        <a href="{{ route('client.home', ['open_more' => 1]) }}" class="rounded-xl border border-gray-700 px-3 py-2 text-sm text-gray-200">Закрити</a>
+    </div>
 
     <section class="mt-4 grid grid-cols-2 gap-3 text-sm">
         <div class="rounded-2xl border border-gray-800 bg-gray-900 p-3">
@@ -34,7 +39,7 @@
                         <p class="text-base font-semibold">{{ $subscription->plan?->name ?? 'План підписки' }}</p>
                         <p class="text-sm text-gray-400">{{ $subscription->address?->address_text ?? 'Адреса буде додана під час оформлення' }}</p>
                     </div>
-                    <span class="rounded-full px-2 py-1 text-xs font-semibold {{ $subscription->status === \App\Models\ClientSubscription::STATUS_ACTIVE ? 'bg-green-500/20 text-green-300' : ($subscription->status === \App\Models\ClientSubscription::STATUS_PAUSED ? 'bg-yellow-500/20 text-yellow-300' : 'bg-gray-700 text-gray-300') }}">
+                    <span class="rounded-full px-2 py-1 text-xs font-semibold {{ $subscription->status_badge_classes }}">
                         {{ $subscription->status_label }}
                     </span>
                 </div>
@@ -51,24 +56,33 @@
                 </p>
 
                 <div class="mt-4 flex flex-wrap gap-2">
-                    <a
-                        href="{{ route('client.order.create', ['address_id' => $subscription->address_id, 'subscription_id' => $subscription->id, 'source' => 'subscription_renew']) }}"
-                        class="rounded-xl bg-yellow-400 px-4 py-2 text-sm font-semibold text-black"
-                    >
-                        Продовжити
-                    </a>
+                    @if($subscription->canPay())
+                        <a
+                            href="{{ route('client.order.create', ['address_id' => $subscription->address_id, 'subscription_id' => $subscription->id, 'source' => 'subscription_payment']) }}"
+                            class="rounded-xl bg-yellow-400 px-4 py-2 text-sm font-semibold text-black"
+                        >
+                            Оплатити
+                        </a>
+                    @elseif($subscription->canRenew())
+                        <a
+                            href="{{ route('client.order.create', ['address_id' => $subscription->address_id, 'subscription_id' => $subscription->id, 'source' => 'subscription_renew']) }}"
+                            class="rounded-xl bg-yellow-400 px-4 py-2 text-sm font-semibold text-black"
+                        >
+                            Продовжити
+                        </a>
+                    @endif
 
                     <button wire:click="toggleAutoRenew({{ $subscription->id }})" type="button" class="rounded-xl border border-gray-700 px-3 py-2 text-sm text-gray-200">
                         {{ $subscription->auto_renew ? 'Вимкнути автопродовження' : 'Увімкнути автопродовження' }}
                     </button>
 
-                    @if($subscription->status === \App\Models\ClientSubscription::STATUS_ACTIVE)
+                    @if($subscription->canPause())
                         <button wire:click="pause({{ $subscription->id }})" type="button" class="rounded-xl border border-gray-700 px-3 py-2 text-sm text-gray-200">Пауза</button>
-                    @elseif($subscription->status === \App\Models\ClientSubscription::STATUS_PAUSED)
+                    @elseif($subscription->canResume())
                         <button wire:click="resume({{ $subscription->id }})" type="button" class="rounded-xl border border-gray-700 px-3 py-2 text-sm text-gray-200">Відновити</button>
                     @endif
 
-                    @if($subscription->status !== \App\Models\ClientSubscription::STATUS_CANCELLED)
+                    @if($subscription->canCancel())
                         <button wire:click="cancel({{ $subscription->id }})" type="button" class="rounded-xl border border-red-500/50 px-3 py-2 text-sm text-red-200">Зупинити</button>
                     @endif
                 </div>
