@@ -11,6 +11,8 @@ use Livewire\Component;
 
 class PaymentsPage extends Component
 {
+    public bool $embedded = false;
+
     public array $stats = [
         'total_spent' => 0,
         'month_spent' => 0,
@@ -21,8 +23,9 @@ class PaymentsPage extends Component
 
     public Collection $operations;
 
-    public function mount(): void
+    public function mount(bool $embedded = false): void
     {
+        $this->embedded = $embedded;
         $userId = (int) auth()->id();
         $now = CarbonImmutable::now();
 
@@ -78,7 +81,8 @@ class PaymentsPage extends Component
 
     public function render()
     {
-        return view('livewire.client.payments-page')
-            ->layout('layouts.client');
+        $view = view('livewire.client.payments-page');
+
+        return $this->embedded ? $view : $view->layout('layouts.client');
     }
 }

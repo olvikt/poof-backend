@@ -9,14 +9,17 @@ use Livewire\Component;
 
 class MorePlaceholderPage extends Component
 {
+    public bool $embedded = false;
+
     public string $page = 'promocodes';
 
     public string $title = '';
 
     public string $description = '';
 
-    public function mount(string $page): void
+    public function mount(string $page = "promocodes", bool $embedded = false): void
     {
+        $this->embedded = $embedded;
         $contentMap = [
             'promocodes' => [
                 'title' => 'Промокоди скоро з\'являться',
@@ -39,7 +42,8 @@ class MorePlaceholderPage extends Component
 
     public function render()
     {
-        return view('livewire.client.more-placeholder-page')
-            ->layout('layouts.client');
+        $view = view('livewire.client.more-placeholder-page');
+
+        return $this->embedded ? $view : $view->layout('layouts.client');
     }
 }
