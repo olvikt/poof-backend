@@ -21,9 +21,15 @@ class MarkOrderAsPaidAction
             'status' => Order::STATUS_SEARCHING,
         ])->save();
 
-        $this->syncSubscriptionLifecycleAfterPayment($order->fresh());
+        $freshOrder = $order->fresh();
 
-        event(new OrderCreated($order));
+        if (! $freshOrder) {
+            return;
+        }
+
+        $this->syncSubscriptionLifecycleAfterPayment($freshOrder);
+
+        event(new OrderCreated($freshOrder));
     }
 
     private function syncSubscriptionLifecycleAfterPayment(Order $order): void

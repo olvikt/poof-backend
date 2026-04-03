@@ -169,7 +169,9 @@ class SubscriptionsPage extends Component
     protected function buildDetailsPayload(ClientSubscription $subscription): array
     {
         $planRuns = max(1, (int) ($subscription->plan?->pickups_per_month ?? 0));
-        $orders = $subscription->generatedOrders;
+        $orders = $subscription->generatedOrders
+            ->sortBy('scheduled_date')
+            ->values();
         $completedRuns = $orders->where('status', \App\Models\Order::STATUS_DONE)->count();
         $remainingRuns = max(0, $planRuns - $completedRuns);
         $nextPlanned = $orders
@@ -177,15 +179,34 @@ class SubscriptionsPage extends Component
             ->sortBy('scheduled_date')
             ->first();
 
-        $startDate = $subscription->startsAtForDisplay() ?? $subscription->next_run_at ?? now();
-        $timeline = collect(range(1, $planRuns))->map(function (int $index) use ($startDate, $completedRuns): array {
-            $date = $startDate->copy()->addDays(($index - 1) * 3);
-
+        $timeline = $orders->map(function (\App\Models\Order $order): array {
             return [
-                'date' => $date->format('d.m'),
-                'completed' => $index <= $completedRuns,
+                'date' => $order->scheduled_date?->format('d.m') ?? optional($order->created_at)->format('d.m') ?? '—',
+                'completed' => $order->status === \App\Models\Order::STATUS_DONE,
+                'status' => \App\Models\Order::STATUS_LABELS[$order->status] ?? $order->status,
             ];
         })->all();
+
+        if (count($timeline) < $planRuns) {
+            $remaining = $planRuns - count($timeline);
+
+            for ($index = 0; $index < $remaining; $index++) {
+                $timeline[] = [
+                    'date' => '—',
+                    'completed' => false,
+                    'status' => $subscription->display_status === ClientSubscription::STATUS_PAUSED ? 'На паузі' : 'Очікується',
+                ];
+            }
+        }
+
+        $history = $orders
+            ->map(fn (\App\Models\Order $order): array => [
+                'id' => (int) $order->id,
+                'status' => \App\Models\Order::STATUS_LABELS[$order->status] ?? $order->status,
+                'date' => $order->scheduled_date?->format('d.m.Y') ?? optional($order->created_at)->format('d.m.Y') ?? '—',
+                'is_subscription_origin' => $order->origin === \App\Models\Order::ORIGIN_SUBSCRIPTION,
+            ])
+            ->all();
 
         return [
             'plan_name' => (string) ($subscription->plan?->name ?? 'План підписки'),
@@ -198,6 +219,7 @@ class SubscriptionsPage extends Component
             'status' => $subscription->status_label,
             'auto_renew' => (bool) $subscription->auto_renew,
             'timeline' => $timeline,
+            'history' => $history,
         ];
     }
 

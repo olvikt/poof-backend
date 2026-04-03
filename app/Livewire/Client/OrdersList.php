@@ -35,10 +35,22 @@ class OrdersList extends Component
     protected function loadOrders(): void
     {
         $userId = auth()->id();
+        $excludeSubscriptionExecutions = function ($query): void {
+            $query->whereNull('subscription_id')
+                ->where(function ($q): void {
+                    $q->whereNull('origin')
+                        ->orWhere('origin', '!=', Order::ORIGIN_SUBSCRIPTION);
+                })
+                ->where(function ($q): void {
+                    $q->whereNull('order_type')
+                        ->orWhere('order_type', '!=', Order::TYPE_SUBSCRIPTION);
+                });
+        };
 
         // Активные заказы
         $this->activeOrders = Order::query()
             ->where('client_id', $userId)
+            ->where($excludeSubscriptionExecutions)
             ->whereNotIn('status', [
                 Order::STATUS_DONE,
                 Order::STATUS_CANCELLED,
@@ -49,6 +61,7 @@ class OrdersList extends Component
         // История заказов
         $this->historyOrders = Order::query()
             ->where('client_id', $userId)
+            ->where($excludeSubscriptionExecutions)
             ->whereIn('status', [
                 Order::STATUS_DONE,
                 Order::STATUS_CANCELLED,

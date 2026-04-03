@@ -118,8 +118,23 @@
                         <div class="text-center">
                             <div class="mx-auto h-4 w-4 rounded-full border {{ $run['completed'] ? 'border-yellow-400 bg-yellow-400' : 'border-gray-600 bg-transparent' }}"></div>
                             <div class="mt-1 text-[10px] text-gray-400">{{ $run['date'] }}</div>
+                            <div class="mt-0.5 text-[9px] text-gray-500">{{ $run['status'] ?? 'Очікується' }}</div>
                         </div>
                     @endforeach
+                </div>
+            </div>
+
+            <div class="rounded-xl border border-gray-800 bg-gray-950 p-3">
+                <p class="text-xs uppercase tracking-wide text-gray-500">Історія виносів</p>
+                <div class="mt-2 space-y-2">
+                    @forelse(($details['history'] ?? []) as $executionOrder)
+                        <div class="flex items-center justify-between text-xs text-gray-300">
+                            <span>#{{ $executionOrder['id'] }} · {{ $executionOrder['date'] }}</span>
+                            <span class="text-gray-400">{{ $executionOrder['status'] }}</span>
+                        </div>
+                    @empty
+                        <p class="text-xs text-gray-500">Виноси ще не створені.</p>
+                    @endforelse
                 </div>
             </div>
         </div>

@@ -174,7 +174,7 @@ class ClientSubscription extends Model
     public function canRenew(): bool
     {
         return $this->billing_state === self::BILLING_PAID
-            && in_array($this->display_status, [self::STATUS_ACTIVE, self::STATUS_PAUSED, self::STATUS_COMPLETED], true);
+            && in_array($this->display_status, [self::STATUS_ACTIVE, self::STATUS_COMPLETED], true);
     }
 
     public function canPay(): bool
