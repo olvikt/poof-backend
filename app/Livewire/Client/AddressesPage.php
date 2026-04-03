@@ -8,9 +8,17 @@ use Livewire\Component;
 
 class AddressesPage extends Component
 {
+    public bool $embedded = false;
+
+    public function mount(bool $embedded = false): void
+    {
+        $this->embedded = $embedded;
+    }
+
     public function render()
     {
-        return view('livewire.client.addresses-page')
-            ->layout('layouts.client');
+        $view = view('livewire.client.addresses-page');
+
+        return $this->embedded ? $view : $view->layout('layouts.client');
     }
 }

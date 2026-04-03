@@ -11,6 +11,8 @@ use Livewire\Component;
 
 class SubscriptionsPage extends Component
 {
+    public bool $embedded = false;
+
     public Collection $subscriptions;
 
     public array $stats = [
@@ -21,8 +23,9 @@ class SubscriptionsPage extends Component
         'total_paid' => 0,
     ];
 
-    public function mount(): void
+    public function mount(bool $embedded = false): void
     {
+        $this->embedded = $embedded;
         $this->reload();
     }
 
@@ -146,7 +149,8 @@ class SubscriptionsPage extends Component
 
     public function render()
     {
-        return view('livewire.client.subscriptions-page')
-            ->layout('layouts.client');
+        $view = view('livewire.client.subscriptions-page');
+
+        return $this->embedded ? $view : $view->layout('layouts.client');
     }
 }

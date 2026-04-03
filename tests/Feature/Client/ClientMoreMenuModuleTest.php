@@ -2,6 +2,7 @@
 
 namespace Tests\Feature\Client;
 
+use App\Livewire\Client\AddressManager;
 use App\Livewire\Client\SubscriptionsPage;
 use App\Models\ClientAddress;
 use App\Models\ClientSubscription;
@@ -16,7 +17,7 @@ class ClientMoreMenuModuleTest extends TestCase
 {
     use RefreshDatabase;
 
-    public function test_more_menu_contains_client_module_links_and_support_redirect(): void
+    public function test_more_menu_uses_stacked_shell_navigation_and_keeps_support_redirect(): void
     {
         $client = User::factory()->create([
             'role' => User::ROLE_CLIENT,
@@ -26,12 +27,15 @@ class ClientMoreMenuModuleTest extends TestCase
         $response = $this->actingAs($client, 'web')->get(route('client.home'));
 
         $response->assertOk()
-            ->assertSee(route('client.subscriptions'), false)
-            ->assertSee(route('client.addresses'), false)
-            ->assertSee(route('client.billing'), false)
-            ->assertSee(route('client.more.placeholder', ['page' => 'promocodes']), false)
-            ->assertSee(route('client.more.placeholder', ['page' => 'settings']), false)
-            ->assertSee(route('client.support'), false);
+            ->assertSee('@click="openMoreRoot()"', false)
+            ->assertSee('@click="openMoreScreen(\'subscriptions\')"', false)
+            ->assertSee('@click="openMoreScreen(\'addresses\')"', false)
+            ->assertSee('@click="openMoreScreen(\'billing\')"', false)
+            ->assertSee('@click="openMoreScreen(\'promocodes\')"', false)
+            ->assertSee('@click="openMoreScreen(\'settings\')"', false)
+            ->assertSee('aria-label="Назад"', false)
+            ->assertSee(route('client.support'), false)
+            ->assertDontSee('open_more=1');
 
         $this->actingAs($client, 'web')
             ->get(route('client.support'))
@@ -316,32 +320,41 @@ class ClientMoreMenuModuleTest extends TestCase
             ->assertSee('Налаштування в розробці');
     }
 
-    public function test_more_pages_have_close_button_and_return_to_more_context(): void
+    public function test_more_routes_remain_deep_link_entrypoints_for_shell_context(): void
     {
         $client = User::factory()->create(['role' => User::ROLE_CLIENT]);
 
         $this->actingAs($client, 'web')
-            ->get(route('client.subscriptions', ['open_more' => 1]))
+            ->get(route('client.subscriptions', ['open_more' => 1, 'more_screen' => 'subscriptions']))
             ->assertOk()
-            ->assertSee('Закрити')
-            ->assertSee(route('client.home', ['open_more' => 1]), false);
+            ->assertSee(route('client.home', ['open_more' => 1, 'more_screen' => 'subscriptions']), false);
 
         $this->actingAs($client, 'web')
-            ->get(route('client.addresses', ['open_more' => 1]))
+            ->get(route('client.addresses', ['open_more' => 1, 'more_screen' => 'addresses']))
             ->assertOk()
-            ->assertSee('Закрити')
-            ->assertSee(route('client.home', ['open_more' => 1]), false);
+            ->assertSee(route('client.home', ['open_more' => 1, 'more_screen' => 'addresses']), false)
+            ->assertSee('name="addressForm"', false)
+            ->assertSee('+ Додати адресу');
 
         $this->actingAs($client, 'web')
-            ->get(route('client.billing', ['open_more' => 1]))
+            ->get(route('client.billing', ['open_more' => 1, 'more_screen' => 'billing']))
             ->assertOk()
-            ->assertSee('Закрити')
-            ->assertSee(route('client.home', ['open_more' => 1]), false);
+            ->assertSee(route('client.home', ['open_more' => 1, 'more_screen' => 'billing']), false);
 
         $this->actingAs($client, 'web')
-            ->get(route('client.more.placeholder', ['page' => 'promocodes', 'open_more' => 1]))
+            ->get(route('client.more.placeholder', ['page' => 'promocodes', 'open_more' => 1, 'more_screen' => 'promocodes']))
             ->assertOk()
-            ->assertSee('Закрити')
-            ->assertSee(route('client.home', ['open_more' => 1]), false);
+            ->assertSee(route('client.home', ['open_more' => 1, 'more_screen' => 'promocodes']), false);
+    }
+
+    public function test_addresses_manager_uses_profile_address_form_flow_when_adding_address(): void
+    {
+        $client = User::factory()->create(['role' => User::ROLE_CLIENT]);
+
+        $this->actingAs($client, 'web');
+
+        Livewire::test(AddressManager::class)
+            ->call('create')
+            ->assertDispatched('address:open', addressId: null);
     }
 }

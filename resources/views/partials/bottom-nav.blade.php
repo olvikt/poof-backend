@@ -97,7 +97,7 @@
 
             {{-- More --}}
             <button
-                @click="moreOpen = true"
+                @click="openMoreRoot()"
                 class="group relative flex flex-col items-center justify-center gap-1
                        text-gray-400 hover:text-gray-200
                        focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-yellow-400/40">

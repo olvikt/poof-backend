@@ -1,154 +1,113 @@
-{{-- Fullscreen "More" menu --}}
 <div
-    x-show="moreOpen"
-    @keydown.escape.window="moreOpen = false"
+    x-show="moreShellOpen"
+    @keydown.escape.window="closeMoreShell()"
     x-transition.opacity
     class="fixed inset-0 z-[100]"
     style="display: none;"
 >
+    <div class="absolute inset-0 bg-black/70" @click="closeMoreShell()"></div>
 
-    {{-- backdrop --}}
-    <div
-        class="absolute inset-0 bg-black/70"
-        @click="moreOpen = false"
-    ></div>
+    <div class="absolute inset-0 overflow-hidden bg-gray-950">
+        @php
+            $screens = ['root', 'subscriptions', 'addresses', 'billing', 'promocodes', 'settings'];
+            $titles = [
+                'root' => 'Більше',
+                'subscriptions' => 'Підписка',
+                'addresses' => 'Мої адреси',
+                'billing' => 'Оплата',
+                'promocodes' => 'Промокоди',
+                'settings' => 'Налаштування',
+            ];
+        @endphp
 
-    {{-- panel --}}
-    <div
-        x-transition:enter="transition transform duration-300"
-        x-transition:enter-start="translate-y-4 opacity-0"
-        x-transition:enter-end="translate-y-0 opacity-100"
-        x-transition:leave="transition transform duration-200"
-        x-transition:leave-start="translate-y-0 opacity-100"
-        x-transition:leave-end="translate-y-4 opacity-0"
+        @foreach($screens as $screen)
+            <section
+                class="absolute inset-0 flex flex-col bg-gray-950 transition-transform duration-300 ease-out"
+                :style="`transform: ${transformFor('{{ $screen }}')}`"
+                x-show="moreStack.includes('{{ $screen }}')"
+                style="display: none;"
+            >
+                <header class="h-16 px-4 flex items-center justify-between border-b border-gray-800 bg-gray-900/95 backdrop-blur">
+                    @if ($screen === 'root')
+                        <span class="text-sm text-gray-400">Меню</span>
+                    @else
+                        <button
+                            type="button"
+                            @click="backMoreScreen()"
+                            class="inline-flex h-10 w-10 items-center justify-center rounded-full bg-gray-800 text-white hover:bg-gray-700"
+                            aria-label="Назад"
+                        >
+                            ←
+                        </button>
+                    @endif
 
-        class="absolute inset-0
-               bg-gray-950
-               flex flex-col"
-    >
+                    <span class="font-semibold text-white text-base">{{ $titles[$screen] }}</span>
 
-{{-- Header --}}
-<div class="h-16 px-4 flex items-center justify-between
-            border-b border-gray-800 bg-gray-900/95 backdrop-blur">
+                    <button
+                        type="button"
+                        @click="closeMoreShell()"
+                        class="w-10 h-10 rounded-full flex items-center justify-center bg-gray-800 hover:bg-gray-700 text-white transition"
+                        aria-label="Закрити меню"
+                    >
+                        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M18 6L6 18"/>
+                            <path d="M6 6l12 12"/>
+                        </svg>
+                    </button>
+                </header>
 
-    {{-- Left: back hint --}}
-    <span class="text-sm text-gray-400">
-        Меню
-    </span>
+                <div class="flex-1 overflow-y-auto px-4 py-6">
+                    @if ($screen === 'root')
+                        <nav class="text-sm text-gray-200">
+                            <button type="button" @click="openMoreScreen('subscriptions')" class="flex w-full items-center gap-4 py-4 border-b border-gray-800/60 hover:bg-gray-800/60 transition group">
+                                <span class="w-6 text-center">⭐</span>
+                                <span class="flex-1 text-left">Підписка</span>
+                                <span class="w-4 text-right text-gray-500">›</span>
+                            </button>
 
-    {{-- Title --}}
-    <span class="font-semibold text-white text-base">
-        Більше
-    </span>
+                            <button type="button" @click="openMoreScreen('addresses')" class="flex w-full items-center gap-4 py-4 border-b border-gray-800/60 hover:bg-gray-800/60 transition group">
+                                <span class="w-6 text-center">📍</span>
+                                <span class="flex-1 text-left">Мої адреси</span>
+                                <span class="w-4 text-right text-gray-500">›</span>
+                            </button>
 
-    {{-- Close --}}
-    <button
-        @click="moreOpen = false"
-        class="w-10 h-10 rounded-full
-               flex items-center justify-center
-               bg-gray-800 hover:bg-gray-700
-               text-white transition"
-        aria-label="Закрити меню"
-    >
-        <svg width="22" height="22" viewBox="0 0 24 24"
-             fill="none" stroke="currentColor" stroke-width="2"
-             stroke-linecap="round" stroke-linejoin="round">
-            <path d="M18 6L6 18"/>
-            <path d="M6 6l12 12"/>
-        </svg>
-    </button>
-</div>
+                            <button type="button" @click="openMoreScreen('billing')" class="flex w-full items-center gap-4 py-4 border-b border-gray-800/60 hover:bg-gray-800/60 transition group">
+                                <span class="w-6 text-center">💳</span>
+                                <span class="flex-1 text-left">Оплата</span>
+                                <span class="w-4 text-right text-gray-500">›</span>
+                            </button>
 
-        {{-- Menu --}}
-        <div class="flex-1 overflow-y-auto px-4 py-6">
-<nav class="text-sm text-gray-200">
+                            <button type="button" @click="openMoreScreen('promocodes')" class="flex w-full items-center gap-4 py-4 border-b border-gray-800/60 hover:bg-gray-800/60 transition group">
+                                <span class="w-6 text-center">🎁</span>
+                                <span class="flex-1 text-left">Промокоди</span>
+                                <span class="w-4 text-right text-gray-500">›</span>
+                            </button>
 
-    {{-- Item --}}
-    <a href="{{ route('client.subscriptions', ['open_more' => 1]) }}" @click="moreOpen = false"
-       class="flex items-center gap-4 py-4
-              border-b border-gray-800/60
-              hover:bg-gray-800/60 transition
-              group">
-        <span class="w-6 text-center">⭐</span>
-        <span class="flex-1">Підписка</span>
+                            <a href="{{ route('client.support') }}" @click="closeMoreShell()" class="flex items-center gap-4 py-4 border-b border-gray-800/60 hover:bg-gray-800/60 transition group">
+                                <span class="w-6 text-center">📞</span>
+                                <span class="flex-1">Підтримка</span>
+                                <span class="w-4 text-right text-gray-500">›</span>
+                            </a>
 
-        {{-- Chevron --}}
-        <svg class="w-4 h-4 text-gray-500 group-hover:text-gray-400 transition"
-             viewBox="0 0 24 24"
-             fill="none" stroke="currentColor" stroke-width="2"
-             stroke-linecap="round" stroke-linejoin="round">
-            <path d="M9 18l6-6-6-6"/>
-        </svg>
-    </a>
-
-    <a href="{{ route('client.addresses', ['open_more' => 1]) }}" @click="moreOpen = false"
-       class="flex items-center gap-4 py-4
-              border-b border-gray-800/60
-              hover:bg-gray-800/60 transition
-              group">
-        <span class="w-6 text-center">📍</span>
-        <span class="flex-1">Мої адреси</span>
-        <svg class="w-4 h-4 text-gray-500 group-hover:text-gray-400 transition"
-             viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <path d="M9 18l6-6-6-6"/>
-        </svg>
-    </a>
-
-    <a href="{{ route('client.billing', ['open_more' => 1]) }}" @click="moreOpen = false"
-       class="flex items-center gap-4 py-4
-              border-b border-gray-800/60
-              hover:bg-gray-800/60 transition
-              group">
-        <span class="w-6 text-center">💳</span>
-        <span class="flex-1">Оплата</span>
-        <svg class="w-4 h-4 text-gray-500 group-hover:text-gray-400 transition"
-             viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <path d="M9 18l6-6-6-6"/>
-        </svg>
-    </a>
-
-    <a href="{{ route('client.more.placeholder', ['page' => 'promocodes', 'open_more' => 1]) }}" @click="moreOpen = false"
-       class="flex items-center gap-4 py-4
-              border-b border-gray-800/60
-              hover:bg-gray-800/60 transition
-              group">
-        <span class="w-6 text-center">🎁</span>
-        <span class="flex-1">Промокоди</span>
-        <svg class="w-4 h-4 text-gray-500 group-hover:text-gray-400 transition"
-             viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <path d="M9 18l6-6-6-6"/>
-        </svg>
-    </a>
-
-    <a href="{{ route('client.support') }}" @click="moreOpen = false"
-       class="flex items-center gap-4 py-4
-              border-b border-gray-800/60
-              hover:bg-gray-800/60 transition
-              group">
-        <span class="w-6 text-center">📞</span>
-        <span class="flex-1">Підтримка</span>
-        <svg class="w-4 h-4 text-gray-500 group-hover:text-gray-400 transition"
-             viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <path d="M9 18l6-6-6-6"/>
-        </svg>
-    </a>
-
-    {{-- Last item (NO divider) --}}
-    <a href="{{ route('client.more.placeholder', ['page' => 'settings', 'open_more' => 1]) }}" @click="moreOpen = false"
-       class="flex items-center gap-4 py-4
-              hover:bg-gray-800/60 transition
-              group">
-        <span class="w-6 text-center">⚙️</span>
-        <span class="flex-1">Налаштування</span>
-        <svg class="w-4 h-4 text-gray-500 group-hover:text-gray-400 transition"
-             viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <path d="M9 18l6-6-6-6"/>
-        </svg>
-    </a>
-
-</nav>
-
-        </div>
-
+                            <button type="button" @click="openMoreScreen('settings')" class="flex w-full items-center gap-4 py-4 hover:bg-gray-800/60 transition group">
+                                <span class="w-6 text-center">⚙️</span>
+                                <span class="flex-1 text-left">Налаштування</span>
+                                <span class="w-4 text-right text-gray-500">›</span>
+                            </button>
+                        </nav>
+                    @elseif ($screen === 'subscriptions')
+                        <livewire:client.subscriptions-page :embedded="true" />
+                    @elseif ($screen === 'addresses')
+                        <livewire:client.addresses-page :embedded="true" />
+                    @elseif ($screen === 'billing')
+                        <livewire:client.payments-page :embedded="true" />
+                    @elseif ($screen === 'promocodes')
+                        <livewire:client.more-placeholder-page page="promocodes" :embedded="true" />
+                    @elseif ($screen === 'settings')
+                        <livewire:client.more-placeholder-page page="settings" :embedded="true" />
+                    @endif
+                </div>
+            </section>
+        @endforeach
     </div>
 </div>
