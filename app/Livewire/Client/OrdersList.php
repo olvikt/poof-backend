@@ -17,6 +17,8 @@ class OrdersList extends Component
     public ?string $paymentStatus = null;
     public ?int $paymentOrderId = null;
     public bool $showPaymentSuccessModal = false;
+    public ?string $cancelFeedback = null;
+    public string $cancelFeedbackType = 'info';
 
     public function mount(): void
     {
@@ -71,6 +73,40 @@ class OrdersList extends Component
     public function dismissPaymentSuccessModal(): void
     {
         $this->showPaymentSuccessModal = false;
+    }
+
+    public function cancelOrder(int $orderId): void
+    {
+        $order = Order::query()
+            ->where('id', $orderId)
+            ->where('client_id', auth()->id())
+            ->first();
+
+        if (! $order) {
+            $this->cancelFeedbackType = 'error';
+            $this->cancelFeedback = 'Неможливо скасувати це замовлення.';
+            $this->dispatch('notify', type: 'error', message: $this->cancelFeedback);
+            return;
+        }
+
+        if (! $order->canBeCancelled()) {
+            $this->cancelFeedbackType = 'error';
+            $this->cancelFeedback = 'Це замовлення вже не можна скасувати.';
+            $this->dispatch('notify', type: 'error', message: $this->cancelFeedback);
+            return;
+        }
+
+        if (! $order->cancel()) {
+            $this->cancelFeedbackType = 'error';
+            $this->cancelFeedback = 'Не вдалося скасувати замовлення. Спробуйте ще раз.';
+            $this->dispatch('notify', type: 'error', message: $this->cancelFeedback);
+            return;
+        }
+
+        $this->cancelFeedbackType = 'success';
+        $this->cancelFeedback = "Замовлення #{$order->id} скасовано.";
+        $this->dispatch('notify', type: 'success', message: $this->cancelFeedback);
+        $this->loadOrders();
     }
 
     /**

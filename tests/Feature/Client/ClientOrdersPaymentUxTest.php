@@ -92,4 +92,95 @@ class ClientOrdersPaymentUxTest extends TestCase
             ->assertSee('Платіж не був підтверджений. Спробуйте ще раз.', false)
             ->assertDontSee('Оплату успішно підтверджено', false);
     }
+
+    public function test_client_can_cancel_own_order_and_it_moves_from_active_to_history_with_cancelled_status(): void
+    {
+        $client = User::factory()->create([
+            'role' => User::ROLE_CLIENT,
+            'is_active' => true,
+        ]);
+
+        $order = Order::createForTesting([
+            'client_id' => $client->id,
+            'status' => Order::STATUS_NEW,
+            'payment_status' => Order::PAY_PENDING,
+            'address_text' => 'вул. Скасування, 1',
+            'price' => 155,
+        ]);
+
+        $this->actingAs($client, 'web');
+
+        Livewire::test(OrdersList::class)
+            ->assertSee('Скасувати')
+            ->call('cancelOrder', $order->id)
+            ->assertSee("Замовлення #{$order->id} скасовано.")
+            ->assertDontSee('вул. Скасування, 1')
+            ->call('switchTab', 'history')
+            ->assertSee('вул. Скасування, 1')
+            ->assertSee('Скасовано');
+
+        $this->assertDatabaseHas('orders', [
+            'id' => $order->id,
+            'status' => Order::STATUS_CANCELLED,
+        ]);
+    }
+
+    public function test_client_cannot_cancel_foreign_order(): void
+    {
+        $client = User::factory()->create([
+            'role' => User::ROLE_CLIENT,
+            'is_active' => true,
+        ]);
+
+        $otherClient = User::factory()->create([
+            'role' => User::ROLE_CLIENT,
+            'is_active' => true,
+        ]);
+
+        $foreignOrder = Order::createForTesting([
+            'client_id' => $otherClient->id,
+            'status' => Order::STATUS_NEW,
+            'payment_status' => Order::PAY_PENDING,
+            'address_text' => 'вул. Чужа, 3',
+            'price' => 188,
+        ]);
+
+        $this->actingAs($client, 'web');
+
+        Livewire::test(OrdersList::class)
+            ->call('cancelOrder', $foreignOrder->id)
+            ->assertSee('Неможливо скасувати це замовлення.');
+
+        $this->assertDatabaseHas('orders', [
+            'id' => $foreignOrder->id,
+            'status' => Order::STATUS_NEW,
+        ]);
+    }
+
+    public function test_order_in_non_cancellable_status_is_not_cancelled_and_user_gets_message(): void
+    {
+        $client = User::factory()->create([
+            'role' => User::ROLE_CLIENT,
+            'is_active' => true,
+        ]);
+
+        $order = Order::createForTesting([
+            'client_id' => $client->id,
+            'status' => Order::STATUS_IN_PROGRESS,
+            'payment_status' => Order::PAY_PAID,
+            'address_text' => 'вул. Виконання, 10',
+            'price' => 260,
+        ]);
+
+        $this->actingAs($client, 'web');
+
+        Livewire::test(OrdersList::class)
+            ->call('cancelOrder', $order->id)
+            ->assertSee('Це замовлення вже не можна скасувати.');
+
+        $this->assertDatabaseHas('orders', [
+            'id' => $order->id,
+            'status' => Order::STATUS_IN_PROGRESS,
+        ]);
+    }
 }
