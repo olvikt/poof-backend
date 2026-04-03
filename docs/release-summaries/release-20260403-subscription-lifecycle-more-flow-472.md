@@ -1,0 +1,6 @@
+- PR #472
+- Fix subscription lifecycle states so unpaid subscriptions no longer appear active
+- Render correct subscription CTA: pay for unpaid, renew for active
+- Prevent 500 errors on pause and stop subscription actions
+- Add explicit close flow from More module pages back into the More sheet context
+- Keep subscription stats and client More navigation consistent with lifecycle state
