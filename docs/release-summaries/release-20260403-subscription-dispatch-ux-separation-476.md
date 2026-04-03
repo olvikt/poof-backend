@@ -1,0 +1,7 @@
+- PR #476
+- Fix dispatch flow for paid subscription execution orders
+- Re-read persisted order state before entering offer dispatch pipeline
+- Route subscription execution orders through the same offer-based courier flow as one-time orders
+- Remove subscription execution orders from My Orders client UX
+- Drive subscription progress and history from real execution orders
+- Make pause block future subscription renew generation and dispatch
