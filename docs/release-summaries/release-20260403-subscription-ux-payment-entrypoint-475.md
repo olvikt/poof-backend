@@ -1,0 +1,7 @@
+- PR #475
+- Split subscription UX into billing state, lifecycle state, and auto-renew state
+- Add dedicated subscription payment entrypoint instead of redirecting to order create
+- Show subscription dates only after first successful payment
+- Add auto-renew toggle and refine subscription action buttons
+- Add layered subscription details modal with pickup progress timeline
+- Make pause/resume control automatic generation of future subscription orders
