@@ -3,6 +3,6 @@
         <p class="text-4xl">✨</p>
         <h1 class="mt-3 text-xl font-bold">{{ $title }}</h1>
         <p class="mt-3 text-sm leading-relaxed text-gray-300">{{ $description }}</p>
-        <a href="{{ route('client.home') }}" class="mt-6 inline-flex rounded-xl bg-yellow-400 px-4 py-2 text-sm font-semibold text-black">Повернутись на головну</a>
+        <a href="{{ route('client.home', ['open_more' => 1]) }}" class="mt-6 inline-flex rounded-xl bg-yellow-400 px-4 py-2 text-sm font-semibold text-black">Закрити</a>
     </div>
 </div>

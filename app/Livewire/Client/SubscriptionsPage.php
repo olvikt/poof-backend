@@ -30,14 +30,17 @@ class SubscriptionsPage extends Component
     {
         $subscription = $this->findOwnSubscription($subscriptionId);
 
-        if (! $subscription || $subscription->status !== ClientSubscription::STATUS_ACTIVE) {
+        if (! $subscription || ! $subscription->canPause()) {
+            $this->dispatch('notify', type: 'error', message: 'Підписку можна поставити на паузу лише в активному стані.');
             return;
         }
 
-        $subscription->update([
+        $subscription->forceFill([
             'status' => ClientSubscription::STATUS_PAUSED,
             'paused_at' => now(),
-        ]);
+        ])->save();
+
+        $this->dispatch('notify', type: 'success', message: 'Підписку поставлено на паузу.');
 
         $this->reload();
     }
@@ -46,14 +49,17 @@ class SubscriptionsPage extends Component
     {
         $subscription = $this->findOwnSubscription($subscriptionId);
 
-        if (! $subscription || $subscription->status !== ClientSubscription::STATUS_PAUSED) {
+        if (! $subscription || ! $subscription->canResume()) {
+            $this->dispatch('notify', type: 'error', message: 'Відновити можна лише підписку в статусі «На паузі».');
             return;
         }
 
-        $subscription->update([
+        $subscription->forceFill([
             'status' => ClientSubscription::STATUS_ACTIVE,
             'paused_at' => null,
-        ]);
+        ])->save();
+
+        $this->dispatch('notify', type: 'success', message: 'Підписку відновлено.');
 
         $this->reload();
     }
@@ -62,15 +68,18 @@ class SubscriptionsPage extends Component
     {
         $subscription = $this->findOwnSubscription($subscriptionId);
 
-        if (! $subscription || $subscription->status === ClientSubscription::STATUS_CANCELLED) {
+        if (! $subscription || ! $subscription->canCancel()) {
+            $this->dispatch('notify', type: 'error', message: 'Цю підписку вже не можна зупинити.');
             return;
         }
 
-        $subscription->update([
+        $subscription->forceFill([
             'status' => ClientSubscription::STATUS_CANCELLED,
             'cancelled_at' => now(),
             'auto_renew' => false,
-        ]);
+        ])->save();
+
+        $this->dispatch('notify', type: 'success', message: 'Підписку зупинено.');
 
         $this->reload();
     }
@@ -83,9 +92,9 @@ class SubscriptionsPage extends Component
             return;
         }
 
-        $subscription->update([
+        $subscription->forceFill([
             'auto_renew' => ! (bool) $subscription->auto_renew,
-        ]);
+        ])->save();
 
         $this->reload();
     }
@@ -98,6 +107,7 @@ class SubscriptionsPage extends Component
         $this->subscriptions = ClientSubscription::query()
             ->where('client_id', $userId)
             ->with(['plan', 'address'])
+            ->withCount(['generatedOrders as paid_orders_count' => fn ($query) => $query->where('payment_status', 'paid')])
             ->withSum(['generatedOrders as paid_amount' => fn ($query) => $query->where('payment_status', 'paid')], 'client_charge_amount')
             ->withSum(['generatedOrders as fallback_paid_amount' => fn ($query) => $query->where('payment_status', 'paid')], 'price')
             ->orderByDesc('created_at')
@@ -112,15 +122,13 @@ class SubscriptionsPage extends Component
         });
 
         $this->stats = [
-            'active' => $this->subscriptions->where('status', ClientSubscription::STATUS_ACTIVE)->count(),
-            'paused' => $this->subscriptions->where('status', ClientSubscription::STATUS_PAUSED)->count(),
-            'completed' => $this->subscriptions->filter(function (ClientSubscription $subscription) use ($now): bool {
-                $ended = $subscription->ends_at !== null && $subscription->ends_at->lessThan($now);
-
-                return $subscription->status === ClientSubscription::STATUS_CANCELLED || $ended;
+            'active' => $this->subscriptions->filter(fn (ClientSubscription $subscription): bool => $subscription->display_status === ClientSubscription::STATUS_ACTIVE)->count(),
+            'paused' => $this->subscriptions->filter(fn (ClientSubscription $subscription): bool => $subscription->display_status === ClientSubscription::STATUS_PAUSED)->count(),
+            'completed' => $this->subscriptions->filter(function (ClientSubscription $subscription): bool {
+                return in_array($subscription->display_status, [ClientSubscription::STATUS_CANCELLED, ClientSubscription::STATUS_COMPLETED], true);
             })->count(),
             'renewals_soon' => $this->subscriptions->filter(function (ClientSubscription $subscription) use ($now): bool {
-                return $subscription->status === ClientSubscription::STATUS_ACTIVE
+                return $subscription->display_status === ClientSubscription::STATUS_ACTIVE
                     && $subscription->ends_at !== null
                     && $subscription->ends_at->between($now, $now->addDays(7));
             })->count(),
