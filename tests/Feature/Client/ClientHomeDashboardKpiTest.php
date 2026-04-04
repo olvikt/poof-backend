@@ -159,8 +159,12 @@ class ClientHomeDashboardKpiTest extends TestCase
             ->assertSee('Сплачено')
             ->assertSee('<p class="text-3xl font-extrabold leading-none text-gray-200">1</p>', false)
             ->assertSee('1 200 ₴')
-            ->assertSee(route('client.subscriptions'), false)
-            ->assertSee(route('client.billing'), false)
+            ->assertSee('href="'.route('client.subscriptions').'"', false)
+            ->assertSee('href="'.route('client.billing').'"', false)
+            ->assertSee('href="'.route('client.addresses').'"', false)
+            ->assertDontSee('href="'.route('client.subscriptions', ['open_more' => 1, 'more_screen' => 'subscriptions']).'"', false)
+            ->assertDontSee('href="'.route('client.billing', ['open_more' => 1, 'more_screen' => 'billing']).'"', false)
+            ->assertDontSee('href="'.route('client.addresses', ['open_more' => 1, 'more_screen' => 'addresses']).'"', false)
             ->assertSee('Мої<br>Адреси', false)
             ->assertSee('Мої<br>Замовлення', false)
             ->assertSee('Тех<br>Підтримка', false)
@@ -169,5 +173,6 @@ class ClientHomeDashboardKpiTest extends TestCase
 
         $this->actingAs($client, 'web')->get(route('client.subscriptions'))->assertOk();
         $this->actingAs($client, 'web')->get(route('client.billing'))->assertOk();
+        $this->actingAs($client, 'web')->get(route('client.addresses'))->assertOk();
     }
 }
