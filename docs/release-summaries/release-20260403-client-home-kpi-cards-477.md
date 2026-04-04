@@ -1,0 +1,6 @@
+- PR #477
+- Add Підписки and Оплати KPI cards to client home dashboard
+- Reuse shared KPI calculations for active subscriptions and total paid amount
+- Keep the new cards visually consistent with the existing home dashboard blocks
+- Link the new cards to client subscriptions and billing pages
+- Preserve existing client home layout and mobile-first dashboard style
