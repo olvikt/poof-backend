@@ -46,6 +46,39 @@
             </div>
         </a>
 
+
+        <a href="{{ route('client.subscriptions') }}" class="h-full rounded-2xl border border-white/15 bg-gray-800/95 p-4 min-h-44 flex flex-col shadow-[0_10px_24px_rgba(0,0,0,0.32)] ring-1 ring-white/10">
+            <div class="flex items-start justify-between gap-3">
+                <h2 class="text-sm font-extrabold leading-none text-white">Підписки</h2>
+                <span class="text-yellow-400">
+                    <svg class="h-9 w-9" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true">
+                        <rect x="3.5" y="5" width="17" height="14" rx="3"></rect>
+                        <path d="M8 12h8M8 9h5M8 15h4"></path>
+                    </svg>
+                </span>
+            </div>
+            <div class="mt-auto">
+                <p class="text-3xl font-extrabold leading-none text-gray-200">{{ $activeSubscriptionsCount }}</p>
+                <p class="mt-1 text-xl text-gray-400">Активних</p>
+            </div>
+        </a>
+
+        <a href="{{ route('client.billing') }}" class="h-full rounded-2xl border border-white/15 bg-gray-800/95 p-4 min-h-44 flex flex-col shadow-[0_10px_24px_rgba(0,0,0,0.32)] ring-1 ring-white/10">
+            <div class="flex items-start justify-between gap-3">
+                <h2 class="text-sm font-extrabold leading-none text-white">Оплати</h2>
+                <span class="text-yellow-400">
+                    <svg class="h-9 w-9" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true">
+                        <rect x="3" y="6" width="18" height="12" rx="2"></rect>
+                        <path d="M3 10h18"></path>
+                    </svg>
+                </span>
+            </div>
+            <div class="mt-auto">
+                <p class="text-3xl font-extrabold leading-none text-gray-200">{{ number_format($totalPaidAmount, 0, ',', ' ') }} ₴</p>
+                <p class="mt-1 text-xl text-gray-400">Сплачено</p>
+            </div>
+        </a>
+
         <a
             href="https://t.me/poofsupport"
             target="_blank"
