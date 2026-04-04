@@ -1,0 +1,7 @@
+- PR #480
+- Add Active and Archive tabs to client subscriptions page
+- Show Відновити CTA for paused subscriptions instead of Пауза
+- Move cancelled and completed subscriptions into archive flow
+- Remove Оплатити CTA from cancelled subscriptions
+- Keep auto-renew separate from pause and resume controls
+- Preserve existing subscription payment, details, and progress flows
