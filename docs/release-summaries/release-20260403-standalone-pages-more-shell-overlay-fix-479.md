@@ -1,0 +1,6 @@
+- PR #479
+- Prevent More-shell overlay bootstrap on standalone client pages
+- Restrict open_more query bootstrap to client home only
+- Keep standalone Subscriptions, Payments, and Addresses pages out of legacy More popup flow
+- Clean close links on standalone client pages to avoid re-entering old More shell
+- Preserve stacked More shell behavior from bottom navigation
