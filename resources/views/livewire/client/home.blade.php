@@ -15,7 +15,7 @@
     </a>
 
     <section class="mt-5 grid grid-cols-2 auto-rows-fr gap-3">
-        <a href="{{ route('client.profile') }}" class="h-full rounded-2xl border border-white/15 bg-gray-800/95 p-4 min-h-44 flex flex-col shadow-[0_10px_24px_rgba(0,0,0,0.32)] ring-1 ring-white/10">
+        <a href="{{ route('client.addresses') }}" class="h-full rounded-2xl border border-white/15 bg-gray-800/95 p-4 min-h-44 flex flex-col shadow-[0_10px_24px_rgba(0,0,0,0.32)] ring-1 ring-white/10">
             <div class="flex items-start justify-between gap-3">
                 <h2 class="text-sm font-extrabold leading-none text-white">Мої<br>Адреси</h2>
                 <span class="text-yellow-400">
