@@ -416,31 +416,44 @@ class ClientMoreMenuModuleTest extends TestCase
             ->assertSee('Налаштування в розробці');
     }
 
-    public function test_more_routes_remain_deep_link_entrypoints_for_shell_context(): void
+    public function test_standalone_more_pages_ignore_open_more_query_bootstrap_and_keep_clean_close_links(): void
     {
         $client = User::factory()->create(['role' => User::ROLE_CLIENT]);
 
         $this->actingAs($client, 'web')
             ->get(route('client.subscriptions', ['open_more' => 1, 'more_screen' => 'subscriptions']))
             ->assertOk()
-            ->assertSee(route('client.home', ['open_more' => 1, 'more_screen' => 'subscriptions']), false);
+            ->assertSee('shouldBootstrapMoreFromQuery: false', false)
+            ->assertSee(route('client.home'), false)
+            ->assertDontSee(route('client.home', ['open_more' => 1, 'more_screen' => 'subscriptions']), false);
 
         $this->actingAs($client, 'web')
             ->get(route('client.addresses', ['open_more' => 1, 'more_screen' => 'addresses']))
             ->assertOk()
-            ->assertSee(route('client.home', ['open_more' => 1, 'more_screen' => 'addresses']), false)
+            ->assertSee('shouldBootstrapMoreFromQuery: false', false)
+            ->assertSee(route('client.home'), false)
+            ->assertDontSee(route('client.home', ['open_more' => 1, 'more_screen' => 'addresses']), false)
             ->assertSee('name="addressForm"', false)
             ->assertSee('+ Додати адресу');
 
         $this->actingAs($client, 'web')
             ->get(route('client.billing', ['open_more' => 1, 'more_screen' => 'billing']))
             ->assertOk()
-            ->assertSee(route('client.home', ['open_more' => 1, 'more_screen' => 'billing']), false);
+            ->assertSee('shouldBootstrapMoreFromQuery: false', false)
+            ->assertSee(route('client.home'), false)
+            ->assertDontSee(route('client.home', ['open_more' => 1, 'more_screen' => 'billing']), false);
+    }
+
+    public function test_home_deep_link_query_still_bootstraps_more_shell_for_bottom_navigation_flow(): void
+    {
+        $client = User::factory()->create(['role' => User::ROLE_CLIENT]);
 
         $this->actingAs($client, 'web')
-            ->get(route('client.more.placeholder', ['page' => 'promocodes', 'open_more' => 1, 'more_screen' => 'promocodes']))
+            ->get(route('client.home', ['open_more' => 1, 'more_screen' => 'subscriptions']))
             ->assertOk()
-            ->assertSee(route('client.home', ['open_more' => 1, 'more_screen' => 'promocodes']), false);
+            ->assertSee('shouldBootstrapMoreFromQuery: true', false)
+            ->assertSee('openMoreRoot()', false)
+            ->assertSee("openMoreScreen('subscriptions')", false);
     }
 
 

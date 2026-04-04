@@ -5,6 +5,7 @@
         moreShellOpen: false,
         moreStack: ['root'],
         deepLinkScreen: @js(request()->string('more_screen')->toString()),
+        shouldBootstrapMoreFromQuery: @js(request()->routeIs('client.home') && request()->boolean('open_more')),
         openMoreRoot() {
             this.moreShellOpen = true;
             this.moreStack = ['root'];
@@ -59,7 +60,7 @@
             return 'translateX(100%)';
         }
     }"
-    x-init="if (window.location.search.includes('open_more=1')) { openMoreRoot(); if (deepLinkScreen) { openMoreScreen(deepLinkScreen); } const params = new URLSearchParams(window.location.search); params.delete('open_more'); params.delete('more_screen'); const cleanQuery = params.toString(); const cleanUrl = window.location.pathname + (cleanQuery ? '?' + cleanQuery : '') + window.location.hash; window.history.replaceState({}, '', cleanUrl); }"
+    x-init="if (shouldBootstrapMoreFromQuery) { openMoreRoot(); if (deepLinkScreen) { openMoreScreen(deepLinkScreen); } const params = new URLSearchParams(window.location.search); params.delete('open_more'); params.delete('more_screen'); const cleanQuery = params.toString(); const cleanUrl = window.location.pathname + (cleanQuery ? '?' + cleanQuery : '') + window.location.hash; window.history.replaceState({}, '', cleanUrl); }"
     class="min-h-dvh bg-gray-800 text-white"
 >
 

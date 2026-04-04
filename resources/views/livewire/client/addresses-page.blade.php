@@ -5,7 +5,7 @@
                 <h1 class="text-xl font-bold">Мої адреси</h1>
                 <p class="text-sm text-gray-400">Один список адрес для профілю, замовлень і підписок.</p>
             </div>
-            <a href="{{ route('client.home', ['open_more' => 1, 'more_screen' => 'addresses']) }}" class="rounded-xl border border-gray-700 px-3 py-2 text-sm text-gray-200">Закрити</a>
+            <a href="{{ route('client.home') }}" class="rounded-xl border border-gray-700 px-3 py-2 text-sm text-gray-200">Закрити</a>
         </div>
     @endunless
 
