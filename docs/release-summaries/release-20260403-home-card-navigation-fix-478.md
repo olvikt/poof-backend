@@ -1,0 +1,5 @@
+- PR #478
+- Fix client home dashboard card navigation to standalone pages
+- Point Мої адреси card to standalone addresses page instead of profile
+- Guard Підписки and Оплати home cards against legacy More deep-link flow
+- Preserve existing More shell navigation while fixing home entrypoints
