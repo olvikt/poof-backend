@@ -27,7 +27,7 @@ class ClientSubscription extends Model
         self::STATUS_UNPAID => 'Не оплачена',
         self::STATUS_ACTIVE => 'Активна',
         self::STATUS_PAUSED => 'На паузі',
-        self::STATUS_CANCELLED => 'Зупинена',
+        self::STATUS_CANCELLED => 'Скасована',
         self::STATUS_COMPLETED => 'Завершена',
     ];
 
@@ -121,12 +121,25 @@ class ClientSubscription extends Model
 
     public function getStatusBadgeClassesAttribute(): string
     {
+        if ($this->billing_state === self::BILLING_RENEWAL_DUE && $this->display_status === self::STATUS_ACTIVE) {
+            return 'bg-blue-500/20 text-blue-200';
+        }
+
         return match ($this->display_status) {
             self::STATUS_ACTIVE => 'bg-green-500/20 text-green-300',
             self::STATUS_UNPAID, self::STATUS_PAUSED => 'bg-yellow-500/20 text-yellow-300',
             self::STATUS_CANCELLED, self::STATUS_COMPLETED => 'bg-gray-700 text-gray-300',
             default => 'bg-gray-700 text-gray-300',
         };
+    }
+
+    public function getUiStatusLabelAttribute(): string
+    {
+        if ($this->billing_state === self::BILLING_RENEWAL_DUE && $this->display_status === self::STATUS_ACTIVE) {
+            return 'Очікує продовження';
+        }
+
+        return $this->status_label;
     }
 
     public function hasPaidOrders(): bool

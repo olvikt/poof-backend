@@ -12,6 +12,7 @@ use Livewire\Component;
 class SubscriptionsPage extends Component
 {
     public bool $embedded = false;
+    public string $tab = 'active';
 
     public Collection $subscriptions;
 
@@ -31,6 +32,15 @@ class SubscriptionsPage extends Component
     {
         $this->embedded = $embedded;
         $this->reload();
+    }
+
+    public function switchTab(string $tab): void
+    {
+        if (! in_array($tab, ['active', 'archive'], true)) {
+            return;
+        }
+
+        $this->tab = $tab;
     }
 
     public function pause(int $subscriptionId): void
@@ -164,6 +174,31 @@ class SubscriptionsPage extends Component
             ->where('client_id', auth()->id())
             ->with(['plan', 'address', 'generatedOrders' => fn ($query) => $query->orderBy('scheduled_date')])
             ->first();
+    }
+
+    public function activeSubscriptions(): Collection
+    {
+        return $this->subscriptions
+            ->filter(function (ClientSubscription $subscription): bool {
+                return in_array($subscription->display_status, [
+                    ClientSubscription::STATUS_UNPAID,
+                    ClientSubscription::STATUS_ACTIVE,
+                    ClientSubscription::STATUS_PAUSED,
+                ], true);
+            })
+            ->values();
+    }
+
+    public function archivedSubscriptions(): Collection
+    {
+        return $this->subscriptions
+            ->filter(function (ClientSubscription $subscription): bool {
+                return in_array($subscription->display_status, [
+                    ClientSubscription::STATUS_CANCELLED,
+                    ClientSubscription::STATUS_COMPLETED,
+                ], true);
+            })
+            ->values();
     }
 
     protected function buildDetailsPayload(ClientSubscription $subscription): array

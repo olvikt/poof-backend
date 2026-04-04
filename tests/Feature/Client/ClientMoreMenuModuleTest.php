@@ -205,6 +205,138 @@ class ClientMoreMenuModuleTest extends TestCase
             ->assertDontSee('Не оплачена');
     }
 
+    public function test_subscriptions_page_splits_active_and_archive_tabs_by_domain_statuses(): void
+    {
+        $client = User::factory()->create(['role' => User::ROLE_CLIENT]);
+        $activePlan = SubscriptionPlan::factory()->create(['name' => 'Активний план']);
+        $pausedPlan = SubscriptionPlan::factory()->create(['name' => 'Пауза план']);
+        $cancelledPlan = SubscriptionPlan::factory()->create(['name' => 'Скасований план']);
+        $completedPlan = SubscriptionPlan::factory()->create(['name' => 'Завершений план']);
+
+        $active = ClientSubscription::unguarded(fn (): ClientSubscription => ClientSubscription::query()->create([
+            'client_id' => $client->id,
+            'subscription_plan_id' => $activePlan->id,
+            'status' => ClientSubscription::STATUS_ACTIVE,
+            'auto_renew' => true,
+            'ends_at' => now()->addMonth(),
+        ]));
+
+        $paused = ClientSubscription::unguarded(fn (): ClientSubscription => ClientSubscription::query()->create([
+            'client_id' => $client->id,
+            'subscription_plan_id' => $pausedPlan->id,
+            'status' => ClientSubscription::STATUS_PAUSED,
+            'auto_renew' => true,
+            'ends_at' => now()->addMonth(),
+        ]));
+
+        $cancelled = ClientSubscription::unguarded(fn (): ClientSubscription => ClientSubscription::query()->create([
+            'client_id' => $client->id,
+            'subscription_plan_id' => $cancelledPlan->id,
+            'status' => ClientSubscription::STATUS_CANCELLED,
+            'auto_renew' => false,
+            'ends_at' => now()->addMonth(),
+        ]));
+
+        $completed = ClientSubscription::unguarded(fn (): ClientSubscription => ClientSubscription::query()->create([
+            'client_id' => $client->id,
+            'subscription_plan_id' => $completedPlan->id,
+            'status' => ClientSubscription::STATUS_ACTIVE,
+            'auto_renew' => false,
+            'ends_at' => now()->subDay(),
+        ]));
+
+        foreach ([$active, $paused, $cancelled, $completed] as $subscription) {
+            Order::createForTesting([
+                'client_id' => $client->id,
+                'subscription_id' => $subscription->id,
+                'payment_status' => Order::PAY_PAID,
+                'status' => Order::STATUS_DONE,
+                'order_type' => Order::TYPE_SUBSCRIPTION,
+                'price' => 450,
+                'client_charge_amount' => 450,
+                'address_text' => 'вул. Тестова, 1',
+            ]);
+        }
+
+        $this->actingAs($client, 'web');
+
+        Livewire::test(SubscriptionsPage::class)
+            ->assertSet('tab', 'active')
+            ->assertSee('Активний план')
+            ->assertSee('Пауза план')
+            ->assertDontSee('Скасований план')
+            ->assertDontSee('Завершений план')
+            ->call('switchTab', 'archive')
+            ->assertSee('Скасований план')
+            ->assertSee('Завершений план')
+            ->assertDontSee('Активний план')
+            ->assertDontSee('Пауза план');
+    }
+
+    public function test_paused_subscription_shows_resume_cta_and_hides_pause_cta(): void
+    {
+        $client = User::factory()->create(['role' => User::ROLE_CLIENT]);
+        $plan = SubscriptionPlan::factory()->create(['name' => 'Пауза план CTA']);
+        $subscription = ClientSubscription::unguarded(fn (): ClientSubscription => ClientSubscription::query()->create([
+            'client_id' => $client->id,
+            'subscription_plan_id' => $plan->id,
+            'status' => ClientSubscription::STATUS_PAUSED,
+            'auto_renew' => true,
+            'ends_at' => now()->addMonth(),
+        ]));
+
+        Order::createForTesting([
+            'client_id' => $client->id,
+            'subscription_id' => $subscription->id,
+            'payment_status' => Order::PAY_PAID,
+            'status' => Order::STATUS_DONE,
+            'order_type' => Order::TYPE_SUBSCRIPTION,
+            'price' => 450,
+            'client_charge_amount' => 450,
+            'address_text' => 'вул. Тестова, 2',
+        ]);
+
+        $this->actingAs($client, 'web')
+            ->get(route('client.subscriptions'))
+            ->assertOk()
+            ->assertSee('Відновити')
+            ->assertDontSee('Запустити');
+    }
+
+    public function test_cancelled_subscription_is_visible_only_in_archive_without_pay_cta(): void
+    {
+        $client = User::factory()->create(['role' => User::ROLE_CLIENT]);
+        $plan = SubscriptionPlan::factory()->create(['name' => 'План в архіві']);
+        $cancelled = ClientSubscription::unguarded(fn (): ClientSubscription => ClientSubscription::query()->create([
+            'client_id' => $client->id,
+            'subscription_plan_id' => $plan->id,
+            'status' => ClientSubscription::STATUS_CANCELLED,
+            'auto_renew' => false,
+        ]));
+
+        Order::createForTesting([
+            'client_id' => $client->id,
+            'subscription_id' => $cancelled->id,
+            'payment_status' => Order::PAY_PAID,
+            'status' => Order::STATUS_DONE,
+            'order_type' => Order::TYPE_SUBSCRIPTION,
+            'price' => 450,
+            'client_charge_amount' => 450,
+            'address_text' => 'вул. Тестова, 3',
+        ]);
+
+        $this->actingAs($client, 'web');
+
+        Livewire::test(SubscriptionsPage::class)
+            ->assertSet('tab', 'active')
+            ->assertDontSee('План в архіві')
+            ->assertDontSee('Оплатити')
+            ->call('switchTab', 'archive')
+            ->assertSee('План в архіві')
+            ->assertDontSee('Оплатити')
+            ->assertSee('В архіві');
+    }
+
     public function test_subscription_pause_and_resume_actions_change_generation_state(): void
     {
         $client = User::factory()->create(['role' => User::ROLE_CLIENT]);

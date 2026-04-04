@@ -33,8 +33,27 @@
         <p class="mt-1 text-2xl font-extrabold text-white">{{ number_format($stats['total_paid'], 0, ',', ' ') }} ₴</p>
     </div>
 
-    <section class="mt-5 space-y-4">
-        @forelse($subscriptions as $subscription)
+    <div class="mt-5 flex gap-2">
+        <button
+            wire:click="switchTab('active')"
+            type="button"
+            class="flex-1 rounded-lg px-4 py-1.5 text-center text-sm font-semibold {{ $tab === 'active' ? 'bg-yellow-400 text-black' : 'bg-gray-800 text-gray-400' }}"
+        >
+            Активні
+        </button>
+        <button
+            wire:click="switchTab('archive')"
+            type="button"
+            class="flex-1 rounded-lg px-4 py-1.5 text-center text-sm font-semibold {{ $tab === 'archive' ? 'bg-yellow-400 text-black' : 'bg-gray-800 text-gray-400' }}"
+        >
+            Архів
+        </button>
+    </div>
+
+    @php($visibleSubscriptions = $tab === 'archive' ? $this->archivedSubscriptions() : $this->activeSubscriptions())
+
+    <section class="mt-4 space-y-4">
+        @forelse($visibleSubscriptions as $subscription)
             <article class="rounded-2xl border border-gray-800 bg-gray-900 p-4">
                 <div class="flex items-start justify-between gap-3">
                     <div>
@@ -42,7 +61,7 @@
                         <p class="text-sm text-gray-400">{{ $subscription->address?->address_text ?? 'Адреса буде додана під час оформлення' }}</p>
                     </div>
                     <span class="rounded-full px-2 py-1 text-xs font-semibold {{ $subscription->status_badge_classes }}">
-                        {{ $subscription->status_label }}
+                        {{ $subscription->ui_status_label }}
                     </span>
                 </div>
 
@@ -53,38 +72,53 @@
                     <p>Активна до: <span class="text-white">{{ optional($subscription->activeUntilForDisplay())->format('d.m.Y') ?? '—' }}</span></p>
                 </div>
 
-                <div class="mt-3 flex items-center justify-between rounded-xl border border-gray-800 bg-gray-950/60 px-3 py-2">
-                    <span class="text-sm text-gray-200">Автопродовження</span>
-                    <button
-                        wire:click="toggleAutoRenew({{ $subscription->id }})"
-                        type="button"
-                        @disabled(!$subscription->canToggleAutoRenew())
-                        class="relative inline-flex h-6 w-11 items-center rounded-full transition {{ $subscription->auto_renew ? 'bg-yellow-400' : 'bg-gray-700' }} disabled:cursor-not-allowed disabled:opacity-50"
-                        aria-label="Перемкнути автопродовження"
-                    >
-                        <span class="inline-block h-5 w-5 transform rounded-full bg-white transition {{ $subscription->auto_renew ? 'translate-x-5' : 'translate-x-1' }}"></span>
-                    </button>
-                </div>
-                @if(! $subscription->canToggleAutoRenew())
-                    <p class="mt-1 text-xs text-gray-500">Автопродовження можна налаштувати після першої оплати.</p>
+                @if($tab === 'active')
+                    <div class="mt-3 flex items-center justify-between rounded-xl border border-gray-800 bg-gray-950/60 px-3 py-2">
+                        <span class="text-sm text-gray-200">Автопродовження</span>
+                        <button
+                            wire:click="toggleAutoRenew({{ $subscription->id }})"
+                            type="button"
+                            @disabled(!$subscription->canToggleAutoRenew())
+                            class="relative inline-flex h-6 w-11 items-center rounded-full transition {{ $subscription->auto_renew ? 'bg-yellow-400' : 'bg-gray-700' }} disabled:cursor-not-allowed disabled:opacity-50"
+                            aria-label="Перемкнути автопродовження"
+                        >
+                            <span class="inline-block h-5 w-5 transform rounded-full bg-white transition {{ $subscription->auto_renew ? 'translate-x-5' : 'translate-x-1' }}"></span>
+                        </button>
+                    </div>
+                    @if(! $subscription->canToggleAutoRenew())
+                        <p class="mt-1 text-xs text-gray-500">Автопродовження можна налаштувати після першої оплати.</p>
+                    @endif
                 @endif
 
                 <div class="mt-4 flex flex-wrap gap-2">
-                    @if($subscription->canPay())
+                    @if($tab === 'active' && $subscription->canPay())
                         <form method="POST" action="{{ route('client.subscriptions.pay', $subscription) }}">
                             @csrf
                             <button type="submit" class="rounded-xl bg-yellow-400 px-4 py-2 text-sm font-semibold text-black">Оплатити</button>
                         </form>
                         <button wire:click="cancel({{ $subscription->id }})" type="button" class="rounded-xl border border-red-500/50 px-3 py-2 text-sm text-red-200">Скасувати</button>
-                    @elseif($subscription->canRenew())
+                    @elseif($tab === 'active')
+                        @if($subscription->canResume())
+                            <button wire:click="resume({{ $subscription->id }})" type="button" class="rounded-xl border border-gray-700 px-3 py-2 text-sm text-gray-200">Відновити</button>
+                        @elseif($subscription->canPause())
+                            <button wire:click="pause({{ $subscription->id }})" type="button" class="rounded-xl border border-gray-700 px-3 py-2 text-sm text-gray-200">Пауза</button>
+                        @endif
+                        @if($subscription->canRenew())
+                            <form method="POST" action="{{ route('client.subscriptions.renew', $subscription) }}">
+                                @csrf
+                                <button type="submit" class="rounded-xl bg-yellow-400 px-4 py-2 text-sm font-semibold text-black">Продовжити</button>
+                            </form>
+                        @endif
+                        @if($subscription->canOpenDetails())
+                            <button wire:click="openDetails({{ $subscription->id }})" type="button" class="rounded-xl border border-gray-700 px-3 py-2 text-sm text-gray-200">Докладніше</button>
+                        @endif
+                    @else
+                        <span class="rounded-xl border border-gray-700 px-3 py-2 text-sm text-gray-400">В архіві</span>
+                        @if($subscription->display_status === \App\Models\ClientSubscription::STATUS_COMPLETED && $subscription->canRenew())
                         <form method="POST" action="{{ route('client.subscriptions.renew', $subscription) }}">
                             @csrf
-                            <button type="submit" class="rounded-xl bg-yellow-400 px-4 py-2 text-sm font-semibold text-black">Продовжити</button>
+                            <button type="submit" class="rounded-xl border border-gray-700 px-3 py-2 text-sm text-gray-200">Продовжити</button>
                         </form>
-                        @if($subscription->canPause())
-                            <button wire:click="pause({{ $subscription->id }})" type="button" class="rounded-xl border border-gray-700 px-3 py-2 text-sm text-gray-200">Пауза</button>
-                        @elseif($subscription->canResume())
-                            <button wire:click="resume({{ $subscription->id }})" type="button" class="rounded-xl border border-gray-700 px-3 py-2 text-sm text-gray-200">Запустити</button>
                         @endif
                         @if($subscription->canOpenDetails())
                             <button wire:click="openDetails({{ $subscription->id }})" type="button" class="rounded-xl border border-gray-700 px-3 py-2 text-sm text-gray-200">Докладніше</button>
@@ -94,7 +128,9 @@
             </article>
         @empty
             <div class="rounded-2xl border border-dashed border-gray-700 bg-gray-900/70 p-4 text-sm text-gray-300">
-                Підписок поки немає. Оформіть першу підписку під час створення замовлення.
+                {{ $tab === 'archive'
+                    ? 'Архів підписок порожній.'
+                    : 'Підписок поки немає. Оформіть першу підписку під час створення замовлення.' }}
             </div>
         @endforelse
     </section>
