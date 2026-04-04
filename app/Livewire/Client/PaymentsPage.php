@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Livewire\Client;
 
 use App\Models\Order;
+use App\Support\Client\DashboardKpi;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Collection;
 use Livewire\Component;
@@ -23,7 +24,7 @@ class PaymentsPage extends Component
 
     public Collection $operations;
 
-    public function mount(bool $embedded = false): void
+    public function mount(DashboardKpi $dashboardKpi, bool $embedded = false): void
     {
         $this->embedded = $embedded;
         $userId = (int) auth()->id();
@@ -35,16 +36,18 @@ class PaymentsPage extends Component
             ->limit(100)
             ->get();
 
-        $paidOrders = $orders->where('payment_status', Order::PAY_PAID);
+
+        $allPaidOrders = Order::query()
+            ->where('client_id', $userId)
+            ->where('payment_status', Order::PAY_PAID)
+            ->get();
 
         $this->stats = [
-            'total_spent' => $this->sumPaidAmount($paidOrders),
-            'month_spent' => $this->sumPaidAmount(
-                $paidOrders->filter(fn (Order $order): bool => $order->created_at?->between($now->startOfMonth(), $now->endOfMonth()) ?? false)
-            ),
-            'paid_orders' => $paidOrders->count(),
-            'paid_subscriptions' => $paidOrders->whereNotNull('subscription_id')->count(),
-            'last_payment' => $paidOrders->first(),
+            'total_spent' => $dashboardKpi->totalPaidAmount($userId),
+            'month_spent' => $dashboardKpi->monthPaidAmount($userId, $now),
+            'paid_orders' => $allPaidOrders->count(),
+            'paid_subscriptions' => $allPaidOrders->whereNotNull('subscription_id')->count(),
+            'last_payment' => $allPaidOrders->sortByDesc('created_at')->first(),
         ];
 
         $this->operations = $orders->map(function (Order $order): array {
@@ -70,14 +73,6 @@ class PaymentsPage extends Component
         });
     }
 
-    protected function sumPaidAmount(Collection $orders): int
-    {
-        return $orders->sum(function (Order $order): int {
-            return $order->client_charge_amount > 0
-                ? (int) $order->client_charge_amount
-                : (int) $order->price;
-        });
-    }
 
     public function render()
     {
