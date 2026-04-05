@@ -6,6 +6,20 @@
 2. **Client map runtime state** (`resources/js/poof/map.js`) — projection/observability cache only.
 3. **Livewire courier components** (`AvailableOrders`, `MyOrders`, `OnlineToggle`) must re-read snapshot and self-heal to server truth.
 
+### Truth source map
+
+| Runtime source | Category | Why |
+|---|---|---|
+| `couriers.status` | canonical | Primary server runtime state (`offline/online/assigned/delivering`) enforced by `repairCourierRuntimeState()` + transition guards. |
+| `active order status` (`orders.status` in `accepted/in_progress`) | canonical | Domain truth that can override courier flags and block illegal offline/free states. |
+| `courierRuntimeSnapshot` payload | canonical read model | Unified server contract consumed by Livewire/API/JS; always built after runtime repair. |
+| `users.is_online` | derived (server-persisted mirror) | Synced from canonical status map via `syncRuntimeFlagsFromCourierState()`. |
+| `users.is_busy` | derived (server-persisted mirror) | Synced from canonical status and active-order reconciliation. |
+| `users.session_state` | derived (server-persisted mirror) | Session projection (`offline/ready/assigned/in_progress`) mapped from canonical runtime. |
+| Livewire local `online` (`AvailableOrders`, `MyOrders`, `OnlineToggle`) | optimistic-only/UI projection | Must quickly snap back to canonical snapshot; business logic cannot rely on it. |
+| map/browser runtime hints/events (`courier:runtime-sync`, cross-tab payloads) | optimistic-only/UI projection | Transport for cross-tab UX sync and observability only; not authoritative. |
+| direct UI interpretation of raw `users.*` flags | legacy / should be removed | Replaced with unified snapshot reads to avoid drift across tabs/components. |
+
 ### `courierRuntimeSnapshot` contract (canonical backend truth)
 
 Snapshot payload keys (stable order):
@@ -61,6 +75,7 @@ Snapshot payload keys (stable order):
 - Optimistic UI допустим только до ближайшего успешного sync;
 - Для `AvailableOrders` optimistic окно фиксировано: **3 секунды** (`UI_OPTIMISTIC_SYNC_TTL_SECONDS`).
 - В течение TTL локальный `online` может временно отличаться от backend snapshot.
+- Optimistic override разрешен только для local toggle event (`courier-online-toggled` with `changed=true`); cross-tab/runtime-sync hints must force canonical reread.
 - После TTL любой `render`/polling обязан self-heal в backend canonical `online`.
 - при конфликте optimistic vs server — побеждает server snapshot.
 
@@ -167,6 +182,15 @@ For runtime-heavy PRs touching Livewire/Alpine/map/geocode/save flows, include:
 - Cross-tab runtime sync still transports hint payloads without strict versioned schema enforcement.
 - `busy` is still mirrored in both `users` flags and inferred from active order; repair reconciles this, but storage remains duplicated.
 
+## Transition layer invariants (enforced)
+
+- `offline -> online`: only when courier has no active order conflict; writes `status=online`, `is_online=true`, `is_busy=false`, `session_state=ready`.
+- `online -> assigned`: only through order accept / active-order reconciliation; writes `status=assigned`, `is_online=true`, `is_busy=true`, `session_state=assigned`.
+- `assigned -> delivering`: only through order start / active-order reconciliation; writes `status=delivering`, `is_online=true`, `is_busy=true`, `session_state=in_progress`.
+- `delivering -> online`: only after order completion/cancel flow with no active order; writes `status=online`, `is_online=true`, `is_busy=false`, `session_state=ready`.
+- `online -> offline`: allowed only when no active order; forced offline attempts with active order are ignored and repaired back to assigned/delivering.
+- Login reset + stale sweep (`ResetCourierSessionOnLogin`, `MarkInactiveCouriers`) always call repair first and cannot break active courier into false offline/free state.
+
 ## Regression suite (courier)
 
 - online toggle/sync/navigation/session stability:
@@ -184,3 +208,4 @@ For runtime-heavy PRs touching Livewire/Alpine/map/geocode/save flows, include:
 - contract-focused additions:
   - `tests/Feature/Courier/CourierRuntimeSnapshotApiTest.php`
   - `tests/Feature/Courier/AvailableOrdersOnlineSyncTest.php`
+  - `tests/Feature/Courier/CourierRuntimeComponentConsistencyTest.php`

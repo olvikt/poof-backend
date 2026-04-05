@@ -27,7 +27,7 @@ class CourierOnlineNavigationSyncTest extends TestCase
             ->assertSet('online', false)
             ->assertSee('Ви не на лінії')
             // Simulate a stale in-memory UI flip that can happen before canonical refresh.
-            ->dispatch('courier-online-toggled', online: true)
+            ->dispatch('courier-online-toggled', online: true, changed: true)
             ->assertSet('online', true)
             ->assertDontSee('Ви не на лінії');
 
