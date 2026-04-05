@@ -2,9 +2,8 @@
 
 namespace App\Livewire\Courier;
 
+use App\Services\Courier\CourierPresenceService;
 use Livewire\Component;
-use App\Models\Courier;
-use App\Models\User;
 
 class OnlineToggle extends Component
 {
@@ -24,8 +23,8 @@ class OnlineToggle extends Component
 
     public function syncOnlineState(): void
     {
-        $user = $this->resolveCourier();
-        $runtime = $user instanceof User ? $user->courierRuntimeSnapshot() : null;
+        $service = $this->presenceService();
+        $runtime = $service->snapshot($service->resolveAuthenticatedCourier());
 
         $this->online = (bool) ($runtime['online'] ?? false);
         $activeOrderStatus = $runtime['active_order_status'] ?? null;
@@ -35,83 +34,36 @@ class OnlineToggle extends Component
 
     public function toggleOnlineState(): void
     {
-        $user = $this->resolveCourier();
+        $service = $this->presenceService();
+        $courier = $service->resolveAuthenticatedCourier();
 
-        if (! $user instanceof User) {
+        if (! $courier) {
             return;
         }
 
-        $before = $this->snapshotToggleState($user);
+        $result = $service->toggleOnline($courier);
 
-        $targetOnline = ! $before['online'];
-
-        if (($before['active_order_status'] ?? null) !== null) {
-            $this->online = true;
-            $this->busyWithActiveOrder = true;
-            $this->activeOrderStatus = (string) $before['active_order_status'];
-
-            $this->dispatch(
-                'courier-online-toggled',
-                online: true,
-                changed: false,
-                attempted_online: $targetOnline,
-                reason: 'blocked_by_active_order',
-                before: $before,
-                after: $before,
-            );
-
-            $this->dispatch(
-                'courier-online-toggle-blocked',
-                attempted_online: $targetOnline,
-                reason: 'blocked_by_active_order',
-                before: $before,
-                after: $before,
-            );
-
-            return;
-        }
-
-        if ($before['online']) {
-            $user->goOffline();
-        } else {
-            $user->goOnline();
-        }
-
-        $user = $this->resolveCourier();
-
-        if (! $user instanceof User) {
-            return;
-        }
-
-        $after = $this->snapshotToggleState($user);
-        $this->online = $after['online'];
-        $this->activeOrderStatus = $after['active_order_status'];
-        $this->busyWithActiveOrder = $after['active_order_status'] !== null;
-
-        $changed = $before['online'] !== $after['online'];
-        $reason = $changed
-            ? null
-            : (($after['active_order_status'] ?? $before['active_order_status']) !== null
-                ? 'blocked_by_active_order'
-                : 'no_state_change');
+        $this->online = (bool) $result['online'];
+        $this->activeOrderStatus = $result['after']['active_order_status'] ?? null;
+        $this->busyWithActiveOrder = $this->activeOrderStatus !== null;
 
         $this->dispatch(
             'courier-online-toggled',
             online: $this->online,
-            changed: $changed,
-            attempted_online: $targetOnline,
-            reason: $reason,
-            before: $before,
-            after: $after,
+            changed: (bool) $result['changed'],
+            attempted_online: (bool) $result['attempted_online'],
+            reason: $result['reason'],
+            before: $result['before'],
+            after: $result['after'],
         );
 
-        if (! $changed) {
+        if (! $result['changed']) {
             $this->dispatch(
                 'courier-online-toggle-blocked',
-                attempted_online: $targetOnline,
-                reason: $reason,
-                before: $before,
-                after: $after,
+                attempted_online: (bool) $result['attempted_online'],
+                reason: $result['reason'],
+                before: $result['before'],
+                after: $result['after'],
             );
 
             return;
@@ -126,39 +78,15 @@ class OnlineToggle extends Component
         $this->dispatch('courier:offline');
     }
 
-    private function snapshotToggleState(User $user): array
-    {
-        $runtime = $user->courierRuntimeSnapshot();
-        $activeOrderStatus = $runtime['active_order_status'] ?? null;
-
-        return [
-            'online' => (bool) ($runtime['online'] ?? false),
-            'users_is_online' => (bool) $user->is_online,
-            'users_is_busy' => (bool) $user->is_busy,
-            'users_session_state' => (string) $user->session_state,
-            'courier_status' => (string) ($runtime['status'] ?? optional($user->courierProfile)->status),
-            'active_order_status' => $activeOrderStatus,
-            'target_status' => ((bool) ($runtime['online'] ?? false)) ? Courier::STATUS_OFFLINE : Courier::STATUS_ONLINE,
-        ];
-    }
-
     public function render()
     {
-        // Keep header status bound to canonical runtime state even when
-        // Livewire navigation reuses/morphs DOM between courier tabs.
         $this->syncOnlineState();
 
         return view('livewire.courier.online-toggle');
     }
 
-    private function resolveCourier(): ?User
+    private function presenceService(): CourierPresenceService
     {
-        $user = auth()->user();
-
-        if (! $user instanceof User || ! $user->isCourier()) {
-            return null;
-        }
-
-        return $user->fresh(['courierProfile']);
+        return app(CourierPresenceService::class);
     }
 }

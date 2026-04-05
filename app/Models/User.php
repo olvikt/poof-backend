@@ -11,6 +11,7 @@ use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 use Laravel\Sanctum\HasApiTokens;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Facades\Log;
 use App\Models\OrderOffer;
 use App\Notifications\ResetPasswordPoofNotification;
 use App\Support\CourierRuntimeSnapshot;
@@ -232,6 +233,28 @@ class User extends Authenticatable implements FilamentUser
 
         $targetStatus = (string) $courier->status;
 
+        if (! in_array($targetStatus, [
+            Courier::STATUS_OFFLINE,
+            Courier::STATUS_ONLINE,
+            Courier::STATUS_ASSIGNED,
+            Courier::STATUS_DELIVERING,
+            Courier::STATUS_PAUSED,
+        ], true)) {
+            Log::warning('courier_runtime_unknown_status_normalized', [
+                'flow' => 'courier_presence',
+                'user_id' => $this->id,
+                'courier_status' => $targetStatus,
+            ]);
+
+            $targetStatus = Courier::STATUS_OFFLINE;
+            $courier->update(['status' => $targetStatus]);
+        }
+
+        if ($targetStatus === Courier::STATUS_PAUSED) {
+            $targetStatus = Courier::STATUS_OFFLINE;
+            $courier->update(['status' => $targetStatus]);
+        }
+
         if (in_array($targetStatus, [Courier::STATUS_ASSIGNED, Courier::STATUS_DELIVERING], true)) {
             $targetStatus = Courier::STATUS_ONLINE;
             $courier->update(['status' => $targetStatus]);
@@ -357,6 +380,7 @@ class User extends Authenticatable implements FilamentUser
             Courier::STATUS_ONLINE => [Courier::STATUS_ASSIGNED, Courier::STATUS_OFFLINE],
             Courier::STATUS_ASSIGNED => [Courier::STATUS_DELIVERING, Courier::STATUS_ONLINE],
             Courier::STATUS_DELIVERING => [Courier::STATUS_ONLINE],
+            Courier::STATUS_PAUSED => [Courier::STATUS_ONLINE, Courier::STATUS_OFFLINE],
         ];
 
         return in_array($toStatus, $allowed[$fromStatus] ?? [], true);

@@ -8,6 +8,7 @@ use App\Models\OrderOffer;
 use App\Models\User;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 
 class OfferDispatcher
 {
@@ -113,6 +114,10 @@ class OfferDispatcher
                 ->get();
 
             if ($couriers->isEmpty()) {
+                Log::debug('courier_offer_dispatch_no_candidates', [
+                    'flow' => 'offer_dispatch',
+                    'order_id' => $locked->id,
+                ]);
                 return null;
             }
 
@@ -128,6 +133,11 @@ class OfferDispatcher
             );
 
             if (! $picked) {
+                Log::debug('courier_offer_dispatch_no_pick', [
+                    'flow' => 'offer_dispatch',
+                    'order_id' => $locked->id,
+                    'candidate_count' => $couriers->count(),
+                ]);
                 return null;
             }
 
@@ -144,6 +154,14 @@ class OfferDispatcher
             // отметка "когда последним разом показали оффер" (Rotation)
             $picked->update([
                 'last_offer_at' => now(),
+            ]);
+
+            Log::info('courier_offer_dispatched', [
+                'flow' => 'offer_dispatch',
+                'order_id' => $locked->id,
+                'courier_id' => $picked->id,
+                'offer_id' => $offer->id,
+                'ttl_seconds' => $this->ttlSeconds,
             ]);
 
             return $offer;

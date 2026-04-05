@@ -134,6 +134,28 @@ class CourierOnlineToggleActionTest extends TestCase
         $this->assertSame(Courier::STATUS_DELIVERING, $courier->courierProfile->status);
     }
 
+    public function test_toggle_action_recovers_legacy_paused_status_and_switches_online(): void
+    {
+        $courier = $this->createCourier();
+        $courier->courierProfile()->update(['status' => Courier::STATUS_PAUSED]);
+
+        $this->actingAs($courier, 'web');
+
+        Livewire::test(OnlineToggle::class)
+            ->assertSet('online', false)
+            ->call('toggleOnlineState')
+            ->assertDispatched('courier-online-toggled', online: true, changed: true, reason: null)
+            ->assertSet('online', true);
+
+        $courier->refresh();
+
+        $this->assertTrue($courier->isCourierOnline());
+        $this->assertTrue((bool) $courier->is_online);
+        $this->assertFalse((bool) $courier->is_busy);
+        $this->assertSame(User::SESSION_READY, $courier->session_state);
+        $this->assertSame(Courier::STATUS_ONLINE, $courier->courierProfile->status);
+    }
+
     private function createCourier(): User
     {
         $courier = User::factory()->create([
