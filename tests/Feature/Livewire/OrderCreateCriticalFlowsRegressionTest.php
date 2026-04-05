@@ -142,4 +142,14 @@ class OrderCreateCriticalFlowsRegressionTest extends TestCase
             ->assertSet('address_precision', 'exact')
             ->assertDispatched('sheet:close', name: 'addressPicker');
     }
+
+    public function test_checkout_auto_cancel_copy_mentions_refund(): void
+    {
+        $user = User::factory()->create();
+        $this->actingAs($user);
+
+        Livewire::test(OrderCreate::class)
+            ->assertSee('Скасувати замовлення та повернути кошти, якщо курʼєра не буде знайдено вчасно')
+            ->assertDontSee('Скасувати замовлення, якщо курʼєра не буде знайдено вчасно');
+    }
 }
