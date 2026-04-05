@@ -182,6 +182,10 @@ For runtime-heavy PRs touching Livewire/Alpine/map/geocode/save flows, include:
 - Cross-tab runtime sync still transports hint payloads without strict versioned schema enforcement.
 - `busy` is still mirrored in both `users` flags and inferred from active order; repair reconciles this, but storage remains duplicated.
 
+## Dispatch/read hot-path reference
+
+- Dispatch and courier cabinet hot-path boundaries, query model, scoring split (SQL vs PHP), indexes and observability markers are documented in `docs/courier-dispatch-read-flow.md`.
+
 ## Transition layer invariants (enforced)
 
 - `offline -> online`: only when courier has no active order conflict; writes `status=online`, `is_online=true`, `is_busy=false`, `session_state=ready`.

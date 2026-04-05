@@ -71,6 +71,7 @@ class AvailableOrders extends Component
 
     public function render()
     {
+        $startedAt = microtime(true);
         $courier = $this->resolveCourier();
 
         if (! $courier instanceof User || ! $courier->isCourier()) {
@@ -97,6 +98,14 @@ class AvailableOrders extends Component
             ->orderByDesc('order_offers.created_at')
             ->distinct()
             ->get();
+
+        Log::debug('available_orders_render', [
+            'flow' => 'courier_cabinet',
+            'courier_id' => $courier->id,
+            'pending_offer_count' => $orders->count(),
+            'active_order_count' => $this->activeOrder ? 1 : 0,
+            'elapsed_ms' => (int) round((microtime(true) - $startedAt) * 1000),
+        ]);
 
         return view('livewire.courier.available-orders', [
             'orders' => $orders,

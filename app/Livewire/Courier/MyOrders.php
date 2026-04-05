@@ -149,6 +149,7 @@ class MyOrders extends Component
 
     public function render()
     {
+        $startedAt = microtime(true);
         $courier = $this->resolveCourier();
 
         if (! $courier instanceof User || ! $courier->isCourier()) {
@@ -165,10 +166,18 @@ class MyOrders extends Component
                 Order::STATUS_ACCEPTED,
                 Order::STATUS_IN_PROGRESS,
             ])
+            ->with(['client:id,phone'])
             ->orderBy('accepted_at')
             ->get();
 
         $orders = $this->appendDistance($orders, $courier);
+
+        Log::debug('my_orders_render', [
+            'flow' => 'courier_cabinet',
+            'courier_id' => $courier->id,
+            'active_order_count' => $orders->count(),
+            'elapsed_ms' => (int) round((microtime(true) - $startedAt) * 1000),
+        ]);
 
         return view('livewire.courier.my-orders', [
             'orders' => $orders,
