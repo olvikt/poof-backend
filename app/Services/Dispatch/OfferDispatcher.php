@@ -72,8 +72,50 @@ class OfferDispatcher
                 return null;
             }
 
-            $attemptCount = ((int) ($locked->dispatch_attempts ?? 0)) + 1;
             $orderAgeSeconds = $locked->created_at ? $locked->created_at->diffInSeconds($now) : null;
+
+            if ($locked->next_dispatch_at && $locked->next_dispatch_at->isFuture()) {
+                Log::debug('dispatch_skipped_deferred_under_lock', [
+                    'flow' => 'offer_dispatch',
+                    'order_id' => $locked->id,
+                    'dispatch_attempted' => false,
+                    'dispatch_deferred' => true,
+                    'dispatch_backoff_until' => $locked->next_dispatch_at->toIso8601String(),
+                    'order_age_seconds' => $orderAgeSeconds,
+                    'elapsed_ms' => $this->elapsedMs($startedAt),
+                ]);
+
+                return null;
+            }
+
+            /* -------------------------------------------------
+             | 1) EXPIRE DEAD PENDING (zombie fix)
+             | ------------------------------------------------- */
+            OrderOffer::query()
+                ->where('order_id', $locked->id)
+                ->where('status', OrderOffer::STATUS_PENDING)
+                ->where(function ($q) {
+                    $q->whereNull('expires_at')
+                      ->orWhere('expires_at', '<=', now());
+                })
+                ->update([
+                    'status' => OrderOffer::STATUS_EXPIRED,
+                ]);
+
+            if ($this->hasLivePendingOffer((int) $locked->id, $now)) {
+                Log::debug('dispatch_waiting_live_offer', [
+                    'flow' => 'offer_dispatch',
+                    'order_id' => $locked->id,
+                    'dispatch_attempted' => false,
+                    'dispatch_waiting_live_offer' => true,
+                    'order_age_seconds' => $orderAgeSeconds,
+                    'elapsed_ms' => $this->elapsedMs($startedAt),
+                ]);
+
+                return null;
+            }
+
+            $attemptCount = ((int) ($locked->dispatch_attempts ?? 0)) + 1;
 
             DB::table('orders')
                 ->where('id', $locked->id)
@@ -89,20 +131,6 @@ class OfferDispatcher
                 'attempt_count' => $attemptCount,
                 'order_age_seconds' => $orderAgeSeconds,
             ]);
-
-            /* -------------------------------------------------
-             | 1) EXPIRE DEAD PENDING (zombie fix)
-             | ------------------------------------------------- */
-            OrderOffer::query()
-                ->where('order_id', $locked->id)
-                ->where('status', OrderOffer::STATUS_PENDING)
-                ->where(function ($q) {
-                    $q->whereNull('expires_at')
-                      ->orWhere('expires_at', '<=', now());
-                })
-                ->update([
-                    'status' => OrderOffer::STATUS_EXPIRED,
-                ]);
 
             /* -------------------------------------------------
              | 2) COURIER CANDIDATES (online + free)
@@ -267,6 +295,15 @@ class OfferDispatcher
             'order_age_seconds' => $orderAgeSeconds,
             'elapsed_ms' => $this->elapsedMs($startedAt),
         ]);
+    }
+
+    protected function hasLivePendingOffer(int $orderId, Carbon $now): bool
+    {
+        return OrderOffer::query()
+            ->where('order_id', $orderId)
+            ->where('status', OrderOffer::STATUS_PENDING)
+            ->where('expires_at', '>', $now)
+            ->exists();
     }
 
     protected function backoffSeconds(int $attemptCount): int
