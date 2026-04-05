@@ -65,6 +65,24 @@
             @foreach($orders as $order)
                 @php
                     $timerStart = $order->started_at ?? $order->accepted_at ?? null;
+                    $serviceModeLabel = match ($order->service_mode) {
+                        \App\Models\Order::SERVICE_MODE_ASAP => 'Якнайшвидше',
+                        \App\Models\Order::SERVICE_MODE_PREFERRED_WINDOW => 'Бажане вікно',
+                        default => 'Інший режим',
+                    };
+                    $executionDateLabel = optional($order->window_from_at ?? $order->scheduled_date)->format('d.m.Y')
+                        ?? optional($order->created_at)->format('d.m.Y')
+                        ?? '—';
+                    $desiredWindowLabel = null;
+                    if ($order->service_mode === \App\Models\Order::SERVICE_MODE_PREFERRED_WINDOW) {
+                        $desiredWindowLabel = ($order->window_from_at?->format('H:i') ?? $order->scheduled_time_from ?? '—')
+                            .'–'
+                            .($order->window_to_at?->format('H:i') ?? $order->scheduled_time_to ?? '—');
+                    }
+                    $validUntilLabel = optional($order->valid_until_at)->format('d.m H:i');
+                    $warningMinutes = max(1, (int) config('order_promise.courier_urgency_warning_minutes', 30));
+                    $isUrgent = $order->valid_until_at?->isFuture()
+                        && $order->valid_until_at?->diffInMinutes(now()) <= $warningMinutes;
 
                     $elapsedLabel = null;
                     if ($timerStart) {
@@ -119,6 +137,23 @@
                                     @endif
                                 </div>
                             </div>
+                        </div>
+                    </div>
+
+                    <div class="mt-3 rounded-2xl border border-white/[0.06] bg-[#0d1522] p-3">
+                        <div class="mb-2 text-[11px] font-semibold uppercase tracking-[0.08em] text-slate-400">Час виконання</div>
+                        <div class="flex flex-wrap items-center gap-1.5 text-[11px]">
+                            <span class="rounded-full border border-white/[0.12] bg-white/[0.04] px-2 py-0.5 text-slate-200">{{ $executionDateLabel }}</span>
+                            <span class="rounded-full border border-white/[0.12] bg-white/[0.04] px-2 py-0.5 text-slate-200">{{ $serviceModeLabel }}</span>
+                            @if($desiredWindowLabel)
+                                <span class="rounded-full border border-sky-300/30 bg-sky-400/10 px-2 py-0.5 text-sky-200">{{ $desiredWindowLabel }}</span>
+                            @endif
+                            @if($validUntilLabel)
+                                <span class="rounded-full border border-white/[0.12] bg-white/[0.04] px-2 py-0.5 text-slate-300">Активне до {{ $validUntilLabel }}</span>
+                            @endif
+                            @if($isUrgent)
+                                <span class="rounded-full bg-amber-500/20 px-2 py-0.5 text-amber-300">Терміново</span>
+                            @endif
                         </div>
                     </div>
 
