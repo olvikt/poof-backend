@@ -37,6 +37,12 @@ class LegacyWebOrderCreatePayload
             'scheduled_date' => $this->attributes['scheduled_date'],
             'scheduled_time_from' => $this->attributes['scheduled_time_from'],
             'scheduled_time_to' => $this->attributes['scheduled_time_to'],
+            'service_mode' => $this->attributes['service_mode'] ?? null,
+            'window_from_at' => $this->attributes['window_from_at'] ?? null,
+            'window_to_at' => $this->attributes['window_to_at'] ?? null,
+            'valid_until_at' => $this->attributes['valid_until_at'] ?? null,
+            'client_wait_preference' => $this->attributes['client_wait_preference'] ?? null,
+            'promise_policy_version' => $this->attributes['promise_policy_version'] ?? null,
 
             'handover_type' => $this->attributes['handover_type'],
             'bags_count' => $this->attributes['bags_count'],

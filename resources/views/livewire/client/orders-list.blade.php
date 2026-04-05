@@ -109,7 +109,7 @@
                                 bg-gray-700 text-gray-300
                             @endif
                         ">
-                            {{ \App\Models\Order::STATUS_LABELS[$order->status] ?? $order->status }}
+                            {{ $order->promiseStatusLabelForClient() }}
                         </span>
 
                         {{-- PRICE --}}
@@ -125,10 +125,19 @@
 
                     {{-- DATE / TIME --}}
                     <div class="text-xs text-gray-400 mt-1">
-                        {{ optional($order->scheduled_date)->format('d.m.Y') ?? 'Сьогодні' }}
-                        @if($order->scheduled_time_from)
-                            · {{ $order->scheduled_time_from }} – {{ $order->scheduled_time_to }}
+                        Створено: {{ optional($order->created_at)->format('d.m.Y H:i') }}
+                    </div>
+                    <div class="text-xs text-gray-400 mt-1">
+                        @if($order->service_mode === \App\Models\Order::SERVICE_MODE_ASAP)
+                            Режим: Якнайшвидше
+                        @else
+                            Бажаний інтервал:
+                            {{ optional($order->window_from_at)->format('d.m H:i') ?? $order->scheduled_time_from ?? '—' }}
+                            – {{ optional($order->window_to_at)->format('d.m H:i') ?? $order->scheduled_time_to ?? '—' }}
                         @endif
+                    </div>
+                    <div class="text-xs text-gray-400 mt-1">
+                        Активне до: {{ optional($order->valid_until_at)->format('d.m.Y H:i') ?? '—' }}
                     </div>
 
                     {{-- PAYMENT STATUS --}}
@@ -203,7 +212,7 @@
                     <div class="flex items-center justify-between mb-2">
                         <span class="text-xs font-semibold
                             {{ $isCancelled ? 'text-red-300' : 'text-gray-300' }}">
-                            {{ \App\Models\Order::STATUS_LABELS[$order->status] ?? $order->status }}
+                            {{ $order->promiseStatusLabelForClient() }}
                         </span>
 
                         <span class="text-sm text-yellow-400 font-semibold">
@@ -220,6 +229,12 @@
                     <div class="text-xs text-gray-400 mt-1">
                         {{ optional($order->created_at)->format('d.m.Y H:i') }}
                     </div>
+
+                    @if($isCancelled && $order->expired_at)
+                        <div class="text-xs text-red-300/90 mt-1">
+                            {{ $order->expiredReasonLabelForClient() ?? 'Скасовано системою через неактуальність.' }}
+                        </div>
+                    @endif
 
                     {{-- CTA --}}
                     <button

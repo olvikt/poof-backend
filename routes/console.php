@@ -5,6 +5,7 @@ use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Schedule;
 use App\Services\Dispatch\OfferDispatcher;
+use App\Services\Orders\OrderAutoExpireService;
 use App\Jobs\MarkInactiveCouriers;
 use Symfony\Component\Process\Process;
 
@@ -70,6 +71,24 @@ Schedule::job(new MarkInactiveCouriers())
     ->name('poof-couriers-mark-inactive')
     ->description('Mark couriers offline when location TTL is expired')
     ->everyMinute();
+
+Schedule::call(function (): void {
+    /** @var OrderAutoExpireService $service */
+    $service = app(OrderAutoExpireService::class);
+    $service->run(200);
+})
+->name('poof-order-auto-expire-loop')
+->description('POOF order promise auto-expire engine')
+->everyMinute();
+
+Artisan::command('orders:auto-expire {--limit=200}', function () {
+    $limit = max(1, (int) $this->option('limit'));
+    /** @var OrderAutoExpireService $service */
+    $service = app(OrderAutoExpireService::class);
+    $expired = $service->run($limit);
+
+    $this->info(sprintf('Expired orders: %d', $expired));
+})->purpose('Expire stale searching orders by order promise validity');
 
 Artisan::command('ops:contract:scheduler {--max-age-seconds=120}', function () {
     $key = config('ops.scheduler_heartbeat_cache_key', 'ops:scheduler:last-tick-at');

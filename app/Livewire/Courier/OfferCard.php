@@ -29,6 +29,13 @@ class OfferCard extends Component
         }
 
         $this->offer = OrderOffer::query()
+            ->whereHas('order', function ($query): void {
+                $query->whereNull('expired_at')
+                    ->where(function ($q): void {
+                        $q->whereNull('valid_until_at')
+                            ->orWhere('valid_until_at', '>', now());
+                    });
+            })
             ->where('courier_id', $courier->id)
             ->where('status', OrderOffer::STATUS_PENDING)
             ->where('expires_at', '>', now())

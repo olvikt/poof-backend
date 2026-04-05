@@ -94,6 +94,11 @@ class AvailableOrders extends Component
             ->where('order_offers.status', OrderOffer::STATUS_PENDING)
             ->whereNotNull('order_offers.expires_at')
             ->where('order_offers.expires_at', '>', now())
+            ->whereNull('orders.expired_at')
+            ->where(function ($query): void {
+                $query->whereNull('orders.valid_until_at')
+                    ->orWhere('orders.valid_until_at', '>', now());
+            })
             ->select('orders.*')
             ->orderByDesc('order_offers.created_at')
             ->distinct()
