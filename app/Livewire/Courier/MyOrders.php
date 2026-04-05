@@ -6,6 +6,7 @@ use App\Models\Order;
 use App\Models\User;
 use App\Services\Dispatch\OfferDispatcher;
 use App\Support\Courier\CourierNavigationRuntime;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Log;
 use Livewire\Component;
@@ -149,6 +150,7 @@ class MyOrders extends Component
 
     public function render()
     {
+        $startedAt = microtime(true);
         $courier = $this->resolveCourier();
 
         if (! $courier instanceof User || ! $courier->isCourier()) {
@@ -165,10 +167,18 @@ class MyOrders extends Component
                 Order::STATUS_ACCEPTED,
                 Order::STATUS_IN_PROGRESS,
             ])
+            ->with(['client:id,phone'])
             ->orderBy('accepted_at')
             ->get();
 
         $orders = $this->appendDistance($orders, $courier);
+
+        Log::debug('my_orders_render', [
+            'flow' => 'courier_cabinet',
+            'courier_id' => $courier->id,
+            'active_order_count' => $orders->count(),
+            'elapsed_ms' => (int) round((microtime(true) - $startedAt) * 1000),
+        ]);
 
         return view('livewire.courier.my-orders', [
             'orders' => $orders,
@@ -232,7 +242,21 @@ class MyOrders extends Component
             return null;
         }
 
-        return $user->fresh(['courierProfile']);
+        return User::query()
+            ->select([
+                'id',
+                'role',
+                'is_active',
+                'is_online',
+                'is_busy',
+                'session_state',
+                'last_lat',
+                'last_lng',
+            ])
+            ->with([
+                'courierProfile' => fn (Builder $query) => $query->select('id', 'user_id', 'status', 'last_location_at'),
+            ])
+            ->find($user->id);
     }
 
     private function resolveCanonicalOnlineState(?User $courier): bool

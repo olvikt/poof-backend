@@ -5,10 +5,11 @@ namespace App\Services\Dispatch;
 use App\Models\Courier;
 use App\Models\Order;
 use App\Models\OrderOffer;
-use App\Models\User;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
+use stdClass;
 
 class OfferDispatcher
 {
@@ -53,7 +54,15 @@ class OfferDispatcher
 
     protected function dispatchPrimaryOffer(Order $order): ?OrderOffer
     {
-        return DB::transaction(function () use ($order) {
+        $startedAt = microtime(true);
+
+        Log::debug('dispatch_started', [
+            'flow' => 'offer_dispatch',
+            'order_id' => $order->id,
+        ]);
+
+        return DB::transaction(function () use ($order, $startedAt) {
+            $now = now();
 
             /** @var Order|null $locked */
             $locked = Order::query()
@@ -86,37 +95,13 @@ class OfferDispatcher
 
             $orderHasCoords = $this->hasCoords($locked->lat, $locked->lng);
 
-            $couriers = User::query()
-                ->where('role', User::ROLE_COURIER)
-                ->where('is_active', true)
-                ->whereNotNull('last_lat')
-                ->whereNotNull('last_lng')
-                ->whereHas('courierProfile', function ($q) {
-                    $q->activeOnMap()->where('status', Courier::STATUS_ONLINE);
-                })
-
-                // не выполняет активный заказ
-                ->whereDoesntHave('takenOrders', function ($q) {
-                    $q->whereIn('status', [
-                        Order::STATUS_ACCEPTED,
-                        Order::STATUS_IN_PROGRESS,
-                    ]);
-                })
-
-                // не слать повторно этому же курьеру ЖИВОЙ pending по этому заказу
-                ->whereDoesntHave('orderOffers', function ($q) use ($locked) {
-                    $q->where('order_id', $locked->id)
-                      ->where('status', OrderOffer::STATUS_PENDING)
-                      ->where('expires_at', '>', now());
-                })
-
-                ->limit($this->maxCouriersToScan)
-                ->get();
+            $couriers = $this->fetchCandidates($locked, $orderHasCoords, $now);
 
             if ($couriers->isEmpty()) {
-                Log::debug('courier_offer_dispatch_no_candidates', [
+                Log::debug('dispatch_no_candidates', [
                     'flow' => 'offer_dispatch',
                     'order_id' => $locked->id,
+                    'elapsed_ms' => $this->elapsedMs($startedAt),
                 ]);
                 return null;
             }
@@ -133,10 +118,11 @@ class OfferDispatcher
             );
 
             if (! $picked) {
-                Log::debug('courier_offer_dispatch_no_pick', [
+                Log::debug('dispatch_no_pick', [
                     'flow' => 'offer_dispatch',
                     'order_id' => $locked->id,
                     'candidate_count' => $couriers->count(),
+                    'elapsed_ms' => $this->elapsedMs($startedAt),
                 ]);
                 return null;
             }
@@ -152,16 +138,20 @@ class OfferDispatcher
             );
 
             // отметка "когда последним разом показали оффер" (Rotation)
-            $picked->update([
-                'last_offer_at' => now(),
-            ]);
+            DB::table('users')
+                ->where('id', (int) $picked->id)
+                ->update([
+                    'last_offer_at' => now(),
+                ]);
 
-            Log::info('courier_offer_dispatched', [
+            Log::info('dispatch_offer_created', [
                 'flow' => 'offer_dispatch',
                 'order_id' => $locked->id,
                 'courier_id' => $picked->id,
                 'offer_id' => $offer->id,
                 'ttl_seconds' => $this->ttlSeconds,
+                'candidate_count' => $couriers->count(),
+                'elapsed_ms' => $this->elapsedMs($startedAt),
             ]);
 
             return $offer;
@@ -176,10 +166,9 @@ class OfferDispatcher
     {
         $count = 0;
 
-        $orders = Order::query()
-            ->where('status', Order::STATUS_SEARCHING)
-            ->whereNull('courier_id')
-            ->inRandomOrder()
+        $orders = $this->searchingOrdersQuery()
+            ->select('id')
+            ->orderBy('id')
             ->limit($limit)
             ->get();
 
@@ -190,6 +179,14 @@ class OfferDispatcher
         }
 
         return $count;
+    }
+
+    protected function searchingOrdersQuery()
+    {
+        return Order::query()
+            ->where('status', Order::STATUS_SEARCHING)
+            ->whereNull('courier_id')
+            ->where('payment_status', Order::PAY_PAID);
     }
 
     /* =========================================================
@@ -204,13 +201,13 @@ class OfferDispatcher
         Collection $couriers,
         Order $order,
         bool $orderHasCoords
-    ): ?User {
+    ): ?stdClass {
         $now = now();
 
         // Если координат заказа нет — fallback: fairness по idle/rotation (без distance)
         if (! $orderHasCoords) {
             return $couriers
-                ->sort(function (User $a, User $b) use ($now) {
+                ->sort(function (stdClass $a, stdClass $b) use ($now) {
                     $aIdle = $a->last_completed_at ? $a->last_completed_at->diffInMinutes($now) : 9999;
                     $bIdle = $b->last_completed_at ? $b->last_completed_at->diffInMinutes($now) : 9999;
 
@@ -226,7 +223,7 @@ class OfferDispatcher
 
         // 1) считаем дистанции и отбрасываем тех, кто дальше радиуса
         $scored = $couriers
-            ->map(function (User $courier) use ($order, $now) {
+            ->map(function (stdClass $courier) use ($order, $now) {
 
                 if (! $this->hasCoords($courier->last_lat, $courier->last_lng)) {
                     return null;
@@ -290,6 +287,83 @@ class OfferDispatcher
             ->first();
 
         return $winner['courier'] ?? null;
+    }
+
+    protected function fetchCandidates(Order $order, bool $orderHasCoords, $now): Collection
+    {
+        $query = DB::table('users')
+            ->join('couriers', 'couriers.user_id', '=', 'users.id')
+            ->where('users.role', 'courier')
+            ->where('users.is_active', true)
+            ->whereNotNull('users.last_lat')
+            ->whereNotNull('users.last_lng')
+            ->where('couriers.status', Courier::STATUS_ONLINE)
+            ->where('couriers.last_location_at', '>', $now->copy()->subSeconds(60))
+            ->whereNotExists(function ($sub): void {
+                $sub->selectRaw('1')
+                    ->from('orders')
+                    ->whereColumn('orders.courier_id', 'users.id')
+                    ->whereIn('orders.status', [
+                        Order::STATUS_ACCEPTED,
+                        Order::STATUS_IN_PROGRESS,
+                    ]);
+            })
+            ->whereNotExists(function ($sub) use ($order, $now): void {
+                $sub->selectRaw('1')
+                    ->from('order_offers')
+                    ->whereColumn('order_offers.courier_id', 'users.id')
+                    ->where('order_offers.order_id', $order->id)
+                    ->where('order_offers.status', OrderOffer::STATUS_PENDING)
+                    ->where('order_offers.expires_at', '>', $now);
+            });
+
+        if ($orderHasCoords) {
+            [$latMin, $latMax, $lngMin, $lngMax] = $this->distanceBoundingBox(
+                (float) $order->lat,
+                (float) $order->lng,
+                $this->primaryRadiusKm + $this->distanceWindowKm
+            );
+
+            $query
+                ->whereBetween('users.last_lat', [$latMin, $latMax])
+                ->whereBetween('users.last_lng', [$lngMin, $lngMax]);
+        }
+
+        return $query
+            ->select([
+                'users.id',
+                'users.last_lat',
+                'users.last_lng',
+                'users.last_completed_at',
+                'users.last_offer_at',
+            ])
+            ->limit($this->maxCouriersToScan)
+            ->get()
+            ->map(function (stdClass $courier): stdClass {
+                $courier->last_completed_at = $courier->last_completed_at ? Carbon::parse($courier->last_completed_at) : null;
+                $courier->last_offer_at = $courier->last_offer_at ? Carbon::parse($courier->last_offer_at) : null;
+
+                return $courier;
+            });
+    }
+
+    protected function distanceBoundingBox(float $lat, float $lng, float $radiusKm): array
+    {
+        $latDelta = $radiusKm / 111.0;
+        $lngDivisor = max(cos(deg2rad($lat)), 0.01);
+        $lngDelta = $radiusKm / (111.0 * $lngDivisor);
+
+        return [
+            $lat - $latDelta,
+            $lat + $latDelta,
+            $lng - $lngDelta,
+            $lng + $lngDelta,
+        ];
+    }
+
+    protected function elapsedMs(float $startedAt): int
+    {
+        return (int) round((microtime(true) - $startedAt) * 1000);
     }
 
     /* =========================================================
