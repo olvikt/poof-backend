@@ -1,9 +1,10 @@
 <?php
 
 use Illuminate\Database\Migrations\Migration;
+use App\Support\Orders\LegacyScheduleNormalizer;
 use Illuminate\Database\Schema\Blueprint;
-use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Schema;
 
 return new class extends Migration {
@@ -23,6 +24,7 @@ return new class extends Migration {
         });
 
         $now = now();
+        $legacyScheduleNormalizer = app(LegacyScheduleNormalizer::class);
         $defaultWaitPreference = (string) config('order_promise.default_wait_preference', 'auto_cancel_if_not_found');
         $policyVersion = (string) config('order_promise.policy_version', 'v1');
         $preferredGraceHours = max(0, (int) config('order_promise.preferred_window_grace_hours', 2));
@@ -43,29 +45,39 @@ return new class extends Migration {
                 $query->whereNotNull('time_from')->orWhereNotNull('scheduled_time_from');
             })
             ->orderBy('id')
-            ->chunkById(500, function ($orders) use ($preferredGraceHours): void {
+            ->chunkById(500, function ($orders) use ($legacyScheduleNormalizer, $preferredGraceHours): void {
                 foreach ($orders as $order) {
-                    $fromTime = $order->time_from ?? $order->scheduled_time_from;
-                    $toTime = $order->time_to ?? $order->scheduled_time_to ?? $fromTime;
+                    try {
+                        $fromTime = $order->time_from ?? $order->scheduled_time_from;
+                        $toTime = $order->time_to ?? $order->scheduled_time_to ?? $fromTime;
 
-                    if (! $fromTime) {
-                        continue;
-                    }
+                        [$windowFrom, $windowTo] = $legacyScheduleNormalizer->resolveWindowFromLegacy(
+                            isset($order->scheduled_date) ? (string) $order->scheduled_date : null,
+                            isset($fromTime) ? (string) $fromTime : null,
+                            isset($toTime) ? (string) $toTime : null,
+                            2,
+                        );
 
-                    $windowFrom = Carbon::parse(sprintf('%s %s', (string) $order->scheduled_date, (string) $fromTime));
-                    $windowTo = Carbon::parse(sprintf('%s %s', (string) $order->scheduled_date, (string) $toTime));
+                        if (! $windowFrom || ! $windowTo) {
+                            continue;
+                        }
 
-                    if ($windowTo->lessThanOrEqualTo($windowFrom)) {
-                        $windowTo = $windowFrom->copy()->addHours(2);
-                    }
-
-                    DB::table('orders')
-                        ->where('id', $order->id)
-                        ->update([
-                            'window_from_at' => $windowFrom,
-                            'window_to_at' => $windowTo,
-                            'valid_until_at' => $windowTo->copy()->addHours($preferredGraceHours),
+                        DB::table('orders')
+                            ->where('id', $order->id)
+                            ->update([
+                                'window_from_at' => $windowFrom,
+                                'window_to_at' => $windowTo,
+                                'valid_until_at' => $windowTo->copy()->addHours($preferredGraceHours),
+                            ]);
+                    } catch (\Throwable $exception) {
+                        Log::warning('Order promise backfill skipped order due to malformed legacy schedule.', [
+                            'order_id' => $order->id ?? null,
+                            'scheduled_date' => $order->scheduled_date ?? null,
+                            'time_from' => $order->time_from ?? $order->scheduled_time_from ?? null,
+                            'time_to' => $order->time_to ?? $order->scheduled_time_to ?? null,
+                            'error' => $exception->getMessage(),
                         ]);
+                    }
                 }
             });
 

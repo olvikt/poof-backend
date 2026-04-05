@@ -6,9 +6,14 @@ namespace App\Support\Orders;
 
 use App\Models\Order;
 use Illuminate\Support\Carbon;
+use Throwable;
 
 class OrderPromiseResolver
 {
+    public function __construct(private readonly LegacyScheduleNormalizer $legacyScheduleNormalizer)
+    {
+    }
+
     public function resolveCreateAttributes(array $attributes, ?Carbon $now = null): array
     {
         $now ??= now();
@@ -71,30 +76,21 @@ class OrderPromiseResolver
     private function resolveWindowFromLegacySchedule(array $attributes): array
     {
         if (! empty($attributes['window_from_at']) && ! empty($attributes['window_to_at'])) {
-            $from = Carbon::parse((string) $attributes['window_from_at']);
-            $to = Carbon::parse((string) $attributes['window_to_at']);
+            try {
+                $from = Carbon::parse((string) $attributes['window_from_at']);
+                $to = Carbon::parse((string) $attributes['window_to_at']);
 
-            return [$from, $to->greaterThan($from) ? $to : $from->copy()->addHours(2)];
+                return [$from, $to->greaterThan($from) ? $to : $from->copy()->addHours(2)];
+            } catch (Throwable) {
+                return [null, null];
+            }
         }
 
-        $scheduledDate = $attributes['scheduled_date'] ?? null;
-        $fromTime = $attributes['time_from'] ?? $attributes['scheduled_time_from'] ?? null;
-        $toTime = $attributes['time_to'] ?? $attributes['scheduled_time_to'] ?? null;
+        $scheduledDate = isset($attributes['scheduled_date']) ? (string) $attributes['scheduled_date'] : null;
+        $fromTime = isset($attributes['time_from']) ? (string) $attributes['time_from'] : (isset($attributes['scheduled_time_from']) ? (string) $attributes['scheduled_time_from'] : null);
+        $toTime = isset($attributes['time_to']) ? (string) $attributes['time_to'] : (isset($attributes['scheduled_time_to']) ? (string) $attributes['scheduled_time_to'] : null);
 
-        if (! $scheduledDate || ! $fromTime) {
-            return [null, null];
-        }
-
-        $from = Carbon::parse(sprintf('%s %s', (string) $scheduledDate, (string) $fromTime));
-        $to = $toTime
-            ? Carbon::parse(sprintf('%s %s', (string) $scheduledDate, (string) $toTime))
-            : $from->copy()->addHours(2);
-
-        if ($to->lessThanOrEqualTo($from)) {
-            $to = $from->copy()->addHours(2);
-        }
-
-        return [$from, $to];
+        return $this->legacyScheduleNormalizer->resolveWindowFromLegacy($scheduledDate, $fromTime, $toTime, 2);
     }
 
     private function resolveValidUntil(string $serviceMode, ?Carbon $windowToAt, string $waitPreference, Carbon $now): Carbon
