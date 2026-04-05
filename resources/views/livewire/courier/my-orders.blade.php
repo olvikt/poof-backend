@@ -65,9 +65,11 @@
             @foreach($orders as $order)
                 @php
                     $timerStart = $order->started_at ?? $order->accepted_at ?? null;
-                    $serviceModeLabel = $order->service_mode === \App\Models\Order::SERVICE_MODE_ASAP
-                        ? 'Якнайшвидше'
-                        : 'Бажане вікно';
+                    $serviceModeLabel = match ($order->service_mode) {
+                        \App\Models\Order::SERVICE_MODE_ASAP => 'Якнайшвидше',
+                        \App\Models\Order::SERVICE_MODE_PREFERRED_WINDOW => 'Бажане вікно',
+                        default => 'Інший режим',
+                    };
                     $executionDateLabel = optional($order->window_from_at ?? $order->scheduled_date)->format('d.m.Y')
                         ?? optional($order->created_at)->format('d.m.Y')
                         ?? '—';

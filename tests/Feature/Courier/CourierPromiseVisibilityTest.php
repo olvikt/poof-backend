@@ -127,4 +127,27 @@ class CourierPromiseVisibilityTest extends TestCase
             ->assertSee('Активне до')
             ->assertSee('Терміново');
     }
+
+    public function test_active_my_orders_card_uses_neutral_label_for_unknown_service_mode(): void
+    {
+        $courier = User::factory()->create(['role' => 'courier', 'is_online' => true]);
+        $client = User::factory()->create(['role' => 'client']);
+
+        Order::createForTesting([
+            'client_id' => $client->id,
+            'courier_id' => $courier->id,
+            'status' => Order::STATUS_ACCEPTED,
+            'payment_status' => Order::PAY_PAID,
+            'service_mode' => 'custom_mode',
+            'valid_until_at' => now()->addHour(),
+            'address_text' => 'вул. Режимна, 12',
+            'price' => 130,
+            'accepted_at' => now()->subMinute(),
+        ]);
+
+        Livewire::actingAs($courier)
+            ->test(MyOrders::class)
+            ->assertSee('Час виконання')
+            ->assertSee('Інший режим');
+    }
 }
