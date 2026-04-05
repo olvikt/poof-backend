@@ -35,6 +35,8 @@ class OfferDispatcher
 
     /** Safety limit */
     public int $maxCouriersToScan = 80;
+    public int $dispatchBackoffBaseSeconds = 15;
+    public int $dispatchBackoffMaxSeconds = 180;
 
     /* =========================================================
      | ENTRY
@@ -56,11 +58,6 @@ class OfferDispatcher
     {
         $startedAt = microtime(true);
 
-        Log::debug('dispatch_started', [
-            'flow' => 'offer_dispatch',
-            'order_id' => $order->id,
-        ]);
-
         return DB::transaction(function () use ($order, $startedAt) {
             $now = now();
 
@@ -74,6 +71,24 @@ class OfferDispatcher
             if (! $locked || $locked->status !== Order::STATUS_SEARCHING || $locked->courier_id !== null) {
                 return null;
             }
+
+            $attemptCount = ((int) ($locked->dispatch_attempts ?? 0)) + 1;
+            $orderAgeSeconds = $locked->created_at ? $locked->created_at->diffInSeconds($now) : null;
+
+            DB::table('orders')
+                ->where('id', $locked->id)
+                ->update([
+                    'last_dispatch_attempt_at' => $now,
+                    'dispatch_attempts' => $attemptCount,
+                ]);
+
+            Log::debug('dispatch_started', [
+                'flow' => 'offer_dispatch',
+                'order_id' => $locked->id,
+                'dispatch_attempted' => true,
+                'attempt_count' => $attemptCount,
+                'order_age_seconds' => $orderAgeSeconds,
+            ]);
 
             /* -------------------------------------------------
              | 1) EXPIRE DEAD PENDING (zombie fix)
@@ -98,9 +113,20 @@ class OfferDispatcher
             $couriers = $this->fetchCandidates($locked, $orderHasCoords, $now);
 
             if ($couriers->isEmpty()) {
+                $this->deferSearchingOrder(
+                    orderId: (int) $locked->id,
+                    attemptCount: $attemptCount,
+                    now: $now,
+                    reason: 'no_candidates',
+                    orderAgeSeconds: $orderAgeSeconds,
+                    startedAt: $startedAt,
+                );
+
                 Log::debug('dispatch_no_candidates', [
                     'flow' => 'offer_dispatch',
                     'order_id' => $locked->id,
+                    'attempt_count' => $attemptCount,
+                    'order_age_seconds' => $orderAgeSeconds,
                     'elapsed_ms' => $this->elapsedMs($startedAt),
                 ]);
                 return null;
@@ -118,10 +144,21 @@ class OfferDispatcher
             );
 
             if (! $picked) {
+                $this->deferSearchingOrder(
+                    orderId: (int) $locked->id,
+                    attemptCount: $attemptCount,
+                    now: $now,
+                    reason: 'no_pick',
+                    orderAgeSeconds: $orderAgeSeconds,
+                    startedAt: $startedAt,
+                );
+
                 Log::debug('dispatch_no_pick', [
                     'flow' => 'offer_dispatch',
                     'order_id' => $locked->id,
                     'candidate_count' => $couriers->count(),
+                    'attempt_count' => $attemptCount,
+                    'order_age_seconds' => $orderAgeSeconds,
                     'elapsed_ms' => $this->elapsedMs($startedAt),
                 ]);
                 return null;
@@ -144,6 +181,12 @@ class OfferDispatcher
                     'last_offer_at' => now(),
                 ]);
 
+            DB::table('orders')
+                ->where('id', (int) $locked->id)
+                ->update([
+                    'next_dispatch_at' => null,
+                ]);
+
             Log::info('dispatch_offer_created', [
                 'flow' => 'offer_dispatch',
                 'order_id' => $locked->id,
@@ -151,6 +194,8 @@ class OfferDispatcher
                 'offer_id' => $offer->id,
                 'ttl_seconds' => $this->ttlSeconds,
                 'candidate_count' => $couriers->count(),
+                'attempt_count' => $attemptCount,
+                'order_age_seconds' => $orderAgeSeconds,
                 'elapsed_ms' => $this->elapsedMs($startedAt),
             ]);
 
@@ -165,9 +210,11 @@ class OfferDispatcher
     public function dispatchSearchingOrders(int $limit = 20): int
     {
         $count = 0;
+        $now = now();
 
-        $orders = $this->searchingOrdersQuery()
+        $orders = $this->searchingOrdersQuery($now)
             ->select('id')
+            ->orderByRaw('COALESCE(next_dispatch_at, created_at)')
             ->orderBy('id')
             ->limit($limit)
             ->get();
@@ -181,12 +228,53 @@ class OfferDispatcher
         return $count;
     }
 
-    protected function searchingOrdersQuery()
+    protected function searchingOrdersQuery(Carbon $now)
     {
         return Order::query()
             ->where('status', Order::STATUS_SEARCHING)
             ->whereNull('courier_id')
-            ->where('payment_status', Order::PAY_PAID);
+            ->where('payment_status', Order::PAY_PAID)
+            ->where(function ($q) use ($now): void {
+                $q->whereNull('next_dispatch_at')
+                    ->orWhere('next_dispatch_at', '<=', $now);
+            });
+    }
+
+    protected function deferSearchingOrder(
+        int $orderId,
+        int $attemptCount,
+        Carbon $now,
+        string $reason,
+        ?int $orderAgeSeconds,
+        float $startedAt,
+    ): void {
+        $backoffSeconds = $this->backoffSeconds($attemptCount);
+        $backoffUntil = $now->copy()->addSeconds($backoffSeconds);
+
+        DB::table('orders')
+            ->where('id', $orderId)
+            ->update([
+                'next_dispatch_at' => $backoffUntil,
+            ]);
+
+        Log::debug('dispatch_deferred', [
+            'flow' => 'offer_dispatch',
+            'order_id' => $orderId,
+            'reason' => $reason,
+            'dispatch_deferred' => true,
+            'dispatch_backoff_until' => $backoffUntil->toIso8601String(),
+            'attempt_count' => $attemptCount,
+            'order_age_seconds' => $orderAgeSeconds,
+            'elapsed_ms' => $this->elapsedMs($startedAt),
+        ]);
+    }
+
+    protected function backoffSeconds(int $attemptCount): int
+    {
+        $exponent = max(0, min($attemptCount - 1, 6));
+        $seconds = $this->dispatchBackoffBaseSeconds * (2 ** $exponent);
+
+        return (int) min($seconds, $this->dispatchBackoffMaxSeconds);
     }
 
     /* =========================================================

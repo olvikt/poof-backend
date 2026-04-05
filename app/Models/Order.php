@@ -223,6 +223,9 @@ public function markAsPaid(): void
         'accepted_at'  => 'datetime',
         'started_at'   => 'datetime',
         'completed_at' => 'datetime',
+        'dispatch_attempts' => 'int',
+        'last_dispatch_attempt_at' => 'datetime',
+        'next_dispatch_at' => 'datetime',
     ];
 
     /* =========================================================
