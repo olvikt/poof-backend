@@ -331,6 +331,116 @@ class CourierDispatchReadSemanticsTest extends TestCase
         $this->assertTrue($undeliverable->last_dispatch_attempt_at->greaterThan($firstAttemptAt));
     }
 
+    public function test_live_pending_offer_does_not_trigger_defer_or_backoff(): void
+    {
+        $client = User::factory()->create(['role' => User::ROLE_CLIENT, 'is_active' => true]);
+        $courier = $this->createOnlineCourier();
+
+        $order = Order::createForTesting([
+            'client_id' => $client->id,
+            'status' => Order::STATUS_SEARCHING,
+            'payment_status' => Order::PAY_PAID,
+            'address_text' => 'Live pending waits',
+            'price' => 100,
+            'lat' => 50.4501,
+            'lng' => 30.5234,
+        ]);
+
+        OrderOffer::createPrimaryPending($order->id, $courier->id, 120);
+
+        app(OfferDispatcher::class)->dispatchForOrder($order->fresh());
+
+        $order->refresh();
+        $this->assertSame(0, $order->dispatch_attempts);
+        $this->assertNull($order->last_dispatch_attempt_at);
+        $this->assertNull($order->next_dispatch_at);
+    }
+
+    public function test_dispatch_attempts_do_not_inflate_while_waiting_on_live_pending_offer(): void
+    {
+        $client = User::factory()->create(['role' => User::ROLE_CLIENT, 'is_active' => true]);
+        $courier = $this->createOnlineCourier();
+
+        $order = Order::createForTesting([
+            'client_id' => $client->id,
+            'status' => Order::STATUS_SEARCHING,
+            'payment_status' => Order::PAY_PAID,
+            'address_text' => 'Stable attempts while waiting',
+            'price' => 100,
+            'lat' => 50.4501,
+            'lng' => 30.5234,
+        ]);
+
+        OrderOffer::createPrimaryPending($order->id, $courier->id, 120);
+
+        $dispatcher = app(OfferDispatcher::class);
+        $dispatcher->dispatchSearchingOrders(1);
+        $dispatcher->dispatchSearchingOrders(1);
+
+        $order->refresh();
+        $this->assertSame(0, $order->dispatch_attempts);
+        $this->assertNull($order->last_dispatch_attempt_at);
+        $this->assertNull($order->next_dispatch_at);
+    }
+
+    public function test_concurrent_deferred_recheck_under_lock_prevents_immediate_reattempt(): void
+    {
+        $client = User::factory()->create(['role' => User::ROLE_CLIENT, 'is_active' => true]);
+
+        $futureDispatchAt = now()->addMinutes(2);
+
+        $order = Order::createForTesting([
+            'client_id' => $client->id,
+            'status' => Order::STATUS_SEARCHING,
+            'payment_status' => Order::PAY_PAID,
+            'address_text' => 'Deferred under lock',
+            'price' => 100,
+            'lat' => 50.4501,
+            'lng' => 30.5234,
+            'dispatch_attempts' => 3,
+            'last_dispatch_attempt_at' => now()->subMinute(),
+            'next_dispatch_at' => $futureDispatchAt,
+        ]);
+
+        app(OfferDispatcher::class)->dispatchForOrder($order->fresh());
+
+        $order->refresh();
+        $this->assertSame(3, $order->dispatch_attempts);
+        $this->assertTrue($order->next_dispatch_at->equalTo($futureDispatchAt));
+        $this->assertNotNull($order->last_dispatch_attempt_at);
+    }
+
+    public function test_next_dispatch_at_revalidation_preserves_deterministic_backoff_contract(): void
+    {
+        $client = User::factory()->create(['role' => User::ROLE_CLIENT, 'is_active' => true]);
+
+        $dispatcher = app(OfferDispatcher::class);
+
+        $order = Order::createForTesting([
+            'client_id' => $client->id,
+            'status' => Order::STATUS_SEARCHING,
+            'payment_status' => Order::PAY_PAID,
+            'address_text' => 'Deterministic backoff gate',
+            'price' => 100,
+            'lat' => 48.4501,
+            'lng' => 28.5234,
+        ]);
+
+        $dispatcher->dispatchForOrder($order->fresh());
+
+        $order->refresh();
+        $this->assertSame(1, $order->dispatch_attempts);
+        $backoffUntil = $order->next_dispatch_at;
+        $firstAttemptAt = $order->last_dispatch_attempt_at;
+
+        $dispatcher->dispatchForOrder($order->fresh());
+
+        $order->refresh();
+        $this->assertSame(1, $order->dispatch_attempts);
+        $this->assertTrue($order->next_dispatch_at->equalTo($backoffUntil));
+        $this->assertTrue($order->last_dispatch_attempt_at->equalTo($firstAttemptAt));
+    }
+
     private function createOnlineCourier(
         float $lat = 50.4501,
         float $lng = 30.5234,

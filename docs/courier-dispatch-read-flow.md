@@ -27,10 +27,12 @@ This document describes the canonical hot path after dispatch/read simplificatio
 5. expire dead pending offers for the order
 6. fetch candidate couriers via compact query projection (no full Eloquent graph)
 7. pick courier in PHP scoring stage (distance -> idle -> rotation)
-8. if no candidates/no pick: defer with bounded exponential backoff to `next_dispatch_at`
-9. create pending offer (`OrderOffer::createPrimaryPending`) when winner exists
-10. update winner `last_offer_at` and clear `next_dispatch_at`
-11. emit `dispatch_offer_created` marker
+8. revalidate `next_dispatch_at` under `FOR UPDATE` lock; if it is already in the future, exit without attempt mutation
+9. if order has alive pending offer (`status=pending`, `expires_at > now`), mark waiting state and exit without defer/backoff
+10. if true no-candidates/no-pick: defer with bounded exponential backoff to `next_dispatch_at`
+11. create pending offer (`OrderOffer::createPrimaryPending`) when winner exists
+12. update winner `last_offer_at` and clear `next_dispatch_at`
+13. emit `dispatch_offer_created` marker
 
 ### What stays in SQL vs what stays in PHP
 
@@ -125,3 +127,9 @@ Watch in production:
 - p95/99 `elapsed_ms` for `dispatch_offer_created`
 - mismatch between `available_orders_render.pending_offer_count` and offer table reality
 - spikes of `my_orders_render.elapsed_ms` (possible overfetch/N+1 regressions)
+
+### Deferred vs waiting semantics (correctness contract)
+
+- **Deferred (truly undeliverable):** dispatcher performed a real attempt (no live pending offer lock), incremented `dispatch_attempts`, updated `last_dispatch_attempt_at`, and set `next_dispatch_at` using bounded exponential backoff.
+- **Waiting (live pending offer exists):** dispatcher found an alive pending offer for the same order, does **not** increment `dispatch_attempts`, does **not** move `next_dispatch_at`, and only emits low-noise waiting marker (`dispatch_waiting_live_offer`).
+- **Concurrent safety:** even if an order passed batch selection, worker rechecks `next_dispatch_at` after `FOR UPDATE`; if deferred in the meantime, it exits without mutating attempt counters.
