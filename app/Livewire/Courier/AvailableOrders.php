@@ -6,7 +6,6 @@ use App\Models\Order;
 use App\Models\OrderOffer;
 use App\Models\User;
 use App\Support\Courier\CourierNavigationRuntime;
-use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Facades\Log;
 use Livewire\Component;
 
@@ -125,21 +124,7 @@ class AvailableOrders extends Component
             return null;
         }
 
-        return User::query()
-            ->select([
-                'id',
-                'role',
-                'is_active',
-                'is_online',
-                'is_busy',
-                'session_state',
-                'last_lat',
-                'last_lng',
-            ])
-            ->with([
-                'courierProfile' => fn (Builder $query) => $query->select('id', 'user_id', 'status', 'last_location_at'),
-            ])
-            ->find($user->id);
+        return $user->fresh(['courierProfile']);
     }
 
     private function repairOnlineStateFromCanonicalSource(User $courier): void

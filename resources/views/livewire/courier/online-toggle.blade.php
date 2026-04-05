@@ -4,6 +4,7 @@
         wire:click="toggleOnlineState"
         wire:loading.attr="disabled"
         wire:target="toggleOnlineState"
+        data-testid="courier-online-toggle"
         data-e2e="courier-online-toggle"
         data-e2e-online-state="{{ $online ? 'online' : 'offline' }}"
         data-e2e-busy="{{ $busyWithActiveOrder ? '1' : '0' }}"

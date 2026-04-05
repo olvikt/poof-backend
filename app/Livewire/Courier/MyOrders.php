@@ -6,7 +6,6 @@ use App\Models\Order;
 use App\Models\User;
 use App\Services\Dispatch\OfferDispatcher;
 use App\Support\Courier\CourierNavigationRuntime;
-use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Log;
 use Livewire\Component;
@@ -242,21 +241,7 @@ class MyOrders extends Component
             return null;
         }
 
-        return User::query()
-            ->select([
-                'id',
-                'role',
-                'is_active',
-                'is_online',
-                'is_busy',
-                'session_state',
-                'last_lat',
-                'last_lng',
-            ])
-            ->with([
-                'courierProfile' => fn (Builder $query) => $query->select('id', 'user_id', 'status', 'last_location_at'),
-            ])
-            ->find($user->id);
+        return $user->fresh(['courierProfile']);
     }
 
     private function resolveCanonicalOnlineState(?User $courier): bool
