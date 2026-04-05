@@ -239,6 +239,98 @@ class CourierDispatchReadSemanticsTest extends TestCase
         $this->assertNotSame($freshCourier->id, $offer->courier_id);
     }
 
+    public function test_deferred_undeliverable_order_does_not_starve_new_dispatchable_order(): void
+    {
+        $client = User::factory()->create(['role' => User::ROLE_CLIENT, 'is_active' => true]);
+        $courier = $this->createOnlineCourier(lat: 50.4501, lng: 30.5234);
+
+        $oldUndeliverable = Order::createForTesting([
+            'client_id' => $client->id,
+            'status' => Order::STATUS_SEARCHING,
+            'payment_status' => Order::PAY_PAID,
+            'address_text' => 'Old undeliverable',
+            'price' => 100,
+            'lat' => 48.4501,
+            'lng' => 28.5234,
+        ]);
+
+        $newDispatchable = Order::createForTesting([
+            'client_id' => $client->id,
+            'status' => Order::STATUS_SEARCHING,
+            'payment_status' => Order::PAY_PAID,
+            'address_text' => 'New dispatchable',
+            'price' => 100,
+            'lat' => 50.4501,
+            'lng' => 30.5234,
+        ]);
+
+        $dispatcher = app(OfferDispatcher::class);
+
+        $dispatcher->dispatchSearchingOrders(1);
+
+        $oldUndeliverable->refresh();
+        $this->assertSame(1, $oldUndeliverable->dispatch_attempts);
+        $this->assertNotNull($oldUndeliverable->next_dispatch_at);
+        $this->assertDatabaseMissing('order_offers', ['order_id' => $oldUndeliverable->id]);
+
+        $dispatcher->dispatchSearchingOrders(1);
+
+        $this->assertDatabaseHas('order_offers', [
+            'order_id' => $newDispatchable->id,
+            'courier_id' => $courier->id,
+            'status' => OrderOffer::STATUS_PENDING,
+        ]);
+    }
+
+    public function test_undeliverable_order_is_retried_after_backoff_without_monopolizing_queue(): void
+    {
+        $client = User::factory()->create(['role' => User::ROLE_CLIENT, 'is_active' => true]);
+        $courier = $this->createOnlineCourier(lat: 50.4501, lng: 30.5234);
+
+        $undeliverable = Order::createForTesting([
+            'client_id' => $client->id,
+            'status' => Order::STATUS_SEARCHING,
+            'payment_status' => Order::PAY_PAID,
+            'address_text' => 'Retry later',
+            'price' => 100,
+            'lat' => 48.4501,
+            'lng' => 28.5234,
+        ]);
+
+        $dispatchable = Order::createForTesting([
+            'client_id' => $client->id,
+            'status' => Order::STATUS_SEARCHING,
+            'payment_status' => Order::PAY_PAID,
+            'address_text' => 'Dispatchable while retry waits',
+            'price' => 100,
+            'lat' => 50.4501,
+            'lng' => 30.5234,
+        ]);
+
+        $dispatcher = app(OfferDispatcher::class);
+        $dispatcher->dispatchSearchingOrders(1);
+
+        $undeliverable->refresh();
+        $firstAttemptAt = $undeliverable->last_dispatch_attempt_at;
+        $backoffUntil = $undeliverable->next_dispatch_at;
+
+        $dispatcher->dispatchSearchingOrders(1);
+
+        $this->assertDatabaseHas('order_offers', [
+            'order_id' => $dispatchable->id,
+            'courier_id' => $courier->id,
+            'status' => OrderOffer::STATUS_PENDING,
+        ]);
+
+        $this->travelTo($backoffUntil->copy()->addSecond());
+        $dispatcher->dispatchSearchingOrders(1);
+        $this->travelBack();
+
+        $undeliverable->refresh();
+        $this->assertSame(2, $undeliverable->dispatch_attempts);
+        $this->assertTrue($undeliverable->last_dispatch_attempt_at->greaterThan($firstAttemptAt));
+    }
+
     private function createOnlineCourier(
         float $lat = 50.4501,
         float $lng = 30.5234,
