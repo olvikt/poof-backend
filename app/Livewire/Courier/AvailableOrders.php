@@ -38,9 +38,9 @@ class AvailableOrders extends Component
         }
     }
 
-    public function syncOnlineState(?bool $online = null): void
+    public function syncOnlineState(?bool $online = null, ?bool $changed = null): void
     {
-        if (is_bool($online)) {
+        if (is_bool($online) && $changed === true) {
             $this->online = $online;
             $this->lastUiOnlineSyncAt = now()->timestamp;
 
@@ -49,11 +49,8 @@ class AvailableOrders extends Component
 
         $user = $this->resolveCourier();
 
-        if ($user instanceof User && $user->isCourier()) {
-            $runtime = $user->courierRuntimeSnapshot();
-            $this->online = (bool) ($runtime['online'] ?? false);
-            $this->lastUiOnlineSyncAt = null;
-        }
+        $this->online = $this->resolveCanonicalOnlineState($user);
+        $this->lastUiOnlineSyncAt = null;
     }
 
     protected function resolveActiveOrder(?User $courier): ?Order
@@ -123,8 +120,7 @@ class AvailableOrders extends Component
 
     private function repairOnlineStateFromCanonicalSource(User $courier): void
     {
-        $runtime = $courier->courierRuntimeSnapshot();
-        $canonicalOnline = (bool) ($runtime['online'] ?? false);
+        $canonicalOnline = $this->resolveCanonicalOnlineState($courier);
 
         if ($this->lastUiOnlineSyncAt !== null) {
             $optimisticAge = now()->timestamp - $this->lastUiOnlineSyncAt;
@@ -146,6 +142,17 @@ class AvailableOrders extends Component
 
         $this->online = $canonicalOnline;
         $this->lastUiOnlineSyncAt = null;
+    }
+
+    private function resolveCanonicalOnlineState(?User $courier): bool
+    {
+        if (! $courier instanceof User || ! $courier->isCourier()) {
+            return false;
+        }
+
+        $runtime = $courier->courierRuntimeSnapshot();
+
+        return (bool) ($runtime['online'] ?? false);
     }
 
     private function navigationRuntime(): CourierNavigationRuntime

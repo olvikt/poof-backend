@@ -23,7 +23,7 @@ class AvailableOrdersOnlineSyncTest extends TestCase
         Livewire::test(AvailableOrders::class)
             ->assertSet('online', false)
             ->assertSee('Ви не на лінії')
-            ->dispatch('courier-online-toggled', online: true)
+            ->dispatch('courier-online-toggled', online: true, changed: true)
             ->assertSet('online', true)
             ->call('$refresh')
             ->assertSet('online', true)
@@ -58,7 +58,7 @@ class AvailableOrdersOnlineSyncTest extends TestCase
 
             $component = Livewire::test(AvailableOrders::class)
                 ->assertSet('online', false)
-                ->dispatch('courier-online-toggled', online: true)
+                ->dispatch('courier-online-toggled', online: true, changed: true)
                 ->assertSet('online', true);
 
             Carbon::setTestNow(now()->addSeconds(5));
@@ -83,7 +83,7 @@ class AvailableOrdersOnlineSyncTest extends TestCase
 
             $component = Livewire::test(AvailableOrders::class)
                 ->assertSet('online', false)
-                ->dispatch('courier-online-toggled', online: true)
+                ->dispatch('courier-online-toggled', online: true, changed: true)
                 ->assertSet('online', true);
 
             Carbon::setTestNow(now()->addSeconds(2));
@@ -104,10 +104,23 @@ class AvailableOrdersOnlineSyncTest extends TestCase
 
         Livewire::test(AvailableOrders::class)
             ->assertSet('online', false)
-            ->dispatch('courier-online-toggled', online: true)
+            ->dispatch('courier-online-toggled', online: true, changed: true)
             ->assertSet('online', true)
             ->call('syncOnlineState')
             ->assertSet('online', false);
+    }
+
+    public function test_non_changed_event_payload_does_not_override_canonical_backend_state(): void
+    {
+        $courier = $this->createCourier();
+
+        $this->actingAs($courier, 'web');
+
+        Livewire::test(AvailableOrders::class)
+            ->assertSet('online', false)
+            ->dispatch('courier-online-toggled', online: true, changed: false, reason: 'cross_tab_runtime_sync')
+            ->assertSet('online', false)
+            ->assertSee('Ви не на лінії');
     }
 
     private function createCourier(): User

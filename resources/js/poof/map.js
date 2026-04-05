@@ -489,9 +489,8 @@ export default function initMap() {
       },
     }))
 
-    if (typeof payload.online === 'boolean' && window.Livewire?.dispatch) {
+    if (window.Livewire?.dispatch) {
       window.Livewire.dispatch('courier-online-toggled', {
-        online: payload.online,
         changed: false,
         reason: payload.reason ?? 'cross_tab_runtime_sync',
       })

@@ -29,20 +29,10 @@ class MyOrders extends Component
         }
     }
 
-    public function syncOnlineState(?bool $online = null): void
+    public function syncOnlineState(): void
     {
-        if (is_bool($online)) {
-            $this->online = $online;
-
-            return;
-        }
-
         $courier = $this->resolveCourier();
-
-        if ($courier instanceof User && $courier->isCourier()) {
-            $runtime = $courier->courierRuntimeSnapshot();
-            $this->online = (bool) ($runtime['online'] ?? false);
-        }
+        $this->online = $this->resolveCanonicalOnlineState($courier);
     }
 
     public function start(int $orderId): void
@@ -168,8 +158,7 @@ class MyOrders extends Component
             ])->layout('layouts.courier');
         }
 
-        $runtime = $courier->courierRuntimeSnapshot();
-        $this->online = (bool) ($runtime['online'] ?? false);
+        $this->online = $this->resolveCanonicalOnlineState($courier);
 
         $orders = Order::where('courier_id', $courier->id)
             ->whereIn('status', [
@@ -244,6 +233,17 @@ class MyOrders extends Component
         }
 
         return $user->fresh(['courierProfile']);
+    }
+
+    private function resolveCanonicalOnlineState(?User $courier): bool
+    {
+        if (! $courier instanceof User || ! $courier->isCourier()) {
+            return false;
+        }
+
+        $runtime = $courier->courierRuntimeSnapshot();
+
+        return (bool) ($runtime['online'] ?? false);
     }
 
     private function navigationRuntime(): CourierNavigationRuntime
