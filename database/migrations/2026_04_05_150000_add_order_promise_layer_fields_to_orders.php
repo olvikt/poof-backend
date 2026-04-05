@@ -173,7 +173,7 @@ return new class extends Migration {
             return false;
         }
 
-        if ($driver === 'mysql') {
+        if ($driver === 'mysql' || $driver === 'mariadb') {
             $database = Schema::getConnection()->getDatabaseName();
             $row = DB::selectOne(
                 'SELECT 1 FROM information_schema.statistics WHERE table_schema = ? AND table_name = ? AND index_name = ? LIMIT 1',
