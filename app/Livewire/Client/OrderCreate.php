@@ -46,6 +46,9 @@ class OrderCreate extends Component
     public ?string $scheduled_date = null;
     public ?string $scheduled_time_from = null;
     public ?string $scheduled_time_to = null;
+    public string $service_mode = Order::SERVICE_MODE_PREFERRED_WINDOW;
+    public string $client_wait_preference = Order::WAIT_AUTO_CANCEL_IF_NOT_FOUND;
+    public bool $promise_consent = true;
     public int $timeSlot = 0;
 
     public array $timeSlots = [
@@ -84,8 +87,11 @@ class OrderCreate extends Component
         return [
             'address_text' => ['required', 'string', 'min:3'],
             'scheduled_date' => ['required', 'date'],
-            'scheduled_time_from' => ['required', 'string'],
+            'scheduled_time_from' => [$this->service_mode === Order::SERVICE_MODE_PREFERRED_WINDOW ? 'required' : 'nullable', 'string'],
             'scheduled_time_to' => ['nullable', 'string'],
+            'service_mode' => ['required', 'in:' . Order::SERVICE_MODE_ASAP . ',' . Order::SERVICE_MODE_PREFERRED_WINDOW],
+            'client_wait_preference' => ['required', 'in:' . Order::WAIT_AUTO_CANCEL_IF_NOT_FOUND . ',' . Order::WAIT_ALLOW_LATE_FULFILLMENT],
+            'promise_consent' => ['accepted'],
             'handover_type' => ['required', 'in:' . Order::HANDOVER_DOOR . ',' . Order::HANDOVER_HAND],
             'bags_count' => ['required', 'integer', Rule::in(array_keys($this->bagPricingOptions))],
             'lat' => ['nullable', 'numeric', 'between:-90,90'],
@@ -105,6 +111,7 @@ class OrderCreate extends Component
             'scheduled_date.date' => 'Некоректна дата.',
             'scheduled_time_from.required' => 'Оберіть час.',
             'bags_count.in' => 'Оберіть доступний тариф за кількістю мішків.',
+            'promise_consent.accepted' => 'Підтвердьте умови виконання замовлення.',
         ];
     }
 
@@ -115,6 +122,7 @@ class OrderCreate extends Component
             'scheduled_date' => 'дата',
             'scheduled_time_from' => 'час',
             'bags_count' => 'кількість пакетів',
+            'promise_consent' => 'умови виконання',
         ];
     }
 
@@ -146,6 +154,7 @@ class OrderCreate extends Component
         }
 
         $this->reloadAddresses();
+        $this->client_wait_preference = (string) config('order_promise.default_wait_preference', Order::WAIT_AUTO_CANCEL_IF_NOT_FOUND);
         $this->trial_used = $this->userAlreadyUsedTrial();
         $this->updateIsCustomDate();
         $this->applyTimeSlot($this->firstAvailableSlotIndex());

@@ -5,6 +5,7 @@ namespace App\Services\Dispatch;
 use App\Models\Courier;
 use App\Models\Order;
 use App\Models\OrderOffer;
+use App\Services\Orders\OrderAutoExpireService;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
@@ -13,6 +14,10 @@ use stdClass;
 
 class OfferDispatcher
 {
+    public function __construct(private readonly OrderAutoExpireService $orderAutoExpireService)
+    {
+    }
+
     /* =========================================================
      | CONFIG
      | ========================================================= */
@@ -69,6 +74,12 @@ class OfferDispatcher
 
             // Заказ уже не ищется или уже назначен
             if (! $locked || $locked->status !== Order::STATUS_SEARCHING || $locked->courier_id !== null) {
+                return null;
+            }
+
+            if ($locked->isPromiseExpired()) {
+                $this->orderAutoExpireService->expireOne((int) $locked->id, $now);
+
                 return null;
             }
 
@@ -262,6 +273,11 @@ class OfferDispatcher
             ->where('status', Order::STATUS_SEARCHING)
             ->whereNull('courier_id')
             ->where('payment_status', Order::PAY_PAID)
+            ->whereNull('expired_at')
+            ->where(function ($q) use ($now): void {
+                $q->whereNull('valid_until_at')
+                    ->orWhere('valid_until_at', '>', $now);
+            })
             ->where(function ($q) use ($now): void {
                 $q->whereNull('next_dispatch_at')
                     ->orWhere('next_dispatch_at', '<=', $now);

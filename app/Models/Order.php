@@ -38,6 +38,7 @@ class Order extends Model
     public const STATUS_IN_PROGRESS  = 'in_progress';
     public const STATUS_DONE         = 'done';
     public const STATUS_CANCELLED    = 'cancelled';
+    public const STATUS_EXPIRED      = 'expired';
 
     public const STATUS_LABELS = [
         self::STATUS_NEW          => 'Створено',
@@ -46,7 +47,18 @@ class Order extends Model
         self::STATUS_IN_PROGRESS  => 'Виконується',
         self::STATUS_DONE         => 'Виконано',
         self::STATUS_CANCELLED    => 'Скасовано',
+        self::STATUS_EXPIRED      => 'Протерміновано',
     ];
+
+    public const SERVICE_MODE_ASAP = 'asap';
+    public const SERVICE_MODE_PREFERRED_WINDOW = 'preferred_window';
+
+    public const WAIT_AUTO_CANCEL_IF_NOT_FOUND = 'auto_cancel_if_not_found';
+    public const WAIT_ALLOW_LATE_FULFILLMENT = 'allow_late_fulfillment';
+
+    public const EXPIRED_REASON_COURIER_NOT_FOUND_WITHIN_WINDOW = 'courier_not_found_within_window';
+    public const EXPIRED_REASON_COURIER_NOT_FOUND_WITHIN_VALIDITY = 'courier_not_found_within_validity';
+    public const EXPIRED_REASON_CLIENT_AUTO_CANCEL_POLICY = 'client_auto_cancel_policy';
 
     /* =========================================================
      |  PAYMENT DOMAIN LOGIC
@@ -84,6 +96,7 @@ public function markAsPaid(): void
         'payment_status',
         'type',
         'service',
+        'service_mode',
         'bags_count',
         'total_weight_kg',
         'price',
@@ -95,6 +108,13 @@ public function markAsPaid(): void
         'scheduled_date',
         'time_from',
         'time_to',
+        'window_from_at',
+        'window_to_at',
+        'valid_until_at',
+        'expired_at',
+        'expired_reason',
+        'client_wait_preference',
+        'promise_policy_version',
         'comment',
     ];
 
@@ -115,6 +135,14 @@ public function markAsPaid(): void
         'scheduled_date',
         'scheduled_time_from',
         'scheduled_time_to',
+        'service_mode',
+        'window_from_at',
+        'window_to_at',
+        'valid_until_at',
+        'expired_at',
+        'expired_reason',
+        'client_wait_preference',
+        'promise_policy_version',
         'handover_type',
         'bags_count',
         'price',
@@ -152,6 +180,14 @@ public function markAsPaid(): void
         'scheduled_date',
         'scheduled_time_from',
         'scheduled_time_to',
+        'service_mode',
+        'window_from_at',
+        'window_to_at',
+        'valid_until_at',
+        'expired_at',
+        'expired_reason',
+        'client_wait_preference',
+        'promise_policy_version',
         'handover_type',
         'accepted_at',
         'started_at',
@@ -226,6 +262,10 @@ public function markAsPaid(): void
         'dispatch_attempts' => 'int',
         'last_dispatch_attempt_at' => 'datetime',
         'next_dispatch_at' => 'datetime',
+        'window_from_at' => 'datetime',
+        'window_to_at' => 'datetime',
+        'valid_until_at' => 'datetime',
+        'expired_at' => 'datetime',
     ];
 
     /* =========================================================
@@ -258,7 +298,12 @@ public function markAsPaid(): void
         return $query
             ->where('status', self::STATUS_SEARCHING)
             ->where('payment_status', self::PAY_PAID)
-            ->whereNull('courier_id');
+            ->whereNull('courier_id')
+            ->whereNull('expired_at')
+            ->where(function (Builder $q): void {
+                $q->whereNull('valid_until_at')
+                    ->orWhere('valid_until_at', '>', now());
+            });
     }
 
     public function scopeActiveForCourier(Builder $query): Builder
@@ -317,7 +362,49 @@ public function markAsPaid(): void
     {
         return $this->payment_status === self::PAY_PAID
             && $this->status === self::STATUS_SEARCHING
-            && $this->courier_id === null;
+            && $this->courier_id === null
+            && ! $this->isPromiseExpired();
+    }
+
+    public function isPromiseExpired(): bool
+    {
+        if ($this->expired_at !== null) {
+            return true;
+        }
+
+        return $this->valid_until_at !== null && now()->greaterThanOrEqualTo($this->valid_until_at);
+    }
+
+    public function isPreferredWindowElapsed(): bool
+    {
+        return $this->window_to_at !== null && now()->greaterThan($this->window_to_at) && ! $this->isPromiseExpired();
+    }
+
+    public function promiseStatusLabelForClient(): string
+    {
+        if ($this->status === self::STATUS_CANCELLED && $this->expired_at !== null) {
+            return 'Замовлення скасовано, бо не вдалося знайти курʼєра вчасно';
+        }
+
+        if ($this->status === self::STATUS_SEARCHING && $this->isPreferredWindowElapsed()) {
+            return 'Бажаний час минув, але замовлення ще активне';
+        }
+
+        if ($this->status === self::STATUS_SEARCHING) {
+            return 'Шукаємо курʼєра';
+        }
+
+        return self::STATUS_LABELS[$this->status] ?? $this->status;
+    }
+
+    public function expiredReasonLabelForClient(): ?string
+    {
+        return match ($this->expired_reason) {
+            self::EXPIRED_REASON_CLIENT_AUTO_CANCEL_POLICY => 'Скасовано за вашою умовою очікування.',
+            self::EXPIRED_REASON_COURIER_NOT_FOUND_WITHIN_WINDOW => 'Не вдалося знайти курʼєра у бажаний інтервал.',
+            self::EXPIRED_REASON_COURIER_NOT_FOUND_WITHIN_VALIDITY => 'Не вдалося знайти курʼєра до завершення терміну актуальності.',
+            default => null,
+        };
     }
 
     /* =========================================================
@@ -368,7 +455,8 @@ public function markAsPaid(): void
     {
         return $this->status === self::STATUS_SEARCHING
             && $this->courier_id === null
-            && $this->payment_status === self::PAY_PAID;
+            && $this->payment_status === self::PAY_PAID
+            && ! $this->isPromiseExpired();
     }
 
     public function canBeStartedBy(User $courier): bool

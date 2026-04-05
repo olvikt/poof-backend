@@ -10,6 +10,8 @@ class CanonicalOrderCreatePayload
     private const CONTRACT_FIELDS = [
         'type',
         'service',
+        'service_mode',
+        'client_wait_preference',
         'bags_count',
         'total_weight_kg',
         'scheduled_date',
@@ -53,6 +55,8 @@ class CanonicalOrderCreatePayload
             'time_from' => $this->attributes['time_from'],
             'time_to' => $this->attributes['time_to'],
             'comment' => $this->attributes['comment'] ?? null,
+            'service_mode' => $this->attributes['service_mode'] ?? null,
+            'client_wait_preference' => $this->attributes['client_wait_preference'] ?? null,
         ];
     }
 

@@ -5,6 +5,13 @@
             $order      = $offer->order;
             $isStack    = $offer->isStack();
             $distance   = $this->distanceKm;
+            $windowLabel = $order?->service_mode === \App\Models\Order::SERVICE_MODE_ASAP
+                ? 'Якнайшвидше'
+                : (($order?->window_from_at?->format('H:i') ?? $order?->scheduled_time_from ?? '—') . '–' . ($order?->window_to_at?->format('H:i') ?? $order?->scheduled_time_to ?? '—'));
+            $warningMinutes = max(1, (int) config('order_promise.courier_urgency_warning_minutes', 30));
+            $isUrgent = $order?->valid_until_at?->diffInMinutes(now(), false) !== null
+                && $order?->valid_until_at?->isFuture()
+                && $order?->valid_until_at?->diffInMinutes(now()) <= $warningMinutes;
         @endphp
 
         {{-- WRAPPER --}}
@@ -75,7 +82,18 @@
 
                             {{-- TIME --}}
                             <div class="flex items-center justify-between text-gray-300">
-                                <span>⏰ {{ $order?->scheduled_time_from ?? '—' }} – {{ $order?->scheduled_time_to ?? '—' }}</span>
+                                <span>⏰ {{ $windowLabel }}</span>
+                            </div>
+
+                            <div class="flex items-center justify-between text-gray-300">
+                                <span>🕓 Створено: {{ optional($order?->created_at)->format('d.m H:i') ?? '—' }}</span>
+                            </div>
+
+                            <div class="flex items-center justify-between text-gray-300">
+                                <span>⌛ Активне до: {{ optional($order?->valid_until_at)->format('d.m H:i') ?? '—' }}</span>
+                                @if($isUrgent)
+                                    <span class="ml-2 rounded-full bg-amber-500/20 px-2 py-0.5 text-[11px] font-semibold text-amber-300">Терміново</span>
+                                @endif
                             </div>
 
                             {{-- ADDRESS --}}

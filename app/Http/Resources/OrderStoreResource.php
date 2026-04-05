@@ -35,6 +35,12 @@ class OrderStoreResource extends JsonResource
                 'scheduled_date' => optional($this->scheduled_date)->toDateString(),
                 'time_from' => $this->time_from,
                 'time_to' => $this->time_to,
+                'service_mode' => $this->service_mode,
+                'window_from_at' => optional($this->window_from_at)?->toISOString(),
+                'window_to_at' => optional($this->window_to_at)?->toISOString(),
+                'valid_until_at' => optional($this->valid_until_at)?->toISOString(),
+                'client_wait_preference' => $this->client_wait_preference,
+                'promise_policy_version' => $this->promise_policy_version,
                 'comment' => $this->comment,
 
                 'created_at' => optional($this->created_at)?->toISOString(),
