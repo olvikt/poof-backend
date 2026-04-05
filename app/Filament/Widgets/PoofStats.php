@@ -22,7 +22,11 @@ class PoofStats extends BaseWidget
         return [
             Stat::make(
                 'Курьеры онлайн',
-                Courier::query()->where('status', Courier::STATUS_ONLINE)->count(),
+                Courier::query()->whereIn('status', [
+                    Courier::STATUS_ONLINE,
+                    Courier::STATUS_ASSIGNED,
+                    Courier::STATUS_DELIVERING,
+                ])->count(),
             )->color('success'),
 
             Stat::make(
@@ -52,10 +56,11 @@ class PoofStats extends BaseWidget
             )->color('info'),
 
             Stat::make(
-                'Доход сегодня',
+                'Доход сегодня (завершено)',
                 '₴' . Order::query()
+                    ->where('status', Order::STATUS_DONE)
                     ->where('payment_status', Order::PAY_PAID)
-                    ->whereBetween('updated_at', [$todayStart, $todayEnd])
+                    ->whereBetween('completed_at', [$todayStart, $todayEnd])
                     ->sum('price'),
             )->color('success'),
 

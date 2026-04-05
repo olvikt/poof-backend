@@ -72,9 +72,21 @@ class Courier extends Model
 
     public function scopeBusy(Builder $query): Builder
     {
-        return $query->whereIn('status', [
-            self::STATUS_ASSIGNED,
-            self::STATUS_DELIVERING,
-        ]);
+        return $query->where(function (Builder $busyQuery): void {
+            $busyQuery
+                ->whereIn('status', [
+                    self::STATUS_ASSIGNED,
+                    self::STATUS_DELIVERING,
+                ])
+                ->orWhere(function (Builder $onlineBusy): void {
+                    $onlineBusy
+                        ->where('status', self::STATUS_ONLINE)
+                        ->whereHas('user', function (Builder $userQuery): void {
+                            $userQuery->whereHas('takenOrders', function (Builder $orderQuery): void {
+                                $orderQuery->activeForCourier();
+                            });
+                        });
+                });
+        });
     }
 }
