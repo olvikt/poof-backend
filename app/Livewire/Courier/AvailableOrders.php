@@ -90,16 +90,16 @@ class AvailableOrders extends Component
         $this->repairOnlineStateFromCanonicalSource($courier);
         $this->activeOrder = $this->resolveActiveOrder($courier);
 
-        $orders = OrderOffer::query()
-            ->where('courier_id', $courier->id)
-            ->where('status', OrderOffer::STATUS_PENDING)
-            ->whereNotNull('expires_at')
-            ->where('expires_at', '>', now())
-            ->with('order')
-            ->latest()
-            ->get()
-            ->pluck('order')
-            ->filter();
+        $orders = Order::query()
+            ->join('order_offers', 'order_offers.order_id', '=', 'orders.id')
+            ->where('order_offers.courier_id', $courier->id)
+            ->where('order_offers.status', OrderOffer::STATUS_PENDING)
+            ->whereNotNull('order_offers.expires_at')
+            ->where('order_offers.expires_at', '>', now())
+            ->select('orders.*')
+            ->orderByDesc('order_offers.created_at')
+            ->distinct()
+            ->get();
 
         return view('livewire.courier.available-orders', [
             'orders' => $orders,

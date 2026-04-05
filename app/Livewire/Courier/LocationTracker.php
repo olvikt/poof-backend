@@ -6,6 +6,7 @@ use App\Models\Courier;
 use App\Models\Order;
 use App\Models\User;
 use App\Services\Dispatch\OfferDispatcher;
+use Illuminate\Support\Facades\Log;
 use Livewire\Component;
 
 class LocationTracker extends Component
@@ -103,11 +104,22 @@ class LocationTracker extends Component
             $lat < -90 || $lat > 90 ||
             $lng < -180 || $lng > 180
         ) {
+            Log::warning('courier_location_rejected_invalid_coordinates', [
+                'flow' => 'courier_location',
+                'courier_id' => $user->id,
+                'lat' => $lat,
+                'lng' => $lng,
+            ]);
             return;
         }
 
         // ❌ фильтр неточного GPS
         if ($accuracy && $accuracy > 100) {
+            Log::debug('courier_location_rejected_low_accuracy', [
+                'flow' => 'courier_location',
+                'courier_id' => $user->id,
+                'accuracy' => $accuracy,
+            ]);
             return;
         }
 
@@ -146,6 +158,11 @@ class LocationTracker extends Component
                 );
 
                 $dispatchTime = now();
+                Log::info('courier_dispatch_triggered_from_location_update', [
+                    'flow' => 'courier_location',
+                    'courier_id' => $user->id,
+                    'distance_moved' => $distanceMoved,
+                ]);
 
             }
         }
