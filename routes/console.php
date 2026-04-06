@@ -5,6 +5,10 @@ use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Schedule;
 use App\Services\Dispatch\OfferDispatcher;
+use App\Services\Dispatch\PendingOfferSweeper;
+use App\Services\Dispatch\DispatchDiagnosticsService;
+use App\Models\Order;
+use App\Models\User;
 use App\Services\Orders\OrderAutoExpireService;
 use App\Jobs\MarkInactiveCouriers;
 use Symfony\Component\Process\Process;
@@ -81,6 +85,15 @@ Schedule::call(function (): void {
 ->description('POOF order promise auto-expire engine')
 ->everyMinute();
 
+Schedule::call(function (): void {
+    /** @var PendingOfferSweeper $service */
+    $service = app(PendingOfferSweeper::class);
+    $service->run((int) config('courier_runtime.pending_offer_sweeper.limit', 200));
+})
+->name('poof-pending-offer-ttl-sweeper')
+->description('Expire pending order offers by TTL in bounded batches')
+->everyMinute();
+
 Artisan::command('orders:auto-expire {--limit=200}', function () {
     $limit = max(1, (int) $this->option('limit'));
     /** @var OrderAutoExpireService $service */
@@ -89,6 +102,64 @@ Artisan::command('orders:auto-expire {--limit=200}', function () {
 
     $this->info(sprintf('Expired orders: %d', $expired));
 })->purpose('Expire stale searching orders by order promise validity');
+
+Artisan::command('courier:sweep-pending-offers {--limit=200}', function () {
+    $limit = max(1, (int) $this->option('limit'));
+    /** @var PendingOfferSweeper $service */
+    $service = app(PendingOfferSweeper::class);
+    $expired = $service->run($limit);
+
+    $this->line(json_encode([
+        'expired_count' => $expired,
+        'batch_limit' => $limit,
+    ], JSON_UNESCAPED_SLASHES));
+})->purpose('Expire stale pending order offers by TTL');
+
+Artisan::command('courier:diagnose-searching-orders {--limit=100}', function () {
+    $limit = max(1, (int) $this->option('limit'));
+    /** @var DispatchDiagnosticsService $service */
+    $service = app(DispatchDiagnosticsService::class);
+    $result = $service->findStuckSearchingOrders($limit);
+
+    $this->line(json_encode($result, JSON_UNESCAPED_SLASHES));
+})->purpose('Detect anomalous searching orders for operator diagnostics');
+
+Artisan::command('courier:why-order-not-dispatched {orderId}', function (int $orderId) {
+    /** @var Order|null $order */
+    $order = Order::query()->find($orderId);
+    if (! $order) {
+        $this->error("Order {$orderId} not found.");
+        return self::FAILURE;
+    }
+
+    /** @var DispatchDiagnosticsService $service */
+    $service = app(DispatchDiagnosticsService::class);
+    $diagnostics = $service->diagnoseOrder($order);
+
+    $this->line(json_encode($diagnostics, JSON_UNESCAPED_SLASHES));
+
+    return self::SUCCESS;
+})->purpose('Operator diagnostic: explain why order is not dispatched');
+
+Artisan::command('courier:why-courier-not-candidate {orderId} {courierId}', function (int $orderId, int $courierId) {
+    /** @var Order|null $order */
+    $order = Order::query()->find($orderId);
+    /** @var User|null $courier */
+    $courier = User::query()->find($courierId);
+
+    if (! $order || ! $courier) {
+        $this->error('Order or courier not found.');
+        return self::FAILURE;
+    }
+
+    /** @var DispatchDiagnosticsService $service */
+    $service = app(DispatchDiagnosticsService::class);
+    $diagnostics = $service->diagnoseCourierForOrder($order, $courier);
+
+    $this->line(json_encode($diagnostics, JSON_UNESCAPED_SLASHES));
+
+    return self::SUCCESS;
+})->purpose('Operator diagnostic: explain why courier is not a dispatch candidate');
 
 Artisan::command('ops:contract:scheduler {--max-age-seconds=120}', function () {
     $key = config('ops.scheduler_heartbeat_cache_key', 'ops:scheduler:last-tick-at');

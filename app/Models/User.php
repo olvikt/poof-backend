@@ -15,6 +15,7 @@ use Illuminate\Support\Facades\Log;
 use App\Models\OrderOffer;
 use App\Notifications\ResetPasswordPoofNotification;
 use App\Support\CourierRuntimeSnapshot;
+use App\Support\CourierRuntimeRepairTelemetry;
 
 class User extends Authenticatable implements FilamentUser
 {
@@ -223,10 +224,20 @@ class User extends Authenticatable implements FilamentUser
                 : Courier::STATUS_ASSIGNED;
 
             if ((string) $courier->status !== $targetStatus) {
+                $before = ['status' => (string) $courier->status];
                 $courier->update(['status' => $targetStatus]);
+                CourierRuntimeRepairTelemetry::emitIfChanged(
+                    userId: (int) $this->id,
+                    courierId: (int) $courier->id,
+                    before: $before,
+                    after: ['status' => $targetStatus],
+                    hadActiveOrder: true,
+                    courierStatus: $targetStatus,
+                    sourceContext: 'repair.active_order_enforce_status',
+                );
             }
 
-            $this->syncRuntimeFlagsFromCourierState($targetStatus);
+            $this->syncRuntimeFlagsFromCourierState($targetStatus, true, 'repair.active_order_sync_flags');
 
             return;
         }
@@ -246,8 +257,18 @@ class User extends Authenticatable implements FilamentUser
                 'courier_status' => $targetStatus,
             ]);
 
+            $before = ['status' => (string) $courier->status];
             $targetStatus = Courier::STATUS_OFFLINE;
             $courier->update(['status' => $targetStatus]);
+            CourierRuntimeRepairTelemetry::emitIfChanged(
+                userId: (int) $this->id,
+                courierId: (int) $courier->id,
+                before: $before,
+                after: ['status' => $targetStatus],
+                hadActiveOrder: false,
+                courierStatus: $targetStatus,
+                sourceContext: 'repair.normalize_unknown_status',
+            );
         }
 
         if ($targetStatus === Courier::STATUS_PAUSED) {
@@ -260,8 +281,18 @@ class User extends Authenticatable implements FilamentUser
                 ]);
             }
 
+            $before = ['status' => (string) $courier->status];
             $targetStatus = Courier::STATUS_OFFLINE;
             $courier->update(['status' => $targetStatus]);
+            CourierRuntimeRepairTelemetry::emitIfChanged(
+                userId: (int) $this->id,
+                courierId: (int) $courier->id,
+                before: $before,
+                after: ['status' => $targetStatus],
+                hadActiveOrder: false,
+                courierStatus: $targetStatus,
+                sourceContext: 'repair.normalize_paused_status',
+            );
         }
 
         if (in_array($targetStatus, [Courier::STATUS_ASSIGNED, Courier::STATUS_DELIVERING], true)) {
@@ -274,11 +305,21 @@ class User extends Authenticatable implements FilamentUser
                 ]);
             }
 
+            $before = ['status' => (string) $courier->status];
             $targetStatus = Courier::STATUS_ONLINE;
             $courier->update(['status' => $targetStatus]);
+            CourierRuntimeRepairTelemetry::emitIfChanged(
+                userId: (int) $this->id,
+                courierId: (int) $courier->id,
+                before: $before,
+                after: ['status' => $targetStatus],
+                hadActiveOrder: false,
+                courierStatus: $targetStatus,
+                sourceContext: 'repair.normalize_orphan_busy_status',
+            );
         }
 
-        $this->syncRuntimeFlagsFromCourierState($targetStatus);
+        $this->syncRuntimeFlagsFromCourierState($targetStatus, true, 'repair.sync_flags');
     }
 
     public function goOnline(): void
@@ -434,7 +475,7 @@ class User extends Authenticatable implements FilamentUser
         return in_array($toStatus, $allowed[$fromStatus] ?? [], true);
     }
 
-    private function syncRuntimeFlagsFromCourierState(string $status): void
+    private function syncRuntimeFlagsFromCourierState(string $status, bool $fromRepair = false, string $sourceContext = 'runtime.sync_flags'): void
     {
         $now = now();
 
@@ -455,7 +496,29 @@ class User extends Authenticatable implements FilamentUser
             $sync['last_seen_at'] = $now;
         }
 
+        $before = [
+            'is_online' => $this->is_online,
+            'is_busy' => $this->is_busy,
+            'session_state' => $this->session_state,
+        ];
+
         $this->update($sync);
+
+        if ($fromRepair) {
+            CourierRuntimeRepairTelemetry::emitIfChanged(
+                userId: (int) $this->id,
+                courierId: $this->courierProfile?->id,
+                before: $before,
+                after: [
+                    'is_online' => $this->fresh()->is_online,
+                    'is_busy' => $this->fresh()->is_busy,
+                    'session_state' => $this->fresh()->session_state,
+                ],
+                hadActiveOrder: $this->takenOrders()->activeForCourier()->exists(),
+                courierStatus: (string) optional($this->courierProfile)->status,
+                sourceContext: $sourceContext,
+            );
+        }
     }
 	
 	

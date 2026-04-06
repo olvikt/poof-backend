@@ -35,4 +35,19 @@ return [
     'incident_logging' => [
         'enabled' => (bool) env('COURIER_INCIDENT_RUNTIME_LOGGING', false),
     ],
+
+    /*
+    |--------------------------------------------------------------------------
+    | Operational diagnostics hardening (P1 2026-04-06)
+    |--------------------------------------------------------------------------
+    */
+    'pending_offer_sweeper' => [
+        'limit' => (int) env('COURIER_PENDING_OFFER_SWEEP_LIMIT', 200),
+    ],
+
+    'searching_diagnostics' => [
+        'future_grace_minutes' => (int) env('COURIER_SEARCHING_FUTURE_GRACE_MINUTES', 10),
+        'max_searching_age_minutes' => (int) env('COURIER_SEARCHING_MAX_AGE_MINUTES', 20),
+        'candidate_scan_limit' => (int) env('COURIER_SEARCHING_CANDIDATE_SCAN_LIMIT', 160),
+    ],
 ];
