@@ -79,6 +79,13 @@ Snapshot payload keys (stable order):
 - После TTL любой `render`/polling обязан self-heal в backend canonical `online`.
 - при конфликте optimistic vs server — побеждает server snapshot.
 
+### Adaptive polling policy (P0 hardening, 2026-04-06)
+
+- Offer card polls every **2s** only when courier is online and has no active order; otherwise polls every **12s**.
+- Available orders view polls every **6s** when online with no active order; offline/active-order states poll every **20s**.
+- My orders view polls every **6s** when there is an active order; idle state polls every **20s**.
+- Цель — снизить poll pressure без ломки self-heal: backend snapshot остаётся canonical source of truth.
+
 ### Polling events and anti-drift invariants
 
 - Polling/refresh paths:

@@ -293,19 +293,6 @@ public function markAsPaid(): void
     /* =========================================================
      |  SCOPES
      | ========================================================= */
-    public function scopeAvailableForCourier(Builder $query): Builder
-    {
-        return $query
-            ->where('status', self::STATUS_SEARCHING)
-            ->where('payment_status', self::PAY_PAID)
-            ->whereNull('courier_id')
-            ->whereNull('expired_at')
-            ->where(function (Builder $q): void {
-                $q->whereNull('valid_until_at')
-                    ->orWhere('valid_until_at', '>', now());
-            });
-    }
-
     public function scopeActiveForCourier(Builder $query): Builder
     {
         return $query->whereIn('status', [

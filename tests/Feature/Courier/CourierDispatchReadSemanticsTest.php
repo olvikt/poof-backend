@@ -12,6 +12,7 @@ use App\Models\OrderOffer;
 use App\Models\User;
 use App\Services\Dispatch\OfferDispatcher;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Log;
 use Livewire\Livewire;
 use Tests\TestCase;
 
@@ -381,6 +382,101 @@ class CourierDispatchReadSemanticsTest extends TestCase
         $this->assertSame(0, $order->dispatch_attempts);
         $this->assertNull($order->last_dispatch_attempt_at);
         $this->assertNull($order->next_dispatch_at);
+    }
+
+    public function test_dispatch_no_candidates_log_contains_reason_breakdown_with_concrete_reasons(): void
+    {
+        Log::fake();
+
+        $client = User::factory()->create(['role' => User::ROLE_CLIENT, 'is_active' => true]);
+
+        $offlineCourier = User::factory()->create([
+            'role' => User::ROLE_COURIER,
+            'is_active' => true,
+            'last_lat' => 50.4501,
+            'last_lng' => 30.5234,
+        ]);
+        Courier::query()->create([
+            'user_id' => $offlineCourier->id,
+            'status' => Courier::STATUS_OFFLINE,
+            'last_location_at' => now(),
+        ]);
+
+        $staleCourier = User::factory()->create([
+            'role' => User::ROLE_COURIER,
+            'is_active' => true,
+            'last_lat' => 50.4501,
+            'last_lng' => 30.5234,
+        ]);
+        Courier::query()->create([
+            'user_id' => $staleCourier->id,
+            'status' => Courier::STATUS_ONLINE,
+            'last_location_at' => now()->subMinutes(10),
+        ]);
+
+        $busyCourier = $this->createOnlineCourier();
+        Order::createForTesting([
+            'client_id' => $client->id,
+            'courier_id' => $busyCourier->id,
+            'status' => Order::STATUS_ACCEPTED,
+            'payment_status' => Order::PAY_PAID,
+            'address_text' => 'Busy anchor',
+            'price' => 100,
+            'accepted_at' => now()->subMinute(),
+            'lat' => 50.4501,
+            'lng' => 30.5234,
+        ]);
+
+        $order = Order::createForTesting([
+            'client_id' => $client->id,
+            'status' => Order::STATUS_SEARCHING,
+            'payment_status' => Order::PAY_PAID,
+            'address_text' => 'No candidates diagnostics',
+            'price' => 100,
+            'lat' => 50.4501,
+            'lng' => 30.5234,
+        ]);
+
+        app(OfferDispatcher::class)->dispatchForOrder($order, 'test_case');
+
+        Log::assertLogged('debug', function (string $message, array $context): bool {
+            if ($message !== 'dispatch_no_candidates') {
+                return false;
+            }
+
+            $breakdown = $context['reason_breakdown'] ?? [];
+
+            return ($breakdown['courier_offline'] ?? 0) >= 1
+                && ($breakdown['stale_location'] ?? 0) >= 1
+                && ($breakdown['busy_active_order'] ?? 0) >= 1
+                && ($context['candidate_scan_count'] ?? 0) >= 1
+                && ($context['search_radius_km'] ?? null) !== null
+                && ($context['trigger_source'] ?? null) === 'test_case';
+        });
+    }
+
+    public function test_dispatch_offer_created_does_not_emit_no_candidate_diagnostics_marker(): void
+    {
+        Log::fake();
+
+        $client = User::factory()->create(['role' => User::ROLE_CLIENT, 'is_active' => true]);
+        $this->createOnlineCourier();
+
+        $order = Order::createForTesting([
+            'client_id' => $client->id,
+            'status' => Order::STATUS_SEARCHING,
+            'payment_status' => Order::PAY_PAID,
+            'address_text' => 'Winner path',
+            'price' => 100,
+            'lat' => 50.4501,
+            'lng' => 30.5234,
+        ]);
+
+        app(OfferDispatcher::class)->dispatchForOrder($order, 'winner_test');
+
+        Log::assertNotLogged('debug', function (string $message): bool {
+            return $message === 'dispatch_no_candidates';
+        });
     }
 
     public function test_concurrent_deferred_recheck_under_lock_prevents_immediate_reattempt(): void

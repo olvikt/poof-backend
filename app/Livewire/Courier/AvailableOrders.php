@@ -13,6 +13,8 @@ use Livewire\Component;
 class AvailableOrders extends Component
 {
     private const UI_OPTIMISTIC_SYNC_TTL_SECONDS = 3;
+    private const POLL_FAST_SECONDS = 6;
+    private const POLL_SLOW_SECONDS = 20;
 
     public bool $online = false;
     public ?int $lastUiOnlineSyncAt = null;
@@ -86,20 +88,8 @@ class AvailableOrders extends Component
         $this->repairOnlineStateFromCanonicalSource($courier, $runtime);
         $this->activeOrder = $this->resolveActiveOrderIfPresent($courier, $runtime);
 
-        $orders = Order::query()
-            ->join('order_offers', 'order_offers.order_id', '=', 'orders.id')
-            ->where('order_offers.courier_id', $courier->id)
-            ->where('order_offers.status', OrderOffer::STATUS_PENDING)
-            ->whereNotNull('order_offers.expires_at')
-            ->where('order_offers.expires_at', '>', now())
-            ->whereNull('orders.expired_at')
-            ->where(function ($query): void {
-                $query->whereNull('orders.valid_until_at')
-                    ->orWhere('orders.valid_until_at', '>', now());
-            })
-            ->select('orders.*')
-            ->orderByDesc('order_offers.created_at')
-            ->distinct()
+        $orders = OrderOffer::query()
+            ->alivePendingForCourierOrders((int) $courier->id)
             ->get();
 
         Log::debug('available_orders_render', [
@@ -116,7 +106,17 @@ class AvailableOrders extends Component
             'online' => $this->online,
             'activeOrder' => $this->activeOrder,
             'mapBootstrap' => $this->navigationRuntime()->resolveMapBootstrap($courier, $this->activeOrder),
+            'pollIntervalSeconds' => $this->availableOrdersPollIntervalSeconds(),
         ])->layout('layouts.courier');
+    }
+
+    private function availableOrdersPollIntervalSeconds(): int
+    {
+        if (! $this->online || $this->activeOrder) {
+            return self::POLL_SLOW_SECONDS;
+        }
+
+        return self::POLL_FAST_SECONDS;
     }
 
     private function resolveCourier(): ?User

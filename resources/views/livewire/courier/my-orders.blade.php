@@ -1,4 +1,4 @@
-<div class="w-full px-4 py-4 text-white" style="padding-bottom: calc(var(--courier-nav-h) + env(safe-area-inset-bottom) + 7.5rem);" wire:poll.5s>
+<div class="w-full px-4 py-4 text-white" style="padding-bottom: calc(var(--courier-nav-h) + env(safe-area-inset-bottom) + 7.5rem);" wire:poll.{{ $pollIntervalSeconds }}s>
     <div class="sr-only" aria-hidden="true" data-map-bootstrap='@json($mapBootstrap ?? null)'></div>
 
     <div class="mb-4 flex items-center justify-between gap-3">

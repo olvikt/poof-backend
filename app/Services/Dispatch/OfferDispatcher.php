@@ -5,6 +5,7 @@ namespace App\Services\Dispatch;
 use App\Models\Courier;
 use App\Models\Order;
 use App\Models\OrderOffer;
+use App\Models\User;
 use App\Services\Orders\OrderAutoExpireService;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Collection;
@@ -47,9 +48,9 @@ class OfferDispatcher
      | ENTRY
      | ========================================================= */
 
-    public function dispatchForOrder(Order $order): ?OrderOffer
+    public function dispatchForOrder(Order $order, string $triggerSource = 'direct'): ?OrderOffer
     {
-        return $this->dispatchPrimaryOffer($order);
+        return $this->dispatchPrimaryOffer($order, $triggerSource);
     }
 
     /* =========================================================
@@ -59,11 +60,11 @@ class OfferDispatcher
      | - courier_id = null
      ========================================================= */
 
-    protected function dispatchPrimaryOffer(Order $order): ?OrderOffer
+    protected function dispatchPrimaryOffer(Order $order, string $triggerSource): ?OrderOffer
     {
         $startedAt = microtime(true);
 
-        return DB::transaction(function () use ($order, $startedAt) {
+        return DB::transaction(function () use ($order, $startedAt, $triggerSource) {
             $now = now();
 
             /** @var Order|null $locked */
@@ -152,6 +153,8 @@ class OfferDispatcher
             $couriers = $this->fetchCandidates($locked, $orderHasCoords, $now);
 
             if ($couriers->isEmpty()) {
+                $reasonBreakdown = $this->candidateReasonBreakdown($locked, $orderHasCoords, $now);
+
                 $this->deferSearchingOrder(
                     orderId: (int) $locked->id,
                     attemptCount: $attemptCount,
@@ -165,6 +168,10 @@ class OfferDispatcher
                     'flow' => 'offer_dispatch',
                     'order_id' => $locked->id,
                     'attempt_count' => $attemptCount,
+                    'reason_breakdown' => $reasonBreakdown['reason_breakdown'],
+                    'search_radius_km' => $this->primaryRadiusKm,
+                    'candidate_scan_count' => $reasonBreakdown['candidate_scan_count'],
+                    'trigger_source' => $triggerSource,
                     'order_age_seconds' => $orderAgeSeconds,
                     'elapsed_ms' => $this->elapsedMs($startedAt),
                 ]);
@@ -251,15 +258,10 @@ class OfferDispatcher
         $count = 0;
         $now = now();
 
-        $orders = $this->searchingOrdersQuery($now)
-            ->select('id')
-            ->orderByRaw('COALESCE(next_dispatch_at, created_at)')
-            ->orderBy('id')
-            ->limit($limit)
-            ->get();
+        $orders = $this->dispatchQueueSelection($now, $limit);
 
         foreach ($orders as $order) {
-            if ($this->dispatchForOrder($order)) {
+            if ($this->dispatchForOrder($order, 'scheduler_loop')) {
                 $count++;
             }
         }
@@ -282,6 +284,33 @@ class OfferDispatcher
                 $q->whereNull('next_dispatch_at')
                     ->orWhere('next_dispatch_at', '<=', $now);
             });
+    }
+
+    protected function dispatchQueueSelection(Carbon $now, int $limit): Collection
+    {
+        $dueDeferred = $this->searchingOrdersQuery($now)
+            ->whereNotNull('next_dispatch_at')
+            ->select('id')
+            ->orderBy('next_dispatch_at')
+            ->orderBy('id')
+            ->limit($limit)
+            ->get();
+
+        $remaining = max(0, $limit - $dueDeferred->count());
+
+        if ($remaining === 0) {
+            return $dueDeferred;
+        }
+
+        $brandNew = $this->searchingOrdersQuery($now)
+            ->whereNull('next_dispatch_at')
+            ->select('id')
+            ->orderBy('created_at')
+            ->orderBy('id')
+            ->limit($remaining)
+            ->get();
+
+        return $dueDeferred->concat($brandNew);
     }
 
     protected function deferSearchingOrder(
@@ -479,6 +508,105 @@ class OfferDispatcher
 
                 return $courier;
             });
+    }
+
+    protected function candidateReasonBreakdown(Order $order, bool $orderHasCoords, Carbon $now): array
+    {
+        $baseScanLimit = $this->maxCouriersToScan * 2;
+        $staleThreshold = $now->copy()->subSeconds((int) config('courier_runtime.freshness.dispatch_candidate_location_seconds', 60));
+        $alivePendingCourierIds = OrderOffer::query()
+            ->where('order_id', $order->id)
+            ->where('status', OrderOffer::STATUS_PENDING)
+            ->whereNotNull('expires_at')
+            ->where('expires_at', '>', $now)
+            ->pluck('courier_id')
+            ->map(fn ($id) => (int) $id)
+            ->all();
+
+        $busyCourierIds = Order::query()
+            ->whereIn('status', [Order::STATUS_ACCEPTED, Order::STATUS_IN_PROGRESS])
+            ->whereNotNull('courier_id')
+            ->pluck('courier_id')
+            ->map(fn ($id) => (int) $id)
+            ->all();
+
+        $scan = DB::table('users')
+            ->leftJoin('couriers', 'couriers.user_id', '=', 'users.id')
+            ->select([
+                'users.id',
+                'users.role',
+                'users.is_active',
+                'users.last_lat',
+                'users.last_lng',
+                'couriers.status as courier_status',
+                'couriers.last_location_at',
+            ])
+            ->orderBy('users.id')
+            ->limit($baseScanLimit)
+            ->get();
+
+        $reasons = [
+            'inactive_user' => 0,
+            'wrong_role' => 0,
+            'courier_offline' => 0,
+            'stale_location' => 0,
+            'busy_active_order' => 0,
+            'duplicate_alive_pending' => 0,
+            'outside_bbox' => 0,
+            'missing_coordinates' => 0,
+        ];
+
+        [$latMin, $latMax, $lngMin, $lngMax] = $orderHasCoords
+            ? $this->distanceBoundingBox((float) $order->lat, (float) $order->lng, $this->primaryRadiusKm + $this->distanceWindowKm)
+            : [null, null, null, null];
+
+        foreach ($scan as $row) {
+            if (! (bool) $row->is_active) {
+                $reasons['inactive_user']++;
+                continue;
+            }
+
+            if ($row->role !== User::ROLE_COURIER) {
+                $reasons['wrong_role']++;
+                continue;
+            }
+
+            if ($row->courier_status !== Courier::STATUS_ONLINE) {
+                $reasons['courier_offline']++;
+                continue;
+            }
+
+            if (! $row->last_location_at || Carbon::parse($row->last_location_at)->lte($staleThreshold)) {
+                $reasons['stale_location']++;
+                continue;
+            }
+
+            if (in_array((int) $row->id, $busyCourierIds, true)) {
+                $reasons['busy_active_order']++;
+                continue;
+            }
+
+            if (in_array((int) $row->id, $alivePendingCourierIds, true)) {
+                $reasons['duplicate_alive_pending']++;
+                continue;
+            }
+
+            if (! $this->hasCoords($row->last_lat, $row->last_lng)) {
+                $reasons['missing_coordinates']++;
+                continue;
+            }
+
+            if ($orderHasCoords) {
+                if ((float) $row->last_lat < $latMin || (float) $row->last_lat > $latMax || (float) $row->last_lng < $lngMin || (float) $row->last_lng > $lngMax) {
+                    $reasons['outside_bbox']++;
+                }
+            }
+        }
+
+        return [
+            'reason_breakdown' => $reasons,
+            'candidate_scan_count' => $scan->count(),
+        ];
     }
 
     protected function distanceBoundingBox(float $lat, float $lng, float $radiusKm): array

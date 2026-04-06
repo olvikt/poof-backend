@@ -20,7 +20,10 @@ This document describes the canonical hot path after dispatch/read simplificatio
    - `payment_status=paid`
    - `courier_id is null`
    - `next_dispatch_at is null OR next_dispatch_at <= now`
-   - ordered by `COALESCE(next_dispatch_at, created_at), id` (deterministic)
+   - ordered deterministically in two phases (index-friendlier):
+     1) `next_dispatch_at IS NOT NULL AND next_dispatch_at <= now` → `ORDER BY next_dispatch_at, id`
+     2) `next_dispatch_at IS NULL` → `ORDER BY created_at, id`
+   - phases are merged up to batch limit without duplicates.
 2. `dispatch_started` marker
 3. lock order row (`FOR UPDATE`) and validate dispatchable contract (`searching`, no courier)
 4. persist dispatch attempt state (`last_dispatch_attempt_at`, `dispatch_attempts`)
@@ -69,6 +72,7 @@ Structured markers:
 - `dispatch_started`
 - `dispatch_deferred`
 - `dispatch_no_candidates`
+  - includes `reason_breakdown`, `candidate_scan_count`, `search_radius_km`, `trigger_source`
 - `dispatch_no_pick`
 - `dispatch_offer_created`
 - `available_orders_render`

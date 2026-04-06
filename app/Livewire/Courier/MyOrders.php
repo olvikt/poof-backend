@@ -13,6 +13,9 @@ use Livewire\Component;
 
 class MyOrders extends Component
 {
+    private const POLL_ACTIVE_SECONDS = 6;
+    private const POLL_IDLE_SECONDS = 20;
+
     public bool $online = false;
 
     protected $listeners = [
@@ -183,6 +186,7 @@ class MyOrders extends Component
             'orders' => $orders,
             'online' => $this->online,
             'mapBootstrap' => $this->resolveMapBootstrap($orders, $courier),
+            'pollIntervalSeconds' => $orders->isEmpty() ? self::POLL_IDLE_SECONDS : self::POLL_ACTIVE_SECONDS,
         ])->layout('layouts.courier');
     }
 

@@ -4,6 +4,7 @@ namespace Tests\Feature\Api;
 
 use App\Models\ClientAddress;
 use App\Models\Courier;
+use App\Models\OrderOffer;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Laravel\Sanctum\Sanctum;
@@ -88,6 +89,8 @@ class ApiProtectedRoutesAuthTest extends TestCase
             'price' => 135,
         ]);
 
+        OrderOffer::createPrimaryPending($searchingOrder->id, $courier->id, 120);
+
         Sanctum::actingAs($courier);
 
         $this->getJson('/api/orders/available')
@@ -105,6 +108,23 @@ class ApiProtectedRoutesAuthTest extends TestCase
 
         $this->assertSame(Courier::STATUS_ASSIGNED, $courier->courierProfile->status);
         $this->assertSame(User::SESSION_ASSIGNED, $courier->session_state);
+    }
+
+    public function test_courier_available_orders_endpoint_hides_searching_orders_without_pending_offer(): void
+    {
+        $client = $this->createClient();
+        $courier = $this->createCourier();
+
+        $this->createDispatchableSearchingPaidOrder($client, [
+            'address_text' => 'вул. Невидима, 6',
+            'price' => 140,
+        ]);
+
+        Sanctum::actingAs($courier);
+
+        $this->getJson('/api/orders/available')
+            ->assertOk()
+            ->assertJsonCount(0, 'orders');
     }
 
     public function test_client_is_forbidden_from_courier_only_sanctum_routes(): void
