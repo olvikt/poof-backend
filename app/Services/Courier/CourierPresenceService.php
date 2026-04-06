@@ -57,7 +57,26 @@ class CourierPresenceService
         $before = $this->snapshotState($courier);
         $targetOnline = ! $before['online'];
 
+        if (config('courier_runtime.incident_logging.enabled', false)) {
+            Log::info('online_toggle_requested', [
+                'flow' => 'courier_presence',
+                'courier_id' => $courier->id,
+                'attempted_online' => $targetOnline,
+                'before' => $before,
+            ]);
+        }
+
         if (($before['active_order_status'] ?? null) !== null) {
+            if (config('courier_runtime.incident_logging.enabled', false)) {
+                Log::warning('forced_repair_or_guard_reason', [
+                    'flow' => 'courier_presence',
+                    'courier_id' => $courier->id,
+                    'reason' => 'blocked_by_active_order',
+                    'attempted_online' => $targetOnline,
+                    'before' => $before,
+                ]);
+            }
+
             return [
                 'changed' => false,
                 'online' => true,
@@ -99,6 +118,24 @@ class CourierPresenceService
             'after' => $after,
             'reason' => $result['reason'],
         ]);
+
+        if (config('courier_runtime.incident_logging.enabled', false)) {
+            Log::info('online_toggle_persisted', [
+                'flow' => 'courier_presence',
+                'courier_id' => $courier->id,
+                'attempted_online' => $targetOnline,
+                'changed' => $changed,
+                'before' => $before,
+                'after' => $after,
+                'reason' => $result['reason'],
+            ]);
+
+            Log::info('online_toggle_snapshot_after_write', [
+                'flow' => 'courier_presence',
+                'courier_id' => $courier->id,
+                'snapshot' => $after,
+            ]);
+        }
 
         return $result;
     }

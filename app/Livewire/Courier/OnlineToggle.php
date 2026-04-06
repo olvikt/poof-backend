@@ -3,6 +3,7 @@
 namespace App\Livewire\Courier;
 
 use App\Services\Courier\CourierPresenceService;
+use Illuminate\Support\Facades\Log;
 use Livewire\Component;
 
 class OnlineToggle extends Component
@@ -13,23 +14,32 @@ class OnlineToggle extends Component
 
     public function mount(): void
     {
-        $this->syncOnlineState();
+        $this->syncOnlineState('mount');
     }
 
     public function hydrate(): void
     {
-        $this->syncOnlineState();
+        $this->syncOnlineState('hydrate');
     }
 
-    public function syncOnlineState(): void
+    public function syncOnlineState(string $source = 'manual'): void
     {
         $service = $this->presenceService();
-        $runtime = $service->snapshot($service->resolveAuthenticatedCourier());
+        $courier = $service->resolveAuthenticatedCourier();
+        $runtime = $service->snapshot($courier);
 
         $this->online = (bool) ($runtime['online'] ?? false);
         $activeOrderStatus = $runtime['active_order_status'] ?? null;
         $this->activeOrderStatus = $activeOrderStatus;
         $this->busyWithActiveOrder = $activeOrderStatus !== null;
+
+        if ($source === 'hydrate' && config('courier_runtime.incident_logging.enabled', false) && $courier) {
+            Log::info('online_toggle_snapshot_after_hydrate', [
+                'flow' => 'courier_presence',
+                'courier_id' => $courier->id,
+                'snapshot' => $runtime,
+            ]);
+        }
     }
 
     public function toggleOnlineState(): void
@@ -80,7 +90,7 @@ class OnlineToggle extends Component
 
     public function render()
     {
-        $this->syncOnlineState();
+        $this->syncOnlineState('render');
 
         return view('livewire.courier.online-toggle');
     }
