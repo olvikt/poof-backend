@@ -5,6 +5,7 @@ namespace App\Livewire\Courier;
 use App\Models\Order;
 use App\Models\OrderOffer;
 use App\Models\User;
+use App\Services\Courier\CourierPresenceService;
 use Livewire\Component;
 
 class OfferCard extends Component
@@ -21,9 +22,10 @@ class OfferCard extends Component
 
     public function loadOffer(): void
     {
-        $courier = auth()->user();
+        $courier = $this->presenceService()->resolveAuthenticatedCourier();
+        $runtime = $this->presenceService()->snapshot($courier);
 
-        if (! $courier instanceof User || ! $courier->isCourierOnline()) {
+        if (! $courier instanceof User || ! (bool) ($runtime['online'] ?? false)) {
             $this->offer = null;
             return;
         }
@@ -160,6 +162,12 @@ class OfferCard extends Component
     }
 
     /* ========================================================= */
+
+
+    private function presenceService(): CourierPresenceService
+    {
+        return app(CourierPresenceService::class);
+    }
 
     public function render()
     {

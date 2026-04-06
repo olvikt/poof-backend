@@ -5,6 +5,7 @@ namespace App\Livewire\Courier;
 use App\Models\Order;
 use App\Models\OrderOffer;
 use App\Models\User;
+use App\Services\Courier\CourierPresenceService;
 use App\Support\Courier\CourierNavigationRuntime;
 use Illuminate\Support\Facades\Log;
 use Livewire\Component;
@@ -32,8 +33,7 @@ class AvailableOrders extends Component
         $user = $this->resolveCourier();
 
         if ($user instanceof User && $user->isCourier()) {
-            $runtime = $user->courierRuntimeSnapshot();
-            $this->online = (bool) ($runtime['online'] ?? false);
+            $this->online = $this->presenceService()->canonicalOnline($user);
             $this->lastUiOnlineSyncAt = null;
         }
     }
@@ -49,24 +49,21 @@ class AvailableOrders extends Component
 
         $user = $this->resolveCourier();
 
-        $this->online = $this->resolveCanonicalOnlineState($user);
+        $this->online = $this->presenceService()->canonicalOnline($user);
         $this->lastUiOnlineSyncAt = null;
     }
 
-    protected function resolveActiveOrder(?User $courier): ?Order
+    protected function resolveActiveOrderIfPresent(?User $courier, array $runtime): ?Order
     {
         if (! $courier instanceof User) {
             return null;
         }
 
-        return Order::query()
-            ->where('courier_id', $courier->id)
-            ->whereIn('status', [
-                Order::STATUS_ACCEPTED,
-                Order::STATUS_IN_PROGRESS,
-            ])
-            ->latest('accepted_at')
-            ->first();
+        if (! ($runtime['has_active_order'] ?? false)) {
+            return null;
+        }
+
+        return $this->presenceService()->resolveActiveOrder($courier);
     }
 
     public function render()
@@ -85,8 +82,9 @@ class AvailableOrders extends Component
             ])->layout('layouts.courier');
         }
 
-        $this->repairOnlineStateFromCanonicalSource($courier);
-        $this->activeOrder = $this->resolveActiveOrder($courier);
+        $runtime = $this->presenceService()->snapshot($courier) ?? [];
+        $this->repairOnlineStateFromCanonicalSource($courier, $runtime);
+        $this->activeOrder = $this->resolveActiveOrderIfPresent($courier, $runtime);
 
         $orders = Order::query()
             ->join('order_offers', 'order_offers.order_id', '=', 'orders.id')
@@ -132,9 +130,9 @@ class AvailableOrders extends Component
         return $user->fresh(['courierProfile']);
     }
 
-    private function repairOnlineStateFromCanonicalSource(User $courier): void
+    private function repairOnlineStateFromCanonicalSource(User $courier, array $runtime): void
     {
-        $canonicalOnline = $this->resolveCanonicalOnlineState($courier);
+        $canonicalOnline = (bool) ($runtime['online'] ?? false);
 
         if ($this->lastUiOnlineSyncAt !== null) {
             $optimisticAge = now()->timestamp - $this->lastUiOnlineSyncAt;
@@ -158,15 +156,9 @@ class AvailableOrders extends Component
         $this->lastUiOnlineSyncAt = null;
     }
 
-    private function resolveCanonicalOnlineState(?User $courier): bool
+    private function presenceService(): CourierPresenceService
     {
-        if (! $courier instanceof User || ! $courier->isCourier()) {
-            return false;
-        }
-
-        $runtime = $courier->courierRuntimeSnapshot();
-
-        return (bool) ($runtime['online'] ?? false);
+        return app(CourierPresenceService::class);
     }
 
     private function navigationRuntime(): CourierNavigationRuntime

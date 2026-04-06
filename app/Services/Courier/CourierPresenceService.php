@@ -3,6 +3,7 @@
 namespace App\Services\Courier;
 
 use App\Models\Courier;
+use App\Models\Order;
 use App\Models\User;
 use Illuminate\Support\Facades\Log;
 
@@ -22,6 +23,30 @@ class CourierPresenceService
     public function snapshot(?User $courier): ?array
     {
         return $courier instanceof User ? $courier->courierRuntimeSnapshot() : null;
+    }
+
+
+    public function canonicalOnline(?User $courier): bool
+    {
+        $runtime = $this->snapshot($courier);
+
+        return (bool) ($runtime['online'] ?? false);
+    }
+
+    public function resolveActiveOrder(?User $courier): ?Order
+    {
+        if (! $courier instanceof User || ! $courier->isCourier()) {
+            return null;
+        }
+
+        return Order::query()
+            ->where('courier_id', $courier->id)
+            ->whereIn('status', [
+                Order::STATUS_ACCEPTED,
+                Order::STATUS_IN_PROGRESS,
+            ])
+            ->latest('accepted_at')
+            ->first();
     }
 
     /**

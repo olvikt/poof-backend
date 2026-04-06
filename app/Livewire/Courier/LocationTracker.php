@@ -3,8 +3,8 @@
 namespace App\Livewire\Courier;
 
 use App\Models\Courier;
-use App\Models\Order;
 use App\Models\User;
+use App\Services\Courier\CourierPresenceService;
 use App\Services\Dispatch\OfferDispatcher;
 use Illuminate\Support\Facades\Log;
 use Livewire\Component;
@@ -29,31 +29,14 @@ class LocationTracker extends Component
      */
     public function mount(): void
     {
-        $authUser = auth()->user();
-
-        if (! $authUser instanceof User || ! $authUser->isCourier()) {
-            return;
-        }
-
-        $user = User::query()
-            ->with('courierProfile')
-            ->find($authUser->id);
+        $user = $this->presenceService()->resolveAuthenticatedCourier();
 
         if (! $user instanceof User || ! $user->courierProfile) {
             return;
         }
 
-        $user->repairCourierRuntimeState();
-        $user = User::query()
-            ->with('courierProfile')
-            ->find($authUser->id);
-
         $courierProfile = $user->courierProfile;
-        $runtime = $user->courierRuntimeSnapshot();
-
-        if (! $courierProfile) {
-            return;
-        }
+        $runtime = $this->presenceService()->snapshot($user) ?? [];
 
         $this->dispatch(
             'courier:runtime-sync',
@@ -78,17 +61,14 @@ class LocationTracker extends Component
 
     public function updateLocation($lat, $lng, $accuracy = null): void
     {
-        $user = auth()->user();
+        $user = $this->presenceService()->resolveAuthenticatedCourier();
 
         // 🔒 Только авторизованный курьер
         if (! $user instanceof User || ! $user->isCourier()) {
             return;
         }
 
-        $user->repairCourierRuntimeState();
-        $user->refresh();
-
-        $courierProfile = $user->courierProfile()->first();
+        $courierProfile = $user->courierProfile;
 
         if (! $courierProfile) {
             return;
@@ -135,35 +115,26 @@ class LocationTracker extends Component
         }
 
         $hasMovedEnough = $distanceMoved === null || $distanceMoved > 50;
-        $hasSearchingOrders = false;
         $dispatchTime = null;
 
         if (
             $user->isCourierOnline() &&
-            $hasMovedEnough
+            $hasMovedEnough &&
+            (
+                ! $user->last_dispatch_at ||
+                $user->last_dispatch_at->diffInSeconds(now()) >= 5
+            )
         ) {
-            $hasSearchingOrders = Order::query()
-                ->where('status', Order::STATUS_SEARCHING)
-                ->exists();
+            $dispatchedCount = app(OfferDispatcher::class)->dispatchSearchingOrders();
 
-            if (
-                $hasSearchingOrders &&
-                (
-                    ! $user->last_dispatch_at ||
-                    $user->last_dispatch_at->diffInSeconds(now()) >= 5
-                )
-            ) {
-                app(OfferDispatcher::class)->dispatchSearchingOrders(
-                    (int) config('dispatch.radius_km', 20)
-                );
-
+            if ($dispatchedCount > 0) {
                 $dispatchTime = now();
                 Log::info('courier_dispatch_triggered_from_location_update', [
                     'flow' => 'courier_location',
                     'courier_id' => $user->id,
                     'distance_moved' => $distanceMoved,
+                    'dispatched_orders' => $dispatchedCount,
                 ]);
-
             }
         }
 
@@ -202,13 +173,18 @@ class LocationTracker extends Component
         return 2 * $earthRadius * asin(min(1, sqrt($a)));
     }
 
+    private function presenceService(): CourierPresenceService
+    {
+        return app(CourierPresenceService::class);
+    }
+
     /**
      * Headless component
      */
     public function render()
     {
         $user = auth()->user();
-        $runtime = $user instanceof User ? $user->courierRuntimeSnapshot() : null;
+        $runtime = $user instanceof User ? $this->presenceService()->snapshot($user) : null;
 
         return view('livewire.courier.location-tracker', [
             'runtimeSnapshot' => $runtime,
