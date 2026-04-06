@@ -46,6 +46,24 @@ class LocationTracker extends Component
         );
 
         if (config('courier_runtime.incident_logging.enabled', false)) {
+            Log::info('runtime_sync_event_emitted', [
+                'flow' => 'courier_location',
+                'courier_id' => $user->id,
+                'event' => 'courier:runtime-sync',
+            ]);
+
+            Log::info('runtime_sync_event_payload', [
+                'flow' => 'courier_location',
+                'courier_id' => $user->id,
+                'payload' => [
+                    'online' => (bool) ($runtime['online'] ?? false),
+                    'status' => (string) ($runtime['status'] ?? $courierProfile->status),
+                    'snapshot' => $runtime,
+                ],
+            ]);
+        }
+
+        if (config('courier_runtime.incident_logging.enabled', false)) {
             Log::info('courier_runtime_snapshot_synced', [
                 'flow' => 'courier_location',
                 'courier_id' => $user->id,

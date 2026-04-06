@@ -251,11 +251,29 @@ class User extends Authenticatable implements FilamentUser
         }
 
         if ($targetStatus === Courier::STATUS_PAUSED) {
+            if (config('courier_runtime.incident_logging.enabled', false)) {
+                Log::warning('forced_repair_or_guard_reason', [
+                    'flow' => 'courier_presence',
+                    'user_id' => $this->id,
+                    'reason' => 'paused_normalized_to_offline',
+                    'courier_status_before' => (string) $courier->status,
+                ]);
+            }
+
             $targetStatus = Courier::STATUS_OFFLINE;
             $courier->update(['status' => $targetStatus]);
         }
 
         if (in_array($targetStatus, [Courier::STATUS_ASSIGNED, Courier::STATUS_DELIVERING], true)) {
+            if (config('courier_runtime.incident_logging.enabled', false)) {
+                Log::warning('forced_repair_or_guard_reason', [
+                    'flow' => 'courier_presence',
+                    'user_id' => $this->id,
+                    'reason' => 'orphan_busy_status_normalized_to_online',
+                    'courier_status_before' => (string) $courier->status,
+                ]);
+            }
+
             $targetStatus = Courier::STATUS_ONLINE;
             $courier->update(['status' => $targetStatus]);
         }
@@ -359,11 +377,28 @@ class User extends Authenticatable implements FilamentUser
         }
 
         if (! $force && ! $this->canTransitionCourierState($fromStatus, $toStatus)) {
+            if (config('courier_runtime.incident_logging.enabled', false)) {
+                Log::warning('forced_repair_or_guard_reason', [
+                    'flow' => 'courier_presence',
+                    'user_id' => $this->id,
+                    'reason' => 'transition_blocked_by_fsm',
+                    'from_status' => $fromStatus,
+                    'to_status' => $toStatus,
+                    'force' => $force,
+                ]);
+            }
+
             return;
         }
 
         if ($fromStatus !== $toStatus) {
-            $courier->update(['status' => $toStatus]);
+            $statusUpdate = ['status' => $toStatus];
+
+            if ($toStatus === Courier::STATUS_ONLINE) {
+                $statusUpdate['last_location_at'] = now();
+            }
+
+            $courier->update($statusUpdate);
 
             if (config('courier_runtime.incident_logging.enabled', false)) {
                 Log::info('courier_runtime_status_transition', [
