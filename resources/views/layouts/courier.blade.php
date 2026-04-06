@@ -4,10 +4,9 @@
     <div class="relative w-full max-w-md min-h-dvh flex flex-col bg-[#070a10] [--courier-header-h:64px] [--courier-nav-h:92px] [--courier-screen-bottom-gap:0.75rem]">
 
         <header class="sticky top-0 z-40 border-b border-white/10 bg-[#0b121c] shadow-[0_12px_30px_rgba(0,0,0,0.52)]">
-            <div class="flex items-center justify-between gap-3 px-4 py-3">
+            <div class="flex items-center justify-between gap-2 px-4 py-2.5">
                 <div class="min-w-0">
-                    <p class="truncate text-xs font-medium uppercase tracking-[0.16em] text-slate-400">Courier cabinet</p>
-                    <p class="truncate text-sm font-semibold text-slate-100">POOF Courier</p>
+                    <p class="truncate text-sm font-semibold tracking-[0.01em] text-slate-100">POOF Кур'єр</p>
                 </div>
 
                 <livewire:courier.online-toggle wire:key="courier-online-toggle-header" />

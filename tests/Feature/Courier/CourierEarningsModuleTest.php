@@ -108,7 +108,8 @@ class CourierEarningsModuleTest extends TestCase
         $this->actingAs($courier, 'web');
 
         Livewire::test(OnlineToggle::class)
-            ->assertSee('Баланс:', false)
+            ->assertSeeInOrder(['На лінії', '240,00 ₴'], false)
+            ->assertDontSee('Баланс:', false)
             ->assertSee('240,00 ₴', false)
             ->assertSet('balanceSummary.completed_orders_count', 1)
             ->assertSet('balanceSummary.courier_net_balance', 240);

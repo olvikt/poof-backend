@@ -157,6 +157,25 @@ class CourierOnlineNavigationSyncTest extends TestCase
         $this->assertTrue($this->hasWireNavigateAttribute($myOrdersLink), 'My-orders tab should expose Livewire SPA navigation.');
     }
 
+
+    public function test_courier_header_polish_copy_is_rendered_in_orders_layout(): void
+    {
+        $courier = $this->createCourier();
+        $this->actingAs($courier, 'web');
+
+        $this->withoutVite();
+
+        $response = $this->get(route('courier.orders'))
+            ->assertOk();
+
+        $html = (string) $response->getContent();
+        $normalizedHtml = str_replace(['ʼ', '’'], "'", $html);
+
+        $this->assertStringContainsString("POOF Кур'єр", $normalizedHtml);
+        $this->assertStringNotContainsString('Courier cabinet', $html);
+        $this->assertStringNotContainsString('Баланс:', $html);
+    }
+
     public function test_busy_courier_with_accepted_order_stays_visually_online_across_tab_navigation(): void
     {
         [$courier] = $this->createCourierWithActiveOrder(Order::STATUS_ACCEPTED);

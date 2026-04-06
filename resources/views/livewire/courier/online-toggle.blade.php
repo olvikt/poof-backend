@@ -1,5 +1,5 @@
 <div wire:poll.10s="syncOnlineState('poll')">
-    <div class="flex items-center gap-3 rounded-2xl border border-white/15 bg-[#111a28] px-3 py-2 shadow-[0_14px_26px_rgba(0,0,0,0.42),inset_0_1px_0_rgba(255,255,255,0.08)] ring-1 ring-black/20">
+    <div class="flex items-center gap-2 rounded-xl border border-white/15 bg-[#111a28] px-2.5 py-2 shadow-[0_10px_22px_rgba(0,0,0,0.4)] ring-1 ring-black/20">
         <button
             type="button"
             wire:key="courier-online-toggle-button"
@@ -17,18 +17,18 @@
             <span class="absolute inset-y-0 left-[2px] top-[2px] h-6 w-6 rounded-full bg-white shadow-[0_3px_8px_rgba(0,0,0,0.35)] transition-transform duration-200 ease-out {{ $online ? 'translate-x-[24px]' : 'translate-x-0' }}"></span>
         </button>
 
-        <div class="min-w-[102px] text-right">
-            <div class="text-sm font-semibold leading-4 {{ $online ? 'text-emerald-200' : 'text-slate-200' }}">
+        <div class="min-w-[82px] text-right leading-tight">
+            <div class="text-sm font-semibold {{ $online ? 'text-emerald-200' : 'text-slate-200' }}">
                 <span wire:loading.remove wire:target="toggleOnlineState">
                     {{ $online ? 'На лінії' : 'Не на лінії' }}
                 </span>
-                <span wire:loading wire:target="toggleOnlineState" class="inline-flex items-center justify-end gap-1 text-slate-100">
-                    <span class="h-3.5 w-3.5 animate-spin rounded-full border border-current border-t-transparent"></span>
+                <span wire:loading wire:target="toggleOnlineState" class="inline-flex items-center justify-end gap-1 text-xs text-slate-100">
+                    <span class="h-3 w-3 animate-spin rounded-full border border-current border-t-transparent"></span>
                     Оновлення
                 </span>
             </div>
-            <div class="mt-1 text-xs font-medium text-slate-400">
-                Баланс: <span class="font-semibold text-slate-100">{{ $balanceSummary['balance_formatted'] }}</span>
+            <div class="mt-0.5 text-sm font-semibold text-slate-100">
+                {{ $balanceSummary['balance_formatted'] }}
             </div>
         </div>
     </div>
