@@ -2,6 +2,7 @@
 
 namespace App\Support;
 
+use App\Models\Courier;
 use App\Models\Order;
 use App\Models\User;
 
@@ -35,17 +36,26 @@ class CourierRuntimeSnapshot
         }
 
         $user->repairCourierRuntimeState();
-        $user->refresh();
+        $user->loadMissing('courierProfile');
 
-        $activeOrderStatus = $user->takenOrders()
-            ->activeForCourier()
-            ->orderByRaw('CASE WHEN status = ? THEN 0 ELSE 1 END', [Order::STATUS_IN_PROGRESS])
-            ->value('status');
+        $status = (string) optional($user->courierProfile)->status;
+        $activeOrderStatus = match ($status) {
+            Courier::STATUS_DELIVERING => Order::STATUS_IN_PROGRESS,
+            Courier::STATUS_ASSIGNED => Order::STATUS_ACCEPTED,
+            default => null,
+        };
 
         return [
-            'online' => $user->isCourierOnline(),
-            'busy' => (bool) $user->is_busy,
-            'status' => (string) optional($user->courierProfile)->status,
+            'online' => in_array($status, [
+                Courier::STATUS_ONLINE,
+                Courier::STATUS_ASSIGNED,
+                Courier::STATUS_DELIVERING,
+            ], true),
+            'busy' => in_array($status, [
+                Courier::STATUS_ASSIGNED,
+                Courier::STATUS_DELIVERING,
+            ], true),
+            'status' => $status,
             'session_state' => (string) $user->session_state,
             'active_order_status' => $activeOrderStatus,
             'has_active_order' => $activeOrderStatus !== null,

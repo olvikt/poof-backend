@@ -105,9 +105,9 @@ class OfferDispatcher
             OrderOffer::query()
                 ->where('order_id', $locked->id)
                 ->where('status', OrderOffer::STATUS_PENDING)
-                ->where(function ($q) {
+                ->where(function ($q) use ($now): void {
                     $q->whereNull('expires_at')
-                      ->orWhere('expires_at', '<=', now());
+                      ->orWhere('expires_at', '<=', $now);
                 })
                 ->update([
                     'status' => OrderOffer::STATUS_EXPIRED,
@@ -449,14 +449,7 @@ class OfferDispatcher
                         Order::STATUS_IN_PROGRESS,
                     ]);
             })
-            ->whereNotExists(function ($sub) use ($order, $now): void {
-                $sub->selectRaw('1')
-                    ->from('order_offers')
-                    ->whereColumn('order_offers.courier_id', 'users.id')
-                    ->where('order_offers.order_id', $order->id)
-                    ->where('order_offers.status', OrderOffer::STATUS_PENDING)
-                    ->where('order_offers.expires_at', '>', $now);
-            });
+            ;
 
         if ($orderHasCoords) {
             [$latMin, $latMax, $lngMin, $lngMax] = $this->distanceBoundingBox(

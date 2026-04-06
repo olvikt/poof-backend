@@ -4,6 +4,7 @@ namespace App\Livewire\Courier;
 
 use App\Models\Order;
 use App\Models\User;
+use App\Services\Courier\CourierPresenceService;
 use App\Services\Dispatch\OfferDispatcher;
 use App\Support\Courier\CourierNavigationRuntime;
 use Illuminate\Support\Collection;
@@ -24,15 +25,14 @@ class MyOrders extends Component
         $courier = $this->resolveCourier();
 
         if ($courier instanceof User && $courier->isCourier()) {
-            $runtime = $courier->courierRuntimeSnapshot();
-            $this->online = (bool) ($runtime['online'] ?? false);
+            $this->online = $this->presenceService()->canonicalOnline($courier);
         }
     }
 
     public function syncOnlineState(): void
     {
         $courier = $this->resolveCourier();
-        $this->online = $this->resolveCanonicalOnlineState($courier);
+        $this->online = $this->presenceService()->canonicalOnline($courier);
     }
 
     public function start(int $orderId): void
@@ -159,7 +159,7 @@ class MyOrders extends Component
             ])->layout('layouts.courier');
         }
 
-        $this->online = $this->resolveCanonicalOnlineState($courier);
+        $this->online = $this->presenceService()->canonicalOnline($courier);
 
         $orders = Order::where('courier_id', $courier->id)
             ->whereIn('status', [
@@ -244,15 +244,9 @@ class MyOrders extends Component
         return $user->fresh(['courierProfile']);
     }
 
-    private function resolveCanonicalOnlineState(?User $courier): bool
+    private function presenceService(): CourierPresenceService
     {
-        if (! $courier instanceof User || ! $courier->isCourier()) {
-            return false;
-        }
-
-        $runtime = $courier->courierRuntimeSnapshot();
-
-        return (bool) ($runtime['online'] ?? false);
+        return app(CourierPresenceService::class);
     }
 
     private function navigationRuntime(): CourierNavigationRuntime
