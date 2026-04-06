@@ -165,11 +165,15 @@ class CourierOnlineNavigationSyncTest extends TestCase
 
         $this->withoutVite();
 
-        $this->get(route('courier.orders'))
-            ->assertOk()
-            ->assertSee("POOF Кур'єр")
-            ->assertDontSee('Courier cabinet')
-            ->assertDontSee('Баланс:', false);
+        $response = $this->get(route('courier.orders'))
+            ->assertOk();
+
+        $html = (string) $response->getContent();
+        $normalizedHtml = str_replace(['ʼ', '’'], "'", $html);
+
+        $this->assertStringContainsString("POOF Кур'єр", $normalizedHtml);
+        $this->assertStringNotContainsString('Courier cabinet', $html);
+        $this->assertStringNotContainsString('Баланс:', $html);
     }
 
     public function test_busy_courier_with_accepted_order_stays_visually_online_across_tab_navigation(): void
