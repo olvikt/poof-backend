@@ -439,7 +439,7 @@ class OfferDispatcher
             ->whereNotNull('users.last_lat')
             ->whereNotNull('users.last_lng')
             ->where('couriers.status', Courier::STATUS_ONLINE)
-            ->where('couriers.last_location_at', '>', $now->copy()->subSeconds(60))
+            ->where('couriers.last_location_at', '>', $now->copy()->subSeconds((int) config('courier_runtime.freshness.dispatch_candidate_location_seconds', 60)))
             ->whereNotExists(function ($sub): void {
                 $sub->selectRaw('1')
                     ->from('orders')
