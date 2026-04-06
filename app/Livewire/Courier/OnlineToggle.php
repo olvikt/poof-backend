@@ -12,6 +12,8 @@ class OnlineToggle extends Component
     public bool $busyWithActiveOrder = false;
     public ?string $activeOrderStatus = null;
 
+    public bool $toggleInFlight = false;
+
     public function mount(): void
     {
         $this->syncOnlineState('mount');
@@ -24,6 +26,10 @@ class OnlineToggle extends Component
 
     public function syncOnlineState(string $source = 'manual'): void
     {
+        if ($this->toggleInFlight && in_array($source, ['hydrate', 'poll'], true)) {
+            return;
+        }
+
         $service = $this->presenceService();
         $courier = $service->resolveAuthenticatedCourier();
         $runtime = $service->snapshot($courier);
@@ -44,54 +50,62 @@ class OnlineToggle extends Component
 
     public function toggleOnlineState(): void
     {
-        $service = $this->presenceService();
-        $courier = $service->resolveAuthenticatedCourier();
-
-        if (! $courier) {
+        if ($this->toggleInFlight) {
             return;
         }
 
-        $result = $service->toggleOnline($courier);
+        $this->toggleInFlight = true;
 
-        $this->online = (bool) $result['online'];
-        $this->activeOrderStatus = $result['after']['active_order_status'] ?? null;
-        $this->busyWithActiveOrder = $this->activeOrderStatus !== null;
+        try {
+            $service = $this->presenceService();
+            $courier = $service->resolveAuthenticatedCourier();
 
-        $this->dispatch(
-            'courier-online-toggled',
-            online: $this->online,
-            changed: (bool) $result['changed'],
-            attempted_online: (bool) $result['attempted_online'],
-            reason: $result['reason'],
-            before: $result['before'],
-            after: $result['after'],
-        );
+            if (! $courier) {
+                return;
+            }
 
-        if (! $result['changed']) {
+            $result = $service->toggleOnline($courier);
+
+            $this->online = (bool) $result['online'];
+            $this->activeOrderStatus = $result['after']['active_order_status'] ?? null;
+            $this->busyWithActiveOrder = $this->activeOrderStatus !== null;
+
             $this->dispatch(
-                'courier-online-toggle-blocked',
+                'courier-online-toggled',
+                online: $this->online,
+                changed: (bool) $result['changed'],
                 attempted_online: (bool) $result['attempted_online'],
                 reason: $result['reason'],
                 before: $result['before'],
                 after: $result['after'],
             );
 
-            return;
+            if (! $result['changed']) {
+                $this->dispatch(
+                    'courier-online-toggle-blocked',
+                    attempted_online: (bool) $result['attempted_online'],
+                    reason: $result['reason'],
+                    before: $result['before'],
+                    after: $result['after'],
+                );
+
+                return;
+            }
+
+            if ($this->online) {
+                $this->dispatch('courier:online');
+
+                return;
+            }
+
+            $this->dispatch('courier:offline');
+        } finally {
+            $this->toggleInFlight = false;
         }
-
-        if ($this->online) {
-            $this->dispatch('courier:online');
-
-            return;
-        }
-
-        $this->dispatch('courier:offline');
     }
 
     public function render()
     {
-        $this->syncOnlineState('render');
-
         return view('livewire.courier.online-toggle');
     }
 

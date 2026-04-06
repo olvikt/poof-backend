@@ -1,9 +1,10 @@
-<div wire:poll.10s="syncOnlineState">
+<div wire:poll.10s="syncOnlineState('poll')">
     <button
         type="button"
-        wire:click="toggleOnlineState"
+        wire:key="courier-online-toggle-button"
+        wire:click.prevent.stop="toggleOnlineState"
         wire:loading.attr="disabled"
-        wire:target="toggleOnlineState"
+        wire:target="toggleOnlineState,syncOnlineState"
         data-testid="courier-online-toggle"
         data-e2e="courier-online-toggle"
         data-e2e-online-state="{{ $online ? 'online' : 'offline' }}"
