@@ -6,10 +6,15 @@ namespace App\Actions\Orders\Lifecycle;
 
 use App\Models\Order;
 use App\Models\User;
+use App\Services\Courier\Earnings\CourierEarningsSettlementService;
 use Illuminate\Support\Facades\DB;
 
 class CompleteOrderByCourierAction
 {
+    public function __construct(private readonly CourierEarningsSettlementService $earningsSettlementService)
+    {
+    }
+
     /**
      * Завершити виконання (курʼєр-safe)
      */
@@ -35,6 +40,8 @@ class CompleteOrderByCourierAction
             $courier->update([
                 'last_completed_at' => now(),
             ]);
+
+            $this->earningsSettlementService->settleForOrder($lockedOrder->fresh());
 
             return true;
         });

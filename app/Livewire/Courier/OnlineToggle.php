@@ -3,6 +3,7 @@
 namespace App\Livewire\Courier;
 
 use App\Services\Courier\CourierPresenceService;
+use App\Services\Courier\Earnings\CourierBalanceSummaryService;
 use Illuminate\Support\Facades\Log;
 use Livewire\Component;
 
@@ -13,6 +14,17 @@ class OnlineToggle extends Component
     public ?string $activeOrderStatus = null;
 
     public bool $toggleInFlight = false;
+
+    /**
+     * @var array{completed_orders_count:int,gross_earnings_total:int,platform_commission_total:int,courier_net_balance:int,balance_formatted:string}
+     */
+    public array $balanceSummary = [
+        'completed_orders_count' => 0,
+        'gross_earnings_total' => 0,
+        'platform_commission_total' => 0,
+        'courier_net_balance' => 0,
+        'balance_formatted' => '0,00 ₴',
+    ];
 
     public function mount(): void
     {
@@ -38,6 +50,10 @@ class OnlineToggle extends Component
         $activeOrderStatus = $runtime['active_order_status'] ?? null;
         $this->activeOrderStatus = $activeOrderStatus;
         $this->busyWithActiveOrder = $activeOrderStatus !== null;
+
+        if ($courier) {
+            $this->balanceSummary = $this->balanceSummaryService()->forCourier($courier);
+        }
 
         if ($source === 'hydrate' && config('courier_runtime.incident_logging.enabled', false) && $courier) {
             Log::info('online_toggle_snapshot_after_hydrate', [
@@ -69,6 +85,7 @@ class OnlineToggle extends Component
             $this->online = (bool) $result['online'];
             $this->activeOrderStatus = $result['after']['active_order_status'] ?? null;
             $this->busyWithActiveOrder = $this->activeOrderStatus !== null;
+            $this->balanceSummary = $this->balanceSummaryService()->forCourier($courier);
 
             $this->dispatch(
                 'courier-online-toggled',
@@ -112,5 +129,10 @@ class OnlineToggle extends Component
     private function presenceService(): CourierPresenceService
     {
         return app(CourierPresenceService::class);
+    }
+
+    private function balanceSummaryService(): CourierBalanceSummaryService
+    {
+        return app(CourierBalanceSummaryService::class);
     }
 }
