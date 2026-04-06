@@ -5,7 +5,8 @@ namespace App\Livewire\Courier;
 use App\Models\Order;
 use App\Models\User;
 use App\Services\Courier\CourierPresenceService;
-use App\Services\Dispatch\OfferDispatcher;
+use App\Services\Dispatch\DispatchTriggerPolicy;
+use App\Services\Dispatch\DispatchTriggerService;
 use App\Support\Courier\CourierNavigationRuntime;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Log;
@@ -90,7 +91,11 @@ class MyOrders extends Component
             return;
         }
 
-        app(OfferDispatcher::class)->dispatchSearchingOrders();
+        app(DispatchTriggerService::class)->triggerQueueBatch(
+            DispatchTriggerPolicy::SOURCE_ORDER_COMPLETED,
+            (int) config('dispatch.radius_km', 20),
+            ['courier_id' => $courier->id],
+        );
 
         $this->dispatch('notify', type: 'success', message: 'Замовлення виконано');
         $this->dispatch('$refresh');

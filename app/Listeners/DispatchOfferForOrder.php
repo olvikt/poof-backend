@@ -3,7 +3,8 @@
 namespace App\Listeners;
 
 use App\Events\OrderCreated;
-use App\Services\Dispatch\OfferDispatcher;
+use App\Services\Dispatch\DispatchTriggerPolicy;
+use App\Services\Dispatch\DispatchTriggerService;
 
 class DispatchOfferForOrder
 {
@@ -19,10 +20,10 @@ class DispatchOfferForOrder
             return;
         }
 
-        /** @var OfferDispatcher $dispatcher */
-        $dispatcher = app(OfferDispatcher::class);
+        /** @var DispatchTriggerService $triggerService */
+        $triggerService = app(DispatchTriggerService::class);
 
-        $offer = $dispatcher->dispatchForOrder($order);
+        $offer = $triggerService->triggerForOrder($order, DispatchTriggerPolicy::SOURCE_ORDER_CREATED);
 
         // ❌ Никто не найден — выходим
         if (! $offer) {

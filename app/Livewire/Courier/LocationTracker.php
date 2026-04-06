@@ -5,7 +5,8 @@ namespace App\Livewire\Courier;
 use App\Models\Courier;
 use App\Models\User;
 use App\Services\Courier\CourierPresenceService;
-use App\Services\Dispatch\OfferDispatcher;
+use App\Services\Dispatch\DispatchTriggerPolicy;
+use App\Services\Dispatch\DispatchTriggerService;
 use Illuminate\Support\Facades\Log;
 use Livewire\Component;
 
@@ -40,6 +41,10 @@ class LocationTracker extends Component
 
         $this->dispatch(
             'courier:runtime-sync',
+            version: 1,
+            source: 'location_tracker_mount',
+            reason: 'canonical_snapshot_sync',
+            changed: false,
             online: (bool) ($runtime['online'] ?? false),
             status: (string) ($runtime['status'] ?? $courierProfile->status),
             snapshot: $runtime,
@@ -56,6 +61,10 @@ class LocationTracker extends Component
                 'flow' => 'courier_location',
                 'courier_id' => $user->id,
                 'payload' => [
+                    'version' => 1,
+                    'source' => 'location_tracker_mount',
+                    'reason' => 'canonical_snapshot_sync',
+                    'changed' => false,
                     'online' => (bool) ($runtime['online'] ?? false),
                     'status' => (string) ($runtime['status'] ?? $courierProfile->status),
                     'snapshot' => $runtime,
@@ -144,29 +153,20 @@ class LocationTracker extends Component
             );
         }
 
-        $hasMovedEnough = $distanceMoved === null || $distanceMoved > 50;
-        $dispatchTime = null;
+        $movementThresholdMeters = (float) config('dispatch.trigger.location_movement_threshold_meters', 50);
+        $hasMovedEnough = $distanceMoved === null || $distanceMoved > $movementThresholdMeters;
 
-        if (
-            $user->isCourierOnline() &&
-            $hasMovedEnough &&
-            (
-                ! $user->last_dispatch_at ||
-                $user->last_dispatch_at->diffInSeconds(now()) >= 5
-            )
-        ) {
-            $dispatchedCount = app(OfferDispatcher::class)->dispatchSearchingOrders();
-
-            if ($dispatchedCount > 0) {
-                $dispatchTime = now();
-                Log::info('courier_dispatch_triggered_from_location_update', [
-                    'flow' => 'courier_location',
-                    'courier_id' => $user->id,
-                    'distance_moved' => $distanceMoved,
-                    'dispatched_orders' => $dispatchedCount,
-                ]);
-            }
-        }
+        $dispatchedCount = app(DispatchTriggerService::class)->triggerQueueBatch(
+            DispatchTriggerPolicy::SOURCE_LOCATION_UPDATE,
+            (int) config('dispatch.radius_km', 20),
+            [
+                'courier_id' => $user->id,
+                'online' => $user->isCourierOnline(),
+                'distance_moved' => $distanceMoved,
+                'has_moved_enough' => $hasMovedEnough,
+                'movement_threshold_meters' => $movementThresholdMeters,
+            ],
+        );
 
         // -------------------------------------------------
         // Обновляем координаты
@@ -186,8 +186,8 @@ class LocationTracker extends Component
             ]);
         }
 
-        if ($dispatchTime) {
-            $user->update(['last_dispatch_at' => $dispatchTime]);
+        if ($dispatchedCount > 0) {
+            $user->update(['last_dispatch_at' => now()]);
         }
 
         // -------------------------------------------------

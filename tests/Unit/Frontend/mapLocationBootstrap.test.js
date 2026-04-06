@@ -5,6 +5,8 @@ import {
   buildCurrentLocationFallbackPlan,
   buildCourierRuntimeEvidenceView,
   normalizeRuntimeObservabilityReason,
+  normalizeIncomingCourierRuntimeSyncMessage,
+  buildCourierRuntimeSyncEnvelope,
   resolveMapBootstrapRejectionReason,
   shouldIgnoreStaleAddressPickerSyncPoint,
   shouldApplyPersistedLocationOnBootstrap,
@@ -160,4 +162,35 @@ test('map bootstrap rejection reason is explicit for invalid or stale coords pay
   assert.equal(resolveMapBootstrapRejectionReason(null), 'invalid_payload')
   assert.equal(resolveMapBootstrapRejectionReason({ orderLat: null, orderLng: null, courierLat: null, courierLng: null }), 'invalid_or_stale_coords')
   assert.equal(resolveMapBootstrapRejectionReason({ orderLat: 48.4671, orderLng: 35.0382 }), null)
+})
+
+
+test('runtime-sync envelope is versioned and stays non-authoritative by default', () => {
+  const envelope = buildCourierRuntimeSyncEnvelope({
+    online: true,
+    status: 'online',
+    reason: 'cross_tab_runtime_sync',
+  }, {
+    tabId: 'tab-a',
+    emittedAt: 100,
+    source: 'cross_tab_runtime_sync',
+  })
+
+  assert.equal(envelope.version, 1)
+  assert.equal(envelope.payload.version, 1)
+  assert.equal(envelope.payload.source, 'cross_tab_runtime_sync')
+  assert.equal(envelope.payload.changed, false)
+})
+
+test('malformed runtime-sync payload falls back to canonical reread action', () => {
+  const normalized = normalizeIncomingCourierRuntimeSyncMessage({
+    type: 'courier-runtime-sync',
+    tabId: 'tab-b',
+    payload: {
+      status: '',
+    },
+  }, 'tab-a')
+
+  assert.equal(normalized.action, 'reread')
+  assert.equal(normalized.reason, 'invalid_payload')
 })
