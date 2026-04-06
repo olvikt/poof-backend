@@ -13,9 +13,9 @@
 | `couriers.status` | canonical | Primary server runtime state (`offline/online/assigned/delivering`) enforced by `repairCourierRuntimeState()` + transition guards. |
 | `active order status` (`orders.status` in `accepted/in_progress`) | canonical | Domain truth that can override courier flags and block illegal offline/free states. |
 | `courierRuntimeSnapshot` payload | canonical read model | Unified server contract consumed by Livewire/API/JS; always built after runtime repair. |
-| `users.is_online` | derived (server-persisted mirror) | Synced from canonical status map via `syncRuntimeFlagsFromCourierState()`. |
-| `users.is_busy` | derived (server-persisted mirror) | Synced from canonical status and active-order reconciliation. |
-| `users.session_state` | derived (server-persisted mirror) | Session projection (`offline/ready/assigned/in_progress`) mapped from canonical runtime. |
+| `users.is_online` | compatibility projection (server-persisted mirror) | Synced from canonical status map via `syncRuntimeFlagsFromCourierState()`; **not allowed** as business/runtime truth source. |
+| `users.is_busy` | compatibility projection (server-persisted mirror) | Synced from canonical status + active-order reconciliation; **not allowed** for dispatch/runtime truth decisions. |
+| `users.session_state` | compatibility projection (server-persisted mirror) | Derived projection (`offline/ready/assigned/in_progress`) from canonical status/active-order truth; legacy display/debug only. |
 | Livewire local `online` (`AvailableOrders`, `MyOrders`, `OnlineToggle`) | optimistic-only/UI projection | Must quickly snap back to canonical snapshot; business logic cannot rely on it. |
 | map/browser runtime hints/events (`courier:runtime-sync`, cross-tab payloads) | optimistic-only/UI projection | Transport for cross-tab UX sync and observability only; not authoritative. |
 | direct UI interpretation of raw `users.*` flags | legacy / should be removed | Replaced with unified snapshot reads to avoid drift across tabs/components. |
@@ -26,10 +26,10 @@ Snapshot payload keys (stable order):
 
 | Key | Meaning | Canonical source |
 |---|---|---|
-| `online` | courier online/offline runtime bit | backend (`courierProfile.status` + runtime repair) |
-| `busy` | courier busy bit | backend (`users.is_busy` after runtime repair) |
+| `online` | courier online/offline runtime bit | backend (canonical `couriers.status` + active-order reconciliation) |
+| `busy` | courier busy bit | backend (canonical `couriers.status` + active-order reconciliation) |
 | `status` | courier business status (`offline/online/assigned/delivering`) | backend (`courierProfile.status`) |
-| `session_state` | courier session projection (`offline/ready/assigned/in_progress`) | backend (`users.session_state`) |
+| `session_state` | courier session projection (`offline/ready/assigned/in_progress`) | backend (derived from canonical `status` + active-order status) |
 | `active_order_status` | active order status (`accepted/in_progress`) or `null` | backend (`orders` query) |
 | `has_active_order` | bool projection from `active_order_status` | backend (derived during snapshot build) |
 
@@ -37,6 +37,10 @@ Snapshot payload keys (stable order):
 
 - **Canonical backend truth**: all `courierRuntimeSnapshot` fields above.
 - **Backend-derived (still canonical)**: `has_active_order` is computed from backend active order lookup.
+- **Compatibility projection layer (second-class by policy)**:
+  - `users.is_online`, `users.is_busy`, `users.session_state`.
+  - Allowed usage: admin/debug/reporting and legacy display where migration is pending.
+  - Forbidden usage: business truth, dispatch eligibility truth, canonical runtime API/read-model truth.
 - **UI projection only**:
   - `AvailableOrders::$online` during optimistic window;
   - `AvailableOrders::$lastUiOnlineSyncAt` (TTL bookkeeping);
