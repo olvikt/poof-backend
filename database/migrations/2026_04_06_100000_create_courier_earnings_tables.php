@@ -16,7 +16,6 @@ return new class extends Migration
             $table->decimal('global_commission_rate_percent', 5, 2)->default(20.00);
             $table->timestamps();
 
-            $table->check('global_commission_rate_percent >= 0 and global_commission_rate_percent <= 100');
         });
 
         Schema::create('courier_earnings', function (Blueprint $table): void {

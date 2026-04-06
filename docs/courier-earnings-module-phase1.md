@@ -52,7 +52,7 @@ A dedicated Filament resource (`CourierEarningSettingResource`) edits global com
 - min `0`
 - max `100`
 - descriptive helper text about platform deduction from courier earnings
-- DB-level check constraint as safety net
+- app-level validation in Filament form (Phase 1 compatibility-first)
 
 ## Consequences
 ### Positive
