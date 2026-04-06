@@ -177,6 +177,23 @@ function shouldEnableRuntimeDiagnostics() {
   return String(import.meta?.env?.VITE_MAP_RUNTIME_DIAGNOSTICS || '').toLowerCase() === 'true'
 }
 
+function resolveCourierMarkerLifecycle({
+  isAddressPickerFlow = false,
+  hasCourier = false,
+  hasOrder = false,
+} = {}) {
+  const hasCourierMarker = Boolean(hasCourier)
+  const hasOrderMarker = Boolean(hasOrder)
+  const hasCourierVisuals = hasCourierMarker || hasOrderMarker
+
+  return {
+    shouldRenderCourierMarker: hasCourierMarker,
+    shouldRenderOrderMarker: hasOrderMarker,
+    shouldRenderRadiusCircle: hasCourierMarker,
+    shouldClearFloatingMarker: !isAddressPickerFlow && hasCourierVisuals,
+  }
+}
+
 export default function initMap() {
   // ------------------------------------------------------------
   // Namespace
@@ -1570,8 +1587,18 @@ export default function initMap() {
     const hasCourierEffective = isValidLatLng(courierLatUse, courierLngUse)
     if (!hasCourierEffective && !hasOrder) return
 
+    const lifecycle = resolveCourierMarkerLifecycle({
+      isAddressPickerFlow: state.isAddressPickerFlow,
+      hasCourier: hasCourierEffective,
+      hasOrder,
+    })
+
+    if (lifecycle.shouldClearFloatingMarker) {
+      clearFloatingMarker(state.instance)
+    }
+
     // Courier marker + radius
-    if (hasCourierEffective) {
+    if (lifecycle.shouldRenderCourierMarker) {
       const courierLL = window.L.latLng(Number(courierLatUse), Number(courierLngUse))
 
       if (!state.debugFirstCourierCoordsLogged) {
@@ -1601,13 +1628,13 @@ export default function initMap() {
       }
 
       const rMeters = Math.max(0.1, radiusKm) * 1000
-      if (!state.radiusCircle) {
+      if (!state.radiusCircle && lifecycle.shouldRenderRadiusCircle) {
         state.radiusCircle = window.L.circle(courierLL, {
           radius: rMeters,
           weight: 1,
           fillOpacity: 0.08,
         }).addTo(state.instance)
-      } else {
+      } else if (state.radiusCircle) {
         state.radiusCircle.setLatLng(courierLL)
         state.radiusCircle.setRadius(rMeters)
       }
@@ -1627,7 +1654,7 @@ export default function initMap() {
     }
 
     // Order marker
-    if (hasOrder) {
+    if (lifecycle.shouldRenderOrderMarker) {
       const orderLL = window.L.latLng(Number(orderLat), Number(orderLng))
 
       if (!state.debugFirstOrderCoordsLogged) {
@@ -2638,6 +2665,7 @@ export {
   buildCurrentLocationFallbackPlan,
   buildCourierRuntimeEvidenceView,
   normalizeRuntimeObservabilityReason,
+  resolveCourierMarkerLifecycle,
   shouldIgnoreStaleAddressPickerSyncPoint,
   shouldApplyPersistedLocationOnBootstrap,
 }
