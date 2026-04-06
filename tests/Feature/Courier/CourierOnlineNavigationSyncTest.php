@@ -94,7 +94,7 @@ class CourierOnlineNavigationSyncTest extends TestCase
 
         Livewire::test(OnlineToggle::class)
             ->assertSet('busyWithActiveOrder', false)
-            ->assertSee('wire:click="toggleOnlineState"', false)
+            ->assertSee('wire:click.prevent.stop="toggleOnlineState"', false)
             ->assertDontSee('disabled aria-disabled="true"', false);
 
         Livewire::test(OnlineToggle::class)
@@ -106,7 +106,7 @@ class CourierOnlineNavigationSyncTest extends TestCase
 
         Livewire::test(OnlineToggle::class)
             ->assertSet('busyWithActiveOrder', false)
-            ->assertSee('wire:click="toggleOnlineState"', false)
+            ->assertSee('wire:click.prevent.stop="toggleOnlineState"', false)
             ->assertSee('🟢 На лінії', false);
 
         Livewire::test(OnlineToggle::class)
@@ -118,6 +118,17 @@ class CourierOnlineNavigationSyncTest extends TestCase
         $this->assertFalse((bool) $courier->is_online);
         $this->assertSame(Courier::STATUS_OFFLINE, $courier->courierProfile->status);
         $this->assertSame(User::SESSION_OFFLINE, $courier->session_state);
+    }
+
+    public function test_toggle_markup_keeps_click_path_and_poll_path_under_same_loading_lock(): void
+    {
+        $courier = $this->createCourier();
+        $this->actingAs($courier, 'web');
+
+        Livewire::test(OnlineToggle::class)
+            ->assertSee('wire:poll.10s="syncOnlineState(\'poll\')"', false)
+            ->assertSee('wire:target="toggleOnlineState,syncOnlineState"', false)
+            ->assertSee('wire:click.prevent.stop="toggleOnlineState"', false);
     }
 
     public function test_courier_layout_exposes_wire_navigate_links_for_real_spa_tab_switches(): void
