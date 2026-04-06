@@ -30,4 +30,14 @@ class OrderOfferBoundaryArchitectureTest extends TestCase
         $this->assertStringContainsString('markDeclined()', $stackOffer);
         $this->assertStringNotContainsString('STATUS_REJECTED', $stackOffer);
     }
+
+    public function test_dispatch_queue_selection_does_not_use_coalesce_ordering_anymore(): void
+    {
+        $dispatcher = $this->normalizedFile('app/Services/Dispatch/OfferDispatcher.php');
+
+        $this->assertStringNotContainsString('COALESCE(next_dispatch_at, created_at)', $dispatcher);
+        $this->assertStringContainsString('dispatchQueueSelection', $dispatcher);
+        $this->assertStringContainsString("->whereNotNull('next_dispatch_at')", $dispatcher);
+        $this->assertStringContainsString("->whereNull('next_dispatch_at')", $dispatcher);
+    }
 }

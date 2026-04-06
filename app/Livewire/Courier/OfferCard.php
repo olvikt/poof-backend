@@ -10,6 +10,9 @@ use Livewire\Component;
 
 class OfferCard extends Component
 {
+    private const POLL_FAST_SECONDS = 2;
+    private const POLL_SLOW_SECONDS = 12;
+
     public ?OrderOffer $offer = null;
 
     protected $listeners = [
@@ -171,6 +174,17 @@ class OfferCard extends Component
 
     public function render()
     {
-        return view('livewire.courier.offer-card');
+        $courier = $this->presenceService()->resolveAuthenticatedCourier();
+        $runtime = $this->presenceService()->snapshot($courier);
+
+        $pollIntervalSeconds = self::POLL_SLOW_SECONDS;
+
+        if ($courier instanceof User && (bool) ($runtime['online'] ?? false) && ! (bool) ($runtime['has_active_order'] ?? false)) {
+            $pollIntervalSeconds = self::POLL_FAST_SECONDS;
+        }
+
+        return view('livewire.courier.offer-card', [
+            'pollIntervalSeconds' => $pollIntervalSeconds,
+        ]);
     }
 }

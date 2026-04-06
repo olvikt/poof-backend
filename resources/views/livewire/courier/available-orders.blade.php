@@ -1,4 +1,4 @@
-<div class="relative h-[calc(100dvh-var(--courier-header-h)-var(--courier-nav-h)-env(safe-area-inset-bottom)-var(--courier-screen-bottom-gap))] min-h-[440px] w-full overflow-hidden" wire:poll.10s data-map-bootstrap='@json($mapBootstrap ?? null)'>
+<div class="relative h-[calc(100dvh-var(--courier-header-h)-var(--courier-nav-h)-env(safe-area-inset-bottom)-var(--courier-screen-bottom-gap))] min-h-[440px] w-full overflow-hidden" wire:poll.{{ $pollIntervalSeconds }}s data-map-bootstrap='@json($mapBootstrap ?? null)'>
     <div class="sr-only" aria-hidden="true" data-map-bootstrap='@json($mapBootstrap ?? null)'></div>
     <div class="relative h-full w-full overflow-hidden bg-[#070b12]" data-map-bootstrap='@json($mapBootstrap ?? null)'>
         <div wire:ignore id="map" class="absolute inset-0" data-map-bootstrap='@json($mapBootstrap ?? null)'></div>

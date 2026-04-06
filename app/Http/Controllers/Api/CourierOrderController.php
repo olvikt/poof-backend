@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api;
 use App\Actions\Orders\Lifecycle\AcceptOrderByCourierAction;
 use App\Http\Controllers\Controller;
 use App\Models\Order;
+use App\Models\OrderOffer;
 
 class CourierOrderController extends Controller
 {
@@ -17,10 +18,16 @@ class CourierOrderController extends Controller
 
         abort_if(! $courier || ! $courier->isCourier(), 403);
 
-        $orders = Order::query()
-            ->availableForCourier()
-            ->orderBy('created_at')
-            ->get();
+        $hasActiveOrder = Order::query()
+            ->where('courier_id', $courier->id)
+            ->activeForCourier()
+            ->exists();
+
+        $orders = $hasActiveOrder
+            ? collect()
+            : OrderOffer::query()
+                ->alivePendingForCourierOrders((int) $courier->id)
+                ->get();
 
         return response()->json([
             'orders' => $orders,

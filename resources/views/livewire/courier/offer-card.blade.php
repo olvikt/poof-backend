@@ -1,4 +1,4 @@
-<div wire:poll.2s="loadOffer">
+<div wire:poll.{{ $pollIntervalSeconds }}s="loadOffer">
 
     @if ($offer)
         @php

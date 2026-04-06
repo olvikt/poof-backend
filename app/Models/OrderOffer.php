@@ -6,6 +6,7 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Support\CarbonInterface;
 use Illuminate\Support\Carbon;
 
 class OrderOffer extends Model
@@ -104,6 +105,26 @@ class OrderOffer extends Model
             ->where('status', self::STATUS_PENDING)
             ->whereNotNull('expires_at')
             ->where('expires_at', '>', now());
+    }
+
+    public function scopeAlivePendingForCourierOrders($query, int $courierId, ?CarbonInterface $now = null)
+    {
+        $now = $now ?? now();
+
+        return $query
+            ->join('orders', 'orders.id', '=', 'order_offers.order_id')
+            ->where('order_offers.courier_id', $courierId)
+            ->where('order_offers.status', self::STATUS_PENDING)
+            ->whereNotNull('order_offers.expires_at')
+            ->where('order_offers.expires_at', '>', $now)
+            ->whereNull('orders.expired_at')
+            ->where(function ($query) use ($now): void {
+                $query->whereNull('orders.valid_until_at')
+                    ->orWhere('orders.valid_until_at', '>', $now);
+            })
+            ->select('orders.*')
+            ->orderByDesc('order_offers.created_at')
+            ->distinct();
     }
 
     /**
@@ -270,4 +291,3 @@ class OrderOffer extends Model
         ]);
     }
 }
-
