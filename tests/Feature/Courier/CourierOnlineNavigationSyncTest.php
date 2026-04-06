@@ -42,7 +42,7 @@ class CourierOnlineNavigationSyncTest extends TestCase
 
         Livewire::test(OnlineToggle::class)
             ->assertSet('online', false)
-            ->assertSee('⚫ Не на лінії', false);
+            ->assertSee('Не на лінії', false);
     }
 
     public function test_online_state_stays_consistent_between_available_and_my_orders_screens(): void
@@ -65,7 +65,7 @@ class CourierOnlineNavigationSyncTest extends TestCase
 
         Livewire::test(OnlineToggle::class)
             ->assertSet('online', true)
-            ->assertSee('🟢 На лінії', false);
+            ->assertSee('На лінії', false);
 
         // Simulate real tab switches by mounting both page components repeatedly.
         Livewire::test(AvailableOrders::class)
@@ -107,7 +107,7 @@ class CourierOnlineNavigationSyncTest extends TestCase
         Livewire::test(OnlineToggle::class)
             ->assertSet('busyWithActiveOrder', false)
             ->assertSee('wire:click.prevent.stop="toggleOnlineState"', false)
-            ->assertSee('🟢 На лінії', false);
+            ->assertSee('На лінії', false);
 
         Livewire::test(OnlineToggle::class)
             ->call('toggleOnlineState')
@@ -169,8 +169,8 @@ class CourierOnlineNavigationSyncTest extends TestCase
         Livewire::test(OnlineToggle::class)
             ->assertSet('online', true)
             ->assertSet('busyWithActiveOrder', true)
-            ->assertSee('🟢 На лінії', false)
-            ->assertDontSee('⚫ Не на лінії', false);
+            ->assertSee('На лінії', false)
+            ->assertDontSee('Не на лінії', false);
 
         Livewire::test(MyOrders::class)
             ->assertSet('online', true);
@@ -178,8 +178,8 @@ class CourierOnlineNavigationSyncTest extends TestCase
         Livewire::test(OnlineToggle::class)
             ->assertSet('online', true)
             ->assertSet('busyWithActiveOrder', true)
-            ->assertSee('🟢 На лінії', false)
-            ->assertDontSee('⚫ Не на лінії', false);
+            ->assertSee('На лінії', false)
+            ->assertDontSee('Не на лінії', false);
 
         $courier->refresh();
 
@@ -200,8 +200,8 @@ class CourierOnlineNavigationSyncTest extends TestCase
         Livewire::test(OnlineToggle::class)
             ->assertSet('online', true)
             ->assertSet('busyWithActiveOrder', true)
-            ->assertSee('🟢 На лінії', false)
-            ->assertDontSee('⚫ Не на лінії', false);
+            ->assertSee('На лінії', false)
+            ->assertDontSee('Не на лінії', false);
 
         Livewire::test(MyOrders::class)
             ->assertSet('online', true);
@@ -209,8 +209,8 @@ class CourierOnlineNavigationSyncTest extends TestCase
         Livewire::test(OnlineToggle::class)
             ->assertSet('online', true)
             ->assertSet('busyWithActiveOrder', true)
-            ->assertSee('🟢 На лінії', false)
-            ->assertDontSee('⚫ Не на лінії', false);
+            ->assertSee('На лінії', false)
+            ->assertDontSee('Не на лінії', false);
 
         $courier->refresh();
 
@@ -231,7 +231,7 @@ class CourierOnlineNavigationSyncTest extends TestCase
 
         Livewire::test(OnlineToggle::class)
             ->assertSet('online', false)
-            ->assertSee('⚫ Не на лінії', false);
+            ->assertSee('Не на лінії', false);
 
         Livewire::test(OnlineToggle::class)
             ->call('toggleOnlineState')
@@ -242,7 +242,7 @@ class CourierOnlineNavigationSyncTest extends TestCase
 
         Livewire::test(OnlineToggle::class)
             ->assertSet('online', true)
-            ->assertSee('🟢 На лінії', false);
+            ->assertSee('На лінії', false);
 
         Livewire::test(OnlineToggle::class)
             ->call('toggleOnlineState')
@@ -254,7 +254,7 @@ class CourierOnlineNavigationSyncTest extends TestCase
 
         Livewire::test(OnlineToggle::class)
             ->assertSet('online', false)
-            ->assertSee('⚫ Не на лінії', false);
+            ->assertSee('Не на лінії', false);
     }
 
 

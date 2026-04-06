@@ -43,14 +43,14 @@ class CourierOnlineAutoResyncTest extends TestCase
 
         $component = Livewire::test(OnlineToggle::class)
             ->assertSet('online', true)
-            ->assertSee('🟢 На лінії', false);
+            ->assertSee('На лінії', false);
 
         (new MarkInactiveCouriers())->handle();
 
         $component
             ->call('syncOnlineState')
             ->assertSet('online', false)
-            ->assertSee('⚫ Не на лінії', false);
+            ->assertSee('Не на лінії', false);
     }
 
     public function test_my_orders_actions_become_disabled_after_auto_offline_resync(): void

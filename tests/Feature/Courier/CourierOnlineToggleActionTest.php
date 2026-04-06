@@ -22,12 +22,12 @@ class CourierOnlineToggleActionTest extends TestCase
 
         Livewire::test(OnlineToggle::class)
             ->assertSet('online', false)
-            ->assertSee('⚫ Не на лінії', false)
+            ->assertSee('Не на лінії', false)
             ->call('toggleOnlineState')
             ->assertDispatched('courier-online-toggled', online: true, changed: true, reason: null)
             ->assertDispatched('courier:online')
             ->assertSet('online', true)
-            ->assertSee('🟢 На лінії', false);
+            ->assertSee('На лінії', false);
 
         $courier->refresh();
 
@@ -47,12 +47,12 @@ class CourierOnlineToggleActionTest extends TestCase
 
         Livewire::test(OnlineToggle::class)
             ->assertSet('online', true)
-            ->assertSee('🟢 На лінії', false)
+            ->assertSee('На лінії', false)
             ->call('toggleOnlineState')
             ->assertDispatched('courier-online-toggled', online: false, changed: true, reason: null)
             ->assertDispatched('courier:offline')
             ->assertSet('online', false)
-            ->assertSee('⚫ Не на лінії', false);
+            ->assertSee('Не на лінії', false);
 
         $courier->refresh();
 
