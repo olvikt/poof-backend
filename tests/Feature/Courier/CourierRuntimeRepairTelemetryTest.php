@@ -31,6 +31,23 @@ class CourierRuntimeRepairTelemetryTest extends TestCase
         Log::assertNotLogged('info', fn (string $message): bool => $message === 'courier_runtime_repair_write');
     }
 
+    public function test_snapshot_read_path_with_no_drift_does_not_emit_repair_write_marker(): void
+    {
+        Log::fake();
+
+        $user = $this->makeCourierUser(Courier::STATUS_ONLINE);
+        $user->update([
+            'is_online' => true,
+            'is_busy' => false,
+            'session_state' => User::SESSION_READY,
+        ]);
+
+        $runtime = $user->courierRuntimeSnapshot();
+
+        $this->assertTrue((bool) ($runtime['online'] ?? false));
+        Log::assertNotLogged('info', fn (string $message): bool => $message === 'courier_runtime_repair_write');
+    }
+
     public function test_repair_with_changed_mirrors_emits_marker(): void
     {
         Log::fake();

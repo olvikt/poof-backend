@@ -150,6 +150,7 @@ class CourierPresenceService
 
         return [
             'online' => (bool) ($runtime['online'] ?? false),
+            // Compatibility/debug mirrors only. Do not use as runtime truth.
             'users_is_online' => (bool) $courier->is_online,
             'users_is_busy' => (bool) $courier->is_busy,
             'users_session_state' => (string) $courier->session_state,

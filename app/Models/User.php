@@ -201,77 +201,43 @@ class User extends Authenticatable implements FilamentUser
         return $this->takenOrders()->activeForCourier()->exists();
     }
 
-    public function repairCourierRuntimeState(): void
+    /**
+     * Reconcile canonical courier runtime state and project compatibility mirrors.
+     *
+     * @return array<string,mixed>|null
+     */
+    public function repairCourierRuntimeState(bool $returnCanonicalRuntime = false): ?array
     {
         if (! $this->isCourier()) {
-            return;
+            return null;
         }
 
+        $this->loadMissing('courierProfile');
         $courier = $this->courierProfile;
 
         if (! $courier) {
-            return;
+            return null;
         }
 
-        $activeOrderStatus = $this->takenOrders()
-            ->activeForCourier()
-            ->orderByRaw("CASE WHEN status = ? THEN 0 ELSE 1 END", [Order::STATUS_IN_PROGRESS])
-            ->value('status');
+        $runtime = $this->resolveCanonicalCourierRuntime($courier);
 
-        if ($activeOrderStatus !== null) {
-            $targetStatus = $activeOrderStatus === Order::STATUS_IN_PROGRESS
-                ? Courier::STATUS_DELIVERING
-                : Courier::STATUS_ASSIGNED;
-
-            if ((string) $courier->status !== $targetStatus) {
-                $before = ['status' => (string) $courier->status];
-                $courier->update(['status' => $targetStatus]);
-                CourierRuntimeRepairTelemetry::emitIfChanged(
-                    userId: (int) $this->id,
-                    courierId: (int) $courier->id,
-                    before: $before,
-                    after: ['status' => $targetStatus],
-                    hadActiveOrder: true,
-                    courierStatus: $targetStatus,
-                    sourceContext: 'repair.active_order_enforce_status',
-                );
-            }
-
-            $this->syncRuntimeFlagsFromCourierState($targetStatus, true, 'repair.active_order_sync_flags');
-
-            return;
+        if (! is_array($runtime)) {
+            return null;
         }
 
-        $targetStatus = (string) $courier->status;
+        $targetStatus = (string) ($runtime['status'] ?? Courier::STATUS_OFFLINE);
+        $activeOrderStatus = $runtime['active_order_status'] ?? null;
+        $statusRepairSource = (string) ($runtime['status_repair_source'] ?? 'repair.enforce_status');
 
-        if (! in_array($targetStatus, [
-            Courier::STATUS_OFFLINE,
-            Courier::STATUS_ONLINE,
-            Courier::STATUS_ASSIGNED,
-            Courier::STATUS_DELIVERING,
-            Courier::STATUS_PAUSED,
-        ], true)) {
+        if (($runtime['status_repair_reason'] ?? null) === 'unknown_status') {
             Log::warning('courier_runtime_unknown_status_normalized', [
                 'flow' => 'courier_presence',
                 'user_id' => $this->id,
-                'courier_status' => $targetStatus,
+                'courier_status' => (string) $courier->status,
             ]);
-
-            $before = ['status' => (string) $courier->status];
-            $targetStatus = Courier::STATUS_OFFLINE;
-            $courier->update(['status' => $targetStatus]);
-            CourierRuntimeRepairTelemetry::emitIfChanged(
-                userId: (int) $this->id,
-                courierId: (int) $courier->id,
-                before: $before,
-                after: ['status' => $targetStatus],
-                hadActiveOrder: false,
-                courierStatus: $targetStatus,
-                sourceContext: 'repair.normalize_unknown_status',
-            );
         }
 
-        if ($targetStatus === Courier::STATUS_PAUSED) {
+        if (($runtime['status_repair_reason'] ?? null) === 'paused_normalized_to_offline') {
             if (config('courier_runtime.incident_logging.enabled', false)) {
                 Log::warning('forced_repair_or_guard_reason', [
                     'flow' => 'courier_presence',
@@ -281,21 +247,9 @@ class User extends Authenticatable implements FilamentUser
                 ]);
             }
 
-            $before = ['status' => (string) $courier->status];
-            $targetStatus = Courier::STATUS_OFFLINE;
-            $courier->update(['status' => $targetStatus]);
-            CourierRuntimeRepairTelemetry::emitIfChanged(
-                userId: (int) $this->id,
-                courierId: (int) $courier->id,
-                before: $before,
-                after: ['status' => $targetStatus],
-                hadActiveOrder: false,
-                courierStatus: $targetStatus,
-                sourceContext: 'repair.normalize_paused_status',
-            );
         }
 
-        if (in_array($targetStatus, [Courier::STATUS_ASSIGNED, Courier::STATUS_DELIVERING], true)) {
+        if (($runtime['status_repair_reason'] ?? null) === 'orphan_busy_status_normalized_to_online') {
             if (config('courier_runtime.incident_logging.enabled', false)) {
                 Log::warning('forced_repair_or_guard_reason', [
                     'flow' => 'courier_presence',
@@ -305,21 +259,25 @@ class User extends Authenticatable implements FilamentUser
                 ]);
             }
 
+        }
+
+        if ((string) $courier->status !== $targetStatus) {
             $before = ['status' => (string) $courier->status];
-            $targetStatus = Courier::STATUS_ONLINE;
             $courier->update(['status' => $targetStatus]);
             CourierRuntimeRepairTelemetry::emitIfChanged(
                 userId: (int) $this->id,
                 courierId: (int) $courier->id,
                 before: $before,
                 after: ['status' => $targetStatus],
-                hadActiveOrder: false,
+                hadActiveOrder: $activeOrderStatus !== null,
                 courierStatus: $targetStatus,
-                sourceContext: 'repair.normalize_orphan_busy_status',
+                sourceContext: $statusRepairSource,
             );
         }
 
-        $this->syncRuntimeFlagsFromCourierState($targetStatus, true, 'repair.sync_flags');
+        $this->syncRuntimeFlagsFromCourierState($targetStatus, true, 'repair.sync_flags_projection');
+
+        return $returnCanonicalRuntime ? $runtime : null;
     }
 
     public function goOnline(): void
@@ -479,6 +437,9 @@ class User extends Authenticatable implements FilamentUser
     {
         $now = now();
 
+        // Compatibility projection layer only:
+        // users.is_online / users.is_busy / users.session_state are derived mirrors
+        // and MUST NOT be treated as canonical runtime truth.
         $stateMap = [
             Courier::STATUS_OFFLINE => ['is_online' => false, 'is_busy' => false, 'session_state' => self::SESSION_OFFLINE],
             Courier::STATUS_ONLINE => ['is_online' => true, 'is_busy' => false, 'session_state' => self::SESSION_READY],
@@ -492,17 +453,37 @@ class User extends Authenticatable implements FilamentUser
             return;
         }
 
-        if ($sync['is_online']) {
-            $sync['last_seen_at'] = $now;
-        }
-
         $before = [
-            'is_online' => $this->is_online,
-            'is_busy' => $this->is_busy,
+            'is_online' => (bool) $this->is_online,
+            'is_busy' => (bool) $this->is_busy,
             'session_state' => $this->session_state,
         ];
 
-        $this->update($sync);
+        $updatePayload = [];
+
+        foreach (['is_online', 'is_busy', 'session_state'] as $field) {
+            $target = $sync[$field];
+            $current = $before[$field];
+
+            if ($field !== 'session_state') {
+                $target = (bool) $target;
+                $current = (bool) $current;
+            }
+
+            if ($current !== $target) {
+                $updatePayload[$field] = $sync[$field];
+            }
+        }
+
+        if (! $fromRepair && ($sync['is_online'] ?? false)) {
+            $updatePayload['last_seen_at'] = $now;
+        }
+
+        if ($updatePayload === []) {
+            return;
+        }
+
+        $this->update($updatePayload);
 
         if ($fromRepair) {
             CourierRuntimeRepairTelemetry::emitIfChanged(
@@ -510,15 +491,94 @@ class User extends Authenticatable implements FilamentUser
                 courierId: $this->courierProfile?->id,
                 before: $before,
                 after: [
-                    'is_online' => $this->fresh()->is_online,
-                    'is_busy' => $this->fresh()->is_busy,
-                    'session_state' => $this->fresh()->session_state,
+                    'is_online' => (bool) ($updatePayload['is_online'] ?? $before['is_online']),
+                    'is_busy' => (bool) ($updatePayload['is_busy'] ?? $before['is_busy']),
+                    'session_state' => (string) ($updatePayload['session_state'] ?? $before['session_state']),
                 ],
-                hadActiveOrder: $this->takenOrders()->activeForCourier()->exists(),
+                hadActiveOrder: in_array($status, [Courier::STATUS_ASSIGNED, Courier::STATUS_DELIVERING], true),
                 courierStatus: (string) optional($this->courierProfile)->status,
                 sourceContext: $sourceContext,
             );
         }
+    }
+
+    /**
+     * @return array<string,mixed>|null
+     */
+    private function resolveCanonicalCourierRuntime(Courier $courier): ?array
+    {
+        $activeOrderStatus = $this->takenOrders()
+            ->activeForCourier()
+            ->orderByRaw("CASE WHEN status = ? THEN 0 ELSE 1 END", [Order::STATUS_IN_PROGRESS])
+            ->value('status');
+
+        $currentStatus = (string) $courier->status;
+        $targetStatus = $currentStatus;
+        $statusRepairReason = null;
+        $statusRepairSource = null;
+
+        if ($activeOrderStatus !== null) {
+            $targetStatus = $activeOrderStatus === Order::STATUS_IN_PROGRESS
+                ? Courier::STATUS_DELIVERING
+                : Courier::STATUS_ASSIGNED;
+
+            if ($currentStatus !== $targetStatus) {
+                $statusRepairReason = 'active_order_enforced_status';
+                $statusRepairSource = 'repair.active_order_enforce_status';
+            }
+        } else {
+            if (! in_array($targetStatus, [
+                Courier::STATUS_OFFLINE,
+                Courier::STATUS_ONLINE,
+                Courier::STATUS_ASSIGNED,
+                Courier::STATUS_DELIVERING,
+                Courier::STATUS_PAUSED,
+            ], true)) {
+                $targetStatus = Courier::STATUS_OFFLINE;
+                $statusRepairReason = 'unknown_status';
+                $statusRepairSource = 'repair.normalize_unknown_status';
+            }
+
+            if ($targetStatus === Courier::STATUS_PAUSED) {
+                $targetStatus = Courier::STATUS_OFFLINE;
+                $statusRepairReason = 'paused_normalized_to_offline';
+                $statusRepairSource = 'repair.normalize_paused_status';
+            }
+
+            if (in_array($targetStatus, [Courier::STATUS_ASSIGNED, Courier::STATUS_DELIVERING], true)) {
+                $targetStatus = Courier::STATUS_ONLINE;
+                $statusRepairReason = 'orphan_busy_status_normalized_to_online';
+                $statusRepairSource = 'repair.normalize_orphan_busy_status';
+            }
+        }
+
+        $isOnline = in_array($targetStatus, [
+            Courier::STATUS_ONLINE,
+            Courier::STATUS_ASSIGNED,
+            Courier::STATUS_DELIVERING,
+        ], true);
+        $isBusy = in_array($targetStatus, [
+            Courier::STATUS_ASSIGNED,
+            Courier::STATUS_DELIVERING,
+        ], true);
+
+        $sessionState = match ($targetStatus) {
+            Courier::STATUS_ASSIGNED => self::SESSION_ASSIGNED,
+            Courier::STATUS_DELIVERING => self::SESSION_IN_PROGRESS,
+            Courier::STATUS_ONLINE => self::SESSION_READY,
+            default => self::SESSION_OFFLINE,
+        };
+
+        return [
+            'status' => $targetStatus,
+            'active_order_status' => $activeOrderStatus,
+            'has_active_order' => $activeOrderStatus !== null,
+            'online' => $isOnline,
+            'busy' => $isBusy,
+            'session_state' => $sessionState,
+            'status_repair_reason' => $statusRepairReason,
+            'status_repair_source' => $statusRepairSource,
+        ];
     }
 	
 	
