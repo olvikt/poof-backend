@@ -45,6 +45,15 @@ class LocationTracker extends Component
             snapshot: $runtime,
         );
 
+        if (config('courier_runtime.incident_logging.enabled', false)) {
+            Log::info('courier_runtime_snapshot_synced', [
+                'flow' => 'courier_location',
+                'courier_id' => $user->id,
+                'snapshot' => $runtime,
+                'last_location_at' => $courierProfile->last_location_at?->toIso8601String(),
+            ]);
+        }
+
         if (
             in_array($courierProfile->status, Courier::ACTIVE_MAP_STATUSES, true) &&
             $user->last_lat &&
@@ -93,12 +102,15 @@ class LocationTracker extends Component
             return;
         }
 
-        // ❌ фильтр неточного GPS
-        if ($accuracy && $accuracy > 100) {
+        $maxAccuracyMeters = (float) config('courier_runtime.heartbeat.max_accuracy_meters', 120);
+
+        // ❌ фильтр неточного GPS (must match frontend heartbeat acceptance guard)
+        if ($accuracy && $accuracy > $maxAccuracyMeters) {
             Log::debug('courier_location_rejected_low_accuracy', [
                 'flow' => 'courier_location',
                 'courier_id' => $user->id,
                 'accuracy' => $accuracy,
+                'max_accuracy_meters' => $maxAccuracyMeters,
             ]);
             return;
         }
@@ -143,6 +155,18 @@ class LocationTracker extends Component
         // -------------------------------------------------
 
         $user->updateLocation($lat, $lng);
+
+        if (config('courier_runtime.heartbeat.diagnostic_logging', false)) {
+            Log::info('courier_location_heartbeat_received', [
+                'flow' => 'courier_location',
+                'courier_id' => $user->id,
+                'accuracy' => $accuracy,
+                'max_accuracy_meters' => $maxAccuracyMeters,
+                'courier_status' => (string) optional($user->courierProfile)->status,
+                'last_location_at' => optional($user->courierProfile?->fresh())->last_location_at?->toIso8601String(),
+                'online' => $user->isCourierOnline(),
+            ]);
+        }
 
         if ($dispatchTime) {
             $user->update(['last_dispatch_at' => $dispatchTime]);

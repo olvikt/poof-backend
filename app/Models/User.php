@@ -364,6 +364,19 @@ class User extends Authenticatable implements FilamentUser
 
         if ($fromStatus !== $toStatus) {
             $courier->update(['status' => $toStatus]);
+
+            if (config('courier_runtime.incident_logging.enabled', false)) {
+                Log::info('courier_runtime_status_transition', [
+                    'flow' => 'courier_presence',
+                    'courier_id' => $this->id,
+                    'from_status' => $fromStatus,
+                    'to_status' => $toStatus,
+                    'force' => $force,
+                    'has_active_order' => $activeOrderStatus !== null,
+                    'active_order_status' => $activeOrderStatus,
+                    'last_location_at' => $courier->last_location_at?->toIso8601String(),
+                ]);
+            }
         }
 
         $this->syncRuntimeFlagsFromCourierState($toStatus);

@@ -46,7 +46,7 @@ class Courier extends Model
     public function scopeActiveOnMap(Builder $query): Builder
     {
         return $query->whereIn('status', self::ACTIVE_MAP_STATUSES)
-            ->where('last_location_at', '>', now()->subSeconds(60));
+            ->where('last_location_at', '>', now()->subSeconds((int) config('courier_runtime.freshness.map_active_location_seconds', 60)));
     }
 
 
