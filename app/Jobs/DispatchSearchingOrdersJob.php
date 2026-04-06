@@ -2,7 +2,8 @@
 
 namespace App\Jobs;
 
-use App\Services\Dispatch\OfferDispatcher;
+use App\Services\Dispatch\DispatchTriggerPolicy;
+use App\Services\Dispatch\DispatchTriggerService;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
@@ -13,9 +14,12 @@ class DispatchSearchingOrdersJob implements ShouldQueue
 {
     use Dispatchable, InteractsWithQueue, Queueable, SerializesModels;
 
-    public function handle(OfferDispatcher $dispatcher): void
+    public function handle(DispatchTriggerService $triggerService): void
     {
-        $dispatcher->dispatchSearchingOrders((int) config('dispatch.radius_km', 20));
+        $triggerService->triggerQueueBatch(
+            DispatchTriggerPolicy::SOURCE_SCHEDULER,
+            (int) config('dispatch.radius_km', 20),
+        );
     }
 }
 

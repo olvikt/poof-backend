@@ -119,6 +119,94 @@ function normalizeRuntimeObservabilityReason(reason, fallback = 'unspecified') {
   return normalized !== '' ? normalized : fallback
 }
 
+
+function normalizeCourierRuntimePayloadContract(payload = {}) {
+  const snapshot = payload?.snapshot && typeof payload.snapshot === 'object'
+    ? payload.snapshot
+    : payload
+
+  const online = typeof snapshot?.online === 'boolean'
+    ? snapshot.online
+    : null
+
+  const status = typeof snapshot?.status === 'string' && snapshot.status.trim() !== ''
+    ? snapshot.status.trim()
+    : null
+
+  if (online === null && status === null) return null
+
+  return {
+    version: Number(snapshot?.version || payload?.version) || 1,
+    online,
+    status,
+    reason: typeof snapshot?.reason === 'string' && snapshot.reason.trim() !== ''
+      ? snapshot.reason.trim()
+      : (typeof payload?.reason === 'string' && payload.reason.trim() !== ''
+        ? payload.reason.trim()
+        : null),
+    changed: typeof snapshot?.changed === 'boolean'
+      ? snapshot.changed
+      : (typeof payload?.changed === 'boolean' ? payload.changed : null),
+    source: typeof snapshot?.source === 'string' && snapshot.source.trim() !== ''
+      ? snapshot.source.trim()
+      : (typeof payload?.source === 'string' && payload.source.trim() !== '' ? payload.source.trim() : 'runtime_hint'),
+    busy: typeof snapshot?.busy === 'boolean'
+      ? snapshot.busy
+      : null,
+    activeOrderStatus: typeof snapshot?.active_order_status === 'string'
+      ? snapshot.active_order_status
+      : null,
+    updatedAt: Number(snapshot?.updatedAt || payload?.updatedAt) || Date.now(),
+  }
+}
+
+function buildCourierRuntimeSyncEnvelope(rawPayload = {}, options = {}) {
+  const payload = normalizeCourierRuntimePayloadContract(rawPayload)
+  if (!payload) return null
+
+  return {
+    type: 'courier-runtime-sync',
+    version: Number(options.version || payload.version) || 1,
+    tabId: options.tabId || null,
+    emittedAt: Number(options.emittedAt) || Date.now(),
+    payload: {
+      ...payload,
+      version: Number(options.version || payload.version) || 1,
+      reason: payload.reason ?? options.reason ?? null,
+      source: options.source || payload.source || 'runtime_hint',
+      changed: typeof payload.changed === 'boolean' ? payload.changed : false,
+    },
+  }
+}
+
+function normalizeIncomingCourierRuntimeSyncMessage(message = null, currentTabId = null) {
+  if (!message || message.type !== 'courier-runtime-sync') {
+    return { action: 'ignore', reason: 'wrong_message_type' }
+  }
+
+  if (message.tabId && currentTabId && message.tabId === currentTabId) {
+    return { action: 'ignore', reason: 'same_tab' }
+  }
+
+  const payload = normalizeCourierRuntimePayloadContract(message.payload || {})
+
+  if (!payload) {
+    return { action: 'reread', reason: 'invalid_payload' }
+  }
+
+  return {
+    action: 'apply',
+    reason: payload.reason ?? 'cross_tab_runtime_sync',
+    payload: {
+      ...payload,
+      version: Number(message.version || payload.version) || 1,
+      changed: typeof payload.changed === 'boolean' ? payload.changed : false,
+      source: payload.source || 'cross_tab_runtime_sync',
+    },
+  }
+}
+
+
 function buildCourierRuntimeEvidenceView({
   counters = {},
   signals = [],
@@ -400,37 +488,9 @@ export default function initMap() {
   }
 
   function normalizeCourierRuntimePayload(payload = {}) {
-    const snapshot = payload?.snapshot && typeof payload.snapshot === 'object'
-      ? payload.snapshot
-      : payload
-
-    const online = typeof snapshot?.online === 'boolean'
-      ? snapshot.online
-      : null
-
-    const status = typeof snapshot?.status === 'string' && snapshot.status.trim() !== ''
-      ? snapshot.status.trim()
-      : null
-
-    if (online === null && status === null) return null
-
-    return {
-      online,
-      status,
-      reason: typeof snapshot?.reason === 'string' && snapshot.reason.trim() !== ''
-        ? snapshot.reason.trim()
-        : (typeof payload?.reason === 'string' && payload.reason.trim() !== ''
-          ? payload.reason.trim()
-          : null),
-      busy: typeof snapshot?.busy === 'boolean'
-        ? snapshot.busy
-        : null,
-      activeOrderStatus: typeof snapshot?.active_order_status === 'string'
-        ? snapshot.active_order_status
-        : null,
-      updatedAt: Number(snapshot?.updatedAt || payload?.updatedAt) || Date.now(),
-    }
+    return normalizeCourierRuntimePayloadContract(payload)
   }
+
 
   function emitCrossTabCourierRuntimeSync(rawPayload = {}, options = {}) {
     const payload = normalizeCourierRuntimePayload(rawPayload)
@@ -448,15 +508,13 @@ export default function initMap() {
     state.crossTabRuntimeLastSignature = signature
     state.crossTabRuntimeLastEmittedAt = now
 
-    const envelope = {
-      type: 'courier-runtime-sync',
+    const envelope = buildCourierRuntimeSyncEnvelope(payload, {
       tabId: ensureCrossTabRuntimeTabId(),
       emittedAt: now,
-      payload: {
-        ...payload,
-        reason: payload.reason ?? options.reason ?? null,
-      },
-    }
+      reason: options.reason,
+      source: options.source || 'cross_tab_runtime_sync',
+    })
+    if (!envelope) return
 
     emitRuntimeSignal('cross_tab_runtime_sync_emit', envelope.payload.reason ?? options.reason ?? 'runtime_sync_emit', {
       meta: {
@@ -481,21 +539,34 @@ export default function initMap() {
   }
 
   function handleIncomingCrossTabRuntimeSync(message = null) {
-    if (!message || message.type !== 'courier-runtime-sync') return
-    if (message.tabId && message.tabId === ensureCrossTabRuntimeTabId()) return
+    const normalized = normalizeIncomingCourierRuntimeSyncMessage(message, ensureCrossTabRuntimeTabId())
 
-    const payload = normalizeCourierRuntimePayload(message.payload || {})
-    if (!payload) {
-      emitRuntimeSignal('cross_tab_runtime_sync_ignored', 'invalid_payload', {
+    if (normalized.action === 'ignore') return
+
+    if (normalized.action === 'reread') {
+      emitRuntimeSignal('cross_tab_runtime_sync_ignored', normalized.reason || 'invalid_payload', {
         level: 'warn',
       })
+
+      if (window.Livewire?.dispatch) {
+        window.Livewire.dispatch('courier-online-toggled', {
+          changed: false,
+          reason: 'cross_tab_runtime_sync_malformed',
+          source: 'cross_tab_runtime_sync',
+        })
+      }
+
       return
     }
 
-    emitRuntimeSignal('cross_tab_runtime_sync_repair_applied', payload.reason ?? 'cross_tab_runtime_sync', {
+    const payload = normalized.payload || {}
+
+    emitRuntimeSignal('cross_tab_runtime_sync_repair_applied', normalized.reason || 'cross_tab_runtime_sync', {
       meta: {
         online: payload.online,
         status: payload.status,
+        version: payload.version,
+        source: payload.source,
       },
     })
 
@@ -509,7 +580,8 @@ export default function initMap() {
     if (window.Livewire?.dispatch) {
       window.Livewire.dispatch('courier-online-toggled', {
         changed: false,
-        reason: payload.reason ?? 'cross_tab_runtime_sync',
+        reason: normalized.reason || 'cross_tab_runtime_sync',
+        source: payload.source || 'cross_tab_runtime_sync',
       })
     }
   }
@@ -2665,6 +2737,8 @@ export {
   buildCurrentLocationFallbackPlan,
   buildCourierRuntimeEvidenceView,
   normalizeRuntimeObservabilityReason,
+  normalizeIncomingCourierRuntimeSyncMessage,
+  buildCourierRuntimeSyncEnvelope,
   resolveCourierMarkerLifecycle,
   shouldIgnoreStaleAddressPickerSyncPoint,
   shouldApplyPersistedLocationOnBootstrap,
