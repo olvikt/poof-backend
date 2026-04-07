@@ -34,19 +34,25 @@ test.describe('minimal blocking interactive lane', () => {
 
     const geoActionState = await page.evaluate(async () => {
       return await new Promise((resolve) => {
-        const timeout = window.setTimeout(() => resolve(null), 8_000);
-
-        window.addEventListener('poof:geo-action-state', (event) => {
+        const onState = (event) => {
           const detail = event?.detail || {};
           if (detail.status !== 'error') return;
 
+          window.removeEventListener('poof:geo-action-state', onState);
           clearTimeout(timeout);
           resolve({
             status: detail.status,
             message: detail.message,
             source: detail.source,
           });
-        }, { once: true });
+        };
+
+        const timeout = window.setTimeout(() => {
+          window.removeEventListener('poof:geo-action-state', onState);
+          resolve(null);
+        }, 8_000);
+
+        window.addEventListener('poof:geo-action-state', onState);
 
         window.dispatchEvent(new CustomEvent('use-current-location'));
       });
