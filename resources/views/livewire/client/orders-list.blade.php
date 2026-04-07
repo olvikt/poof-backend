@@ -2,7 +2,8 @@
 
 <div class="shadow-[0_0_0_1px_rgba(74,222,128,0.25)]
             min-h-screen bg-gray-950 text-white
-            px-4 pt-4 pb-28 rounded-xl">
+            px-4 pt-4 pb-28 rounded-xl"
+     wire:poll.visible.{{ $pollIntervalSeconds }}s="refreshOrders">
 
     {{-- TITLE --}}
     <h1 class="text-lg font-semibold mb-4">
@@ -85,6 +86,10 @@
                 @php
                     $isInProgress = $order->status === 'in_progress';
                     $isPayPending = $order->payment_status === \App\Models\Order::PAY_PENDING;
+                    $canShowCancelCta = in_array($order->status, [
+                        \App\Models\Order::STATUS_NEW,
+                        \App\Models\Order::STATUS_SEARCHING,
+                    ], true) && $order->canBeCancelled();
                 @endphp
 
                 <div
@@ -164,7 +169,7 @@
                                 </a>
                             @endif
 
-                            @if($order->canBeCancelled())
+                            @if($canShowCancelCta)
                                 {{-- CANCEL --}}
                             <button
                                 type="button"
@@ -201,17 +206,20 @@
 
             @forelse($historyOrders as $order)
 
-                @php $isCancelled = $order->status === \App\Models\Order::STATUS_CANCELLED; @endphp
+                @php
+                    $isCancelled = $order->status === \App\Models\Order::STATUS_CANCELLED;
+                    $isExpired = $order->status === \App\Models\Order::STATUS_EXPIRED;
+                @endphp
 
                 <div class="rounded-xl px-4 py-4 border
-                    {{ $isCancelled
+                    {{ ($isCancelled || $isExpired)
                         ? 'bg-red-950/40 border-red-500/40'
                         : 'bg-gray-800 border-gray-700' }}">
 
                     {{-- STATUS + PRICE --}}
                     <div class="flex items-center justify-between mb-2">
                         <span class="text-xs font-semibold
-                            {{ $isCancelled ? 'text-red-300' : 'text-gray-300' }}">
+                            {{ ($isCancelled || $isExpired) ? 'text-red-300' : 'text-gray-300' }}">
                             {{ $order->promiseStatusLabelForClient() }}
                         </span>
 

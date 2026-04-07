@@ -183,4 +183,146 @@ class ClientOrdersPaymentUxTest extends TestCase
             'status' => Order::STATUS_IN_PROGRESS,
         ]);
     }
+
+    public function test_active_order_card_converges_to_accepted_status_after_consistency_refresh_without_page_reload(): void
+    {
+        $client = User::factory()->create([
+            'role' => User::ROLE_CLIENT,
+            'is_active' => true,
+        ]);
+        $courier = User::factory()->create([
+            'role' => User::ROLE_COURIER,
+            'is_active' => true,
+        ]);
+
+        $order = Order::createForTesting([
+            'client_id' => $client->id,
+            'status' => Order::STATUS_SEARCHING,
+            'payment_status' => Order::PAY_PAID,
+            'address_text' => 'вул. Консистентності, 8',
+            'price' => 275,
+        ]);
+
+        $this->actingAs($client, 'web');
+
+        $component = Livewire::test(OrdersList::class)
+            ->assertSee('Шукаємо курʼєра');
+
+        $order->update([
+            'status' => Order::STATUS_ACCEPTED,
+            'courier_id' => $courier->id,
+            'accepted_at' => now(),
+        ]);
+
+        $component->call('refreshOrders')
+            ->assertSee('Курʼєр знайдений')
+            ->assertDontSee('Шукаємо курʼєра');
+    }
+
+    public function test_active_order_card_converges_to_done_and_moves_to_history_after_consistency_refresh_without_page_reload(): void
+    {
+        $client = User::factory()->create([
+            'role' => User::ROLE_CLIENT,
+            'is_active' => true,
+        ]);
+
+        $order = Order::createForTesting([
+            'client_id' => $client->id,
+            'status' => Order::STATUS_IN_PROGRESS,
+            'payment_status' => Order::PAY_PAID,
+            'address_text' => 'вул. Фінішна, 14',
+            'price' => 305,
+        ]);
+
+        $this->actingAs($client, 'web');
+
+        $component = Livewire::test(OrdersList::class)
+            ->assertSee('вул. Фінішна, 14')
+            ->assertSee('Виконується');
+
+        $order->update([
+            'status' => Order::STATUS_DONE,
+            'completed_at' => now(),
+        ]);
+
+        $component->call('refreshOrders')
+            ->assertDontSee('вул. Фінішна, 14')
+            ->call('switchTab', 'history')
+            ->assertSee('вул. Фінішна, 14')
+            ->assertSee('Виконано');
+    }
+
+    public function test_cancel_cta_is_hidden_after_order_moves_to_accepted_or_in_progress_after_consistency_refresh(): void
+    {
+        $client = User::factory()->create([
+            'role' => User::ROLE_CLIENT,
+            'is_active' => true,
+        ]);
+        $courier = User::factory()->create([
+            'role' => User::ROLE_COURIER,
+            'is_active' => true,
+        ]);
+
+        $acceptedOrder = Order::createForTesting([
+            'client_id' => $client->id,
+            'status' => Order::STATUS_SEARCHING,
+            'payment_status' => Order::PAY_PAID,
+            'address_text' => 'вул. Прийнята, 1',
+            'price' => 199,
+        ]);
+
+        $this->actingAs($client, 'web');
+
+        $component = Livewire::test(OrdersList::class)->assertSee('Скасувати');
+
+        $acceptedOrder->update([
+            'status' => Order::STATUS_ACCEPTED,
+            'courier_id' => $courier->id,
+            'accepted_at' => now(),
+        ]);
+
+        $component->call('refreshOrders')
+            ->assertDontSee('Скасувати');
+
+        $acceptedOrder->update([
+            'status' => Order::STATUS_IN_PROGRESS,
+            'started_at' => now(),
+        ]);
+
+        $component->call('refreshOrders')
+            ->assertDontSee('Скасувати');
+    }
+
+    public function test_expired_orders_move_from_active_to_history_after_consistency_refresh_and_tabs_remain_correct(): void
+    {
+        $client = User::factory()->create([
+            'role' => User::ROLE_CLIENT,
+            'is_active' => true,
+        ]);
+
+        $order = Order::createForTesting([
+            'client_id' => $client->id,
+            'status' => Order::STATUS_SEARCHING,
+            'payment_status' => Order::PAY_PAID,
+            'address_text' => 'вул. Прострочена, 9',
+            'price' => 180,
+        ]);
+
+        $this->actingAs($client, 'web');
+
+        $component = Livewire::test(OrdersList::class)
+            ->assertSee('вул. Прострочена, 9');
+
+        $order->update([
+            'status' => Order::STATUS_EXPIRED,
+            'expired_at' => now(),
+            'expired_reason' => Order::EXPIRED_REASON_COURIER_NOT_FOUND_WITHIN_VALIDITY,
+        ]);
+
+        $component->call('refreshOrders')
+            ->assertDontSee('вул. Прострочена, 9')
+            ->call('switchTab', 'history')
+            ->assertSee('вул. Прострочена, 9')
+            ->assertSee('Протерміновано');
+    }
 }

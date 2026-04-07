@@ -8,6 +8,9 @@ use Illuminate\Support\Collection;
 
 class OrdersList extends Component
 {
+    private const POLL_ACTIVE_SECONDS = 8;
+    private const POLL_IDLE_SECONDS = 20;
+
     /** UI */
     public string $tab = 'active'; // active | history
 
@@ -20,6 +23,10 @@ class OrdersList extends Component
     public ?string $cancelFeedback = null;
     public string $cancelFeedbackType = 'info';
 
+    protected $listeners = [
+        'order-updated' => 'refreshOrders',
+    ];
+
     public function mount(): void
     {
         $payment = request()->query('payment');
@@ -29,6 +36,11 @@ class OrdersList extends Component
         $this->paymentOrderId = is_numeric($orderId) ? (int) $orderId : null;
         $this->showPaymentSuccessModal = $this->paymentStatus === 'success';
 
+        $this->loadOrders();
+    }
+
+    public function refreshOrders(): void
+    {
         $this->loadOrders();
     }
 
@@ -54,6 +66,7 @@ class OrdersList extends Component
             ->whereNotIn('status', [
                 Order::STATUS_DONE,
                 Order::STATUS_CANCELLED,
+                Order::STATUS_EXPIRED,
             ])
             ->orderByDesc('created_at')
             ->get();
@@ -65,9 +78,17 @@ class OrdersList extends Component
             ->whereIn('status', [
                 Order::STATUS_DONE,
                 Order::STATUS_CANCELLED,
+                Order::STATUS_EXPIRED,
             ])
             ->orderByDesc('created_at')
             ->get();
+    }
+
+    public function pollIntervalSeconds(): int
+    {
+        return $this->activeOrders->isEmpty()
+            ? self::POLL_IDLE_SECONDS
+            : self::POLL_ACTIVE_SECONDS;
     }
 
     /* =========================================================
@@ -144,6 +165,7 @@ class OrdersList extends Component
             'activeOrders'  => $this->activeOrders,
             'historyOrders' => $this->historyOrders,
             'tab'           => $this->tab,
+            'pollIntervalSeconds' => $this->pollIntervalSeconds(),
         ])->layout('layouts.client');
     }
 }
