@@ -47,3 +47,15 @@ export function shouldShowDefaultCityUnconfirmedState({
 
   return !courierConfirmed
 }
+
+export function buildDeniedGeolocationUiState({
+  source = 'unknown',
+  message = 'Не вдалося отримати доступ до геолокації. Дозвольте доступ у налаштуваннях браузера/застосунку або виберіть адресу вручну.',
+} = {}) {
+  return {
+    status: 'error',
+    message: String(message || '').trim() || 'Не вдалося отримати доступ до геолокації.',
+    source,
+    reason: 'permission_denied',
+  }
+}

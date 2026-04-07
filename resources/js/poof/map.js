@@ -15,7 +15,18 @@
  * - Tile layer error logging + readiness hooks
  * - Safe mount timing (layout-ready) + robust invalidate
  */
-import { shouldShowDefaultCityUnconfirmedState } from './geolocation-hotfix.js'
+import { buildDeniedGeolocationUiState, shouldShowDefaultCityUnconfirmedState } from './geolocation-hotfix.js'
+
+if (typeof window !== 'undefined' && window.__poofUseCurrentLocationPendingBound !== true) {
+  window.__poofUseCurrentLocationPendingBound = true
+  window.__poofUseCurrentLocationPending = false
+
+  window.addEventListener('use-current-location', () => {
+    if (!window.POOF?.map?.handlersBound) {
+      window.__poofUseCurrentLocationPending = true
+    }
+  })
+}
 
 function isFiniteLatLngForBootstrap(lat, lng) {
   const latN = Number(lat)
@@ -1083,6 +1094,12 @@ export default function initMap() {
     const message = getGeolocationErrorMessage(error, options)
     const code = Number(error?.code) || null
     const permissionDenied = code === 1
+    const deniedUiState = permissionDenied
+      ? buildDeniedGeolocationUiState({
+        source: options.source || 'unknown',
+        message,
+      })
+      : null
 
     if (options.markResolved !== false) {
       setUserLocationResolving(false, { resolved: true })
@@ -1094,12 +1111,17 @@ export default function initMap() {
       type: options.type || 'error',
     })
 
-    emitGeoActionState({
-      status: 'error',
-      message,
-      code: Number(error?.code) || null,
-      source: options.source || 'unknown',
-    })
+    emitGeoActionState(permissionDenied
+      ? {
+        ...deniedUiState,
+        code,
+      }
+      : {
+        status: 'error',
+        message,
+        code,
+        source: options.source || 'unknown',
+      })
 
     if (options.log !== false && !permissionDenied) {
       console.error('Geolocation error', error)
@@ -2526,6 +2548,7 @@ async function buildRoute(fromLat, fromLng, toLat, toLng) {
   window.addEventListener('use-current-location', () => {
     if (state.geoActionInFlight) return
 
+    window.__poofUseCurrentLocationPending = false
     emitCourierGeoMarker('client_use_current_location_triggered', {
       source: 'window_event',
     })
@@ -2726,6 +2749,12 @@ window.addEventListener('build-route', (e) => {
   // Bootstrap
   // ------------------------------------------------------------
   bindGlobalHandlersOnce()
+  if (window.__poofUseCurrentLocationPending === true) {
+    window.__poofUseCurrentLocationPending = false
+    setTimeout(() => {
+      window.dispatchEvent(new CustomEvent('use-current-location'))
+    }, 0)
+  }
   if (!state.runtimeEvidenceRequestBound) {
     state.runtimeEvidenceRequestBound = true
     window.addEventListener('poof:courier-runtime-evidence-request', async (event) => {

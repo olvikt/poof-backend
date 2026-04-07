@@ -2,6 +2,7 @@ import test from 'node:test'
 import assert from 'node:assert/strict'
 
 import {
+  buildDeniedGeolocationUiState,
   normalizeRuntimeOnlineState,
   shouldShowDefaultCityUnconfirmedState,
   shouldStartCourierTracker,
@@ -66,4 +67,18 @@ test('already started watch does not re-trigger geolocation acquisition', () => 
   })
 
   assert.equal(result, false)
+})
+
+test('denied geolocation always maps to explicit degraded-safe UI payload', () => {
+  const uiState = buildDeniedGeolocationUiState({
+    source: 'event',
+    message: 'Доступ до геолокації заборонено.',
+  })
+
+  assert.deepEqual(uiState, {
+    status: 'error',
+    message: 'Доступ до геолокації заборонено.',
+    source: 'event',
+    reason: 'permission_denied',
+  })
 })
