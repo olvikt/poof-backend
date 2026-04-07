@@ -57,8 +57,6 @@ class CanonicalOrderCreatePayload
             'comment' => $this->attributes['comment'] ?? null,
             'service_mode' => $this->attributes['service_mode'] ?? null,
             'client_wait_preference' => $this->attributes['client_wait_preference'] ?? null,
-            'handover_type' => $this->attributes['handover_type'] ?? Order::HANDOVER_DOOR,
-            'completion_policy' => $this->attributes['completion_policy'] ?? Order::COMPLETION_POLICY_NONE,
         ];
     }
 

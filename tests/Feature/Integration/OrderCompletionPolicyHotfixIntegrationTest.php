@@ -9,6 +9,7 @@ use App\Livewire\Courier\MyOrders;
 use App\Models\Order;
 use App\Models\OrderCompletionProof;
 use App\Models\OrderCompletionRequest;
+use App\Models\ClientAddress;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Laravel\Sanctum\Sanctum;
@@ -135,6 +136,81 @@ class OrderCompletionPolicyHotfixIntegrationTest extends TestCase
             'order_id' => $orderForDispute->id,
             'status' => OrderCompletionRequest::STATUS_DISPUTED,
         ]);
+    }
+
+    public function test_canonical_api_contract_remains_stable_and_pending_order_not_visible_to_courier(): void
+    {
+        $client = User::factory()->create(['role' => User::ROLE_CLIENT, 'is_active' => true]);
+        $address = ClientAddress::query()->create([
+            'user_id' => $client->id,
+            'title' => 'Дім',
+            'address_text' => 'вул. API стабільність, 1',
+            'lat' => 48.4572,
+            'lng' => 35.0308,
+            'is_default' => true,
+        ]);
+
+        Sanctum::actingAs($client);
+        $response = $this->postJson('/api/orders', [
+            'type' => 'one_time',
+            'service' => 'trash_removal',
+            'bags_count' => 2,
+            'total_weight_kg' => 5.0,
+            'scheduled_date' => '2026-04-07',
+            'time_from' => '10:00',
+            'time_to' => '12:00',
+            'address_id' => $address->id,
+        ]);
+
+        $response->assertCreated()
+            ->assertJsonMissingPath('order.handover_type')
+            ->assertJsonMissingPath('order.order_type')
+            ->assertJsonMissingPath('order.completion_policy')
+            ->assertJsonPath('order.status', Order::STATUS_NEW)
+            ->assertJsonPath('order.payment_status', Order::PAY_PENDING);
+
+        $orderId = (int) $response->json('order.id');
+        $this->assertDatabaseHas('orders', [
+            'id' => $orderId,
+            'status' => Order::STATUS_NEW,
+            'payment_status' => Order::PAY_PENDING,
+        ]);
+
+        $courier = User::factory()->create(['role' => User::ROLE_COURIER, 'is_active' => true]);
+        Sanctum::actingAs($courier);
+
+        $this->getJson('/api/orders/available')
+            ->assertOk()
+            ->assertJsonCount(0, 'orders');
+    }
+
+    public function test_canonical_api_still_uses_default_address_when_address_id_missing(): void
+    {
+        $client = User::factory()->create(['role' => User::ROLE_CLIENT, 'is_active' => true]);
+        $defaultAddress = ClientAddress::query()->create([
+            'user_id' => $client->id,
+            'title' => 'Дім',
+            'address_text' => 'вул. За замовчуванням, 10',
+            'lat' => 48.4600,
+            'lng' => 35.0400,
+            'is_default' => true,
+        ]);
+
+        Sanctum::actingAs($client);
+
+        $response = $this->postJson('/api/orders', [
+            'type' => 'one_time',
+            'service' => 'trash_removal',
+            'bags_count' => 1,
+            'total_weight_kg' => 1.5,
+            'scheduled_date' => '2026-04-07',
+            'time_from' => '09:00',
+            'time_to' => '10:00',
+        ]);
+
+        $response->assertCreated()
+            ->assertJsonPath('order.address_id', $defaultAddress->id)
+            ->assertJsonPath('order.address_text', $defaultAddress->address_text);
     }
 
     private function createDoorOrderViaLivewire(User $client): Order
