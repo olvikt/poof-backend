@@ -15,6 +15,7 @@
  * - Tile layer error logging + readiness hooks
  * - Safe mount timing (layout-ready) + robust invalidate
  */
+import { shouldShowDefaultCityUnconfirmedState } from './geolocation-hotfix.js'
 
 function isFiniteLatLngForBootstrap(lat, lng) {
   const latN = Number(lat)
@@ -389,6 +390,7 @@ export default function initMap() {
     runtimeSignalHistory: [],
     authSessionLost: false,
     runtimeEvidenceRequestBound: false,
+    defaultCityFallbackLogged: false,
   }
 
   const state = POOF.map
@@ -1039,6 +1041,17 @@ export default function initMap() {
     }
   }
 
+  function emitCourierGeoMarker(event, detail = {}, level = 'info') {
+    window.dispatchEvent(new CustomEvent('poof:courier-geo-marker', {
+      detail: {
+        event,
+        level,
+        ts: Date.now(),
+        ...detail,
+      },
+    }))
+  }
+
   function emitGeoActionState(detail = {}) {
     window.dispatchEvent(new CustomEvent('poof:geo-action-state', { detail }))
   }
@@ -1089,6 +1102,12 @@ export default function initMap() {
     if (options.log !== false) {
       console.error('Geolocation error', error)
     }
+
+    emitCourierGeoMarker('geolocation_denied_or_error', {
+      source: options.source || 'unknown',
+      code: Number(error?.code) || null,
+      message,
+    }, 'error')
 
     return message
   }
@@ -1181,7 +1200,14 @@ export default function initMap() {
           closeAddressBook: options.closeAddressBook === true,
         })) {
           handleGeolocationError({ code: 2 }, options)
+          return
         }
+
+        emitCourierGeoMarker('first_geolocation_payload_received', {
+          source: options.successSource || options.source || 'user',
+          lat: Number(lat),
+          lng: Number(lng),
+        })
       },
       async (error) => {
         if (options.explicitAction) {
@@ -1657,7 +1683,33 @@ export default function initMap() {
     }
 
     const hasCourierEffective = isValidLatLng(courierLatUse, courierLngUse)
-    if (!hasCourierEffective && !hasOrder) return
+    if (!hasCourierEffective && !hasOrder) {
+      const shouldWarnDefaultFallback = shouldShowDefaultCityUnconfirmedState({
+        hasOrder,
+        hasCourierCoords: hasCourierEffective,
+        courierConfirmed: false,
+      })
+
+      if (shouldWarnDefaultFallback && !state.defaultCityFallbackLogged) {
+        state.defaultCityFallbackLogged = true
+        emitRuntimeSignal('map_default_city_used', 'courier_unconfirmed_no_coords', {
+          level: 'warn',
+          meta: {
+            source: payload.source || 'unknown',
+          },
+        })
+        emitCourierGeoMarker('map_fallback_default_city_used', {
+          source: payload.source || 'unknown',
+          reason: 'courier_unconfirmed_no_coords',
+        }, 'warn')
+        dispatchMapUiError('Фактична локація курʼєра не підтверджена. Мапа показує місто за замовчуванням, доки браузер не надасть геолокацію.', {
+          type: 'warning',
+        })
+      }
+      return
+    }
+
+    state.defaultCityFallbackLogged = false
 
     const lifecycle = resolveCourierMarkerLifecycle({
       isAddressPickerFlow: state.isAddressPickerFlow,
@@ -2469,6 +2521,10 @@ async function buildRoute(fromLat, fromLng, toLat, toLng) {
 
   window.addEventListener('use-current-location', () => {
     if (state.geoActionInFlight) return
+
+    emitCourierGeoMarker('client_use_current_location_triggered', {
+      source: 'window_event',
+    })
 
     requestCurrentLocation({
       explicitAction: true,

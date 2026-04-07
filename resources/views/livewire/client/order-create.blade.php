@@ -609,7 +609,7 @@
 						<button
 							type="button"
 							x-data
-							@click="$dispatch('use-current-location')"
+							@click="window.dispatchEvent(new CustomEvent('use-current-location'))"
 							class="inline-flex w-full sm:w-auto items-center justify-center gap-2 p-4 rounded-xl border border-neutral-700 hover:bg-neutral-800 text-white font-medium transition"
 						>
 							<span>📍</span>
