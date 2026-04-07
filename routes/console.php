@@ -87,6 +87,7 @@ Schedule::call(function (): void {
 
 Schedule::call(function (): void {
     /** @var PendingOfferSweeper $service */
+
     $service = app(PendingOfferSweeper::class);
     $service->run((int) config('courier_runtime.pending_offer_sweeper.limit', 200));
 })
@@ -94,6 +95,11 @@ Schedule::call(function (): void {
 ->description('Expire pending order offers by TTL in bounded batches')
 ->everyMinute();
 
+
+Schedule::command('orders:completion-proof:auto-confirm --limit=100')
+    ->name('poof-completion-proof-auto-confirm')
+    ->description('Auto-confirm due proof completion requests')
+    ->everyMinute();
 Artisan::command('orders:auto-expire {--limit=200}', function () {
     $limit = max(1, (int) $this->option('limit'));
     /** @var OrderAutoExpireService $service */

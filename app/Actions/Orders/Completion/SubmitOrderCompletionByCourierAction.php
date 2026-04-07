@@ -81,7 +81,7 @@ class SubmitOrderCompletionByCourierAction
             $request->forceFill([
                 'status' => OrderCompletionRequest::STATUS_AWAITING_CLIENT_CONFIRMATION,
                 'submitted_at' => now(),
-                'auto_confirmation_due_at' => now()->addHours(24),
+                'auto_confirmation_due_at' => now()->addHours(max(1, (int) config('order_completion_proof.auto_confirm_hours', 24))),
             ])->save();
 
             Log::info('completion_submitted', [

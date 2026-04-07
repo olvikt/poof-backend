@@ -17,11 +17,15 @@ class ConfirmOrderCompletionByClientAction
     {
     }
 
-    public function handle(Order $order): bool
+    public function handle(Order $order, ?User $client = null): bool
     {
-        return (bool) DB::transaction(function () use ($order) {
+        return (bool) DB::transaction(function () use ($order, $client) {
             $lockedOrder = Order::query()->whereKey($order->id)->lockForUpdate()->first();
             if (! $lockedOrder) {
+                return false;
+            }
+
+            if ($client && (int) $lockedOrder->client_id !== (int) $client->id) {
                 return false;
             }
 
@@ -34,19 +38,29 @@ class ConfirmOrderCompletionByClientAction
                 return false;
             }
 
-            if ($request->status === OrderCompletionRequest::STATUS_CLIENT_CONFIRMED) {
+            if ($request->status === OrderCompletionRequest::STATUS_CLIENT_CONFIRMED || $request->status === OrderCompletionRequest::STATUS_AUTO_CONFIRMED) {
                 Log::info('completion_duplicate_guard_hit', [
                     'flow' => 'order_completion_proof',
                     'order_id' => $lockedOrder->id,
                     'courier_id' => $request->courier_id,
+                    'client_id' => $client?->id,
                     'completion_request_id' => $request->id,
-                    'reason' => 'already_client_confirmed',
+                    'reason' => 'already_confirmed',
                 ]);
 
                 return true;
             }
 
             if ($request->status !== OrderCompletionRequest::STATUS_AWAITING_CLIENT_CONFIRMATION) {
+                Log::info('completion_invalid_transition_guard_hit', [
+                    'flow' => 'order_completion_proof',
+                    'order_id' => $lockedOrder->id,
+                    'client_id' => $client?->id,
+                    'completion_request_id' => $request->id,
+                    'status_before' => $request->status,
+                    'reason' => 'confirm_invalid_status',
+                ]);
+
                 return false;
             }
 
@@ -65,6 +79,7 @@ class ConfirmOrderCompletionByClientAction
                 'flow' => 'order_completion_proof',
                 'order_id' => $lockedOrder->id,
                 'courier_id' => $courier->id,
+                'client_id' => $client?->id,
                 'completion_request_id' => $request->id,
                 'status_before' => $statusBefore,
                 'status_after' => $request->status,
