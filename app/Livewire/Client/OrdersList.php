@@ -2,9 +2,12 @@
 
 namespace App\Livewire\Client;
 
+use App\Actions\Orders\Completion\ConfirmOrderCompletionByClientAction;
+use App\Actions\Orders\Completion\CreateOrderCompletionDisputeAction;
+use App\Actions\Orders\Completion\GetOrderCompletionClientPayloadAction;
 use App\Models\Order;
-use Livewire\Component;
 use Illuminate\Support\Collection;
+use Livewire\Component;
 
 class OrdersList extends Component
 {
@@ -47,6 +50,8 @@ class OrdersList extends Component
     protected function loadOrders(): void
     {
         $userId = auth()->id();
+        $client = auth()->user();
+
         $excludeSubscriptionExecutions = function ($query): void {
             $query->whereNull('subscription_id')
                 ->where(function ($q): void {
@@ -59,29 +64,39 @@ class OrdersList extends Component
                 });
         };
 
-        // Активные заказы
         $this->activeOrders = Order::query()
             ->where('client_id', $userId)
             ->where($excludeSubscriptionExecutions)
+            ->with(['completionRequest.proofs'])
             ->whereNotIn('status', [
                 Order::STATUS_DONE,
                 Order::STATUS_CANCELLED,
                 Order::STATUS_EXPIRED,
             ])
             ->orderByDesc('created_at')
-            ->get();
+            ->get()
+            ->map(function (Order $order) use ($client) {
+                $order->completionProofPayload = app(GetOrderCompletionClientPayloadAction::class)->handle($order, $client);
 
-        // История заказов
+                return $order;
+            });
+
         $this->historyOrders = Order::query()
             ->where('client_id', $userId)
             ->where($excludeSubscriptionExecutions)
+            ->with(['completionRequest.proofs'])
             ->whereIn('status', [
                 Order::STATUS_DONE,
                 Order::STATUS_CANCELLED,
                 Order::STATUS_EXPIRED,
             ])
             ->orderByDesc('created_at')
-            ->get();
+            ->get()
+            ->map(function (Order $order) use ($client) {
+                $order->completionProofPayload = app(GetOrderCompletionClientPayloadAction::class)->handle($order, $client);
+
+                return $order;
+            });
     }
 
     public function pollIntervalSeconds(): int
@@ -90,10 +105,6 @@ class OrdersList extends Component
             ? self::POLL_IDLE_SECONDS
             : self::POLL_ACTIVE_SECONDS;
     }
-
-    /* =========================================================
-     |  ACTIONS
-     | ========================================================= */
 
     public function switchTab(string $tab): void
     {
@@ -143,9 +154,32 @@ class OrdersList extends Component
         $this->loadOrders();
     }
 
-    /**
-     * 🔁 Повтор заказа из истории
-     */
+    public function confirmCompletion(int $orderId): void
+    {
+        $order = Order::query()->whereKey($orderId)->where('client_id', auth()->id())->first();
+
+        if (! $order || ! app(ConfirmOrderCompletionByClientAction::class)->handle($order, auth()->user())) {
+            $this->dispatch('notify', type: 'error', message: 'Неможливо підтвердити завершення замовлення.');
+            return;
+        }
+
+        $this->dispatch('notify', type: 'success', message: 'Замовлення підтверджено. Дякуємо!');
+        $this->loadOrders();
+    }
+
+    public function disputeCompletion(int $orderId): void
+    {
+        $order = Order::query()->whereKey($orderId)->where('client_id', auth()->id())->first();
+
+        if (! $order || ! app(CreateOrderCompletionDisputeAction::class)->handle($order, auth()->user(), 'proof_mismatch', null)) {
+            $this->dispatch('notify', type: 'error', message: 'Неможливо відкрити спір для цього замовлення.');
+            return;
+        }
+
+        $this->dispatch('notify', type: 'success', message: 'Спір відкрито. Підтримка перевірить звернення.');
+        $this->loadOrders();
+    }
+
     public function repeatOrder(int $orderId): void
     {
         $order = Order::query()
@@ -155,16 +189,16 @@ class OrdersList extends Component
 
         $this->redirectRoute('client.order.create', [
             'address_id' => $order->address_id,
-            'repeat'     => $order->id,
+            'repeat' => $order->id,
         ]);
     }
 
     public function render()
     {
         return view('livewire.client.orders-list', [
-            'activeOrders'  => $this->activeOrders,
+            'activeOrders' => $this->activeOrders,
             'historyOrders' => $this->historyOrders,
-            'tab'           => $this->tab,
+            'tab' => $this->tab,
             'pollIntervalSeconds' => $this->pollIntervalSeconds(),
         ])->layout('layouts.client');
     }

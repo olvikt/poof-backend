@@ -90,6 +90,8 @@
                         \App\Models\Order::STATUS_NEW,
                         \App\Models\Order::STATUS_SEARCHING,
                     ], true) && $order->canBeCancelled();
+                    $completionPayload = $order->completionProofPayload ?? null;
+                    $awaitingClientConfirmation = ($completionPayload['status'] ?? null) === \App\Models\OrderCompletionRequest::STATUS_AWAITING_CLIENT_CONFIRMATION;
                 @endphp
 
                 <div
@@ -183,6 +185,37 @@
                                 Скасувати
                             </button>
                             @endif
+                        </div>
+                    @endif
+
+                    @if($awaitingClientConfirmation)
+                        <div class="mt-4 rounded-lg border border-sky-400/30 bg-sky-500/10 p-3">
+                            <div class="text-xs font-semibold text-sky-200">Курʼєр надіслав фото-підтвердження виконання</div>
+                            <div class="mt-2 grid grid-cols-2 gap-2">
+                                @foreach(($completionPayload['proofs'] ?? []) as $proof)
+                                    @if(!empty($proof['url']))
+                                        <a href="{{ $proof['url'] }}" target="_blank" class="block overflow-hidden rounded-lg border border-white/10 bg-black/20">
+                                            <img src="{{ $proof['url'] }}" alt="proof {{ $proof['type'] ?? 'photo' }}" class="h-24 w-full object-cover" />
+                                        </a>
+                                    @endif
+                                @endforeach
+                            </div>
+                            <div class="mt-3 flex gap-2">
+                                <button
+                                    type="button"
+                                    wire:click="confirmCompletion({{ $order->id }})"
+                                    class="flex-1 rounded-lg bg-green-500 px-3 py-2 text-xs font-semibold text-black"
+                                >
+                                    Підтвердити
+                                </button>
+                                <button
+                                    type="button"
+                                    wire:click="disputeCompletion({{ $order->id }})"
+                                    class="flex-1 rounded-lg border border-red-300/40 bg-red-500/15 px-3 py-2 text-xs font-semibold text-red-200"
+                                >
+                                    Відкрити спір
+                                </button>
+                            </div>
                         </div>
                     @endif
 
