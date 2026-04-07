@@ -60,3 +60,11 @@ Phase 2 keeps Phase 1 semantics: courier runtime release still happens only at f
   - `php artisan orders:completion-proof:auto-confirm --limit=100`
 - Dispute queue:
   - `GET /api/admin/completion-disputes`
+
+## Hotfix integration (April 7, 2026)
+- Root cause: proof flow foundation was deployed, but real order-create boundaries did not assign `completion_policy`, so DB default `none` routed orders into legacy immediate completion.
+- Fix: create-time assignment is now explicit via `OrderCompletionPolicyAssignmentService` and wired for both legacy web and canonical API create actions.
+- Mapping semantics: `handover_type=door` => `door_two_photo_client_confirm`, otherwise `none`.
+- Operational decision: no retroactive backfill for already in-progress/open orders created before the hotfix; they continue on legacy path to avoid risky lifecycle mutation.
+- Live product wiring: courier My Orders now has required 2-photo proof steps before submit; client Orders UI shows proof photos with confirm/dispute actions; admin has minimal internal dispute queue screen at `/admin/completion-disputes`.
+- Observability: structured create-time logs `order_completion_policy_assigned` include `order_id`, `handover_type`, `completion_policy`, `create_path`.

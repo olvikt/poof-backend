@@ -115,6 +115,13 @@
                         'Квартира' => $order->apartment,
                         'Домофон' => $order->intercom,
                     ];
+                    $completionRequest = $order->completionRequest;
+                    $uploadedProofTypes = $completionRequest?->proofs?->pluck('proof_type')->all() ?? [];
+                    $needsProofFlow = $order->completion_policy === \App\Models\Order::COMPLETION_POLICY_DOOR_TWO_PHOTO_CLIENT_CONFIRM
+                        && $order->handover_type === \App\Models\Order::HANDOVER_DOOR;
+                    $hasDoorProof = in_array(\App\Models\OrderCompletionProof::TYPE_DOOR_PHOTO, $uploadedProofTypes, true);
+                    $hasContainerProof = in_array(\App\Models\OrderCompletionProof::TYPE_CONTAINER_PHOTO, $uploadedProofTypes, true);
+                    $proofReadyToSubmit = $hasDoorProof && $hasContainerProof;
                 @endphp
 
                 <div wire:key="my-order-{{ $order->id }}" class="courier-surface border border-white/[0.08] p-4" x-data="{ contactOpen: false, clientPhone: @js($clientPhone) }">
@@ -181,6 +188,33 @@
                         </button>
                     </div>
 
+                    @if($order->status === \App\Models\Order::STATUS_IN_PROGRESS && $needsProofFlow)
+                        <div class="mt-3 rounded-2xl border border-white/[0.08] bg-[#0d1522] p-3">
+                            <div class="mb-2 text-[11px] font-semibold uppercase tracking-[0.08em] text-slate-400">Підтвердження виконання</div>
+                            <div class="space-y-2">
+                                <div class="rounded-xl bg-white/[0.04] p-2.5">
+                                    <div class="mb-1 text-xs text-slate-300">1) Фото біля дверей @if($hasDoorProof)<span class="text-emerald-300">✓</span>@endif</div>
+                                    <div class="flex gap-2">
+                                        <input type="file" accept="image/*" wire:model="doorProofFiles.{{ $order->id }}" class="block w-full text-xs text-slate-200 file:mr-3 file:rounded-lg file:border-0 file:bg-slate-700 file:px-3 file:py-1.5 file:text-xs file:text-white" />
+                                        <button type="button" wire:click="uploadProof({{ $order->id }}, '{{ \App\Models\OrderCompletionProof::TYPE_DOOR_PHOTO }}')" class="courier-btn courier-btn-secondary h-9 px-3 text-xs">Завантажити</button>
+                                    </div>
+                                </div>
+                                <div class="rounded-xl bg-white/[0.04] p-2.5">
+                                    <div class="mb-1 text-xs text-slate-300">2) Фото контейнера @if($hasContainerProof)<span class="text-emerald-300">✓</span>@endif</div>
+                                    <div class="flex gap-2">
+                                        <input type="file" accept="image/*" wire:model="containerProofFiles.{{ $order->id }}" class="block w-full text-xs text-slate-200 file:mr-3 file:rounded-lg file:border-0 file:bg-slate-700 file:px-3 file:py-1.5 file:text-xs file:text-white" />
+                                        <button type="button" wire:click="uploadProof({{ $order->id }}, '{{ \App\Models\OrderCompletionProof::TYPE_CONTAINER_PHOTO }}')" class="courier-btn courier-btn-secondary h-9 px-3 text-xs">Завантажити</button>
+                                    </div>
+                                </div>
+                            </div>
+                            @if($completionRequest?->status === \App\Models\OrderCompletionRequest::STATUS_AWAITING_CLIENT_CONFIRMATION)
+                                <div class="mt-2 text-xs text-emerald-300">Очікуємо підтвердження клієнта.</div>
+                            @elseif(! $proofReadyToSubmit)
+                                <div class="mt-2 text-xs text-amber-300">Завершення стане доступним після 2 фото.</div>
+                            @endif
+                        </div>
+                    @endif
+
                     <div
                         x-show="contactOpen"
                         x-cloak
@@ -232,14 +266,24 @@
                             Почати виконання · #{{ $primaryActionOrder->id }}
                         </button>
                     @elseif($primaryActionOrder->status === \App\Models\Order::STATUS_IN_PROGRESS)
+                        @php
+                            $primaryCompletionRequest = $primaryActionOrder->completionRequest;
+                            $primaryUploaded = $primaryCompletionRequest?->proofs?->pluck('proof_type')->all() ?? [];
+                            $primaryNeedsProofFlow = $primaryActionOrder->completion_policy === \App\Models\Order::COMPLETION_POLICY_DOOR_TWO_PHOTO_CLIENT_CONFIRM
+                                && $primaryActionOrder->handover_type === \App\Models\Order::HANDOVER_DOOR;
+                            $primaryProofReady = in_array(\App\Models\OrderCompletionProof::TYPE_DOOR_PHOTO, $primaryUploaded, true)
+                                && in_array(\App\Models\OrderCompletionProof::TYPE_CONTAINER_PHOTO, $primaryUploaded, true);
+                            $primaryAwaitingClient = $primaryCompletionRequest?->status === \App\Models\OrderCompletionRequest::STATUS_AWAITING_CLIENT_CONFIRMATION;
+                            $disableComplete = $primaryNeedsProofFlow && (! $primaryProofReady || $primaryAwaitingClient);
+                        @endphp
                         <button
                             type="button"
                             wire:click="complete({{ $primaryActionOrder->id }})"
                             wire:loading.attr="disabled"
-                            @if(! $online) disabled @endif
+                            @if(! $online || $disableComplete) disabled @endif
                             class="courier-btn courier-btn-success h-12 w-full"
                         >
-                            Завершити замовлення · #{{ $primaryActionOrder->id }}
+                            {{ $primaryNeedsProofFlow ? 'Відправити клієнту на підтвердження' : 'Завершити замовлення' }} · #{{ $primaryActionOrder->id }}
                         </button>
                     @endif
                 </div>

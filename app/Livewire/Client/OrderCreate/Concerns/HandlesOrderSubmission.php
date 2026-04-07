@@ -9,6 +9,7 @@ use App\Models\ClientAddress;
 use App\Models\ClientSubscription;
 use App\Models\Order;
 use App\Models\SubscriptionPlan;
+use App\Services\Orders\Completion\OrderCompletionPolicyAssignmentService;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\Auth;
 
@@ -97,6 +98,7 @@ trait HandlesOrderSubmission
                 'client_wait_preference' => $this->client_wait_preference,
                 'promise_policy_version' => (string) config('order_promise.policy_version', 'v1'),
                 'handover_type' => $this->handover_type,
+                'completion_policy' => app(OrderCompletionPolicyAssignmentService::class)->assignForCreate($this->handover_type),
                 'bags_count' => $this->bags_count,
                 'price' => $this->price,
                 'client_charge_amount' => $clientChargeAmount,

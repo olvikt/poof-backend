@@ -2,7 +2,10 @@
 
 namespace App\Livewire\Courier;
 
+use App\Actions\Orders\Completion\UploadOrderCompletionProofAction;
 use App\Models\Order;
+use App\Models\OrderCompletionProof;
+use App\Models\OrderCompletionRequest;
 use App\Models\User;
 use App\Services\Courier\CourierPresenceService;
 use App\Services\Dispatch\DispatchTriggerPolicy;
@@ -11,13 +14,18 @@ use App\Support\Courier\CourierNavigationRuntime;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Log;
 use Livewire\Component;
+use Livewire\Features\SupportFileUploads\WithFileUploads;
 
 class MyOrders extends Component
 {
+    use WithFileUploads;
+
     private const POLL_ACTIVE_SECONDS = 6;
     private const POLL_IDLE_SECONDS = 20;
 
     public bool $online = false;
+    public array $doorProofFiles = [];
+    public array $containerProofFiles = [];
 
     protected $listeners = [
         'order-updated' => '$refresh',
@@ -86,6 +94,11 @@ class MyOrders extends Component
         }
 
         if (! $order->completeBy($courier)) {
+            if ($this->isProofAware($order) && ! $this->hasAllProofs($order)) {
+                $this->dispatch('notify', type: 'error', message: 'Додайте 2 фото (біля дверей і контейнера), щоб відправити завершення.');
+                return;
+            }
+
             $this->dispatch('notify', type: 'error', message: 'Не можна завершити це замовлення');
 
             return;
@@ -97,7 +110,63 @@ class MyOrders extends Component
             ['courier_id' => $courier->id],
         );
 
-        $this->dispatch('notify', type: 'success', message: 'Замовлення виконано');
+        $this->dispatch('notify', type: 'success', message: $this->isProofAware($order)
+            ? 'Підтвердження відправлено клієнту'
+            : 'Замовлення виконано');
+        $this->dispatch('$refresh');
+    }
+
+    public function uploadProof(int $orderId, string $proofType): void
+    {
+        $courier = $this->resolveCourier();
+
+        if (! $courier instanceof User || ! $courier->isCourier()) {
+            return;
+        }
+
+        $order = Order::query()
+            ->whereKey($orderId)
+            ->where('courier_id', $courier->id)
+            ->first();
+
+        if (! $order || ! $this->isProofAware($order)) {
+            $this->dispatch('notify', type: 'error', message: 'Для цього замовлення фото-підтвердження не потрібне.');
+            return;
+        }
+
+        $file = $proofType === OrderCompletionProof::TYPE_DOOR_PHOTO
+            ? ($this->doorProofFiles[$orderId] ?? null)
+            : ($this->containerProofFiles[$orderId] ?? null);
+
+        if (! $file) {
+            $this->dispatch('notify', type: 'error', message: 'Оберіть фото перед завантаженням.');
+            return;
+        }
+
+        $path = $file->store('completion-proofs/'.$orderId, 'public');
+
+        $uploaded = app(UploadOrderCompletionProofAction::class)->handle(
+            order: $order,
+            courier: $courier,
+            proofType: $proofType,
+            filePath: $path,
+            fileDisk: 'public',
+            mimeType: $file->getMimeType(),
+            fileSizeBytes: $file->getSize(),
+        );
+
+        if (! $uploaded) {
+            $this->dispatch('notify', type: 'error', message: 'Не вдалося завантажити фото-підтвердження.');
+            return;
+        }
+
+        if ($proofType === OrderCompletionProof::TYPE_DOOR_PHOTO) {
+            unset($this->doorProofFiles[$orderId]);
+        } else {
+            unset($this->containerProofFiles[$orderId]);
+        }
+
+        $this->dispatch('notify', type: 'success', message: 'Фото-підтвердження збережено.');
         $this->dispatch('$refresh');
     }
 
@@ -174,7 +243,7 @@ class MyOrders extends Component
                 Order::STATUS_ACCEPTED,
                 Order::STATUS_IN_PROGRESS,
             ])
-            ->with(['client:id,phone'])
+            ->with(['client:id,phone', 'completionRequest.proofs'])
             ->orderBy('accepted_at')
             ->get();
 
@@ -261,5 +330,24 @@ class MyOrders extends Component
     private function navigationRuntime(): CourierNavigationRuntime
     {
         return app(CourierNavigationRuntime::class);
+    }
+
+    private function isProofAware(Order $order): bool
+    {
+        return $order->completion_policy === Order::COMPLETION_POLICY_DOOR_TWO_PHOTO_CLIENT_CONFIRM
+            && $order->handover_type === Order::HANDOVER_DOOR;
+    }
+
+    private function hasAllProofs(Order $order): bool
+    {
+        $request = $order->completionRequest;
+        if (! $request instanceof OrderCompletionRequest) {
+            return false;
+        }
+
+        $proofTypes = $request->proofs->pluck('proof_type')->all();
+
+        return in_array(OrderCompletionProof::TYPE_DOOR_PHOTO, $proofTypes, true)
+            && in_array(OrderCompletionProof::TYPE_CONTAINER_PHOTO, $proofTypes, true);
     }
 }

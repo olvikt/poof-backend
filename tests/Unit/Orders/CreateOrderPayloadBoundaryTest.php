@@ -55,6 +55,7 @@ class CreateOrderPayloadBoundaryTest extends TestCase
         $this->assertNull($order->scheduled_time_from);
         $this->assertNull($order->scheduled_time_to);
         $this->assertSame(Order::TYPE_ONE_TIME, $order->order_type);
+        $this->assertSame(Order::COMPLETION_POLICY_DOOR_TWO_PHOTO_CLIENT_CONFIRM, $order->completion_policy);
     }
 
     public function test_canonical_payload_boundary_ignores_legacy_fields_when_creating_api_order(): void

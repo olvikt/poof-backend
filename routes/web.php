@@ -9,6 +9,7 @@ use App\Http\Controllers\Client\Payments\PaymentStartController;
 use App\Http\Controllers\Client\Payments\WayForPayReturnController;
 use App\Http\Controllers\Client\Subscriptions\SubscriptionCheckoutController;
 use App\Http\Controllers\Courier\CourierOrderLifecycleController;
+use App\Http\Middleware\AdminOnly;
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\Pwa\ManifestController;
 use App\Livewire\Client\Home;
@@ -29,6 +30,7 @@ use Illuminate\Foundation\Http\Middleware\VerifyCsrfToken;
 use Illuminate\Session\Middleware\StartSession;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Route;
+use App\Models\OrderCompletionDispute;
 use Illuminate\View\Middleware\ShareErrorsFromSession;
 
 Route::get('/', function (Request $request) {
@@ -197,4 +199,19 @@ Route::middleware('auth:web')
         Route::post('/orders/{order}/accept', [CourierOrderLifecycleController::class, 'accept'])->name('orders.accept');
         Route::post('/orders/{order}/start', [CourierOrderLifecycleController::class, 'start'])->name('orders.start');
         Route::post('/orders/{order}/complete', [CourierOrderLifecycleController::class, 'complete'])->name('orders.complete');
+    });
+
+Route::middleware(['auth:web', AdminOnly::class])
+    ->prefix('admin')
+    ->name('admin.')
+    ->group(function () {
+        Route::get('/completion-disputes', function () {
+            $disputes = OrderCompletionDispute::query()
+                ->with(['order', 'client', 'courier'])
+                ->latest('opened_at')
+                ->limit(100)
+                ->get();
+
+            return view('admin.completion-disputes', ['disputes' => $disputes]);
+        })->name('completion-disputes');
     });

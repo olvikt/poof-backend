@@ -45,6 +45,7 @@ class LegacyWebOrderCreatePayload
             'promise_policy_version' => $this->attributes['promise_policy_version'] ?? null,
 
             'handover_type' => $this->attributes['handover_type'],
+            'completion_policy' => $this->attributes['completion_policy'] ?? Order::COMPLETION_POLICY_NONE,
             'bags_count' => $this->attributes['bags_count'],
             'price' => $this->attributes['price'],
             'client_charge_amount' => $this->attributes['client_charge_amount'] ?? (int) $this->attributes['price'],
