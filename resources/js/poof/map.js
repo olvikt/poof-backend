@@ -1081,6 +1081,8 @@ export default function initMap() {
 
   function handleGeolocationError(error, options = {}) {
     const message = getGeolocationErrorMessage(error, options)
+    const code = Number(error?.code) || null
+    const permissionDenied = code === 1
 
     if (options.markResolved !== false) {
       setUserLocationResolving(false, { resolved: true })
@@ -1099,15 +1101,17 @@ export default function initMap() {
       source: options.source || 'unknown',
     })
 
-    if (options.log !== false) {
+    if (options.log !== false && !permissionDenied) {
       console.error('Geolocation error', error)
+    } else if (options.log !== false && permissionDenied) {
+      console.warn('Geolocation denied by user/browser permissions', error)
     }
 
     emitCourierGeoMarker('geolocation_denied_or_error', {
       source: options.source || 'unknown',
-      code: Number(error?.code) || null,
+      code,
       message,
-    }, 'error')
+    }, permissionDenied ? 'warn' : 'error')
 
     return message
   }

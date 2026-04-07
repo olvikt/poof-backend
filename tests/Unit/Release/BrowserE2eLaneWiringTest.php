@@ -124,6 +124,18 @@ class BrowserE2eLaneWiringTest extends TestCase
         $this->assertStringContainsString("'is_active' => true", $seeder);
     }
 
+    public function test_browser_e2e_seeder_resets_courier_fixture_to_idle_before_lane_execution(): void
+    {
+        $seeder = file_get_contents($this->repoRoot.'/database/seeders/BrowserE2eSeeder.php');
+
+        $this->assertNotFalse($seeder);
+        $this->assertStringContainsString('private function resetCourierFixtureToIdleState(User $courierUser): void', $seeder);
+        $this->assertStringContainsString("->where('courier_id', $courierUser->id)", $seeder);
+        $this->assertStringContainsString('Order::STATUS_ACCEPTED', $seeder);
+        $this->assertStringContainsString('Order::STATUS_IN_PROGRESS', $seeder);
+        $this->assertStringContainsString("\$courierUser->markFree();", $seeder);
+    }
+
     public function test_browser_e2e_auth_helper_exposes_actionable_login_failure_context(): void
     {
         $helper = file_get_contents($this->repoRoot.'/tests/e2e/helpers/auth.js');

@@ -66,7 +66,7 @@
             source,
             code: Number(err?.code) || null,
             message: String(err?.message || ''),
-        }, 'error');
+        }, 'warn');
 
         window.dispatchEvent(new CustomEvent('map:ui-error', {
             detail: [{
