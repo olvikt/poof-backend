@@ -30,6 +30,8 @@ class MyOrders extends Component
     public array $containerProofFiles = [];
     public ?int $completionConfirmationOrderId = null;
     public array $expandedCompletedStatDates = [];
+    public bool $hasInitializedCompletedStatsExpansion = false;
+    public bool $hasUserInteractedWithCompletedStats = false;
 
     protected $listeners = [
         'order-updated' => '$refresh',
@@ -85,6 +87,8 @@ class MyOrders extends Component
 
     public function toggleCompletedStatDate(string $date): void
     {
+        $this->hasUserInteractedWithCompletedStats = true;
+
         if (in_array($date, $this->expandedCompletedStatDates, true)) {
             $this->expandedCompletedStatDates = array_values(array_filter(
                 $this->expandedCompletedStatDates,
@@ -334,11 +338,16 @@ class MyOrders extends Component
         $availableDates = $completedStats->pluck('date')->all();
         $this->expandedCompletedStatDates = array_values(array_intersect($this->expandedCompletedStatDates, $availableDates));
 
-        if ($this->expandedCompletedStatDates === [] && $completedStats->isNotEmpty()) {
+        if (! $this->hasInitializedCompletedStatsExpansion && $completedStats->isNotEmpty()) {
             $todayDate = now()->toDateString();
+
             if (in_array($todayDate, $availableDates, true)) {
                 $this->expandedCompletedStatDates = [$todayDate];
+            } elseif (! $this->hasUserInteractedWithCompletedStats && isset($availableDates[0])) {
+                $this->expandedCompletedStatDates = [$availableDates[0]];
             }
+
+            $this->hasInitializedCompletedStatsExpansion = true;
         }
 
         Log::debug('my_orders_render', [
