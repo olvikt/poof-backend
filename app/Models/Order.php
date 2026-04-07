@@ -14,6 +14,7 @@ use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Validation\ValidationException;
 
 class Order extends Model
@@ -290,6 +291,16 @@ public function markAsPaid(): void
 	{
 		return $this->hasMany(\App\Models\OrderOffer::class, 'order_id');
 	}
+    public function completionRequest(): HasOne
+    {
+        return $this->hasOne(OrderCompletionRequest::class, 'order_id');
+    }
+
+    public function completionProofs(): HasMany
+    {
+        return $this->hasMany(OrderCompletionProof::class, 'order_id');
+    }
+
     /* =========================================================
      |  SCOPES
      | ========================================================= */
