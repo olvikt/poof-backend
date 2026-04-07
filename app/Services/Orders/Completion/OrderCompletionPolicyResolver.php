@@ -12,7 +12,11 @@ class OrderCompletionPolicyResolver
 {
     public function resolveForOrder(Order $order): string
     {
-        if ($order->handover_type === Order::HANDOVER_DOOR) {
+        // Proof flow is explicit opt-in. Handover mode alone is not enough.
+        if (
+            $order->completion_policy === Order::COMPLETION_POLICY_DOOR_TWO_PHOTO_CLIENT_CONFIRM
+            && $order->handover_type === Order::HANDOVER_DOOR
+        ) {
             return OrderCompletionRequest::POLICY_DOOR_TWO_PHOTO_CLIENT_CONFIRM;
         }
 

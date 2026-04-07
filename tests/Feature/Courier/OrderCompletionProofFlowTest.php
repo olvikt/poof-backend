@@ -153,7 +153,12 @@ class OrderCompletionProofFlowTest extends TestCase
 
         $this->assertTrue(app(CompleteOrderByCourierAction::class)->handle($order, $courier));
 
+        $courier->refresh();
         $this->assertSame(Order::STATUS_DONE, $order->fresh()->status);
+        $this->assertNotNull($order->fresh()->completed_at);
+        $this->assertSame(Courier::STATUS_ONLINE, $courier->courierProfile->status);
+        $this->assertFalse((bool) $courier->is_busy);
+        $this->assertSame(User::SESSION_READY, $courier->session_state);
         $this->assertDatabaseCount('order_completion_requests', 0);
         $this->assertDatabaseCount('courier_earnings', 1);
     }
@@ -164,7 +169,11 @@ class OrderCompletionProofFlowTest extends TestCase
 
         $this->assertFalse(app(CompleteOrderByCourierAction::class)->handle($order, $courier));
 
+        $courier->refresh();
         $this->assertSame(Order::STATUS_IN_PROGRESS, $order->fresh()->status);
+        $this->assertSame(Courier::STATUS_DELIVERING, $courier->courierProfile->status);
+        $this->assertTrue((bool) $courier->is_busy);
+        $this->assertSame(User::SESSION_IN_PROGRESS, $courier->session_state);
         $this->assertDatabaseCount('courier_earnings', 0);
     }
 
@@ -188,6 +197,9 @@ class OrderCompletionProofFlowTest extends TestCase
             'address_text' => 'proof test address',
             'price' => 200,
             'handover_type' => $handoverType,
+            'completion_policy' => $handoverType === Order::HANDOVER_DOOR
+                ? Order::COMPLETION_POLICY_DOOR_TWO_PHOTO_CLIENT_CONFIRM
+                : Order::COMPLETION_POLICY_NONE,
         ]);
 
         return [$courier, $order];
