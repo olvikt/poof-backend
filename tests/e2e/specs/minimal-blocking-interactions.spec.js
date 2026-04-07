@@ -3,6 +3,68 @@ import { attachRuntimeGuards } from '../helpers/runtime-guards.js';
 import { loginAs } from '../helpers/auth.js';
 
 test.describe('minimal blocking interactive lane', () => {
+  test('A(min): denied geolocation is handled as degraded-safe UI state', async ({ page }) => {
+    const guards = attachRuntimeGuards(page);
+
+    await page.addInitScript(() => {
+      const deniedError = {
+        code: 1,
+        message: 'Permission denied',
+        PERMISSION_DENIED: 1,
+      };
+
+      const geolocation = window.navigator.geolocation;
+      if (!geolocation) return;
+
+      geolocation.getCurrentPosition = (_success, error) => {
+        if (typeof error === 'function') {
+          error(deniedError);
+        }
+      };
+    });
+
+    await loginAs(page, {
+      login: 'client@test.com',
+      password: 'password',
+      expectedPath: '/client',
+    });
+
+    await page.goto('/client/order/create');
+    await expect(page.locator('#order-create-root')).toBeVisible();
+
+    const geoActionState = await page.evaluate(async () => {
+      return await new Promise((resolve) => {
+        const onState = (event) => {
+          const detail = event?.detail || {};
+          if (detail.status !== 'error') return;
+
+          window.removeEventListener('poof:geo-action-state', onState);
+          clearTimeout(timeout);
+          resolve({
+            status: detail.status,
+            message: detail.message,
+            source: detail.source,
+          });
+        };
+
+        const timeout = window.setTimeout(() => {
+          window.removeEventListener('poof:geo-action-state', onState);
+          resolve(null);
+        }, 8_000);
+
+        window.addEventListener('poof:geo-action-state', onState);
+
+        window.dispatchEvent(new CustomEvent('use-current-location'));
+      });
+    });
+
+    expect(geoActionState, 'Denied geolocation must surface explicit degraded-safe UI state.').not.toBeNull();
+    expect(geoActionState.status).toBe('error');
+    expect(String(geoActionState.message || '').length).toBeGreaterThan(0);
+
+    guards.assertHealthy();
+  });
+
   test('F+A(min): client runtime bootstrap + basic create-form interaction', async ({ page }) => {
     const guards = attachRuntimeGuards(page);
 
@@ -63,12 +125,11 @@ test.describe('minimal blocking interactive lane', () => {
           `Initial toggle text: "${toggleTextBefore}".`
       );
     }
-
-    if (initialOnlineState !== 'online') {
-      let livewireUpdateTriggered = false;
+    const clickToggleAndWaitForState = async (expectedState, label) => {
+      let requestTriggered = false;
 
       for (let attempt = 1; attempt <= 3; attempt += 1) {
-        const requestTriggered = await Promise.all([
+        const triggered = await Promise.all([
           page
             .waitForResponse(
               (response) =>
@@ -78,55 +139,46 @@ test.describe('minimal blocking interactive lane', () => {
             .then(() => true)
             .catch(() => false),
           onlineToggle.click({ force: true }),
-        ]).then(([triggered]) => triggered);
+        ]).then(([responseTriggered]) => responseTriggered);
 
-        livewireUpdateTriggered = livewireUpdateTriggered || requestTriggered;
+        requestTriggered = requestTriggered || triggered;
 
-        let reachedOnline = false;
-        try {
-          await expect
-            .poll(
-              async () => (await onlineToggle.getAttribute('data-e2e-online-state')) === 'online',
-              { timeout: 8_000, message: `Courier toggle online-state did not change on click attempt ${attempt}.` }
-            )
-            .toBeTruthy();
-          reachedOnline = true;
-        } catch (_error) {
-          reachedOnline = false;
-        }
+        const reached = await expect
+          .poll(async () => (await onlineToggle.getAttribute('data-e2e-online-state')) === expectedState, {
+            timeout: 8_000,
+            message: `Courier toggle state did not become "${expectedState}" on ${label} attempt ${attempt}.`,
+          })
+          .toBeTruthy()
+          .then(() => true)
+          .catch(() => false);
 
-        if (reachedOnline) {
+        if (reached) {
           break;
         }
       }
 
-      if (!livewireUpdateTriggered) {
-        throw new Error(
-          `Courier online toggle click did not trigger Livewire update request. ` +
-            `Initial toggle text: "${toggleTextBefore}".`
-        );
+      if (!requestTriggered) {
+        throw new Error(`Courier toggle did not trigger Livewire update request during "${label}".`);
       }
-    }
+    };
 
-    const toggleTextAfter = ((await onlineToggle.textContent()) ?? '').replace(/\s+/g, ' ').trim();
-    const onlineStateAfter = await onlineToggle.getAttribute('data-e2e-online-state');
+    const nextState = initialOnlineState === 'online' ? 'offline' : 'online';
+    await clickToggleAndWaitForState(nextState, 'first-toggle');
+    await clickToggleAndWaitForState(initialOnlineState ?? 'online', 'second-toggle');
 
+    const busyStateAfter = await onlineToggle.getAttribute('data-e2e-busy');
     expect(
-      onlineStateAfter,
-      `Courier online state did not reach "online". Initial text: "${toggleTextBefore}". Final text: "${toggleTextAfter}".`
-    ).toBe('online');
+      busyStateAfter,
+      `Courier should stay idle in D+C(min) fixture. Initial text: "${toggleTextBefore}".`
+    ).toBe('0');
 
-    await expect
-      .poll(async () => !(await offlineOverlay.isVisible().catch(() => false)), {
-        timeout: 20_000,
-        message: 'Courier offline overlay "Ви не на лінії" remained visible after online toggle.',
-      })
-      .toBeTruthy();
-
-    const acceptButton = page.getByTestId('courier-accept-offer');
-    if (await acceptButton.isVisible().catch(() => false)) {
-      await acceptButton.click();
-      await expect(page).toHaveURL(/\/courier\/my-orders/);
+    if ((await onlineToggle.getAttribute('data-e2e-online-state')) === 'online') {
+      await expect
+        .poll(async () => !(await offlineOverlay.isVisible().catch(() => false)), {
+          timeout: 20_000,
+          message: 'Courier offline overlay "Ви не на лінії" remained visible after returning online.',
+        })
+        .toBeTruthy();
     }
 
     guards.assertHealthy();

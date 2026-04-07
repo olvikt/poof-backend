@@ -15,6 +15,18 @@
  * - Tile layer error logging + readiness hooks
  * - Safe mount timing (layout-ready) + robust invalidate
  */
+import { buildDeniedGeolocationUiState, shouldShowDefaultCityUnconfirmedState } from './geolocation-hotfix.js'
+
+if (typeof window !== 'undefined' && window.__poofUseCurrentLocationPendingBound !== true) {
+  window.__poofUseCurrentLocationPendingBound = true
+  window.__poofUseCurrentLocationPending = false
+
+  window.addEventListener('use-current-location', () => {
+    if (!window.POOF?.map?.handlersBound) {
+      window.__poofUseCurrentLocationPending = true
+    }
+  })
+}
 
 function isFiniteLatLngForBootstrap(lat, lng) {
   const latN = Number(lat)
@@ -389,6 +401,7 @@ export default function initMap() {
     runtimeSignalHistory: [],
     authSessionLost: false,
     runtimeEvidenceRequestBound: false,
+    defaultCityFallbackLogged: false,
   }
 
   const state = POOF.map
@@ -1039,6 +1052,17 @@ export default function initMap() {
     }
   }
 
+  function emitCourierGeoMarker(event, detail = {}, level = 'info') {
+    window.dispatchEvent(new CustomEvent('poof:courier-geo-marker', {
+      detail: {
+        event,
+        level,
+        ts: Date.now(),
+        ...detail,
+      },
+    }))
+  }
+
   function emitGeoActionState(detail = {}) {
     window.dispatchEvent(new CustomEvent('poof:geo-action-state', { detail }))
   }
@@ -1068,6 +1092,14 @@ export default function initMap() {
 
   function handleGeolocationError(error, options = {}) {
     const message = getGeolocationErrorMessage(error, options)
+    const code = Number(error?.code) || null
+    const permissionDenied = code === 1
+    const deniedUiState = permissionDenied
+      ? buildDeniedGeolocationUiState({
+        source: options.source || 'unknown',
+        message,
+      })
+      : null
 
     if (options.markResolved !== false) {
       setUserLocationResolving(false, { resolved: true })
@@ -1079,16 +1111,29 @@ export default function initMap() {
       type: options.type || 'error',
     })
 
-    emitGeoActionState({
-      status: 'error',
-      message,
-      code: Number(error?.code) || null,
-      source: options.source || 'unknown',
-    })
+    emitGeoActionState(permissionDenied
+      ? {
+        ...deniedUiState,
+        code,
+      }
+      : {
+        status: 'error',
+        message,
+        code,
+        source: options.source || 'unknown',
+      })
 
-    if (options.log !== false) {
+    if (options.log !== false && !permissionDenied) {
       console.error('Geolocation error', error)
+    } else if (options.log !== false && permissionDenied) {
+      console.warn('Geolocation denied by user/browser permissions', error)
     }
+
+    emitCourierGeoMarker('geolocation_denied_or_error', {
+      source: options.source || 'unknown',
+      code,
+      message,
+    }, permissionDenied ? 'warn' : 'error')
 
     return message
   }
@@ -1181,7 +1226,14 @@ export default function initMap() {
           closeAddressBook: options.closeAddressBook === true,
         })) {
           handleGeolocationError({ code: 2 }, options)
+          return
         }
+
+        emitCourierGeoMarker('first_geolocation_payload_received', {
+          source: options.successSource || options.source || 'user',
+          lat: Number(lat),
+          lng: Number(lng),
+        })
       },
       async (error) => {
         if (options.explicitAction) {
@@ -1657,7 +1709,33 @@ export default function initMap() {
     }
 
     const hasCourierEffective = isValidLatLng(courierLatUse, courierLngUse)
-    if (!hasCourierEffective && !hasOrder) return
+    if (!hasCourierEffective && !hasOrder) {
+      const shouldWarnDefaultFallback = shouldShowDefaultCityUnconfirmedState({
+        hasOrder,
+        hasCourierCoords: hasCourierEffective,
+        courierConfirmed: false,
+      })
+
+      if (shouldWarnDefaultFallback && !state.defaultCityFallbackLogged) {
+        state.defaultCityFallbackLogged = true
+        emitRuntimeSignal('map_default_city_used', 'courier_unconfirmed_no_coords', {
+          level: 'warn',
+          meta: {
+            source: payload.source || 'unknown',
+          },
+        })
+        emitCourierGeoMarker('map_fallback_default_city_used', {
+          source: payload.source || 'unknown',
+          reason: 'courier_unconfirmed_no_coords',
+        }, 'warn')
+        dispatchMapUiError('Фактична локація курʼєра не підтверджена. Мапа показує місто за замовчуванням, доки браузер не надасть геолокацію.', {
+          type: 'warning',
+        })
+      }
+      return
+    }
+
+    state.defaultCityFallbackLogged = false
 
     const lifecycle = resolveCourierMarkerLifecycle({
       isAddressPickerFlow: state.isAddressPickerFlow,
@@ -2470,6 +2548,11 @@ async function buildRoute(fromLat, fromLng, toLat, toLng) {
   window.addEventListener('use-current-location', () => {
     if (state.geoActionInFlight) return
 
+    window.__poofUseCurrentLocationPending = false
+    emitCourierGeoMarker('client_use_current_location_triggered', {
+      source: 'window_event',
+    })
+
     requestCurrentLocation({
       explicitAction: true,
       useAlertFallback: true,
@@ -2666,6 +2749,12 @@ window.addEventListener('build-route', (e) => {
   // Bootstrap
   // ------------------------------------------------------------
   bindGlobalHandlersOnce()
+  if (window.__poofUseCurrentLocationPending === true) {
+    window.__poofUseCurrentLocationPending = false
+    setTimeout(() => {
+      window.dispatchEvent(new CustomEvent('use-current-location'))
+    }, 0)
+  }
   if (!state.runtimeEvidenceRequestBound) {
     state.runtimeEvidenceRequestBound = true
     window.addEventListener('poof:courier-runtime-evidence-request', async (event) => {

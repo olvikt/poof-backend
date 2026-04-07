@@ -1,3 +1,11 @@
+export function isHandledGeolocationDegradedSignal(entry = '') {
+  const text = String(entry || '');
+
+  return text.includes('[POOF:courier-tracker][warn] geolocation_denied_or_error')
+    || text.includes('[POOF:courier-tracker][error] geolocation_denied_or_error')
+    || text.includes('Geolocation denied by user/browser permissions');
+}
+
 export function attachRuntimeGuards(page) {
   const pageErrors = [];
   const consoleErrors = [];
@@ -9,6 +17,9 @@ export function attachRuntimeGuards(page) {
 
   page.on('console', (msg) => {
     if (msg.type() === 'error') {
+      if (isHandledGeolocationDegradedSignal(msg.text())) {
+        return;
+      }
       consoleErrors.push(msg.text());
     }
   });

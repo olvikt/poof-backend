@@ -98,6 +98,8 @@ class BrowserE2eSeeder extends Seeder
             ]
         );
 
+        $this->resetCourierFixtureToIdleState($courierUser);
+
         OrderOffer::query()->delete();
         Order::query()->delete();
 
@@ -134,5 +136,26 @@ class BrowserE2eSeeder extends Seeder
             'expires_at' => now()->addMinutes(30),
             'last_offered_at' => now(),
         ]);
+    }
+
+    private function resetCourierFixtureToIdleState(User $courierUser): void
+    {
+        OrderOffer::query()
+            ->where('courier_id', $courierUser->id)
+            ->delete();
+
+        Order::query()
+            ->where('courier_id', $courierUser->id)
+            ->whereIn('status', [Order::STATUS_ACCEPTED, Order::STATUS_IN_PROGRESS])
+            ->update([
+                'courier_id' => null,
+                'status' => Order::STATUS_SEARCHING,
+                'accepted_at' => null,
+                'started_at' => null,
+                'completed_at' => null,
+            ]);
+
+        $courierUser->markFree();
+        $courierUser->refresh();
     }
 }
