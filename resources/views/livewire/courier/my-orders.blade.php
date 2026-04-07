@@ -2,10 +2,30 @@
     <div class="sr-only" aria-hidden="true" data-map-bootstrap='@json($mapBootstrap ?? null)'></div>
 
     <div class="mb-4 flex items-center justify-between gap-3">
-        <h2 class="text-xl font-semibold text-slate-100">Мої замовлення</h2>
+        <h2 class="text-xl font-semibold text-slate-100">Мої</h2>
         <span class="rounded-full border border-white/10 bg-white/[0.04] px-3 py-1 text-xs text-slate-300">{{ $orders->count() }} активних</span>
     </div>
 
+    <div class="mb-4 rounded-2xl border border-white/[0.08] bg-[#0d1522] p-1.5">
+        <div class="grid grid-cols-2 gap-1.5">
+            <button
+                type="button"
+                wire:click="setActiveTab('orders')"
+                class="rounded-xl px-3 py-2 text-sm font-semibold transition {{ $activeTab === 'orders' ? 'bg-amber-400 text-[#101720]' : 'bg-transparent text-slate-300' }}"
+            >
+                Мої замовлення
+            </button>
+            <button
+                type="button"
+                wire:click="setActiveTab('stats')"
+                class="rounded-xl px-3 py-2 text-sm font-semibold transition {{ $activeTab === 'stats' ? 'bg-amber-400 text-[#101720]' : 'bg-transparent text-slate-300' }}"
+            >
+                Статистика
+            </button>
+        </div>
+    </div>
+
+    @if($activeTab === 'orders')
     @if($orders->isEmpty())
         <div class="courier-surface border border-white/10 p-6">
             <div class="text-base font-semibold text-slate-100">Активних замовлень немає</div>
@@ -189,7 +209,7 @@
                             class="courier-btn courier-btn-success h-10 rounded-xl px-3 text-xs"
                         >
                             <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6A19.79 19.79 0 0 1 2.12 4.18 2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72c.12.89.33 1.76.63 2.6a2 2 0 0 1-.45 2.11L8 9.91a16 16 0 0 0 6.09 6.09l1.48-1.29a2 2 0 0 1 2.11-.45c.84.3 1.71.51 2.6.63A2 2 0 0 1 22 16.92Z"/></svg>
-                            Звʼязок
+                            Звʼязок з клієнтом
                         </button>
                     </div>
 
@@ -199,10 +219,10 @@
                             data-proof-section-for-order="{{ $order->id }}"
                             data-testid="proof-section-{{ $order->id }}"
                         >
-                            <div class="text-sm font-semibold text-slate-100">Зробіть 2 фото для завершення</div>
-                            <div class="mt-1 text-xs {{ $proofReadyToSubmit ? 'text-emerald-300' : 'text-amber-300' }}">
-                                {{ $proofReadyToSubmit ? 'Фото додано. Тепер можна завершити замовлення.' : 'Завершення стане доступним після 2 фото' }}
-                            </div>
+                            <div class="mb-2 text-base font-bold text-amber-300">Зробіть 2 фото для завершення</div>
+                            @if($proofReadyToSubmit)
+                                <div class="mt-1 text-xs text-emerald-300">Фото додано. Тепер можна завершити замовлення.</div>
+                            @endif
                             <div class="space-y-2.5">
                                 <div
                                     data-testid="proof-card-door"
@@ -364,17 +384,19 @@
                             wire:loading.attr="disabled"
                             @if(! $online || $disableComplete) disabled @endif
                             data-testid="proof-complete-cta"
-                            class="courier-btn courier-btn-success h-12 w-full"
+                            class="courier-btn courier-btn-success h-12 w-full text-base font-semibold"
                         >
-                            {{ $primaryNeedsProofFlow ? 'Відправити клієнту на підтвердження' : 'Завершити замовлення' }} · #{{ $primaryActionOrder->id }}
+                            {{ $primaryNeedsProofFlow ? 'Завершити виконання' : 'Завершити замовлення' }}
                         </button>
                     @endif
                 </div>
             </div>
         @endif
     @endif
+    @endif
 
-    <div class="mt-5 courier-surface border border-white/[0.08] p-4">
+    @if($activeTab === 'stats')
+    <div class="mt-2 courier-surface border border-white/[0.08] p-4">
         <div class="mb-3 flex items-center justify-between gap-2">
             <h3 class="text-sm font-semibold text-slate-100">Виконані замовлення</h3>
             <span class="text-xs text-slate-400">Останні {{ (int) config('courier_runtime.completed_stats.days', 14) }} днів</span>
@@ -423,6 +445,7 @@
             </div>
         @endif
     </div>
+    @endif
 
     @if($completionConfirmationOrderId)
         <div class="fixed inset-0 z-[90] bg-black/70" wire:key="completion-confirmation-modal">

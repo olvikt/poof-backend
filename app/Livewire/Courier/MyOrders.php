@@ -32,6 +32,7 @@ class MyOrders extends Component
     public array $expandedCompletedStatDates = [];
     public bool $hasInitializedCompletedStatsExpansion = false;
     public bool $hasUserInteractedWithCompletedStats = false;
+    public string $activeTab = 'orders';
 
     protected $listeners = [
         'order-updated' => '$refresh',
@@ -99,6 +100,15 @@ class MyOrders extends Component
         }
 
         $this->expandedCompletedStatDates[] = $date;
+    }
+
+    public function setActiveTab(string $tab): void
+    {
+        if (! in_array($tab, ['orders', 'stats'], true)) {
+            return;
+        }
+
+        $this->activeTab = $tab;
     }
 
     public function complete(int $orderId): void
