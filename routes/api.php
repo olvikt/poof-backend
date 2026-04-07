@@ -16,6 +16,8 @@ use App\Http\Controllers\Api\CourierRuntimeController;
 use App\Http\Controllers\Api\AdminMapController;
 use App\Http\Controllers\Api\AdminRuntimeDiagnosticsController;
 use App\Http\Controllers\Api\Payments\WayForPayCallbackController;
+use App\Http\Controllers\Api\Client\OrderCompletionClientController;
+use App\Http\Controllers\Api\Admin\OrderCompletionDisputeAdminController;
 
 
 Route::post('/register', [RegisterController::class, 'register'])
@@ -45,6 +47,16 @@ Route::middleware('auth:sanctum')->group(function () {
 
     // CLIENT ORDERS
     Route::post('/orders', [OrderController::class, 'store']);
+    Route::get('/client/orders/{order}/completion-proof', [OrderCompletionClientController::class, 'show']);
+    Route::post('/client/orders/{order}/completion-proof/confirm', [OrderCompletionClientController::class, 'confirm']);
+    Route::post('/client/orders/{order}/completion-proof/disputes', [OrderCompletionClientController::class, 'openDispute']);
+
+    // ADMIN/SUPPORT COMPLETION DISPUTES
+    Route::get('/admin/completion-disputes', [OrderCompletionDisputeAdminController::class, 'index']);
+    Route::get('/admin/completion-disputes/{dispute}', [OrderCompletionDisputeAdminController::class, 'show']);
+    Route::post('/admin/completion-disputes/{dispute}/under-review', [OrderCompletionDisputeAdminController::class, 'markUnderReview']);
+    Route::post('/admin/completion-disputes/{dispute}/resolve-confirmed', [OrderCompletionDisputeAdminController::class, 'resolveConfirmed']);
+    Route::post('/admin/completion-disputes/{dispute}/resolve-rejected', [OrderCompletionDisputeAdminController::class, 'resolveRejected']);
 
     /*
     |--------------------------------------------------------------------------

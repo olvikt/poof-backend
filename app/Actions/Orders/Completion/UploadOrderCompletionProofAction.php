@@ -9,6 +9,7 @@ use App\Models\OrderCompletionProof;
 use App\Models\OrderCompletionRequest;
 use App\Models\User;
 use App\Services\Orders\Completion\OrderCompletionPolicyResolver;
+use App\Services\Orders\Completion\OrderCompletionProofUploadValidator;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 
@@ -17,18 +18,26 @@ class UploadOrderCompletionProofAction
     public function __construct(
         private readonly OrderCompletionPolicyResolver $policyResolver,
         private readonly StartOrderCompletionProofAction $startAction,
+        private readonly OrderCompletionProofUploadValidator $uploadValidator,
     ) {
     }
 
-    /**
-     * ADR: duplicate proof_type uploads are handled as in-place updates.
-     * This keeps the API idempotent and deterministic for mobile retries.
-     */
-    public function handle(Order $order, User $courier, string $proofType, string $filePath, ?string $fileDisk = null): bool
-    {
+    public function handle(
+        Order $order,
+        User $courier,
+        string $proofType,
+        string $filePath,
+        ?string $fileDisk = null,
+        ?string $mimeType = null,
+        ?int $fileSizeBytes = null,
+    ): bool {
         $startedAt = microtime(true);
 
-        return (bool) DB::transaction(function () use ($order, $courier, $proofType, $filePath, $fileDisk, $startedAt) {
+        return (bool) DB::transaction(function () use ($order, $courier, $proofType, $filePath, $fileDisk, $mimeType, $fileSizeBytes, $startedAt) {
+            if (! $this->uploadValidator->isValid($filePath, $mimeType, $fileSizeBytes)) {
+                return false;
+            }
+
             $request = $this->startAction->handle($order, $courier);
 
             if (! $request) {
@@ -46,6 +55,15 @@ class UploadOrderCompletionProofAction
                 return false;
             }
 
+            $payload = [
+                'file_path' => $filePath,
+                'file_disk' => $fileDisk,
+                'mime_type' => $mimeType,
+                'file_size_bytes' => $fileSizeBytes,
+                'file_extension' => strtolower(pathinfo($filePath, PATHINFO_EXTENSION)),
+                'uploaded_at' => now(),
+            ];
+
             $proof = OrderCompletionProof::query()
                 ->where('completion_request_id', $lockedRequest->id)
                 ->where('proof_type', $proofType)
@@ -53,20 +71,13 @@ class UploadOrderCompletionProofAction
                 ->first();
 
             if ($proof) {
-                $proof->forceFill([
-                    'file_path' => $filePath,
-                    'file_disk' => $fileDisk,
-                    'uploaded_at' => now(),
-                ])->save();
+                $proof->forceFill($payload)->save();
             } else {
-                $proof = OrderCompletionProof::unguarded(fn () => OrderCompletionProof::query()->create([
+                $proof = OrderCompletionProof::unguarded(fn () => OrderCompletionProof::query()->create($payload + [
                     'completion_request_id' => $lockedRequest->id,
                     'order_id' => $order->id,
                     'courier_id' => $courier->id,
                     'proof_type' => $proofType,
-                    'file_path' => $filePath,
-                    'file_disk' => $fileDisk,
-                    'uploaded_at' => now(),
                 ]));
             }
 
