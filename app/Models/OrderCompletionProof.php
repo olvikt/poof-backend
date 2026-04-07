@@ -16,6 +16,7 @@ class OrderCompletionProof extends Model
 
     protected $casts = [
         'uploaded_at' => 'datetime',
+        'client_device_clock_at' => 'datetime',
         'file_size_bytes' => 'int',
     ];
 

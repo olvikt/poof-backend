@@ -75,3 +75,32 @@ This restores legacy runtime contract while keeping proof flow isolated.
 - admin review tools
 - media storage hardening (virus scan, signed URLs, retention)
 - client confirmation UI and API endpoints
+
+## Phase 3 UX hardening: camera-first proof capture
+### Why file upload was rejected as primary UX
+Visible `input[type=file] + upload` flow allowed selecting old gallery images first, which weakened customer trust in “captured now” intent for door handover completion.
+
+### New courier proof UX contract
+For proof-aware orders in courier live flow:
+1. Courier taps **“Фото у двері”**.
+2. App opens camera-first capture sheet (`getUserMedia`, prefers `environment` camera).
+3. Courier captures frame and uploads immediately.
+4. Card shows thumbnail + success check.
+5. Same flow for **“Фото у контейнера”**.
+6. Only after both proofs a completion confirmation modal appears:
+   - Title: **Ви завершили замовлення**
+   - Body: **Гроші зарахуються як тільки клієнт підтвердить виконання**
+   - CTA: **Завершити замовлення**
+
+### Fallback behavior
+- If camera API is unsupported/denied/unavailable, UI switches to hidden picker fallback (`accept="image/*"`, `capture="environment"`).
+- Fallback remains available for platform resilience (especially iOS/Safari/browser permission edge cases), but is not the default visible interaction.
+
+### Trust/audit metadata
+Proof upload now records lightweight metadata for investigation:
+- `captured_via` (`camera` or `file_fallback`)
+- optional `client_device_clock_at`
+- `checksum_sha256` (when storage driver can resolve local file path)
+- replacement event log when retake overwrites same `proof_type`
+
+This preserves existing proof validation and idempotent upsert semantics while improving auditability.

@@ -10,8 +10,10 @@ use App\Models\OrderCompletionRequest;
 use App\Models\User;
 use App\Services\Orders\Completion\OrderCompletionPolicyResolver;
 use App\Services\Orders\Completion\OrderCompletionProofUploadValidator;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Storage;
 
 class UploadOrderCompletionProofAction
 {
@@ -30,10 +32,12 @@ class UploadOrderCompletionProofAction
         ?string $fileDisk = null,
         ?string $mimeType = null,
         ?int $fileSizeBytes = null,
+        string $capturedVia = 'file_fallback',
+        ?string $clientDeviceClockAt = null,
     ): bool {
         $startedAt = microtime(true);
 
-        return (bool) DB::transaction(function () use ($order, $courier, $proofType, $filePath, $fileDisk, $mimeType, $fileSizeBytes, $startedAt) {
+        return (bool) DB::transaction(function () use ($order, $courier, $proofType, $filePath, $fileDisk, $mimeType, $fileSizeBytes, $capturedVia, $clientDeviceClockAt, $startedAt) {
             if (! $this->uploadValidator->isValid($filePath, $mimeType, $fileSizeBytes)) {
                 return false;
             }
@@ -55,12 +59,21 @@ class UploadOrderCompletionProofAction
                 return false;
             }
 
+            $normalizedCapturedVia = in_array($capturedVia, ['camera', 'file_fallback'], true)
+                ? $capturedVia
+                : 'file_fallback';
+            $clientClock = $this->normalizeClientClock($clientDeviceClockAt);
+            $checksumSha256 = $this->resolveChecksumSha256($filePath, $fileDisk);
+
             $payload = [
                 'file_path' => $filePath,
                 'file_disk' => $fileDisk,
                 'mime_type' => $mimeType,
                 'file_size_bytes' => $fileSizeBytes,
                 'file_extension' => strtolower(pathinfo($filePath, PATHINFO_EXTENSION)),
+                'captured_via' => $normalizedCapturedVia,
+                'client_device_clock_at' => $clientClock,
+                'checksum_sha256' => $checksumSha256,
                 'uploaded_at' => now(),
             ];
 
@@ -71,6 +84,16 @@ class UploadOrderCompletionProofAction
                 ->first();
 
             if ($proof) {
+                Log::info('completion_proof_replaced', [
+                    'flow' => 'order_completion_proof',
+                    'order_id' => $order->id,
+                    'courier_id' => $courier->id,
+                    'completion_request_id' => $lockedRequest->id,
+                    'proof_type' => $proofType,
+                    'previous_file_path' => $proof->file_path,
+                    'new_file_path' => $filePath,
+                    'captured_via' => $normalizedCapturedVia,
+                ]);
                 $proof->forceFill($payload)->save();
             } else {
                 $proof = OrderCompletionProof::unguarded(fn () => OrderCompletionProof::query()->create($payload + [
@@ -98,6 +121,8 @@ class UploadOrderCompletionProofAction
                 'courier_id' => $courier->id,
                 'completion_request_id' => $lockedRequest->id,
                 'proof_type' => $proofType,
+                'captured_via' => $normalizedCapturedVia,
+                'checksum_sha256' => $checksumSha256,
                 'status_before' => $statusBefore,
                 'status_after' => $lockedRequest->status,
                 'elapsed_ms' => (int) round((microtime(true) - $startedAt) * 1000),
@@ -105,5 +130,34 @@ class UploadOrderCompletionProofAction
 
             return true;
         });
+    }
+
+    private function normalizeClientClock(?string $value): ?Carbon
+    {
+        if (! filled($value)) {
+            return null;
+        }
+
+        try {
+            return Carbon::parse($value);
+        } catch (\Throwable) {
+            return null;
+        }
+    }
+
+    private function resolveChecksumSha256(string $filePath, ?string $fileDisk): ?string
+    {
+        try {
+            $disk = Storage::disk($fileDisk ?: 'public');
+            $absolutePath = method_exists($disk, 'path') ? $disk->path($filePath) : null;
+
+            if (! $absolutePath || ! is_file($absolutePath)) {
+                return null;
+            }
+
+            return hash_file('sha256', $absolutePath) ?: null;
+        } catch (\Throwable) {
+            return null;
+        }
     }
 }
