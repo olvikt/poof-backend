@@ -194,8 +194,15 @@
                     </div>
 
                     @if($order->status === \App\Models\Order::STATUS_IN_PROGRESS && $needsProofFlow)
-                        <div class="mt-3 rounded-2xl border border-white/[0.08] bg-[#0d1522] p-3">
-                            <div class="mb-2 text-[11px] font-semibold uppercase tracking-[0.08em] text-slate-400">Підтвердження виконання</div>
+                        <div
+                            class="mt-3 rounded-2xl border border-white/[0.08] bg-[#0d1522] p-3 transition-shadow duration-500"
+                            data-proof-section-for-order="{{ $order->id }}"
+                            data-testid="proof-section-{{ $order->id }}"
+                        >
+                            <div class="text-sm font-semibold text-slate-100">Зробіть 2 фото для завершення</div>
+                            <div class="mt-1 text-xs {{ $proofReadyToSubmit ? 'text-emerald-300' : 'text-amber-300' }}">
+                                {{ $proofReadyToSubmit ? 'Фото додано. Тепер можна завершити замовлення.' : 'Завершення стане доступним після 2 фото' }}
+                            </div>
                             <div class="space-y-2.5">
                                 <div
                                     data-testid="proof-card-door"
@@ -285,8 +292,6 @@
                             </div>
                             @if($completionRequest?->status === \App\Models\OrderCompletionRequest::STATUS_AWAITING_CLIENT_CONFIRMATION)
                                 <div class="mt-2 text-xs text-emerald-300">Очікуємо підтвердження клієнта.</div>
-                            @elseif(! $proofReadyToSubmit)
-                                <div class="mt-2 text-xs text-amber-300">Завершення стане доступним після 2 фото.</div>
                             @endif
                         </div>
                     @endif
@@ -330,13 +335,14 @@
 
         @if($primaryActionOrder)
             <div class="fixed bottom-[calc(var(--courier-nav-h)+env(safe-area-inset-bottom)+var(--courier-screen-bottom-gap))] left-1/2 z-40 w-full max-w-md -translate-x-1/2 px-4">
-                <div class="rounded-2xl border border-white/10 bg-[#0f1724]/[0.95] p-2 shadow-[0_-10px_28px_rgba(0,0,0,0.45)] backdrop-blur-sm">
+                <div class="rounded-2xl border border-white/10 bg-[#0f1724]/[0.95] p-2 shadow-[0_-10px_28px_rgba(0,0,0,0.45)] backdrop-blur-sm" data-primary-order-cta>
                     @if($primaryActionOrder->status === \App\Models\Order::STATUS_ACCEPTED)
                         <button
                             type="button"
                             wire:click="start({{ $primaryActionOrder->id }})"
                             wire:loading.attr="disabled"
                             @if(! $online) disabled @endif
+                            data-testid="primary-start-cta"
                             class="courier-btn courier-btn-warning h-12 w-full"
                         >
                             Почати виконання · #{{ $primaryActionOrder->id }}
@@ -368,6 +374,56 @@
         @endif
     @endif
 
+    <div class="mt-5 courier-surface border border-white/[0.08] p-4">
+        <div class="mb-3 flex items-center justify-between gap-2">
+            <h3 class="text-sm font-semibold text-slate-100">Виконані замовлення</h3>
+            <span class="text-xs text-slate-400">Останні {{ (int) config('courier_runtime.completed_stats.days', 14) }} днів</span>
+        </div>
+
+        @if(($completedStats ?? collect())->isEmpty())
+            <div class="rounded-2xl border border-white/10 bg-white/[0.02] px-3 py-4 text-sm text-slate-400">
+                Ще немає виконаних замовлень за обраний період.
+            </div>
+        @else
+            <div class="space-y-2">
+                @foreach($completedStats as $dayStat)
+                    @php
+                        $isOpen = in_array($dayStat['date'], $expandedCompletedStatDates, true);
+                    @endphp
+                    <div class="overflow-hidden rounded-2xl border border-white/10 bg-[#0d1522]">
+                        <button
+                            type="button"
+                            wire:click="toggleCompletedStatDate('{{ $dayStat['date'] }}')"
+                            class="flex w-full items-center justify-between gap-3 px-3 py-3 text-left active:bg-white/[0.03]"
+                        >
+                            <div class="text-sm font-medium text-slate-100">{{ $dayStat['label'] }}</div>
+                            <div class="flex items-center gap-2">
+                                <span class="text-sm font-semibold text-slate-100">{{ $dayStat['total_amount_formatted'] }}</span>
+                                <svg class="h-4 w-4 text-slate-400 transition-transform {{ $isOpen ? 'rotate-180' : '' }}" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+                                    <path fill-rule="evenodd" d="M5.23 7.21a.75.75 0 0 1 1.06.02L10 11.17l3.71-3.94a.75.75 0 1 1 1.08 1.04l-4.25 4.5a.75.75 0 0 1-1.08 0l-4.25-4.5a.75.75 0 0 1 .02-1.06Z" clip-rule="evenodd" />
+                                </svg>
+                            </div>
+                        </button>
+
+                        @if($isOpen)
+                            <div class="space-y-2 border-t border-white/10 px-3 py-3">
+                                @foreach($dayStat['orders'] as $item)
+                                    <div class="flex items-center justify-between gap-3 rounded-xl bg-white/[0.03] px-3 py-2">
+                                        <div class="min-w-0">
+                                            <div class="truncate text-sm text-slate-200">{{ $item['address_text'] }}</div>
+                                            <div class="mt-0.5 text-xs text-slate-400">{{ $item['completed_time'] }}</div>
+                                        </div>
+                                        <div class="shrink-0 text-sm font-semibold text-slate-100">{{ $item['amount_formatted'] }}</div>
+                                    </div>
+                                @endforeach
+                            </div>
+                        @endif
+                    </div>
+                @endforeach
+            </div>
+        @endif
+    </div>
+
     @if($completionConfirmationOrderId)
         <div class="fixed inset-0 z-[90] bg-black/70" wire:key="completion-confirmation-modal">
             <div class="absolute inset-x-0 bottom-0 mx-auto w-full max-w-md rounded-t-3xl border border-white/10 bg-[#0c131d] p-4 pb-[max(1rem,env(safe-area-inset-bottom))]">
@@ -385,6 +441,37 @@
 
 @script
 <script>
+    const revealProofForOrder = (orderId) => {
+        const proofSection = document.querySelector(`[data-proof-section-for-order="${orderId}"]`);
+        if (!proofSection) return;
+
+        const cta = document.querySelector('[data-primary-order-cta]');
+        const fixedBottomOffset = cta ? (cta.getBoundingClientRect().height + 24) : 0;
+        const top = window.scrollY + proofSection.getBoundingClientRect().top - 16;
+        window.scrollTo({ top: Math.max(0, top), behavior: 'smooth' });
+
+        window.setTimeout(() => {
+            const rect = proofSection.getBoundingClientRect();
+            const visibleBottom = window.innerHeight - fixedBottomOffset;
+            if (rect.bottom > visibleBottom) {
+                window.scrollBy({ top: rect.bottom - visibleBottom + 12, behavior: 'smooth' });
+            }
+        }, 220);
+
+        proofSection.classList.remove('proof-section-pulse');
+        window.requestAnimationFrame(() => proofSection.classList.add('proof-section-pulse'));
+        window.setTimeout(() => proofSection.classList.remove('proof-section-pulse'), 1700);
+    };
+
+    if (!window.__poofProofRevealBound) {
+        window.addEventListener('courier-proof:reveal', (event) => {
+            const orderId = event?.detail?.orderId;
+            if (!orderId) return;
+            window.setTimeout(() => revealProofForOrder(orderId), 80);
+        });
+        window.__poofProofRevealBound = true;
+    }
+
     Alpine.data('proofCaptureCard', (config) => ({
         ...config,
         open: false,

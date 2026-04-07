@@ -104,3 +104,23 @@ Proof upload now records lightweight metadata for investigation:
 - replacement event log when retake overwrites same `proof_type`
 
 This preserves existing proof validation and idempotent upsert semantics while improving auditability.
+
+## Phase 4 UX hardening: proof auto-reveal + completed earnings accordion
+### Why this was changed
+Manual courier runs on phones showed that after tapping **“Почати виконання”** the proof block stayed below the fold. Couriers missed the next required action and completion time increased.
+
+### New My Orders behavior
+- For proof-aware orders, successful `start` emits a UI event and frontend scrolls directly to the active proof anchor (`data-proof-section-for-order="<id>"`).
+- The proof block gets a short pulse highlight so the next action is visually obvious.
+- The block now has explicit guidance:
+  - Heading: **Зробіть 2 фото для завершення**
+  - Helper (amber while incomplete): **Завершення стане доступним після 2 фото**
+  - Helper (success when both photos exist): **Фото додано. Тепер можна завершити замовлення.**
+
+### New completed orders stats section
+- Courier “Мої замовлення” now includes a daily accordion for completed orders earnings.
+- Data is grouped by `completed_at` day with:
+  - day label (`Сьогодні` / date),
+  - daily total earnings,
+  - expandable rows with address, completion time, and per-order amount.
+- Initial read model is bounded by configurable recent days window (`COURIER_COMPLETED_STATS_DAYS`, default 14) to avoid scanning full history on hot render path.

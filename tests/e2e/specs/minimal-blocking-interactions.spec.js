@@ -219,4 +219,37 @@ test.describe('minimal blocking interactive lane', () => {
 
     guards.assertHealthy();
   });
+
+  test('proof(min): start proof-aware order auto-reveals proof section with helper text', async ({ page }) => {
+    const guards = attachRuntimeGuards(page);
+
+    await loginAs(page, {
+      login: 'courier@poof.app',
+      password: 'password',
+      expectedPath: '/courier/orders',
+    });
+
+    await page.goto('/courier/my-orders');
+
+    const startCta = page.locator('[data-testid="primary-start-cta"]').first();
+    if ((await startCta.count()) === 0) {
+      test.skip(true, 'No accepted order available for start in e2e fixture.');
+    }
+
+    await startCta.click();
+
+    const proofSection = page.locator('[data-proof-section-for-order]').first();
+    await expect(proofSection).toBeVisible();
+    await expect(proofSection).toContainText('Завершення стане доступним після 2 фото');
+    await expect(page.locator('[data-testid="proof-card-door"]').first()).toBeVisible();
+    await expect(page.locator('[data-testid="proof-card-container"]').first()).toBeVisible();
+
+    const inViewport = await proofSection.evaluate((node) => {
+      const rect = node.getBoundingClientRect();
+      return rect.top >= 0 && rect.top < (window.innerHeight * 0.75);
+    });
+    expect(inViewport).toBeTruthy();
+
+    guards.assertHealthy();
+  });
 });
