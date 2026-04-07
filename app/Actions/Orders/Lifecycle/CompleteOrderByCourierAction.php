@@ -4,15 +4,22 @@ declare(strict_types=1);
 
 namespace App\Actions\Orders\Lifecycle;
 
+use App\Actions\Orders\Completion\StartOrderCompletionProofAction;
+use App\Actions\Orders\Completion\SubmitOrderCompletionByCourierAction;
 use App\Models\Order;
+use App\Models\OrderCompletionRequest;
 use App\Models\User;
-use App\Services\Courier\Earnings\CourierEarningsSettlementService;
+use App\Services\Orders\Completion\OrderCompletionPolicyResolver;
 use Illuminate\Support\Facades\DB;
 
 class CompleteOrderByCourierAction
 {
-    public function __construct(private readonly CourierEarningsSettlementService $earningsSettlementService)
-    {
+    public function __construct(
+        private readonly OrderCompletionPolicyResolver $policyResolver,
+        private readonly StartOrderCompletionProofAction $startProofAction,
+        private readonly SubmitOrderCompletionByCourierAction $submitProofAction,
+        private readonly FinalizeCompletedOrderAction $finalizeCompletedOrderAction,
+    ) {
     }
 
     /**
@@ -30,20 +37,16 @@ class CompleteOrderByCourierAction
                 return false;
             }
 
-            $lockedOrder->forceFill([
-                'status' => Order::STATUS_DONE,
-                'completed_at' => now(),
-            ])->save();
+            $policy = $this->policyResolver->resolveForOrder($lockedOrder);
 
-            $courier->markFree();
+            if ($policy === OrderCompletionRequest::POLICY_NONE) {
+                return $this->finalizeCompletedOrderAction->finalizeLocked($lockedOrder, $courier);
+            }
 
-            $courier->update([
-                'last_completed_at' => now(),
-            ]);
+            // Door pickup policy: completion requires proof submission and client confirmation.
+            $this->startProofAction->handle($lockedOrder, $courier);
 
-            $this->earningsSettlementService->settleForOrder($lockedOrder->fresh());
-
-            return true;
+            return $this->submitProofAction->handle($lockedOrder, $courier);
         });
     }
 }

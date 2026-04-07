@@ -14,6 +14,7 @@ use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Validation\ValidationException;
 
 class Order extends Model
@@ -77,6 +78,9 @@ public function markAsPaid(): void
     public const HANDOVER_DOOR = 'door';
     public const HANDOVER_HAND = 'hand';
 
+    public const COMPLETION_POLICY_NONE = 'none';
+    public const COMPLETION_POLICY_DOOR_TWO_PHOTO_CLIENT_CONFIRM = 'door_two_photo_client_confirm';
+
     public const FUNDING_CLIENT = 'client';
     public const FUNDING_SYSTEM_PROMO = 'system_promo';
 
@@ -116,6 +120,7 @@ public function markAsPaid(): void
         'client_wait_preference',
         'promise_policy_version',
         'comment',
+        'completion_policy',
     ];
 
     public const LEGACY_WEB_CREATE_COLUMNS = [
@@ -144,6 +149,7 @@ public function markAsPaid(): void
         'client_wait_preference',
         'promise_policy_version',
         'handover_type',
+        'completion_policy',
         'bags_count',
         'price',
         'client_charge_amount',
@@ -189,6 +195,7 @@ public function markAsPaid(): void
         'client_wait_preference',
         'promise_policy_version',
         'handover_type',
+        'completion_policy',
         'accepted_at',
         'started_at',
         'completed_at',
@@ -290,6 +297,16 @@ public function markAsPaid(): void
 	{
 		return $this->hasMany(\App\Models\OrderOffer::class, 'order_id');
 	}
+    public function completionRequest(): HasOne
+    {
+        return $this->hasOne(OrderCompletionRequest::class, 'order_id');
+    }
+
+    public function completionProofs(): HasMany
+    {
+        return $this->hasMany(OrderCompletionProof::class, 'order_id');
+    }
+
     /* =========================================================
      |  SCOPES
      | ========================================================= */
