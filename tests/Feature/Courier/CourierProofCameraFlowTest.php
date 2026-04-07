@@ -27,7 +27,9 @@ class CourierProofCameraFlowTest extends TestCase
 
         Livewire::test(MyOrders::class)
             ->assertSee('Зробіть 2 фото для завершення')
-            ->assertSee('Завершення стане доступним після 2 фото')
+            ->assertSee('Завершити виконання')
+            ->assertSee('Звʼязок з клієнтом')
+            ->assertDontSee('Завершення стане доступним після 2 фото')
             ->assertSee('Фото у двері')
             ->assertSee('Фото у контейнера')
             ->assertSeeHtml('data-proof-section-for-order="'.$order->id.'"')

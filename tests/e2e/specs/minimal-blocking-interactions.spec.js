@@ -220,7 +220,7 @@ test.describe('minimal blocking interactive lane', () => {
     guards.assertHealthy();
   });
 
-  test('proof(min): start proof-aware order auto-reveals proof section with helper text', async ({ page }) => {
+  test('proof(min): start proof-aware order auto-reveals proof section', async ({ page }) => {
     const guards = attachRuntimeGuards(page);
 
     await loginAs(page, {
@@ -240,7 +240,7 @@ test.describe('minimal blocking interactive lane', () => {
 
     const proofSection = page.locator('[data-proof-section-for-order]').first();
     await expect(proofSection).toBeVisible();
-    await expect(proofSection).toContainText('Завершення стане доступним після 2 фото');
+    await expect(proofSection).toContainText('Зробіть 2 фото для завершення');
     await expect(page.locator('[data-testid="proof-card-door"]').first()).toBeVisible();
     await expect(page.locator('[data-testid="proof-card-container"]').first()).toBeVisible();
 
