@@ -50,4 +50,8 @@ return [
         'max_searching_age_minutes' => (int) env('COURIER_SEARCHING_MAX_AGE_MINUTES', 20),
         'candidate_scan_limit' => (int) env('COURIER_SEARCHING_CANDIDATE_SCAN_LIMIT', 160),
     ],
+
+    'completed_stats' => [
+        'days' => (int) env('COURIER_COMPLETED_STATS_DAYS', 14),
+    ],
 ];

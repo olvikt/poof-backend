@@ -8,6 +8,7 @@ use App\Models\OrderCompletionProof;
 use App\Models\OrderCompletionRequest;
 use App\Models\User;
 use App\Services\Courier\CourierPresenceService;
+use App\Services\Courier\Earnings\CourierCompletedOrdersDailyStatsQuery;
 use App\Services\Dispatch\DispatchTriggerPolicy;
 use App\Services\Dispatch\DispatchTriggerService;
 use App\Support\Courier\CourierNavigationRuntime;
@@ -28,6 +29,7 @@ class MyOrders extends Component
     public array $doorProofFiles = [];
     public array $containerProofFiles = [];
     public ?int $completionConfirmationOrderId = null;
+    public array $expandedCompletedStatDates = [];
 
     protected $listeners = [
         'order-updated' => '$refresh',
@@ -74,7 +76,25 @@ class MyOrders extends Component
         }
 
         $this->dispatch('notify', type: 'success', message: 'Виконання розпочато');
+        $order->refresh();
+        if ($this->isProofAware($order)) {
+            $this->dispatch('courier-proof:reveal', orderId: $order->id);
+        }
         $this->dispatch('$refresh');
+    }
+
+    public function toggleCompletedStatDate(string $date): void
+    {
+        if (in_array($date, $this->expandedCompletedStatDates, true)) {
+            $this->expandedCompletedStatDates = array_values(array_filter(
+                $this->expandedCompletedStatDates,
+                fn (string $item): bool => $item !== $date,
+            ));
+
+            return;
+        }
+
+        $this->expandedCompletedStatDates[] = $date;
     }
 
     public function complete(int $orderId): void
@@ -293,6 +313,7 @@ class MyOrders extends Component
             return view('livewire.courier.my-orders', [
                 'orders' => collect(),
                 'online' => false,
+                'completedStats' => collect(),
             ])->layout('layouts.courier');
         }
 
@@ -308,6 +329,17 @@ class MyOrders extends Component
             ->get();
 
         $orders = $this->appendDistance($orders, $courier);
+        $completedStats = $this->completedStatsQuery()->forCourier($courier);
+
+        $availableDates = $completedStats->pluck('date')->all();
+        $this->expandedCompletedStatDates = array_values(array_intersect($this->expandedCompletedStatDates, $availableDates));
+
+        if ($this->expandedCompletedStatDates === [] && $completedStats->isNotEmpty()) {
+            $todayDate = now()->toDateString();
+            if (in_array($todayDate, $availableDates, true)) {
+                $this->expandedCompletedStatDates = [$todayDate];
+            }
+        }
 
         Log::debug('my_orders_render', [
             'flow' => 'courier_cabinet',
@@ -319,6 +351,7 @@ class MyOrders extends Component
         return view('livewire.courier.my-orders', [
             'orders' => $orders,
             'online' => $this->online,
+            'completedStats' => $completedStats,
             'mapBootstrap' => $this->resolveMapBootstrap($orders, $courier),
             'pollIntervalSeconds' => $orders->isEmpty() ? self::POLL_IDLE_SECONDS : self::POLL_ACTIVE_SECONDS,
         ])->layout('layouts.courier');
@@ -390,6 +423,11 @@ class MyOrders extends Component
     private function navigationRuntime(): CourierNavigationRuntime
     {
         return app(CourierNavigationRuntime::class);
+    }
+
+    private function completedStatsQuery(): CourierCompletedOrdersDailyStatsQuery
+    {
+        return app(CourierCompletedOrdersDailyStatsQuery::class);
     }
 
     private function isProofAware(Order $order): bool
