@@ -183,4 +183,40 @@ test.describe('minimal blocking interactive lane', () => {
 
     guards.assertHealthy();
   });
+
+  test('proof(min): courier proof flow uses camera-first capture contract + completion modal', async ({ page }) => {
+    const guards = attachRuntimeGuards(page);
+
+    await page.addInitScript(() => {
+      window.__poofCameraCaptureMock = async () => {
+        const bytes = new Uint8Array([137, 80, 78, 71, 1, 2, 3, 4]);
+        return new Blob([bytes], { type: 'image/png' });
+      };
+    });
+
+    await loginAs(page, {
+      login: 'courier@poof.app',
+      password: 'password',
+      expectedPath: '/courier/orders',
+    });
+
+    await page.goto('/courier/my-orders');
+
+    if ((await page.locator('[data-testid=\"proof-card-door\"]').count()) === 0) {
+      test.skip(true, 'No proof-aware in-progress courier order in e2e fixture.');
+    }
+
+    await page.locator('[data-testid=\"proof-card-door\"] button').first().click();
+    await page.locator('[data-testid=\"proof-card-container\"] button').first().click();
+
+    const completeCta = page.locator('[data-testid=\"proof-complete-cta\"]');
+    await expect(completeCta).toBeEnabled();
+    await completeCta.click();
+
+    await expect(page.getByText('Ви завершили замовлення')).toBeVisible();
+    await expect(page.getByText('Гроші зарахуються як тільки клієнт підтвердить виконання')).toBeVisible();
+    await page.locator('[data-testid=\"proof-complete-confirm\"]').click();
+
+    guards.assertHealthy();
+  });
 });

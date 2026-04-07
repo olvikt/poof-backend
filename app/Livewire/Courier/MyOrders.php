@@ -13,6 +13,7 @@ use App\Services\Dispatch\DispatchTriggerService;
 use App\Support\Courier\CourierNavigationRuntime;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Storage;
 use Livewire\Component;
 use Livewire\Features\SupportFileUploads\WithFileUploads;
 
@@ -26,6 +27,7 @@ class MyOrders extends Component
     public bool $online = false;
     public array $doorProofFiles = [];
     public array $containerProofFiles = [];
+    public ?int $completionConfirmationOrderId = null;
 
     protected $listeners = [
         'order-updated' => '$refresh',
@@ -116,7 +118,12 @@ class MyOrders extends Component
         $this->dispatch('$refresh');
     }
 
-    public function uploadProof(int $orderId, string $proofType): void
+    public function uploadProof(
+        int $orderId,
+        string $proofType,
+        string $capturedVia = 'file_fallback',
+        ?string $clientDeviceClockAt = null,
+    ): void
     {
         $courier = $this->resolveCourier();
 
@@ -153,6 +160,8 @@ class MyOrders extends Component
             fileDisk: 'public',
             mimeType: $file->getMimeType(),
             fileSizeBytes: $file->getSize(),
+            capturedVia: $capturedVia,
+            clientDeviceClockAt: $clientDeviceClockAt,
         );
 
         if (! $uploaded) {
@@ -168,6 +177,57 @@ class MyOrders extends Component
 
         $this->dispatch('notify', type: 'success', message: 'Фото-підтвердження збережено.');
         $this->dispatch('$refresh');
+    }
+
+    public function requestCompletionConfirmation(int $orderId): void
+    {
+        $courier = $this->resolveCourier();
+
+        if (! $courier instanceof User || ! $courier->isCourier()) {
+            return;
+        }
+
+        $order = Order::query()
+            ->whereKey($orderId)
+            ->where('courier_id', $courier->id)
+            ->first();
+
+        if (! $order) {
+            $this->dispatch('notify', type: 'error', message: 'Замовлення не знайдено');
+
+            return;
+        }
+
+        if (! $this->isProofAware($order)) {
+            $this->complete($orderId);
+
+            return;
+        }
+
+        if (! $this->hasAllProofs($order)) {
+            $this->dispatch('notify', type: 'error', message: 'Додайте 2 фото (біля дверей і контейнера), щоб відправити завершення.');
+
+            return;
+        }
+
+        $this->completionConfirmationOrderId = $order->id;
+    }
+
+    public function closeCompletionConfirmation(): void
+    {
+        $this->completionConfirmationOrderId = null;
+    }
+
+    public function confirmCompletion(): void
+    {
+        if (! $this->completionConfirmationOrderId) {
+            return;
+        }
+
+        $orderId = $this->completionConfirmationOrderId;
+        $this->completionConfirmationOrderId = null;
+
+        $this->complete($orderId);
     }
 
     public function navigate(int $orderId): void
@@ -349,5 +409,14 @@ class MyOrders extends Component
 
         return in_array(OrderCompletionProof::TYPE_DOOR_PHOTO, $proofTypes, true)
             && in_array(OrderCompletionProof::TYPE_CONTAINER_PHOTO, $proofTypes, true);
+    }
+
+    public function proofPreviewUrl(?OrderCompletionProof $proof): ?string
+    {
+        if (! $proof) {
+            return null;
+        }
+
+        return Storage::disk($proof->file_disk ?: 'public')->url($proof->file_path);
     }
 }

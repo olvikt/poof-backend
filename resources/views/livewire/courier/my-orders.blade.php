@@ -116,12 +116,17 @@
                         'Домофон' => $order->intercom,
                     ];
                     $completionRequest = $order->completionRequest;
+                    $proofsByType = $completionRequest?->proofs?->keyBy('proof_type') ?? collect();
                     $uploadedProofTypes = $completionRequest?->proofs?->pluck('proof_type')->all() ?? [];
                     $needsProofFlow = $order->completion_policy === \App\Models\Order::COMPLETION_POLICY_DOOR_TWO_PHOTO_CLIENT_CONFIRM
                         && $order->handover_type === \App\Models\Order::HANDOVER_DOOR;
                     $hasDoorProof = in_array(\App\Models\OrderCompletionProof::TYPE_DOOR_PHOTO, $uploadedProofTypes, true);
                     $hasContainerProof = in_array(\App\Models\OrderCompletionProof::TYPE_CONTAINER_PHOTO, $uploadedProofTypes, true);
                     $proofReadyToSubmit = $hasDoorProof && $hasContainerProof;
+                    $doorProof = $proofsByType->get(\App\Models\OrderCompletionProof::TYPE_DOOR_PHOTO);
+                    $containerProof = $proofsByType->get(\App\Models\OrderCompletionProof::TYPE_CONTAINER_PHOTO);
+                    $doorProofUrl = $this->proofPreviewUrl($doorProof);
+                    $containerProofUrl = $this->proofPreviewUrl($containerProof);
                 @endphp
 
                 <div wire:key="my-order-{{ $order->id }}" class="courier-surface border border-white/[0.08] p-4" x-data="{ contactOpen: false, clientPhone: @js($clientPhone) }">
@@ -191,19 +196,90 @@
                     @if($order->status === \App\Models\Order::STATUS_IN_PROGRESS && $needsProofFlow)
                         <div class="mt-3 rounded-2xl border border-white/[0.08] bg-[#0d1522] p-3">
                             <div class="mb-2 text-[11px] font-semibold uppercase tracking-[0.08em] text-slate-400">Підтвердження виконання</div>
-                            <div class="space-y-2">
-                                <div class="rounded-xl bg-white/[0.04] p-2.5">
-                                    <div class="mb-1 text-xs text-slate-300">1) Фото біля дверей @if($hasDoorProof)<span class="text-emerald-300">✓</span>@endif</div>
-                                    <div class="flex gap-2">
-                                        <input type="file" accept="image/*" wire:model="doorProofFiles.{{ $order->id }}" class="block w-full text-xs text-slate-200 file:mr-3 file:rounded-lg file:border-0 file:bg-slate-700 file:px-3 file:py-1.5 file:text-xs file:text-white" />
-                                        <button type="button" wire:click="uploadProof({{ $order->id }}, '{{ \App\Models\OrderCompletionProof::TYPE_DOOR_PHOTO }}')" class="courier-btn courier-btn-secondary h-9 px-3 text-xs">Завантажити</button>
+                            <div class="space-y-2.5">
+                                <div
+                                    data-testid="proof-card-door"
+                                    x-data="proofCaptureCard({
+                                        orderId: {{ $order->id }},
+                                        proofType: '{{ \App\Models\OrderCompletionProof::TYPE_DOOR_PHOTO }}',
+                                        uploadField: 'doorProofFiles.{{ $order->id }}',
+                                        label: 'Фото у двері',
+                                        initialPreview: @js($doorProofUrl),
+                                        fallbackInputId: 'door-proof-fallback-{{ $order->id }}',
+                                    })"
+                                >
+                                    <input x-ref="fallbackInput" id="door-proof-fallback-{{ $order->id }}" type="file" accept="image/*" capture="environment" class="hidden" @change="onFallbackSelected" />
+                                    <button type="button" @click="openCapture" class="w-full rounded-xl border border-white/10 bg-white/[0.04] p-2.5 text-left">
+                                        <div class="flex items-center justify-between gap-2">
+                                            <div class="text-xs text-slate-200">Фото у двері</div>
+                                            <span x-show="completed" class="text-emerald-300">✓</span>
+                                        </div>
+                                        <template x-if="previewUrl">
+                                            <img :src="previewUrl" alt="Фото у двері" class="mt-2 h-24 w-full rounded-lg object-cover" />
+                                        </template>
+                                        <div x-show="!previewUrl" class="mt-2 rounded-lg border border-dashed border-white/15 px-3 py-5 text-center text-xs text-slate-400">Натисніть, щоб зробити фото зараз</div>
+                                        <div x-show="fallbackNotice" class="mt-2 text-[11px] text-amber-300" x-text="fallbackNotice"></div>
+                                        <div x-show="errorMessage" class="mt-2 text-[11px] text-rose-300" x-text="errorMessage"></div>
+                                        <div class="mt-2 text-[11px] text-slate-400" x-show="completed">Натисніть для перезйомки</div>
+                                    </button>
+
+                                    <div x-show="open" x-cloak class="fixed inset-0 z-[80] bg-black/85">
+                                        <div class="flex h-full flex-col p-4">
+                                            <div class="flex items-center justify-between pb-3">
+                                                <div class="text-sm font-semibold text-white" x-text="label"></div>
+                                                <button type="button" class="text-sm text-slate-300" @click="closeCapture">Закрити</button>
+                                            </div>
+                                            <div class="relative flex-1 overflow-hidden rounded-2xl border border-white/10 bg-[#0b131d]">
+                                                <video x-ref="video" autoplay playsinline class="h-full w-full object-cover"></video>
+                                                <div x-show="isBusy" class="absolute inset-0 flex items-center justify-center bg-black/40 text-sm text-white">Завантаження...</div>
+                                            </div>
+                                            <div class="pt-3">
+                                                <button type="button" class="courier-btn courier-btn-warning h-12 w-full" @click="captureFrame" :disabled="isBusy">Зробити фото</button>
+                                            </div>
+                                        </div>
                                     </div>
                                 </div>
-                                <div class="rounded-xl bg-white/[0.04] p-2.5">
-                                    <div class="mb-1 text-xs text-slate-300">2) Фото контейнера @if($hasContainerProof)<span class="text-emerald-300">✓</span>@endif</div>
-                                    <div class="flex gap-2">
-                                        <input type="file" accept="image/*" wire:model="containerProofFiles.{{ $order->id }}" class="block w-full text-xs text-slate-200 file:mr-3 file:rounded-lg file:border-0 file:bg-slate-700 file:px-3 file:py-1.5 file:text-xs file:text-white" />
-                                        <button type="button" wire:click="uploadProof({{ $order->id }}, '{{ \App\Models\OrderCompletionProof::TYPE_CONTAINER_PHOTO }}')" class="courier-btn courier-btn-secondary h-9 px-3 text-xs">Завантажити</button>
+
+                                <div
+                                    data-testid="proof-card-container"
+                                    x-data="proofCaptureCard({
+                                        orderId: {{ $order->id }},
+                                        proofType: '{{ \App\Models\OrderCompletionProof::TYPE_CONTAINER_PHOTO }}',
+                                        uploadField: 'containerProofFiles.{{ $order->id }}',
+                                        label: 'Фото у контейнера',
+                                        initialPreview: @js($containerProofUrl),
+                                        fallbackInputId: 'container-proof-fallback-{{ $order->id }}',
+                                    })"
+                                >
+                                    <input x-ref="fallbackInput" id="container-proof-fallback-{{ $order->id }}" type="file" accept="image/*" capture="environment" class="hidden" @change="onFallbackSelected" />
+                                    <button type="button" @click="openCapture" class="w-full rounded-xl border border-white/10 bg-white/[0.04] p-2.5 text-left">
+                                        <div class="flex items-center justify-between gap-2">
+                                            <div class="text-xs text-slate-200">Фото у контейнера</div>
+                                            <span x-show="completed" class="text-emerald-300">✓</span>
+                                        </div>
+                                        <template x-if="previewUrl">
+                                            <img :src="previewUrl" alt="Фото у контейнера" class="mt-2 h-24 w-full rounded-lg object-cover" />
+                                        </template>
+                                        <div x-show="!previewUrl" class="mt-2 rounded-lg border border-dashed border-white/15 px-3 py-5 text-center text-xs text-slate-400">Натисніть, щоб зробити фото зараз</div>
+                                        <div x-show="fallbackNotice" class="mt-2 text-[11px] text-amber-300" x-text="fallbackNotice"></div>
+                                        <div x-show="errorMessage" class="mt-2 text-[11px] text-rose-300" x-text="errorMessage"></div>
+                                        <div class="mt-2 text-[11px] text-slate-400" x-show="completed">Натисніть для перезйомки</div>
+                                    </button>
+
+                                    <div x-show="open" x-cloak class="fixed inset-0 z-[80] bg-black/85">
+                                        <div class="flex h-full flex-col p-4">
+                                            <div class="flex items-center justify-between pb-3">
+                                                <div class="text-sm font-semibold text-white" x-text="label"></div>
+                                                <button type="button" class="text-sm text-slate-300" @click="closeCapture">Закрити</button>
+                                            </div>
+                                            <div class="relative flex-1 overflow-hidden rounded-2xl border border-white/10 bg-[#0b131d]">
+                                                <video x-ref="video" autoplay playsinline class="h-full w-full object-cover"></video>
+                                                <div x-show="isBusy" class="absolute inset-0 flex items-center justify-center bg-black/40 text-sm text-white">Завантаження...</div>
+                                            </div>
+                                            <div class="pt-3">
+                                                <button type="button" class="courier-btn courier-btn-warning h-12 w-full" @click="captureFrame" :disabled="isBusy">Зробити фото</button>
+                                            </div>
+                                        </div>
                                     </div>
                                 </div>
                             </div>
@@ -278,9 +354,10 @@
                         @endphp
                         <button
                             type="button"
-                            wire:click="complete({{ $primaryActionOrder->id }})"
+                            wire:click="{{ $primaryNeedsProofFlow ? 'requestCompletionConfirmation' : 'complete' }}({{ $primaryActionOrder->id }})"
                             wire:loading.attr="disabled"
                             @if(! $online || $disableComplete) disabled @endif
+                            data-testid="proof-complete-cta"
                             class="courier-btn courier-btn-success h-12 w-full"
                         >
                             {{ $primaryNeedsProofFlow ? 'Відправити клієнту на підтвердження' : 'Завершити замовлення' }} · #{{ $primaryActionOrder->id }}
@@ -290,4 +367,128 @@
             </div>
         @endif
     @endif
+
+    @if($completionConfirmationOrderId)
+        <div class="fixed inset-0 z-[90] bg-black/70" wire:key="completion-confirmation-modal">
+            <div class="absolute inset-x-0 bottom-0 mx-auto w-full max-w-md rounded-t-3xl border border-white/10 bg-[#0c131d] p-4 pb-[max(1rem,env(safe-area-inset-bottom))]">
+                <div class="mx-auto mb-3 h-1.5 w-11 rounded-full bg-white/30"></div>
+                <div class="text-base font-semibold text-slate-100">Ви завершили замовлення</div>
+                <div class="mt-2 text-sm text-slate-300">Гроші зарахуються як тільки клієнт підтвердить виконання</div>
+                <div class="mt-4 space-y-2">
+                    <button type="button" wire:click="confirmCompletion" class="courier-btn courier-btn-success w-full" data-testid="proof-complete-confirm">Завершити замовлення</button>
+                    <button type="button" wire:click="closeCompletionConfirmation" class="courier-btn courier-btn-secondary w-full">Повернутись</button>
+                </div>
+            </div>
+        </div>
+    @endif
 </div>
+
+@script
+<script>
+    Alpine.data('proofCaptureCard', (config) => ({
+        ...config,
+        open: false,
+        stream: null,
+        isBusy: false,
+        previewUrl: config.initialPreview ?? null,
+        completed: !!config.initialPreview,
+        fallbackNotice: null,
+        errorMessage: null,
+        async openCapture() {
+            this.errorMessage = null;
+            this.fallbackNotice = null;
+
+            const mockCapture = window.__poofCameraCaptureMock;
+            if (typeof mockCapture === 'function') {
+                const blob = await mockCapture(this.proofType);
+                await this.uploadBlob(blob, 'camera');
+                return;
+            }
+
+            if (!navigator.mediaDevices?.getUserMedia) {
+                this.useFallback('Камера недоступна у цьому браузері. Використайте системний вибір фото.');
+                return;
+            }
+
+            try {
+                this.stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: { ideal: 'environment' } }, audio: false });
+                this.open = true;
+                this.$nextTick(() => {
+                    this.$refs.video.srcObject = this.stream;
+                });
+            } catch (e) {
+                this.useFallback('Немає доступу до камери. Використайте резервний вибір фото.');
+            }
+        },
+        closeCapture() {
+            this.open = false;
+            if (this.stream) {
+                this.stream.getTracks().forEach((track) => track.stop());
+            }
+            this.stream = null;
+        },
+        async captureFrame() {
+            if (!this.$refs.video?.videoWidth) {
+                this.errorMessage = 'Не вдалося отримати кадр з камери.';
+                return;
+            }
+
+            this.isBusy = true;
+            try {
+                const canvas = document.createElement('canvas');
+                canvas.width = this.$refs.video.videoWidth;
+                canvas.height = this.$refs.video.videoHeight;
+                canvas.getContext('2d').drawImage(this.$refs.video, 0, 0, canvas.width, canvas.height);
+                const blob = await new Promise((resolve) => canvas.toBlob(resolve, 'image/jpeg', 0.92));
+                if (!blob) {
+                    throw new Error('capture_failed');
+                }
+                await this.uploadBlob(blob, 'camera');
+                this.closeCapture();
+            } catch (e) {
+                this.errorMessage = 'Не вдалося зробити фото. Спробуйте ще раз.';
+            } finally {
+                this.isBusy = false;
+            }
+        },
+        useFallback(message) {
+            this.fallbackNotice = message;
+            this.$refs.fallbackInput.click();
+        },
+        async onFallbackSelected(event) {
+            const file = event.target.files?.[0];
+            if (!file) return;
+            await this.uploadBlob(file, 'file_fallback');
+            event.target.value = '';
+        },
+        async uploadBlob(blob, capturedVia) {
+            this.errorMessage = null;
+            this.isBusy = true;
+
+            const file = blob instanceof File
+                ? blob
+                : new File([blob], `${this.proofType}-${Date.now()}.jpg`, { type: blob.type || 'image/jpeg' });
+
+            await new Promise((resolve) => {
+                this.$wire.upload(this.uploadField, file, () => {
+                    this.$wire.uploadProof(this.orderId, this.proofType, capturedVia, new Date().toISOString())
+                        .then(() => {
+                            this.previewUrl = URL.createObjectURL(file);
+                            this.completed = true;
+                            resolve();
+                        })
+                        .catch(() => {
+                            this.errorMessage = 'Не вдалося завантажити фото.';
+                            resolve();
+                        });
+                }, () => {
+                    this.errorMessage = 'Помилка підготовки фото до завантаження.';
+                    resolve();
+                });
+            });
+
+            this.isBusy = false;
+        },
+    }));
+</script>
+@endscript
