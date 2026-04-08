@@ -7,6 +7,7 @@ namespace Tests\Feature\Courier;
 use App\Actions\Courier\Profile\PersistCourierAvatarAction;
 use App\Models\Courier;
 use App\Models\CourierEarning;
+use App\Models\CourierVerificationRequest;
 use App\Models\CourierWithdrawalRequest;
 use App\Models\Order;
 use App\Models\User;
@@ -126,6 +127,44 @@ class CourierProfileCabinetPageTest extends TestCase
         $response->assertSee('Докладніше');
         $response->assertSee('Оцінки клієнтів');
         $response->assertSee('Що покращує рейтинг:');
+    }
+
+    public function test_verified_state_renders_green_badge_with_verified_icon(): void
+    {
+        $courier = $this->createCourier();
+        CourierVerificationRequest::factory()->create([
+            'courier_id' => $courier->id,
+            'status' => CourierVerificationRequest::STATUS_VERIFIED,
+        ]);
+
+        $response = $this->actingAs($courier, 'web')->get(route('courier.profile'));
+
+        $response->assertOk();
+        $response->assertSee('Верифіковано');
+        $response->assertSee('border-emerald-400/40', false);
+        $response->assertSee('data-e2e="courier-verified-icon"', false);
+        $response->assertDontSee('Статус:');
+    }
+
+    public function test_profile_hero_shows_courier_identifier(): void
+    {
+        $courier = $this->createCourier();
+
+        $response = $this->actingAs($courier, 'web')->get(route('courier.profile'));
+
+        $response->assertOk();
+        $response->assertSee('id: '.$courier->courierProfile->id);
+    }
+
+    public function test_rating_details_modal_headings_use_white_text_contract(): void
+    {
+        $courier = $this->createCourier();
+
+        $response = $this->actingAs($courier, 'web')->get(route('courier.profile'));
+
+        $response->assertOk();
+        $response->assertSee('<p class="font-semibold text-white">Що покращує рейтинг:</p>', false);
+        $response->assertSee('<p class="font-semibold text-white">Що знижує рейтинг:</p>', false);
     }
 
     public function test_withdrawal_request_contract_validates_minimum_and_persists_request(): void
