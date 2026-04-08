@@ -54,14 +54,15 @@ class CourierProfileCabinetPageTest extends TestCase
                 'name' => 'Courier Updated',
                 'phone' => '+380501234567',
                 'email' => 'courier-updated@example.com',
-                'residence_address' => 'м. Київ, вул. Профільна, 1',
+                'residence_city' => 'Київ',
+                'residence_address_line' => 'вул. Профільна, 1',
             ])
             ->assertSessionHasNoErrors();
 
         $courier->refresh();
 
         $this->assertSame('Courier Updated', $courier->name);
-        $this->assertSame('м. Київ, вул. Профільна, 1', $courier->residence_address);
+        $this->assertSame('Київ, вул. Профільна, 1', $courier->residence_address);
         $this->assertSame('basic_profile_complete', $courier->courier_verification_status);
     }
 
@@ -164,6 +165,106 @@ class CourierProfileCabinetPageTest extends TestCase
             ->assertRedirect();
 
         $this->assertGuest('web');
+    }
+
+    public function test_avatar_edit_is_exposed_via_clickable_avatar_affordance(): void
+    {
+        $courier = $this->createCourier();
+
+        $response = $this->actingAs($courier, 'web')->get(route('courier.profile'));
+
+        $response->assertOk();
+        $response->assertSee('sheet:open');
+        $response->assertSee('courierEditAvatar');
+        $response->assertDontSee('>Змінити<', false);
+    }
+
+    public function test_edit_profile_text_button_is_replaced_by_pencil_icon_affordance(): void
+    {
+        $courier = $this->createCourier();
+
+        $response = $this->actingAs($courier, 'web')->get(route('courier.profile'));
+
+        $response->assertOk();
+        $response->assertDontSee('Редагувати профіль');
+        $response->assertSee('aria-label="Редагувати профіль"', false);
+    }
+
+    public function test_rating_and_finance_blocks_render_in_single_row_layout_contract(): void
+    {
+        $courier = $this->createCourier();
+
+        $response = $this->actingAs($courier, 'web')->get(route('courier.profile'));
+
+        $response->assertOk();
+        $response->assertSee('grid grid-cols-2 gap-3', false);
+    }
+
+    public function test_profile_edit_form_contains_city_select_field(): void
+    {
+        $courier = $this->createCourier();
+
+        $response = $this->actingAs($courier, 'web')->get(route('courier.profile'));
+
+        $response->assertOk();
+        $response->assertSee('name="residence_city"', false);
+        $response->assertSee('<option value="Київ"', false);
+    }
+
+    public function test_legacy_residence_address_prefix_is_not_duplicated_after_profile_update(): void
+    {
+        $courier = $this->createCourier([
+            'residence_address' => 'м. Київ, вул. Базова, 1',
+        ]);
+
+        $this->actingAs($courier, 'web')
+            ->post(route('courier.profile.update'), [
+                'name' => 'Courier Updated',
+                'phone' => '+380501234567',
+                'email' => 'courier-updated@example.com',
+                'residence_city' => 'Київ',
+                'residence_address_line' => 'вул. Базова, 1',
+            ])
+            ->assertSessionHasNoErrors();
+
+        $courier->refresh();
+
+        $this->assertSame('Київ, вул. Базова, 1', $courier->residence_address);
+    }
+
+    public function test_composer_strips_legacy_city_prefix_from_address_line_to_avoid_duplication(): void
+    {
+        $courier = $this->createCourier();
+
+        $this->actingAs($courier, 'web')
+            ->post(route('courier.profile.update'), [
+                'name' => 'Courier Updated',
+                'phone' => '+380501234567',
+                'email' => 'courier-updated@example.com',
+                'residence_city' => 'Київ',
+                'residence_address_line' => 'м. Київ, вул. Польова, 9',
+            ])
+            ->assertSessionHasNoErrors();
+
+        $courier->refresh();
+
+        $this->assertSame('Київ, вул. Польова, 9', $courier->residence_address);
+    }
+
+    public function test_profile_update_rejects_composed_residence_address_longer_than_db_limit(): void
+    {
+        $courier = $this->createCourier();
+        $line = str_repeat('а', 496);
+
+        $this->actingAs($courier, 'web')
+            ->post(route('courier.profile.update'), [
+                'name' => 'Courier Updated',
+                'phone' => '+380501234567',
+                'email' => 'courier-updated@example.com',
+                'residence_city' => 'Київ',
+                'residence_address_line' => $line,
+            ])
+            ->assertSessionHasErrors('residence_address_line');
     }
 
     private function createCourier(array $overrides = []): User

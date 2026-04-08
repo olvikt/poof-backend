@@ -15,6 +15,7 @@ use App\Services\Courier\Profile\CourierProfileReadModelService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Validation\ValidationException;
 
 class CourierProfileController extends Controller
 {
@@ -25,6 +26,7 @@ class CourierProfileController extends Controller
         abort_if(! $courier instanceof User, 403);
 
         $profile = $readModelService->forCourier($courier);
+        $parsedResidenceAddress = $this->parseResidenceAddress($courier->residence_address);
 
         Log::info('courier_profile_render', [
             'flow' => 'courier_profile',
@@ -35,6 +37,9 @@ class CourierProfileController extends Controller
         return view('courier.profile', [
             'profile' => $profile,
             'courier' => $courier,
+            'cityOptions' => $this->cityOptions(),
+            'residenceCity' => $parsedResidenceAddress['city'],
+            'residenceAddressLine' => $parsedResidenceAddress['line'],
         ]);
     }
 
@@ -47,14 +52,26 @@ class CourierProfileController extends Controller
             'name' => ['required', 'string', 'max:255'],
             'phone' => ['required', 'string', 'max:32'],
             'email' => ['required', 'email', 'max:255', 'unique:users,email,'.$courier->id],
-            'residence_address' => ['required', 'string', 'max:500'],
+            'residence_city' => ['required', 'string', 'in:Київ,Львів,Одеса,Харків,Дніпро'],
+            'residence_address_line' => ['required', 'string', 'max:500'],
         ]);
+
+        $residenceAddress = $this->composeResidenceAddress(
+            (string) $payload['residence_city'],
+            (string) $payload['residence_address_line'],
+        );
+
+        if (mb_strlen($residenceAddress) > 500) {
+            throw ValidationException::withMessages([
+                'residence_address_line' => 'Адреса завелика. Максимум 500 символів разом із містом.',
+            ]);
+        }
 
         $action->execute($courier, new CourierProfileUpdateData(
             name: (string) $payload['name'],
             phone: (string) $payload['phone'],
             email: (string) $payload['email'],
-            residenceAddress: (string) $payload['residence_address'],
+            residenceAddress: $residenceAddress,
         ));
 
         Log::info('courier_profile_update', [
@@ -112,5 +129,50 @@ class CourierProfileController extends Controller
         return $user instanceof User && $user->isCourier()
             ? $user
             : null;
+    }
+
+    private function cityOptions(): array
+    {
+        return ['Київ', 'Львів', 'Одеса', 'Харків', 'Дніпро'];
+    }
+
+    private function parseResidenceAddress(?string $residenceAddress): array
+    {
+        $normalized = trim((string) $residenceAddress);
+
+        if ($normalized === '') {
+            return ['city' => 'Київ', 'line' => ''];
+        }
+
+        $citiesPattern = implode('|', array_map(static fn (string $city): string => preg_quote($city, '/'), $this->cityOptions()));
+        $pattern = '/^(?:м\.\s*|м\s+)?('.$citiesPattern.')\s*,\s*(.+)$/u';
+
+        if (preg_match($pattern, $normalized, $matches) === 1) {
+            return [
+                'city' => $matches[1],
+                'line' => trim($matches[2]),
+            ];
+        }
+
+        foreach ($this->cityOptions() as $city) {
+            $prefix = $city.',';
+            if (str_starts_with($normalized, $prefix)) {
+                return [
+                    'city' => $city,
+                    'line' => ltrim(substr($normalized, strlen($prefix))),
+                ];
+            }
+        }
+
+        return ['city' => 'Київ', 'line' => $normalized];
+    }
+
+    private function composeResidenceAddress(string $city, string $addressLine): string
+    {
+        $line = trim($addressLine);
+        $legacyPattern = '/^(?:м\.\s*|м\s+)?'.preg_quote($city, '/').'\s*,\s*/u';
+        $line = preg_replace($legacyPattern, '', $line) ?? $line;
+
+        return trim($city.', '.$line);
     }
 }
