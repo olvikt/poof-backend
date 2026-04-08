@@ -15,6 +15,7 @@ use App\Services\Courier\Profile\CourierProfileReadModelService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Validation\ValidationException;
 
 class CourierProfileController extends Controller
 {
@@ -25,6 +26,7 @@ class CourierProfileController extends Controller
         abort_if(! $courier instanceof User, 403);
 
         $profile = $readModelService->forCourier($courier);
+        $parsedResidenceAddress = $this->parseResidenceAddress($courier->residence_address);
 
         Log::info('courier_profile_render', [
             'flow' => 'courier_profile',
@@ -36,8 +38,8 @@ class CourierProfileController extends Controller
             'profile' => $profile,
             'courier' => $courier,
             'cityOptions' => $this->cityOptions(),
-            'residenceCity' => $this->extractResidenceCity($courier->residence_address),
-            'residenceAddressLine' => $this->extractResidenceAddressLine($courier->residence_address),
+            'residenceCity' => $parsedResidenceAddress['city'],
+            'residenceAddressLine' => $parsedResidenceAddress['line'],
         ]);
     }
 
@@ -54,7 +56,16 @@ class CourierProfileController extends Controller
             'residence_address_line' => ['required', 'string', 'max:500'],
         ]);
 
-        $residenceAddress = trim($payload['residence_city'].', '.$payload['residence_address_line']);
+        $residenceAddress = $this->composeResidenceAddress(
+            (string) $payload['residence_city'],
+            (string) $payload['residence_address_line'],
+        );
+
+        if (mb_strlen($residenceAddress) > 500) {
+            throw ValidationException::withMessages([
+                'residence_address_line' => 'Адреса завелика. Максимум 500 символів разом із містом.',
+            ]);
+        }
 
         $action->execute($courier, new CourierProfileUpdateData(
             name: (string) $payload['name'],
@@ -125,36 +136,43 @@ class CourierProfileController extends Controller
         return ['Київ', 'Львів', 'Одеса', 'Харків', 'Дніпро'];
     }
 
-    private function extractResidenceCity(?string $residenceAddress): string
+    private function parseResidenceAddress(?string $residenceAddress): array
     {
         $normalized = trim((string) $residenceAddress);
+
         if ($normalized === '') {
-            return 'Київ';
+            return ['city' => 'Київ', 'line' => ''];
         }
 
-        foreach ($this->cityOptions() as $city) {
-            if (str_starts_with($normalized, $city.',')) {
-                return $city;
-            }
-        }
+        $citiesPattern = implode('|', array_map(static fn (string $city): string => preg_quote($city, '/'), $this->cityOptions()));
+        $pattern = '/^(?:м\.\s*|м\s+)?('.$citiesPattern.')\s*,\s*(.+)$/u';
 
-        return 'Київ';
-    }
-
-    private function extractResidenceAddressLine(?string $residenceAddress): string
-    {
-        $normalized = trim((string) $residenceAddress);
-        if ($normalized === '') {
-            return '';
+        if (preg_match($pattern, $normalized, $matches) === 1) {
+            return [
+                'city' => $matches[1],
+                'line' => trim($matches[2]),
+            ];
         }
 
         foreach ($this->cityOptions() as $city) {
             $prefix = $city.',';
             if (str_starts_with($normalized, $prefix)) {
-                return ltrim(substr($normalized, strlen($prefix)));
+                return [
+                    'city' => $city,
+                    'line' => ltrim(substr($normalized, strlen($prefix))),
+                ];
             }
         }
 
-        return $normalized;
+        return ['city' => 'Київ', 'line' => $normalized];
+    }
+
+    private function composeResidenceAddress(string $city, string $addressLine): string
+    {
+        $line = trim($addressLine);
+        $legacyPattern = '/^(?:м\.\s*|м\s+)?'.preg_quote($city, '/').'\s*,\s*/u';
+        $line = preg_replace($legacyPattern, '', $line) ?? $line;
+
+        return trim($city.', '.$line);
     }
 }

@@ -211,6 +211,62 @@ class CourierProfileCabinetPageTest extends TestCase
         $response->assertSee('<option value="Київ"', false);
     }
 
+    public function test_legacy_residence_address_prefix_is_not_duplicated_after_profile_update(): void
+    {
+        $courier = $this->createCourier([
+            'residence_address' => 'м. Київ, вул. Базова, 1',
+        ]);
+
+        $this->actingAs($courier, 'web')
+            ->post(route('courier.profile.update'), [
+                'name' => 'Courier Updated',
+                'phone' => '+380501234567',
+                'email' => 'courier-updated@example.com',
+                'residence_city' => 'Київ',
+                'residence_address_line' => 'вул. Базова, 1',
+            ])
+            ->assertSessionHasNoErrors();
+
+        $courier->refresh();
+
+        $this->assertSame('Київ, вул. Базова, 1', $courier->residence_address);
+    }
+
+    public function test_composer_strips_legacy_city_prefix_from_address_line_to_avoid_duplication(): void
+    {
+        $courier = $this->createCourier();
+
+        $this->actingAs($courier, 'web')
+            ->post(route('courier.profile.update'), [
+                'name' => 'Courier Updated',
+                'phone' => '+380501234567',
+                'email' => 'courier-updated@example.com',
+                'residence_city' => 'Київ',
+                'residence_address_line' => 'м. Київ, вул. Польова, 9',
+            ])
+            ->assertSessionHasNoErrors();
+
+        $courier->refresh();
+
+        $this->assertSame('Київ, вул. Польова, 9', $courier->residence_address);
+    }
+
+    public function test_profile_update_rejects_composed_residence_address_longer_than_db_limit(): void
+    {
+        $courier = $this->createCourier();
+        $line = str_repeat('а', 496);
+
+        $this->actingAs($courier, 'web')
+            ->post(route('courier.profile.update'), [
+                'name' => 'Courier Updated',
+                'phone' => '+380501234567',
+                'email' => 'courier-updated@example.com',
+                'residence_city' => 'Київ',
+                'residence_address_line' => $line,
+            ])
+            ->assertSessionHasErrors('residence_address_line');
+    }
+
     private function createCourier(array $overrides = []): User
     {
         $courier = User::factory()->create(array_merge([
