@@ -9,6 +9,7 @@ use App\Actions\Courier\Verification\RejectCourierVerificationRequestAction;
 use App\Models\Courier;
 use App\Models\CourierVerificationRequest;
 use App\Models\User;
+use Carbon\Carbon;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Storage;
@@ -171,6 +172,47 @@ class CourierVerificationPhase1Test extends TestCase
         $this->actingAs($courier, 'web')
             ->get('/admin/courier-verification-requests')
             ->assertForbidden();
+    }
+
+    public function test_admin_can_open_verification_request_view_when_reviewed_at_is_null(): void
+    {
+        $admin = User::factory()->create([
+            'role' => User::ROLE_ADMIN,
+            'is_active' => true,
+        ]);
+        $courier = $this->createCourier();
+
+        $request = CourierVerificationRequest::factory()->create([
+            'courier_id' => $courier->id,
+            'reviewed_at' => null,
+        ]);
+
+        $this->actingAs($admin, 'web')
+            ->get("/admin/courier-verification-requests/{$request->id}")
+            ->assertOk()
+            ->assertSee('—');
+    }
+
+    public function test_admin_verification_request_view_renders_reviewed_at_datetime_when_present(): void
+    {
+        $admin = User::factory()->create([
+            'role' => User::ROLE_ADMIN,
+            'is_active' => true,
+        ]);
+        $courier = $this->createCourier();
+        $reviewedAt = Carbon::create(2026, 4, 7, 14, 5, 0);
+
+        $request = CourierVerificationRequest::factory()->create([
+            'courier_id' => $courier->id,
+            'status' => CourierVerificationRequest::STATUS_VERIFIED,
+            'reviewed_at' => $reviewedAt,
+            'reviewed_by' => $admin->id,
+        ]);
+
+        $this->actingAs($admin, 'web')
+            ->get("/admin/courier-verification-requests/{$request->id}")
+            ->assertOk()
+            ->assertSee($reviewedAt->format('d.m.Y H:i'));
     }
 
     public function test_admin_can_approve_and_reject_requests_with_projection_semantics(): void
