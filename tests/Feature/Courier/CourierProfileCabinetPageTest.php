@@ -167,6 +167,30 @@ class CourierProfileCabinetPageTest extends TestCase
         $this->assertGuest('web');
     }
 
+
+    public function test_avatar_edit_bottom_sheet_uses_livewire_form_contract(): void
+    {
+        $courier = $this->createCourier();
+
+        $response = $this->actingAs($courier, 'web')->get(route('courier.profile'));
+
+        $response->assertOk();
+        $response->assertSee('livewire:courier.avatar-form', false);
+        $response->assertDontSee("route('courier.profile.avatar.update')", false);
+    }
+
+
+    public function test_avatar_surface_listens_for_avatar_saved_event_for_reactive_refresh(): void
+    {
+        $courier = $this->createCourier();
+
+        $response = $this->actingAs($courier, 'web')->get(route('courier.profile'));
+
+        $response->assertOk();
+        $response->assertSee('x-on:avatar-saved.window', false);
+        $response->assertSee(':src="src"', false);
+    }
+
     public function test_avatar_edit_is_exposed_via_clickable_avatar_affordance(): void
     {
         $courier = $this->createCourier();
