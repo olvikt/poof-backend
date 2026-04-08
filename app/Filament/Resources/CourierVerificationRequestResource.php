@@ -18,6 +18,7 @@ use Filament\Notifications\Notification;
 use Filament\Resources\Resource;
 use Filament\Tables;
 use Filament\Tables\Columns\TextColumn;
+use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Table;
 
 class CourierVerificationRequestResource extends Resource
@@ -27,6 +28,8 @@ class CourierVerificationRequestResource extends Resource
     protected static ?string $navigationIcon = 'heroicon-o-identification';
 
     protected static ?string $navigationLabel = 'Courier verification';
+
+    protected static ?string $navigationGroup = 'Courier';
 
     public static function table(Table $table): Table
     {
@@ -39,6 +42,13 @@ class CourierVerificationRequestResource extends Resource
                 TextColumn::make('status')->badge(),
                 TextColumn::make('submitted_at')->dateTime('d.m.Y H:i')->sortable(),
                 TextColumn::make('reviewer.name')->label('Reviewed by')->default('—'),
+            ])
+            ->filters([
+                SelectFilter::make('courier_id')
+                    ->label('Courier')
+                    ->relationship('courier', 'email')
+                    ->searchable()
+                    ->preload(),
             ])
             ->actions([
                 Tables\Actions\ViewAction::make(),
