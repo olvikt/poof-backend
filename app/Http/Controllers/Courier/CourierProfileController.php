@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace App\Http\Controllers\Courier;
 
-use App\Actions\Courier\Payout\CreateCourierWithdrawalRequestAction;
 use App\Actions\Courier\Profile\PersistCourierAvatarAction;
 use App\Actions\Courier\Profile\PersistCourierProfileAction;
 use App\Actions\Courier\Verification\SubmitCourierVerificationRequestAction;
@@ -124,32 +123,6 @@ class CourierProfileController extends Controller
         ]);
 
         return back()->with('success', 'Документ відправлено на перевірку.');
-    }
-
-    public function requestWithdrawal(Request $request, CreateCourierWithdrawalRequestAction $action): RedirectResponse
-    {
-        $courier = $this->resolveCourier();
-        abort_if(! $courier instanceof User, 403);
-
-        $payload = $request->validate([
-            'amount' => ['required', 'integer', 'min:1'],
-            'notes' => ['nullable', 'string', 'max:1000'],
-        ]);
-
-        $withdrawal = $action->execute(
-            $courier,
-            (int) $payload['amount'],
-            isset($payload['notes']) ? (string) $payload['notes'] : null,
-        );
-
-        Log::info('courier_withdrawal_request_created', [
-            'flow' => 'courier_profile',
-            'courier_id' => $courier->id,
-            'withdrawal_request_id' => $withdrawal->id,
-            'amount' => $withdrawal->amount,
-        ]);
-
-        return back()->with('success', 'Запит на вивід створено.');
     }
 
     private function resolveCourier(): ?User

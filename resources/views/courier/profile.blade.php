@@ -70,25 +70,20 @@
             <button type="button" onclick="window.dispatchEvent(new CustomEvent('sheet:open',{detail:{name:'courierRatingDetails'}}))" class="mt-3 rounded-lg border border-white/20 px-2.5 py-1.5 text-xs">Докладніше</button>
         </article>
 
-        <article id="courier-balance-block" class="rounded-2xl border border-white/10 bg-[#0d1724] p-4">
-            <div class="text-xs uppercase tracking-wide text-slate-400">Фінанси</div>
+        <article class="rounded-2xl border border-white/10 bg-[#0d1724] p-4">
+            <div class="text-xs uppercase tracking-wide text-slate-400">Гаманець</div>
             <div class="mt-2 text-xl font-bold">{{ number_format((int) $profile['balance_summary']['available_to_withdraw'], 2, ',', ' ') }} ₴</div>
-            <div class="mt-2 text-xs text-slate-400">Мінімальний вивід: {{ number_format((int) $profile['balance_summary']['min_withdrawal_amount'], 2, ',', ' ') }} ₴</div>
-            <button
-                type="button"
-                onclick="window.dispatchEvent(new CustomEvent('sheet:open',{detail:{name:'courierWithdrawal'}}))"
-                @disabled(! $profile['balance_summary']['can_request_withdrawal'])
-                class="mt-3 rounded-xl px-3 py-2 text-xs font-bold {{ $profile['balance_summary']['can_request_withdrawal'] ? 'bg-poof text-[#041015]' : 'cursor-not-allowed bg-white/10 text-slate-500' }}"
-            >
-                Запросити вивід
-            </button>
+            <div class="mt-2 text-xs text-slate-400">Керування виводом і реквізитами перенесено на окрему сторінку.</div>
+            <a href="{{ route('courier.wallet') }}" class="mt-3 inline-flex rounded-xl bg-poof px-3 py-2 text-xs font-bold text-[#041015]">
+                Відкрити гаманець
+            </a>
         </article>
     </section>
 
     <section class="mt-4 rounded-2xl border border-white/10 bg-[#0d1724] p-4">
         <h2 class="text-sm font-semibold">Акаунт</h2>
         <div class="mt-3 grid grid-cols-1 gap-2">
-            <a href="#courier-balance-block" class="flex items-center justify-between rounded-xl border border-white/10 bg-[#101b2b] px-3 py-2.5 text-sm font-medium">
+            <a href="{{ route('courier.wallet') }}" class="flex items-center justify-between rounded-xl border border-white/10 bg-[#101b2b] px-3 py-2.5 text-sm font-medium">
                 <span>Гаманець / Баланс</span>
                 <span class="text-xs text-slate-400">Перейти</span>
             </a>
@@ -183,19 +178,6 @@
             </div>
         </div>
     </x-poof.ui.bottom-sheet>
-
-    <x-poof.ui.bottom-sheet name="courierWithdrawal" title="Запросити вивід">
-        <form method="POST" action="{{ route('courier.profile.withdrawal.request') }}" class="space-y-3">
-            @csrf
-            <input type="number" min="1" name="amount" class="poof-input w-full" placeholder="Сума" required>
-            <textarea name="notes" class="poof-input w-full" placeholder="Коментар (опційно)"></textarea>
-            <button class="w-full rounded-xl bg-poof py-3 text-sm font-bold text-[#041015]" @disabled(! $profile['balance_summary']['can_request_withdrawal'])>Надіслати запит</button>
-            @if($profile['balance_summary']['withdrawal_block_reason'])
-                <p class="text-xs text-amber-300">Запит заблоковано: {{ $profile['balance_summary']['withdrawal_block_reason'] }}.</p>
-            @endif
-        </form>
-    </x-poof.ui.bottom-sheet>
-
 
     <x-poof.ui.bottom-sheet name="courierVerificationUpload" title="Верифікація курʼєра">
         <form method="POST" action="{{ route('courier.profile.verification.submit') }}" enctype="multipart/form-data" class="space-y-3">
