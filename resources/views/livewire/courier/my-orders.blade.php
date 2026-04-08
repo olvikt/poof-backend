@@ -85,11 +85,6 @@
             @foreach($orders as $order)
                 @php
                     $timerStart = $order->started_at ?? $order->accepted_at ?? null;
-                    $serviceModeLabel = match ($order->service_mode) {
-                        \App\Models\Order::SERVICE_MODE_ASAP => 'Якнайшвидше',
-                        \App\Models\Order::SERVICE_MODE_PREFERRED_WINDOW => 'Бажане вікно',
-                        default => 'Інший режим',
-                    };
                     $executionDateLabel = optional($order->window_from_at ?? $order->scheduled_date)->format('d.m.Y')
                         ?? optional($order->created_at)->format('d.m.Y')
                         ?? '—';
@@ -100,6 +95,11 @@
                             .($order->window_to_at?->format('H:i') ?? $order->scheduled_time_to ?? '—');
                     }
                     $validUntilLabel = optional($order->valid_until_at)->format('d.m H:i');
+                    $bagsCountLabel = $order->bags_count !== null ? $order->bags_count.' шт.' : '—';
+                    $commentLabel = filled($order->comment) ? $order->comment : '—';
+                    $courierEarningLabel = (int) ($order->courier_payout_amount ?? 0).' грн.';
+                    $nearbyOrdersCount = (int) ($nearbyAreaSummary['orders_count'] ?? 0);
+                    $nearbyTotalEarning = (int) ($nearbyAreaSummary['total_earning'] ?? 0);
                     $warningMinutes = max(1, (int) config('order_promise.courier_urgency_warning_minutes', 30));
                     $isUrgent = $order->valid_until_at?->isFuture()
                         && $order->valid_until_at?->diffInMinutes(now()) <= $warningMinutes;
@@ -174,18 +174,40 @@
 
                     <div class="mt-3 rounded-2xl border border-white/[0.06] bg-[#0d1522] p-3">
                         <div class="mb-2 text-[11px] font-semibold uppercase tracking-[0.08em] text-slate-400">Час виконання</div>
-                        <div class="flex flex-wrap items-center gap-1.5 text-[11px]">
-                            <span class="rounded-full border border-white/[0.12] bg-white/[0.04] px-2 py-0.5 text-slate-200">{{ $executionDateLabel }}</span>
-                            <span class="rounded-full border border-white/[0.12] bg-white/[0.04] px-2 py-0.5 text-slate-200">{{ $serviceModeLabel }}</span>
-                            @if($desiredWindowLabel)
-                                <span class="rounded-full border border-sky-300/30 bg-sky-400/10 px-2 py-0.5 text-sky-200">{{ $desiredWindowLabel }}</span>
-                            @endif
-                            @if($validUntilLabel)
-                                <span class="rounded-full border border-white/[0.12] bg-white/[0.04] px-2 py-0.5 text-slate-300">Активне до {{ $validUntilLabel }}</span>
-                            @endif
-                            @if($isUrgent)
-                                <span class="rounded-full bg-amber-500/20 px-2 py-0.5 text-amber-300">Терміново</span>
-                            @endif
+                        <div class="divide-y divide-white/[0.08] text-xs">
+                            <div class="flex items-start justify-between gap-3 py-2">
+                                <span class="shrink-0 text-slate-400">Дата замовлення</span>
+                                <span class="text-right font-semibold text-slate-100">{{ $executionDateLabel }}</span>
+                            </div>
+                            <div class="flex items-start justify-between gap-3 py-2">
+                                <span class="shrink-0 text-slate-400">Активно до</span>
+                                <span class="flex items-center justify-end gap-2 text-right font-semibold text-slate-100">
+                                    <span>{{ $validUntilLabel ?? '—' }}</span>
+                                    @if($isUrgent)
+                                        <span class="rounded-full bg-amber-500/20 px-2 py-0.5 text-[11px] font-semibold text-amber-300">Терміново</span>
+                                    @endif
+                                </span>
+                            </div>
+                            <div class="flex items-start justify-between gap-3 py-2">
+                                <span class="shrink-0 text-slate-400">Бажане вікно</span>
+                                <span class="text-right font-semibold text-slate-100">{{ $desiredWindowLabel ?? '—' }}</span>
+                            </div>
+                            <div class="flex items-start justify-between gap-3 py-2">
+                                <span class="shrink-0 text-slate-400">Кількість мішків</span>
+                                <span class="text-right font-semibold text-slate-100">{{ $bagsCountLabel }}</span>
+                            </div>
+                            <div class="flex items-start justify-between gap-3 py-2">
+                                <span class="shrink-0 text-slate-400">Коментар</span>
+                                <span class="max-w-[62%] text-right font-semibold leading-relaxed text-slate-100 break-words">{{ $commentLabel }}</span>
+                            </div>
+                            <div class="flex items-start justify-between gap-3 py-2">
+                                <span class="shrink-0 text-slate-400">Ваш заробіток</span>
+                                <span class="text-right font-semibold text-emerald-300">{{ $courierEarningLabel }}</span>
+                            </div>
+                            <div class="flex items-start justify-between gap-3 py-2">
+                                <span class="text-slate-400">В цьому районі є {{ $nearbyOrdersCount }} замовлень</span>
+                                <span class="text-right font-semibold text-emerald-300">на {{ $nearbyTotalEarning }} грн.</span>
+                            </div>
                         </div>
                     </div>
 

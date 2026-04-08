@@ -22,7 +22,7 @@
                     <div class="min-w-0">
                         <div class="text-xs font-semibold uppercase tracking-[0.08em] text-amber-200">Активне замовлення</div>
                         <div class="mt-1 text-base font-bold text-amber-50">#{{ $activeOrder->id }}</div>
-                        <div class="mt-0.5 text-xs leading-relaxed text-amber-100/85">Завершіть поточну доставку, щоб знову отримувати нові замовлення.</div>
+                        <div class="mt-0.5 text-xs leading-relaxed text-amber-100/85">Завершіть активні замовлення, щоб знову отримувати нові.</div>
                     </div>
 
                     <a
