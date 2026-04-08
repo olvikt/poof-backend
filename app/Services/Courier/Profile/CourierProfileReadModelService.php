@@ -8,6 +8,7 @@ use App\Models\User;
 use App\Services\Courier\Earnings\CourierBalanceSummaryService;
 use App\Services\Courier\Payout\CourierPayoutPolicyService;
 use App\Services\Courier\Rating\CourierRatingSummaryService;
+use App\Services\Courier\Verification\CourierVerificationSummaryService;
 
 class CourierProfileReadModelService
 {
@@ -15,6 +16,7 @@ class CourierProfileReadModelService
         private readonly CourierRatingSummaryService $ratingSummaryService,
         private readonly CourierBalanceSummaryService $balanceSummaryService,
         private readonly CourierPayoutPolicyService $payoutPolicyService,
+        private readonly CourierVerificationSummaryService $verificationSummaryService,
     ) {
     }
 
@@ -38,10 +40,7 @@ class CourierProfileReadModelService
             'profile_media' => [
                 'avatar_url' => $courier->avatar_url,
             ],
-            'profile_verification' => [
-                'status' => (string) ($courier->courier_verification_status ?? 'profile_incomplete'),
-                'kyc_placeholder' => 'Завантаження паспорта/ID буде доступне в наступних релізах.',
-            ],
+            'profile_verification' => $this->verificationSummaryService->forCourier($courier),
             'rating_summary' => $this->ratingSummaryService->forCourier($courier),
             'balance_summary' => [
                 'earned_total' => (int) ($balance['gross_earnings_total'] ?? 0),

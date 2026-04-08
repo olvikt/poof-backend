@@ -693,6 +693,17 @@ class User extends Authenticatable implements FilamentUser
         return $this->hasMany(CourierWithdrawalRequest::class, 'courier_id');
     }
 
+
+    public function courierVerificationRequests(): HasMany
+    {
+        return $this->hasMany(CourierVerificationRequest::class, 'courier_id');
+    }
+
+    public function latestCourierVerificationRequest(): HasOne
+    {
+        return $this->hasOne(CourierVerificationRequest::class, 'courier_id')->latestOfMany();
+    }
+
     /**
      * Заказы, взятые курʼєром
      */

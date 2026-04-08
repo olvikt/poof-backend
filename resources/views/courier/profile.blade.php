@@ -41,7 +41,7 @@
                 <p class="mt-1 text-sm text-slate-300">{{ $profile['profile_contact']['phone'] }}</p>
                 <p class="text-sm text-slate-300">{{ $profile['profile_contact']['email'] }}</p>
                 <div class="mt-2 inline-flex rounded-full border border-poof/40 bg-poof/20 px-2.5 py-1 text-[11px] font-semibold text-poof">
-                    Статус: {{ $profile['profile_verification']['status'] }}
+                    Статус: {{ $profile['profile_verification']['status_label'] }}
                 </div>
             </div>
         </div>
@@ -98,8 +98,20 @@
         <h2 class="text-sm font-semibold">Налаштування та верифікація</h2>
         <div class="mt-3 rounded-xl border border-white/10 bg-[#101b2b] p-3">
             <div class="text-xs uppercase tracking-wide text-slate-400">Верифікація</div>
-            <p class="mt-1 text-sm">Поточний статус: {{ $profile['profile_verification']['status'] }}</p>
-            <p class="mt-2 text-xs text-slate-400">{{ $profile['profile_verification']['kyc_placeholder'] }}</p>
+            <p class="mt-1 text-sm">Поточний статус: {{ $profile['profile_verification']['status_label'] }}</p>
+            <p class="mt-2 text-xs text-slate-400">{{ $profile['profile_verification']['description'] }}</p>
+            @if($profile['profile_verification']['show_rejection_reason'])
+                <p class="mt-2 text-xs text-rose-300">Причина: {{ $profile['profile_verification']['rejection_reason'] }}</p>
+            @endif
+            @if($profile['profile_verification']['can_submit'])
+                <button
+                    type="button"
+                    onclick="window.dispatchEvent(new CustomEvent('sheet:open',{detail:{name:'courierVerificationUpload'}}))"
+                    class="mt-3 rounded-xl bg-poof px-3 py-2 text-xs font-bold text-[#041015]"
+                >
+                    {{ $profile['profile_verification']['cta_label'] }}
+                </button>
+            @endif
         </div>
         <div class="mt-3 rounded-xl border border-white/10 bg-[#101b2b] p-3">
             <div class="text-xs uppercase tracking-wide text-slate-400">Адреса</div>
@@ -165,6 +177,20 @@
             @if($profile['balance_summary']['withdrawal_block_reason'])
                 <p class="text-xs text-amber-300">Запит заблоковано: {{ $profile['balance_summary']['withdrawal_block_reason'] }}.</p>
             @endif
+        </form>
+    </x-poof.ui.bottom-sheet>
+
+
+    <x-poof.ui.bottom-sheet name="courierVerificationUpload" title="Верифікація курʼєра">
+        <form method="POST" action="{{ route('courier.profile.verification.submit') }}" enctype="multipart/form-data" class="space-y-3">
+            @csrf
+            <select name="document_type" class="poof-input w-full" required>
+                <option value="passport">Паспорт</option>
+                <option value="id_card">ID-картка</option>
+            </select>
+            <input type="file" name="document" class="poof-input w-full" accept="image/jpeg,image/png,image/webp" required>
+            <p class="text-xs text-slate-400">Підтримувані формати: JPG, PNG, WEBP. Максимум 5MB.</p>
+            <button class="w-full rounded-xl bg-poof py-3 text-sm font-bold text-[#041015]">Надіслати на перевірку</button>
         </form>
     </x-poof.ui.bottom-sheet>
 
