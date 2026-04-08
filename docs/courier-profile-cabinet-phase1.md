@@ -3,14 +3,14 @@
 ## Scope (P0)
 - Dedicated courier page at `/courier/profile`.
 - Isolated compact read models for profile, rating, and balance/payout eligibility.
-- Modal actions for profile update, avatar update, rating explainability, withdrawal request.
+- Modal actions for profile update, avatar update, rating explainability.
+- Withdrawal flow moved to dedicated `/courier/wallet` surface in wallet Phase 1.
 
 ## Route/controller/service boundaries
 - Route layer is thin and delegates to `CourierProfileController` for all profile endpoints.
 - Controller delegates writes to actions:
   - `PersistCourierProfileAction`
   - `PersistCourierAvatarAction`
-  - `CreateCourierWithdrawalRequestAction`
 - Read orchestration is in `CourierProfileReadModelService`.
 
 ## Read models
@@ -27,16 +27,6 @@ Factors (explainable, bounded queries):
 5. tenure (small weight)
 
 Phase 1 disclaimer: this is an explainable provisional score, not a full KYC/ML rating pipeline.
-
-## Withdrawal contract (Phase 1 foundation)
-- New entity: `courier_withdrawal_requests`
-  - `amount`
-  - `status`: `requested|approved|rejected|paid`
-  - `notes`, `admin_comment`, timestamps
-- Policy contract:
-  - `can_request_withdrawal`
-  - `min_withdrawal_amount` (admin-configurable via `COURIER_MIN_WITHDRAWAL_AMOUNT`)
-  - `withdrawal_block_reason`
 
 ## Persisted vs computed
 Persisted:

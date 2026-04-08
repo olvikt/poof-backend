@@ -175,13 +175,13 @@ class CourierProfileCabinetPageTest extends TestCase
         $this->createSettledLedgerEntry($courier, 700, 100, 600);
 
         $this->actingAs($courier, 'web')
-            ->post(route('courier.profile.withdrawal.request'), [
+            ->post(route('courier.wallet.withdrawals.request'), [
                 'amount' => 300,
             ])
             ->assertSessionHasErrors('amount');
 
         $this->actingAs($courier, 'web')
-            ->post(route('courier.profile.withdrawal.request'), [
+            ->post(route('courier.wallet.withdrawals.request'), [
                 'amount' => 550,
                 'notes' => 'Phase1 request',
             ])

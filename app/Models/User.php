@@ -694,6 +694,11 @@ class User extends Authenticatable implements FilamentUser
     }
 
 
+    public function courierPayoutRequisite(): HasOne
+    {
+        return $this->hasOne(CourierPayoutRequisite::class, 'courier_id');
+    }
+
     public function courierVerificationRequests(): HasMany
     {
         return $this->hasMany(CourierVerificationRequest::class, 'courier_id');
