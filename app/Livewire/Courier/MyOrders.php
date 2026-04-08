@@ -384,6 +384,7 @@ class MyOrders extends Component
         $now = now();
 
         $uniqueNearbyOrders = OrderOffer::query()
+        $summary = OrderOffer::query()
             ->join('orders', 'orders.id', '=', 'order_offers.order_id')
             ->where('order_offers.courier_id', $courier->id)
             ->where('order_offers.status', OrderOffer::STATUS_PENDING)
@@ -404,6 +405,8 @@ class MyOrders extends Component
             ->fromSub($uniqueNearbyOrders, 'nearby_orders')
             ->selectRaw('COUNT(*) as orders_count')
             ->selectRaw('COALESCE(SUM(nearby_orders.courier_payout_amount), 0) as total_earning')
+            ->selectRaw('COUNT(DISTINCT orders.id) as orders_count')
+            ->selectRaw('COALESCE(SUM(orders.courier_payout_amount), 0) as total_earning')
             ->first();
 
         return [
