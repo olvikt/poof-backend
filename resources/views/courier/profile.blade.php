@@ -20,7 +20,17 @@
                     aria-label="Оновити аватар"
                     class="group relative overflow-hidden rounded-2xl border border-white/15"
                 >
-                    <img src="{{ $profile['profile_media']['avatar_url'] }}" alt="avatar" class="h-20 w-20 object-cover" />
+                    <img
+                        x-data="{ src: '{{ $profile['profile_media']['avatar_url'] }}' }"
+                        x-on:avatar-saved.window="
+                            if ($event.detail?.avatarUrl) {
+                                src = `${$event.detail.avatarUrl}?${Date.now()}`;
+                            }
+                        "
+                        :src="src"
+                        alt="avatar"
+                        class="h-20 w-20 object-cover"
+                    />
                     <span class="pointer-events-none absolute inset-0 flex items-center justify-center bg-[#041015]/70 text-[11px] font-semibold opacity-0 transition group-hover:opacity-100 group-focus-visible:opacity-100">
                         Змінити фото
                     </span>
