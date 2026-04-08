@@ -6,6 +6,7 @@ use App\Actions\Orders\Completion\UploadOrderCompletionProofAction;
 use App\Models\Order;
 use App\Models\OrderCompletionProof;
 use App\Models\OrderCompletionRequest;
+use App\Models\OrderOffer;
 use App\Models\User;
 use App\Services\Courier\CourierPresenceService;
 use App\Services\Courier\Earnings\CourierCompletedOrdersDailyStatsQuery;
@@ -13,6 +14,7 @@ use App\Services\Dispatch\DispatchTriggerPolicy;
 use App\Services\Dispatch\DispatchTriggerService;
 use App\Support\Courier\CourierNavigationRuntime;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
 use Livewire\Component;
@@ -371,9 +373,43 @@ class MyOrders extends Component
             'orders' => $orders,
             'online' => $this->online,
             'completedStats' => $completedStats,
+            'nearbyAreaSummary' => $this->resolveNearbyAreaSummary($courier),
             'mapBootstrap' => $this->resolveMapBootstrap($orders, $courier),
             'pollIntervalSeconds' => $orders->isEmpty() ? self::POLL_IDLE_SECONDS : self::POLL_ACTIVE_SECONDS,
         ])->layout('layouts.courier');
+    }
+
+    private function resolveNearbyAreaSummary(User $courier): array
+    {
+        $now = now();
+
+        $uniqueNearbyOrders = OrderOffer::query()
+            ->join('orders', 'orders.id', '=', 'order_offers.order_id')
+            ->where('order_offers.courier_id', $courier->id)
+            ->where('order_offers.status', OrderOffer::STATUS_PENDING)
+            ->whereNotNull('order_offers.expires_at')
+            ->where('order_offers.expires_at', '>', $now)
+            ->whereNull('orders.expired_at')
+            ->where(function ($query) use ($now): void {
+                $query->whereNull('orders.valid_until_at')
+                    ->orWhere('orders.valid_until_at', '>', $now);
+            })
+            ->select([
+                'orders.id',
+                'orders.courier_payout_amount',
+            ])
+            ->distinct();
+
+        $summary = DB::query()
+            ->fromSub($uniqueNearbyOrders, 'nearby_orders')
+            ->selectRaw('COUNT(*) as orders_count')
+            ->selectRaw('COALESCE(SUM(nearby_orders.courier_payout_amount), 0) as total_earning')
+            ->first();
+
+        return [
+            'orders_count' => (int) ($summary?->orders_count ?? 0),
+            'total_earning' => (int) ($summary?->total_earning ?? 0),
+        ];
     }
 
     private function resolveMapBootstrap(Collection $orders, User $courier): array
