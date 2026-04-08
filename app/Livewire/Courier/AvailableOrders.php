@@ -121,13 +121,7 @@ class AvailableOrders extends Component
 
     private function resolveCourier(): ?User
     {
-        $user = auth()->user();
-
-        if (! $user instanceof User || ! $user->isCourier()) {
-            return null;
-        }
-
-        return $user->fresh(['courierProfile']);
+        return $this->presenceService()->resolveAuthenticatedCourier();
     }
 
     private function repairOnlineStateFromCanonicalSource(User $courier, array $runtime): void

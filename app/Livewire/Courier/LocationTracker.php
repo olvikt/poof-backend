@@ -225,8 +225,8 @@ class LocationTracker extends Component
      */
     public function render()
     {
-        $user = auth()->user();
-        $runtime = $user instanceof User ? $this->presenceService()->snapshot($user) : null;
+        $user = $this->presenceService()->resolveAuthenticatedCourier();
+        $runtime = $this->presenceService()->snapshot($user);
 
         return view('livewire.courier.location-tracker', [
             'runtimeSnapshot' => $runtime,

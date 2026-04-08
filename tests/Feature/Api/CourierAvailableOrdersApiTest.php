@@ -137,6 +137,28 @@ class CourierAvailableOrdersApiTest extends TestCase
             ->assertJsonPath('orders', []);
     }
 
+    public function test_api_available_orders_are_not_gated_by_legacy_users_online_mirror(): void
+    {
+        $client = User::factory()->create(['role' => User::ROLE_CLIENT, 'is_active' => true]);
+        $courier = $this->createOnlineCourier();
+        $order = $this->createSearchingOrder($client, 'Mirror drift visible');
+        OrderOffer::createPrimaryPending($order->id, $courier->id, 120);
+
+        // Drift scenario: legacy mirror says offline, canonical courier status stays online.
+        $courier->forceFill([
+            'is_online' => false,
+            'is_busy' => false,
+            'session_state' => User::SESSION_OFFLINE,
+        ])->save();
+
+        Sanctum::actingAs($courier);
+
+        $this->getJson('/api/orders/available')
+            ->assertOk()
+            ->assertJsonCount(1, 'orders')
+            ->assertJsonPath('orders.0.id', $order->id);
+    }
+
     private function createSearchingOrder(User $client, string $addressText): Order
     {
         return Order::createForTesting([
