@@ -25,6 +25,8 @@ class CourierAdminNormalizationTest extends TestCase
         $this->assertStringContainsString("TextInput::make('email')", $courierResource);
         $this->assertStringContainsString("TextInput::make('phone')", $courierResource);
         $this->assertStringContainsString("TextInput::make('residence_address')", $courierResource);
+
+        $this->assertStringContainsString("->maxLength(500)", $courierResource);
     }
 
     public function test_courier_resource_exposes_navigation_to_verification_resource_without_inline_review_controls(): void
@@ -39,6 +41,7 @@ class CourierAdminNormalizationTest extends TestCase
 
         $this->assertStringNotContainsString("Action::make('approve')", $courierResource);
         $this->assertStringNotContainsString("Action::make('reject')", $courierResource);
+        $this->assertStringNotContainsString("Toggle::make('is_verified')", $courierResource);
     }
 
     public function test_courier_admin_resources_are_grouped_under_courier_navigation_group(): void

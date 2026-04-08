@@ -7,7 +7,6 @@ use App\Models\Courier;
 use Filament\Forms\Components\Section;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\TextInput;
-use Filament\Forms\Components\Toggle;
 use Filament\Forms\Form;
 use Filament\Resources\Resource;
 use Filament\Tables;
@@ -37,7 +36,7 @@ class CourierResource extends Resource
                 )
                 ->searchable()
                 ->required()
-                ->disabled(fn (?Courier $record): bool => $record !== null)
+                ->disabled(fn (?Courier $record) => $record !== null)
                 ->rules(fn (?Courier $record): array => $record
                     ? []
                     : ['unique:couriers,user_id']),
@@ -58,7 +57,7 @@ class CourierResource extends Resource
                         ->maxLength(255),
                     TextInput::make('residence_address')
                         ->label('Address')
-                        ->maxLength(255),
+                        ->maxLength(500),
                 ])
                 ->columns(2)
                 ->visible(fn (?Courier $record): bool => $record !== null),
@@ -71,8 +70,8 @@ class CourierResource extends Resource
                     Courier::STATUS_DELIVERING => 'Delivering',
                 ])
                 ->default(Courier::STATUS_OFFLINE)
-                ->disabled(fn (?Courier $record): bool => $record !== null)
-                ->dehydrated(fn (?Courier $record): bool => $record === null)
+                ->disabled(fn (?Courier $record) => $record !== null)
+                ->dehydrated(fn (?Courier $record) => $record === null)
                 ->required(),
 
             TextInput::make('city')
@@ -87,8 +86,6 @@ class CourierResource extends Resource
                 ->default('walk')
                 ->required(),
 
-            Toggle::make('is_verified')
-                ->label('Verified'),
         ]);
     }
 
