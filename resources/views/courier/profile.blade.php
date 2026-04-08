@@ -1,10 +1,30 @@
 @component('layouts.courier')
 <div class="min-h-screen bg-[#070a10] px-4 pb-24 pt-4 text-white">
-    <section class="rounded-3xl border border-white/10 bg-[#0d1724] p-4 shadow-[0_12px_36px_rgba(0,0,0,0.45)]">
+    <section class="relative rounded-3xl border border-white/10 bg-[#0d1724] p-4 shadow-[0_12px_36px_rgba(0,0,0,0.45)]">
+        <button
+            type="button"
+            onclick="window.dispatchEvent(new CustomEvent('sheet:open',{detail:{name:'courierEditProfile'}}))"
+            aria-label="Редагувати профіль"
+            class="absolute right-4 top-4 inline-flex h-9 w-9 items-center justify-center rounded-full border border-white/15 bg-white/5 text-slate-100 transition hover:bg-white/10"
+        >
+            <svg viewBox="0 0 24 24" fill="none" aria-hidden="true" class="h-4 w-4">
+                <path d="M4 20h4l10-10-4-4L4 16v4Z" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"/>
+                <path d="m12 6 4 4" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/>
+            </svg>
+        </button>
         <div class="flex items-start gap-4">
             <div class="shrink-0">
-                <img src="{{ $profile['profile_media']['avatar_url'] }}" alt="avatar" class="h-20 w-20 rounded-2xl object-cover" />
-                <button type="button" onclick="window.dispatchEvent(new CustomEvent('sheet:open',{detail:{name:'courierEditAvatar'}}))" class="mt-2 w-full rounded-xl border border-white/15 bg-white/10 px-2 py-1.5 text-xs font-semibold">Змінити</button>
+                <button
+                    type="button"
+                    onclick="window.dispatchEvent(new CustomEvent('sheet:open',{detail:{name:'courierEditAvatar'}}))"
+                    aria-label="Оновити аватар"
+                    class="group relative overflow-hidden rounded-2xl border border-white/15"
+                >
+                    <img src="{{ $profile['profile_media']['avatar_url'] }}" alt="avatar" class="h-20 w-20 object-cover" />
+                    <span class="pointer-events-none absolute inset-0 flex items-center justify-center bg-[#041015]/70 text-[11px] font-semibold opacity-0 transition group-hover:opacity-100 group-focus-visible:opacity-100">
+                        Змінити фото
+                    </span>
+                </button>
             </div>
             <div class="min-w-0 flex-1">
                 <div class="text-lg font-semibold">{{ $profile['profile_identity']['full_name'] }}</div>
@@ -13,26 +33,21 @@
                 <div class="mt-2 inline-flex rounded-full border border-poof/40 bg-poof/20 px-2.5 py-1 text-[11px] font-semibold text-poof">
                     Статус: {{ $profile['profile_verification']['status'] }}
                 </div>
-                <button type="button" onclick="window.dispatchEvent(new CustomEvent('sheet:open',{detail:{name:'courierEditProfile'}}))" class="mt-3 rounded-xl bg-poof px-3 py-2 text-xs font-bold text-[#041015]">Редагувати профіль</button>
             </div>
         </div>
     </section>
 
-    <section class="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2">
+    <section class="mt-4 grid grid-cols-2 gap-3">
         <article class="rounded-2xl border border-white/10 bg-[#0d1724] p-4">
             <div class="text-xs uppercase tracking-wide text-slate-400">Рейтинг</div>
-            <div class="mt-2 text-3xl font-black">{{ number_format((float) $profile['rating_summary']['current_score'], 2) }}/5</div>
-            <p class="mt-2 text-xs text-slate-300">{{ $profile['rating_summary']['summary'] }}</p>
+            <div class="mt-2 text-xl font-black">{{ number_format((float) $profile['rating_summary']['current_score'], 2) }}/5</div>
             <button type="button" onclick="window.dispatchEvent(new CustomEvent('sheet:open',{detail:{name:'courierRatingDetails'}}))" class="mt-3 rounded-lg border border-white/20 px-2.5 py-1.5 text-xs">Докладніше</button>
         </article>
 
         <article id="courier-balance-block" class="rounded-2xl border border-white/10 bg-[#0d1724] p-4">
             <div class="text-xs uppercase tracking-wide text-slate-400">Фінанси</div>
-            <div class="mt-2 text-sm text-slate-300">Загалом зароблено</div>
-            <div class="text-xl font-bold">{{ number_format((int) $profile['balance_summary']['earned_total'], 2, ',', ' ') }} ₴</div>
-            <div class="mt-2 text-sm text-slate-300">Доступно до виводу</div>
-            <div class="text-xl font-bold">{{ number_format((int) $profile['balance_summary']['available_to_withdraw'], 2, ',', ' ') }} ₴</div>
-            <div class="mt-1 text-xs text-slate-400">Мінімальний вивід: {{ number_format((int) $profile['balance_summary']['min_withdrawal_amount'], 2, ',', ' ') }} ₴</div>
+            <div class="mt-2 text-xl font-bold">{{ number_format((int) $profile['balance_summary']['available_to_withdraw'], 2, ',', ' ') }} ₴</div>
+            <div class="mt-2 text-xs text-slate-400">Мінімальний вивід: {{ number_format((int) $profile['balance_summary']['min_withdrawal_amount'], 2, ',', ' ') }} ₴</div>
             <button
                 type="button"
                 onclick="window.dispatchEvent(new CustomEvent('sheet:open',{detail:{name:'courierWithdrawal'}}))"
@@ -42,19 +57,6 @@
                 Запросити вивід
             </button>
         </article>
-    </section>
-
-    <section class="mt-4 rounded-2xl border border-white/10 bg-[#0d1724] p-4">
-        <h2 class="text-sm font-semibold">Налаштування та верифікація</h2>
-        <div class="mt-3 rounded-xl border border-white/10 bg-[#101b2b] p-3">
-            <div class="text-xs uppercase tracking-wide text-slate-400">Верифікація</div>
-            <p class="mt-1 text-sm">Поточний статус: {{ $profile['profile_verification']['status'] }}</p>
-            <p class="mt-2 text-xs text-slate-400">{{ $profile['profile_verification']['kyc_placeholder'] }}</p>
-        </div>
-        <div class="mt-3 rounded-xl border border-white/10 bg-[#101b2b] p-3">
-            <div class="text-xs uppercase tracking-wide text-slate-400">Адреса ПМЖ</div>
-            <p class="mt-1 text-sm">{{ $profile['profile_address']['residence_address'] }}</p>
-        </div>
     </section>
 
     <section class="mt-4 rounded-2xl border border-white/10 bg-[#0d1724] p-4">
@@ -72,9 +74,26 @@
                 @csrf
                 <button type="submit" class="flex w-full items-center justify-between rounded-xl border border-rose-500/30 bg-rose-500/10 px-3 py-2.5 text-left text-sm font-semibold text-rose-100">
                     <span>Вийти з акаунту</span>
-                    <span class="text-xs text-rose-200">Logout</span>
+                    <svg viewBox="0 0 24 24" fill="none" aria-hidden="true" class="h-4 w-4 text-rose-200">
+                        <path d="M13 5h6v14h-6" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/>
+                        <path d="M10 8 5 12l5 4" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/>
+                        <path d="M5 12h10" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/>
+                    </svg>
                 </button>
             </form>
+        </div>
+    </section>
+
+    <section class="mt-4 rounded-2xl border border-white/10 bg-[#0d1724] p-4">
+        <h2 class="text-sm font-semibold">Налаштування та верифікація</h2>
+        <div class="mt-3 rounded-xl border border-white/10 bg-[#101b2b] p-3">
+            <div class="text-xs uppercase tracking-wide text-slate-400">Верифікація</div>
+            <p class="mt-1 text-sm">Поточний статус: {{ $profile['profile_verification']['status'] }}</p>
+            <p class="mt-2 text-xs text-slate-400">{{ $profile['profile_verification']['kyc_placeholder'] }}</p>
+        </div>
+        <div class="mt-3 rounded-xl border border-white/10 bg-[#101b2b] p-3">
+            <div class="text-xs uppercase tracking-wide text-slate-400">Адреса</div>
+            <p class="mt-1 text-sm">{{ $profile['profile_address']['residence_address'] }}</p>
         </div>
     </section>
 
@@ -84,7 +103,12 @@
             <input name="name" value="{{ old('name', $courier->name) }}" class="poof-input w-full" placeholder="ПІБ" required>
             <input name="phone" value="{{ old('phone', $courier->phone) }}" class="poof-input w-full" placeholder="Телефон" required>
             <input type="email" name="email" value="{{ old('email', $courier->email) }}" class="poof-input w-full" placeholder="Email" required>
-            <textarea name="residence_address" class="poof-input w-full" placeholder="Адреса ПМЖ" required>{{ old('residence_address', $courier->residence_address) }}</textarea>
+            <select name="residence_city" class="poof-input w-full" required>
+                @foreach($cityOptions as $cityOption)
+                    <option value="{{ $cityOption }}" @selected(old('residence_city', $residenceCity) === $cityOption)>{{ $cityOption }}</option>
+                @endforeach
+            </select>
+            <textarea name="residence_address_line" class="poof-input w-full" placeholder="Адреса" required>{{ old('residence_address_line', $residenceAddressLine) }}</textarea>
             <button class="w-full rounded-xl bg-poof py-3 text-sm font-bold text-[#041015]">Зберегти</button>
         </form>
     </x-poof.ui.bottom-sheet>

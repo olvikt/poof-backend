@@ -35,6 +35,9 @@ class CourierProfileController extends Controller
         return view('courier.profile', [
             'profile' => $profile,
             'courier' => $courier,
+            'cityOptions' => $this->cityOptions(),
+            'residenceCity' => $this->extractResidenceCity($courier->residence_address),
+            'residenceAddressLine' => $this->extractResidenceAddressLine($courier->residence_address),
         ]);
     }
 
@@ -47,14 +50,17 @@ class CourierProfileController extends Controller
             'name' => ['required', 'string', 'max:255'],
             'phone' => ['required', 'string', 'max:32'],
             'email' => ['required', 'email', 'max:255', 'unique:users,email,'.$courier->id],
-            'residence_address' => ['required', 'string', 'max:500'],
+            'residence_city' => ['required', 'string', 'in:Київ,Львів,Одеса,Харків,Дніпро'],
+            'residence_address_line' => ['required', 'string', 'max:500'],
         ]);
+
+        $residenceAddress = trim($payload['residence_city'].', '.$payload['residence_address_line']);
 
         $action->execute($courier, new CourierProfileUpdateData(
             name: (string) $payload['name'],
             phone: (string) $payload['phone'],
             email: (string) $payload['email'],
-            residenceAddress: (string) $payload['residence_address'],
+            residenceAddress: $residenceAddress,
         ));
 
         Log::info('courier_profile_update', [
@@ -112,5 +118,43 @@ class CourierProfileController extends Controller
         return $user instanceof User && $user->isCourier()
             ? $user
             : null;
+    }
+
+    private function cityOptions(): array
+    {
+        return ['Київ', 'Львів', 'Одеса', 'Харків', 'Дніпро'];
+    }
+
+    private function extractResidenceCity(?string $residenceAddress): string
+    {
+        $normalized = trim((string) $residenceAddress);
+        if ($normalized === '') {
+            return 'Київ';
+        }
+
+        foreach ($this->cityOptions() as $city) {
+            if (str_starts_with($normalized, $city.',')) {
+                return $city;
+            }
+        }
+
+        return 'Київ';
+    }
+
+    private function extractResidenceAddressLine(?string $residenceAddress): string
+    {
+        $normalized = trim((string) $residenceAddress);
+        if ($normalized === '') {
+            return '';
+        }
+
+        foreach ($this->cityOptions() as $city) {
+            $prefix = $city.',';
+            if (str_starts_with($normalized, $prefix)) {
+                return ltrim(substr($normalized, strlen($prefix)));
+            }
+        }
+
+        return $normalized;
     }
 }
