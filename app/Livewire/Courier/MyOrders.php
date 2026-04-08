@@ -10,6 +10,7 @@ use App\Models\OrderOffer;
 use App\Models\User;
 use App\Services\Courier\CourierPresenceService;
 use App\Services\Courier\Earnings\CourierCompletedOrdersDailyStatsQuery;
+use App\Services\Courier\Earnings\OrderCourierNetEarningPreviewService;
 use App\Services\Dispatch\DispatchTriggerPolicy;
 use App\Services\Dispatch\DispatchTriggerService;
 use App\Support\Courier\CourierNavigationRuntime;
@@ -330,6 +331,7 @@ class MyOrders extends Component
                 'orders' => collect(),
                 'online' => false,
                 'completedStats' => collect(),
+                'orderEarningPreviews' => [],
             ])->layout('layouts.courier');
         }
 
@@ -373,6 +375,9 @@ class MyOrders extends Component
             'orders' => $orders,
             'online' => $this->online,
             'completedStats' => $completedStats,
+            'orderEarningPreviews' => $orders->mapWithKeys(
+                fn (Order $order): array => [$order->id => $this->earningPreviewService()->forOrder($order)]
+            )->all(),
             'nearbyAreaSummary' => $this->resolveNearbyAreaSummary($courier),
             'mapBootstrap' => $this->resolveMapBootstrap($orders, $courier),
             'pollIntervalSeconds' => $orders->isEmpty() ? self::POLL_IDLE_SECONDS : self::POLL_ACTIVE_SECONDS,
@@ -480,6 +485,11 @@ class MyOrders extends Component
     private function completedStatsQuery(): CourierCompletedOrdersDailyStatsQuery
     {
         return app(CourierCompletedOrdersDailyStatsQuery::class);
+    }
+
+    private function earningPreviewService(): OrderCourierNetEarningPreviewService
+    {
+        return app(OrderCourierNetEarningPreviewService::class);
     }
 
     private function isProofAware(Order $order): bool

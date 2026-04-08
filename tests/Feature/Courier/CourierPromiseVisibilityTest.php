@@ -7,6 +7,7 @@ namespace Tests\Feature\Courier;
 use App\Livewire\Courier\AvailableOrders;
 use App\Livewire\Courier\MyOrders;
 use App\Livewire\Courier\OfferCard;
+use App\Models\CourierEarningSetting;
 use App\Models\Order;
 use App\Models\OrderOffer;
 use App\Models\User;
@@ -100,6 +101,8 @@ class CourierPromiseVisibilityTest extends TestCase
 
     public function test_active_my_orders_card_keeps_promise_metadata_visible_after_accept(): void
     {
+        CourierEarningSetting::query()->update(['global_commission_rate_percent' => 25.00]);
+
         $courier = User::factory()->create(['role' => 'courier', 'is_online' => true]);
         $client = User::factory()->create(['role' => 'client']);
 
@@ -154,9 +157,12 @@ class CourierPromiseVisibilityTest extends TestCase
             ->assertSee('13:00–15:00')
             ->assertSee('2 шт.')
             ->assertSee('—')
-            ->assertSee('4 грн.')
+            ->assertSee('135 грн.')
+            ->assertDontSee('4 грн.')
             ->assertSee('В цьому районі є 1 замовлень')
             ->assertSee('на 4 грн.')
+            ->assertSee('border-emerald-400/40', false)
+            ->assertDontSee('nearby-empty-state-chip', false)
             ->assertSee('Терміново');
     }
 
@@ -210,7 +216,34 @@ class CourierPromiseVisibilityTest extends TestCase
         Livewire::actingAs($courier)
             ->test(MyOrders::class)
             ->assertSee('В цьому районі є 1 замовлень')
-            ->assertSee('на 4 грн.');
+            ->assertSee('на 4 грн.')
+            ->assertDontSee('nearby-empty-state-chip', false);
+    }
+
+    public function test_nearby_area_summary_zero_state_uses_dedicated_empty_styling(): void
+    {
+        $courier = User::factory()->create(['role' => 'courier', 'is_online' => true]);
+        $client = User::factory()->create(['role' => 'client']);
+
+        Order::createForTesting([
+            'client_id' => $client->id,
+            'courier_id' => $courier->id,
+            'status' => Order::STATUS_IN_PROGRESS,
+            'payment_status' => Order::PAY_PAID,
+            'service_mode' => Order::SERVICE_MODE_ASAP,
+            'valid_until_at' => now()->addHour(),
+            'address_text' => 'вул. Порожня, 7',
+            'price' => 90,
+            'accepted_at' => now()->subMinutes(3),
+            'started_at' => now()->subMinute(),
+        ]);
+
+        Livewire::actingAs($courier)
+            ->test(MyOrders::class)
+            ->assertSee('В цьому районі є 0 замовлень')
+            ->assertSee('на 0 грн.')
+            ->assertSee('nearby-empty-state-chip', false)
+            ->assertSee('nearby-empty-state-amount', false);
     }
 
     public function test_active_my_orders_card_renders_desired_window_placeholder_for_unknown_service_mode(): void

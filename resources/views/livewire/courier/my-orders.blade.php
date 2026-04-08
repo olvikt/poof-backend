@@ -97,9 +97,13 @@
                     $validUntilLabel = optional($order->valid_until_at)->format('d.m H:i');
                     $bagsCountLabel = $order->bags_count !== null ? $order->bags_count.' шт.' : '—';
                     $commentLabel = filled($order->comment) ? $order->comment : '—';
-                    $courierEarningLabel = (int) ($order->courier_payout_amount ?? 0).' грн.';
+                    $earningPreview = $orderEarningPreviews[$order->id] ?? null;
+                    $courierEarningLabel = is_array($earningPreview)
+                        ? (string) ($earningPreview['formatted'] ?? '0 грн.')
+                        : '0 грн.';
                     $nearbyOrdersCount = (int) ($nearbyAreaSummary['orders_count'] ?? 0);
                     $nearbyTotalEarning = (int) ($nearbyAreaSummary['total_earning'] ?? 0);
+                    $nearbyZeroState = $nearbyOrdersCount === 0;
                     $warningMinutes = max(1, (int) config('order_promise.courier_urgency_warning_minutes', 30));
                     $isUrgent = $order->valid_until_at?->isFuture()
                         && $order->valid_until_at?->diffInMinutes(now()) <= $warningMinutes;
@@ -205,8 +209,23 @@
                                 <span class="text-right font-semibold text-emerald-300">{{ $courierEarningLabel }}</span>
                             </div>
                             <div class="flex items-start justify-between gap-3 py-2">
-                                <span class="text-slate-400">В цьому районі є {{ $nearbyOrdersCount }} замовлень</span>
-                                <span class="text-right font-semibold text-emerald-300">на {{ $nearbyTotalEarning }} грн.</span>
+                                <span class="text-slate-400">
+                                    В цьому районі є
+                                    <span
+                                        @class([
+                                            'ml-1 inline-flex rounded-full border px-2 py-0.5 text-[11px] font-semibold',
+                                            'border-emerald-400/40 bg-emerald-500/15 text-emerald-300' => ! $nearbyZeroState,
+                                            'nearby-empty-state-chip border-amber-300/30 bg-amber-500/10 text-amber-200' => $nearbyZeroState,
+                                        ])
+                                    >{{ $nearbyOrdersCount }} замовлень</span>
+                                </span>
+                                <span
+                                    @class([
+                                        'text-right font-semibold',
+                                        'text-emerald-300' => ! $nearbyZeroState,
+                                        'nearby-empty-state-amount text-slate-400' => $nearbyZeroState,
+                                    ])
+                                >на {{ $nearbyTotalEarning }} грн.</span>
                             </div>
                         </div>
                     </div>
