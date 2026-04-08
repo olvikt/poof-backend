@@ -8,6 +8,8 @@ use App\Actions\Courier\Verification\ApproveCourierVerificationRequestAction;
 use App\Actions\Courier\Verification\RejectCourierVerificationRequestAction;
 use App\Filament\Resources\CourierVerificationRequestResource\Pages;
 use App\Models\CourierVerificationRequest;
+use DateTimeInterface;
+use Illuminate\Support\Carbon;
 use Filament\Forms\Components\Textarea;
 use Filament\Infolists\Components\Section;
 use Filament\Infolists\Components\TextEntry;
@@ -77,7 +79,18 @@ class CourierVerificationRequestResource extends Resource
                 TextEntry::make('status')->badge(),
                 TextEntry::make('rejection_reason')->default('—'),
                 TextEntry::make('submitted_at')->dateTime('d.m.Y H:i'),
-                TextEntry::make('reviewed_at')->dateTime('d.m.Y H:i')->default('—'),
+                TextEntry::make('reviewed_at')
+                    ->formatStateUsing(function (mixed $state): string {
+                        if (blank($state)) {
+                            return '—';
+                        }
+
+                        if ($state instanceof DateTimeInterface) {
+                            return $state->format('d.m.Y H:i');
+                        }
+
+                        return Carbon::parse((string) $state)->format('d.m.Y H:i');
+                    }),
                 TextEntry::make('document_preview')
                     ->state(fn (CourierVerificationRequest $record): string => route('admin.courier-verification-requests.document', $record))
                     ->url(fn (CourierVerificationRequest $record): string => route('admin.courier-verification-requests.document', $record))
