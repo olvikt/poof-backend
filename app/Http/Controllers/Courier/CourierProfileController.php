@@ -7,6 +7,7 @@ namespace App\Http\Controllers\Courier;
 use App\Actions\Courier\Payout\CreateCourierWithdrawalRequestAction;
 use App\Actions\Courier\Profile\PersistCourierAvatarAction;
 use App\Actions\Courier\Profile\PersistCourierProfileAction;
+use App\Actions\Courier\Verification\SubmitCourierVerificationRequestAction;
 use App\DTO\Avatar\AvatarUploadData;
 use App\DTO\Courier\Profile\CourierProfileUpdateData;
 use App\Http\Controllers\Controller;
@@ -94,6 +95,35 @@ class CourierProfileController extends Controller
         $action->execute($courier, new AvatarUploadData($payload['avatar']));
 
         return back()->with('success', 'Аватар курʼєра оновлено.');
+    }
+
+
+    public function submitVerification(Request $request, SubmitCourierVerificationRequestAction $action): RedirectResponse
+    {
+        $courier = $this->resolveCourier();
+        abort_if(! $courier instanceof User, 403);
+
+        $maxKilobytes = max(1, (int) ceil(((int) config('courier_verification.max_file_size_bytes', 5 * 1024 * 1024)) / 1024));
+        $allowedMimeTypes = (array) config('courier_verification.allowed_mime_types', []);
+
+        $payload = $request->validate([
+            'document_type' => ['required', 'string', 'in:passport,id_card'],
+            'document' => ['required', 'file', 'mimetypes:'.implode(',', $allowedMimeTypes), 'max:'.$maxKilobytes],
+        ]);
+
+        $action->execute(
+            $courier,
+            (string) $payload['document_type'],
+            $payload['document'],
+        );
+
+        Log::info('courier_verification_submitted', [
+            'flow' => 'courier_verification',
+            'courier_id' => $courier->id,
+            'document_type' => $payload['document_type'],
+        ]);
+
+        return back()->with('success', 'Документ відправлено на перевірку.');
     }
 
     public function requestWithdrawal(Request $request, CreateCourierWithdrawalRequestAction $action): RedirectResponse

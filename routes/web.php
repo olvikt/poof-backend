@@ -10,6 +10,7 @@ use App\Http\Controllers\Client\Payments\WayForPayReturnController;
 use App\Http\Controllers\Client\Subscriptions\SubscriptionCheckoutController;
 use App\Http\Controllers\Courier\CourierOrderLifecycleController;
 use App\Http\Controllers\Courier\CourierProfileController;
+use App\Http\Controllers\Admin\CourierVerificationDocumentPreviewController;
 use App\Http\Middleware\AdminOnly;
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\Pwa\ManifestController;
@@ -201,6 +202,7 @@ Route::middleware('auth:web')
         Route::post('/profile/update', [CourierProfileController::class, 'update'])->name('profile.update');
         Route::post('/profile/avatar', [CourierProfileController::class, 'updateAvatar'])->name('profile.avatar.update');
         Route::post('/profile/withdrawal', [CourierProfileController::class, 'requestWithdrawal'])->name('profile.withdrawal.request');
+        Route::post('/profile/verification', [CourierProfileController::class, 'submitVerification'])->name('profile.verification.submit');
         Route::post('/orders/{order}/accept', [CourierOrderLifecycleController::class, 'accept'])->name('orders.accept');
         Route::post('/orders/{order}/start', [CourierOrderLifecycleController::class, 'start'])->name('orders.start');
         Route::post('/orders/{order}/complete', [CourierOrderLifecycleController::class, 'complete'])->name('orders.complete');
@@ -210,6 +212,7 @@ Route::middleware(['auth:web', AdminOnly::class])
     ->prefix('admin')
     ->name('admin.')
     ->group(function () {
+        Route::get('/courier-verification-requests/{verificationRequest}/document', CourierVerificationDocumentPreviewController::class)->name('courier-verification-requests.document');
         Route::get('/completion-disputes', function () {
             $disputes = OrderCompletionDispute::query()
                 ->with(['order', 'client', 'courier'])
