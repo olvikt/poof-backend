@@ -40,9 +40,25 @@
                 <div class="text-lg font-semibold">{{ $profile['profile_identity']['full_name'] }}</div>
                 <p class="mt-1 text-sm text-slate-300">{{ $profile['profile_contact']['phone'] }}</p>
                 <p class="text-sm text-slate-300">{{ $profile['profile_contact']['email'] }}</p>
-                <div class="mt-2 inline-flex rounded-full border border-poof/40 bg-poof/20 px-2.5 py-1 text-[11px] font-semibold text-poof">
-                    Статус: {{ $profile['profile_verification']['status_label'] }}
+                @php
+                    $isVerified = ($profile['profile_verification']['status'] ?? null) === 'verified';
+                    $verificationBadgeClasses = $isVerified
+                        ? 'border-emerald-400/40 bg-emerald-400/15 text-emerald-300'
+                        : 'border-poof/40 bg-poof/20 text-poof';
+                    $courierIdentityLabel = $courier->courierProfile?->id
+                        ? 'id: '.$courier->courierProfile->id
+                        : 'id: '.$courier->id;
+                @endphp
+                <div class="mt-2 inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[11px] font-semibold {{ $verificationBadgeClasses }}">
+                    @if($isVerified)
+                        <svg viewBox="0 0 20 20" fill="none" aria-hidden="true" class="h-3.5 w-3.5" data-e2e="courier-verified-icon">
+                            <circle cx="10" cy="10" r="8" stroke="currentColor" stroke-width="1.5"/>
+                            <path d="m6.8 10.2 2.1 2.1 4.3-4.4" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/>
+                        </svg>
+                    @endif
+                    <span>{{ $profile['profile_verification']['status_label'] }}</span>
                 </div>
+                <p class="mt-1 text-xs text-slate-400">{{ $courierIdentityLabel }}</p>
             </div>
         </div>
     </section>
@@ -145,12 +161,12 @@
             <p class="text-xs text-slate-400">Контракт {{ $profile['rating_summary']['phase'] }} (provisional).</p>
             @foreach($profile['rating_summary']['factors'] as $factor)
                 <div class="rounded-lg border border-white/10 bg-[#101b2b] p-2.5">
-                    <p class="font-semibold">{{ $factor['label'] }}</p>
+                    <p class="font-semibold text-white">{{ $factor['label'] }}</p>
                     <p class="text-xs text-slate-300">Значення: {{ $factor['value'] }} · Вага: {{ (int) ($factor['weight'] * 100) }}%</p>
                 </div>
             @endforeach
             <div>
-                <p class="font-semibold">Що покращує рейтинг:</p>
+                <p class="font-semibold text-white">Що покращує рейтинг:</p>
                 <ul class="list-disc pl-5 text-xs text-slate-300">
                     @foreach($profile['rating_summary']['explainability']['improves'] as $item)
                         <li>{{ $item }}</li>
@@ -158,7 +174,7 @@
                 </ul>
             </div>
             <div>
-                <p class="font-semibold">Що знижує рейтинг:</p>
+                <p class="font-semibold text-white">Що знижує рейтинг:</p>
                 <ul class="list-disc pl-5 text-xs text-slate-300">
                     @foreach($profile['rating_summary']['explainability']['lowers'] as $item)
                         <li>{{ $item }}</li>
