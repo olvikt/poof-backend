@@ -4,6 +4,7 @@ namespace Tests\Feature\Api;
 
 use App\Models\ClientAddress;
 use App\Models\Courier;
+use App\Models\Order;
 use App\Models\OrderOffer;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -133,6 +134,74 @@ class ApiProtectedRoutesAuthTest extends TestCase
         $order = $this->createDispatchableSearchingPaidOrder($client, [
             'address_text' => 'вул. Курʼєрська, 7',
             'price' => 115,
+        ]);
+
+        Sanctum::actingAs($client);
+
+        $this->getJson('/api/orders/available')->assertForbidden();
+        $this->postJson("/api/orders/{$order->id}/accept")->assertForbidden();
+    }
+
+    public function test_busy_courier_gets_business_error_when_accepting_second_order_via_api(): void
+    {
+        $client = $this->createClient();
+        $courier = $this->createCourier();
+
+        $firstOrder = $this->createDispatchableSearchingPaidOrder($client, [
+            'address_text' => 'вул. Перша API, 1',
+            'price' => 111,
+        ]);
+        $secondOrder = $this->createDispatchableSearchingPaidOrder($client, [
+            'address_text' => 'вул. Друга API, 2',
+            'price' => 222,
+        ]);
+
+        Sanctum::actingAs($courier);
+
+        $this->postJson("/api/orders/{$firstOrder->id}/accept")
+            ->assertOk()
+            ->assertJsonPath('success', true);
+
+        // Drift mirrors deliberately: canonical guard must still refuse by active-order truth.
+        $courier->forceFill([
+            'is_online' => false,
+            'is_busy' => false,
+            'session_state' => User::SESSION_OFFLINE,
+        ])->save();
+
+        $this->postJson("/api/orders/{$secondOrder->id}/accept")
+            ->assertStatus(409)
+            ->assertJsonPath('success', false)
+            ->assertJsonPath('message', 'Неможливо прийняти замовлення');
+
+        $secondOrder->refresh();
+        $this->assertSame(Order::STATUS_SEARCHING, $secondOrder->status);
+        $this->assertNull($secondOrder->courier_id);
+    }
+
+    public function test_courier_can_access_courier_sanctum_routes_even_with_stale_runtime_mirrors(): void
+    {
+        $courier = $this->createCourier([
+            'is_online' => false,
+            'is_busy' => true,
+            'session_state' => User::SESSION_OFFLINE,
+        ]);
+
+        Sanctum::actingAs($courier);
+
+        $this->getJson('/api/orders/available')->assertOk();
+    }
+
+    public function test_client_is_forbidden_from_courier_routes_even_if_legacy_runtime_flags_look_courier_like(): void
+    {
+        $client = $this->createClient([
+            'is_online' => true,
+            'is_busy' => true,
+            'session_state' => User::SESSION_ASSIGNED,
+        ]);
+        $order = $this->createDispatchableSearchingPaidOrder($client, [
+            'address_text' => 'вул. Заборонена, 9',
+            'price' => 101,
         ]);
 
         Sanctum::actingAs($client);

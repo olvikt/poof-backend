@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Api;
 
 use App\Actions\Orders\Lifecycle\AcceptOrderByCourierAction;
 use App\Http\Controllers\Controller;
+use App\Models\Order;
 use App\Models\OrderOffer;
 use App\Services\Courier\CourierPresenceService;
 
