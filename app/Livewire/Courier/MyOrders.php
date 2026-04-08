@@ -14,6 +14,7 @@ use App\Services\Dispatch\DispatchTriggerPolicy;
 use App\Services\Dispatch\DispatchTriggerService;
 use App\Support\Courier\CourierNavigationRuntime;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
 use Livewire\Component;
@@ -382,6 +383,7 @@ class MyOrders extends Component
     {
         $now = now();
 
+        $uniqueNearbyOrders = OrderOffer::query()
         $summary = OrderOffer::query()
             ->join('orders', 'orders.id', '=', 'order_offers.order_id')
             ->where('order_offers.courier_id', $courier->id)
@@ -393,6 +395,16 @@ class MyOrders extends Component
                 $query->whereNull('orders.valid_until_at')
                     ->orWhere('orders.valid_until_at', '>', $now);
             })
+            ->select([
+                'orders.id',
+                'orders.courier_payout_amount',
+            ])
+            ->distinct();
+
+        $summary = DB::query()
+            ->fromSub($uniqueNearbyOrders, 'nearby_orders')
+            ->selectRaw('COUNT(*) as orders_count')
+            ->selectRaw('COALESCE(SUM(nearby_orders.courier_payout_amount), 0) as total_earning')
             ->selectRaw('COUNT(DISTINCT orders.id) as orders_count')
             ->selectRaw('COALESCE(SUM(orders.courier_payout_amount), 0) as total_earning')
             ->first();

@@ -160,6 +160,59 @@ class CourierPromiseVisibilityTest extends TestCase
             ->assertSee('Терміново');
     }
 
+    public function test_nearby_area_summary_deduplicates_earnings_for_duplicate_alive_offers_on_same_order(): void
+    {
+        $courier = User::factory()->create(['role' => 'courier', 'is_online' => true]);
+        $client = User::factory()->create(['role' => 'client']);
+
+        Order::createForTesting([
+            'client_id' => $client->id,
+            'courier_id' => $courier->id,
+            'status' => Order::STATUS_ACCEPTED,
+            'payment_status' => Order::PAY_PAID,
+            'service_mode' => Order::SERVICE_MODE_ASAP,
+            'valid_until_at' => now()->addMinutes(20),
+            'address_text' => 'вул. Основна, 1',
+            'price' => 120,
+            'courier_payout_amount' => 4,
+            'accepted_at' => now()->subMinutes(2),
+        ]);
+
+        $nearbyOrder = Order::createForTesting([
+            'client_id' => $client->id,
+            'status' => Order::STATUS_SEARCHING,
+            'payment_status' => Order::PAY_PAID,
+            'service_mode' => Order::SERVICE_MODE_ASAP,
+            'valid_until_at' => now()->addMinutes(15),
+            'address_text' => 'вул. Поруч, 2',
+            'price' => 90,
+            'courier_payout_amount' => 4,
+        ]);
+
+        OrderOffer::query()->create([
+            'order_id' => $nearbyOrder->id,
+            'courier_id' => $courier->id,
+            'type' => OrderOffer::TYPE_STACK,
+            'sequence' => 1,
+            'status' => OrderOffer::STATUS_PENDING,
+            'expires_at' => now()->addMinutes(5),
+        ]);
+
+        OrderOffer::query()->create([
+            'order_id' => $nearbyOrder->id,
+            'courier_id' => $courier->id,
+            'type' => OrderOffer::TYPE_STACK,
+            'sequence' => 2,
+            'status' => OrderOffer::STATUS_PENDING,
+            'expires_at' => now()->addMinutes(5),
+        ]);
+
+        Livewire::actingAs($courier)
+            ->test(MyOrders::class)
+            ->assertSee('В цьому районі є 1 замовлень')
+            ->assertSee('на 4 грн.');
+    }
+
     public function test_active_my_orders_card_renders_desired_window_placeholder_for_unknown_service_mode(): void
     {
         $courier = User::factory()->create(['role' => 'courier', 'is_online' => true]);
