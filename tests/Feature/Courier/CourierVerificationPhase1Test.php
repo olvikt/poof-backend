@@ -12,6 +12,7 @@ use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Storage;
+use Mockery;
 use Tests\TestCase;
 
 class CourierVerificationPhase1Test extends TestCase
@@ -98,6 +99,57 @@ class CourierVerificationPhase1Test extends TestCase
             'courier_id' => $courier->id,
             'status' => CourierVerificationRequest::STATUS_PENDING_REVIEW,
         ]);
+    }
+
+    public function test_double_first_submission_keeps_single_active_pending_request(): void
+    {
+        Storage::fake('local');
+        $courier = $this->createCourier();
+
+        $payload = [
+            'document_type' => CourierVerificationRequest::DOCUMENT_TYPE_PASSPORT,
+            'document' => UploadedFile::fake()->image('passport.jpg')->size(400),
+        ];
+
+        $this->actingAs($courier, 'web')
+            ->post(route('courier.profile.verification.submit'), $payload)
+            ->assertSessionHasNoErrors();
+
+        $this->actingAs($courier, 'web')
+            ->post(route('courier.profile.verification.submit'), [
+                'document_type' => CourierVerificationRequest::DOCUMENT_TYPE_ID_CARD,
+                'document' => UploadedFile::fake()->image('id-card.jpg')->size(350),
+            ])
+            ->assertSessionHasErrors('document');
+
+        $this->assertSame(1, CourierVerificationRequest::query()->count());
+        $this->assertSame(1, CourierVerificationRequest::query()
+            ->where('courier_id', $courier->id)
+            ->where('status', CourierVerificationRequest::STATUS_PENDING_REVIEW)
+            ->count());
+    }
+
+    public function test_storage_write_failure_rolls_back_and_does_not_leave_pending_request(): void
+    {
+        $courier = $this->createCourier();
+        config()->set('courier_verification.storage_disk', 'verification-fail');
+
+        $diskMock = Mockery::mock();
+        $diskMock->shouldReceive('putFileAs')->once()->andReturn(false);
+
+        Storage::shouldReceive('disk')
+            ->once()
+            ->with('verification-fail')
+            ->andReturn($diskMock);
+
+        $this->actingAs($courier, 'web')
+            ->post(route('courier.profile.verification.submit'), [
+                'document_type' => CourierVerificationRequest::DOCUMENT_TYPE_PASSPORT,
+                'document' => UploadedFile::fake()->image('passport.jpg')->size(400),
+            ])
+            ->assertSessionHasErrors('document');
+
+        $this->assertDatabaseCount('courier_verification_requests', 0);
     }
 
     public function test_admin_can_view_review_surface_and_non_admin_cannot(): void

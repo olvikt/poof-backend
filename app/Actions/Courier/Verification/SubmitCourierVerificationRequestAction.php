@@ -28,17 +28,28 @@ class SubmitCourierVerificationRequestAction
         }
 
         return DB::transaction(function () use ($courier, $documentType, $document): CourierVerificationRequest {
+            User::query()
+                ->whereKey($courier->id)
+                ->lockForUpdate()
+                ->first();
+
+            $pendingExists = CourierVerificationRequest::query()
+                ->where('courier_id', $courier->id)
+                ->where('status', CourierVerificationRequest::STATUS_PENDING_REVIEW)
+                ->lockForUpdate()
+                ->exists();
+
+            if ($pendingExists) {
+                throw ValidationException::withMessages([
+                    'document' => 'Документи вже на перевірці. Дочекайтеся рішення адміністратора.',
+                ]);
+            }
+
             $latest = CourierVerificationRequest::query()
                 ->where('courier_id', $courier->id)
                 ->latest('id')
                 ->lockForUpdate()
                 ->first();
-
-            if ($latest?->status === CourierVerificationRequest::STATUS_PENDING_REVIEW) {
-                throw ValidationException::withMessages([
-                    'document' => 'Документи вже на перевірці. Дочекайтеся рішення адміністратора.',
-                ]);
-            }
 
             if ($latest?->status === CourierVerificationRequest::STATUS_VERIFIED) {
                 throw ValidationException::withMessages([
@@ -66,14 +77,20 @@ class SubmitCourierVerificationRequestAction
                 preg_replace('/[^a-z0-9]+/i', '', $extension) ?: 'jpg',
             );
 
-            Storage::disk($request->document_file_disk ?: 'local')->putFileAs(
+            $stored = Storage::disk($request->document_file_disk ?: 'local')->putFileAs(
                 dirname($path),
                 $document,
                 basename($path),
             );
 
+            if ($stored === false) {
+                throw ValidationException::withMessages([
+                    'document' => 'Не вдалося зберегти документ. Спробуйте ще раз.',
+                ]);
+            }
+
             $request->update([
-                'document_file_path' => $path,
+                'document_file_path' => $stored,
             ]);
 
             $courier->forceFill(['is_verified' => false])->save();
