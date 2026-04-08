@@ -14,7 +14,7 @@
 
 ### Q2. Available orders pending offers read
 - **Query shape:** `orders JOIN order_offers` filtered by courier + pending + non-expired.
-- **Called from:** `AvailableOrders::render()`.
+- **Called from:** `AvailableOrders::render()`, `GET /api/orders/available` (after canonical runtime gate).
 - **Potential frequency:** high under polling/navigation.
 - **Why hot:** UI render path for active couriers.
 - **Expected index:** `order_offers_courier_status_expires_idx` (+ PK lookup to orders).
@@ -61,6 +61,8 @@
 - `dispatch_offer_created`
 - `dispatch_deferred`
 - `dispatch_waiting_live_offer`
+- `dispatch_queue_batch_processed`
+- `dispatch_queue_noop_ratio_observed`
 - `available_orders_render`
 - `my_orders_render`
 - `courier_dispatch_triggered_from_location_update`

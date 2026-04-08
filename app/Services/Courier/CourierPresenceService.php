@@ -9,20 +9,42 @@ use Illuminate\Support\Facades\Log;
 
 class CourierPresenceService
 {
+    private ?User $authenticatedCourier = null;
+    /** @var array<int,array<string,mixed>|null> */
+    private array $runtimeCache = [];
+    /** @var array<int,Order|null> */
+    private array $activeOrderCache = [];
+
     public function resolveAuthenticatedCourier(): ?User
     {
+        if ($this->authenticatedCourier instanceof User) {
+            return $this->authenticatedCourier;
+        }
+
         $user = auth()->user();
 
         if (! $user instanceof User || ! $user->isCourier()) {
             return null;
         }
 
-        return $user->fresh(['courierProfile']);
+        $this->authenticatedCourier = $user->fresh(['courierProfile']);
+
+        return $this->authenticatedCourier;
     }
 
     public function snapshot(?User $courier): ?array
     {
-        return $courier instanceof User ? $courier->courierRuntimeSnapshot() : null;
+        if (! $courier instanceof User) {
+            return null;
+        }
+
+        $id = (int) $courier->id;
+
+        if (array_key_exists($id, $this->runtimeCache)) {
+            return $this->runtimeCache[$id];
+        }
+
+        return $this->runtimeCache[$id] = $courier->courierRuntimeSnapshot();
     }
 
 
@@ -39,7 +61,13 @@ class CourierPresenceService
             return null;
         }
 
-        return Order::query()
+        $id = (int) $courier->id;
+
+        if (array_key_exists($id, $this->activeOrderCache)) {
+            return $this->activeOrderCache[$id];
+        }
+
+        return $this->activeOrderCache[$id] = Order::query()
             ->where('courier_id', $courier->id)
             ->whereIn('status', [
                 Order::STATUS_ACCEPTED,

@@ -115,6 +115,22 @@ class DispatchTriggerControlPackTest extends TestCase
         })->once();
     }
 
+    public function test_dispatch_queue_batch_logs_noop_ratio_marker_for_observability(): void
+    {
+        Log::spy();
+
+        app(OfferDispatcher::class)->dispatchSearchingOrders(5);
+
+        Log::shouldHaveReceived('info')->withArgs(function (string $message, array $context): bool {
+            return $message === 'dispatch_queue_batch_processed'
+                && array_key_exists('selected_orders', $context)
+                && array_key_exists('offers_created', $context)
+                && array_key_exists('noop_attempts', $context)
+                && array_key_exists('noop_ratio', $context)
+                && ($context['counter'] ?? null) === 'dispatch_queue_batch_processed_total';
+        })->once();
+    }
+
     private function createCourier(bool $online = false): User
     {
         $courier = User::factory()->create([

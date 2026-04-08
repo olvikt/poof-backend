@@ -255,15 +255,45 @@ class OfferDispatcher
 
     public function dispatchSearchingOrders(int $limit = 20): int
     {
+        $startedAt = microtime(true);
         $count = 0;
         $now = now();
 
         $orders = $this->dispatchQueueSelection($now, $limit);
+        $selected = $orders->count();
 
         foreach ($orders as $order) {
             if ($this->dispatchForOrder($order, 'scheduler_loop')) {
                 $count++;
             }
+        }
+
+        $noopCount = max(0, $selected - $count);
+
+        Log::info('dispatch_queue_batch_processed', [
+            'flow' => 'offer_dispatch',
+            'selected_orders' => $selected,
+            'offers_created' => $count,
+            'noop_attempts' => $noopCount,
+            'noop_ratio' => $selected > 0 ? round($noopCount / $selected, 4) : 0.0,
+            'limit' => $limit,
+            'elapsed_ms' => $this->elapsedMs($startedAt),
+            'counter' => 'dispatch_queue_batch_processed_total',
+            'counter_increment' => 1,
+            'counter_labels' => [
+                'had_selected_orders' => $selected > 0 ? 'yes' : 'no',
+            ],
+        ]);
+
+        if ($noopCount > 0) {
+            Log::info('dispatch_queue_noop_ratio_observed', [
+                'flow' => 'offer_dispatch',
+                'selected_orders' => $selected,
+                'noop_attempts' => $noopCount,
+                'noop_ratio' => $selected > 0 ? round($noopCount / $selected, 4) : 0.0,
+                'counter' => 'dispatch_queue_noop_total',
+                'counter_increment' => $noopCount,
+            ]);
         }
 
         return $count;
