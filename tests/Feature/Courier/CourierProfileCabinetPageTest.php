@@ -28,6 +28,9 @@ class CourierProfileCabinetPageTest extends TestCase
 
         $response->assertOk();
         $response->assertSee('Налаштування та верифікація');
+        $response->assertSee('Гаманець / Баланс');
+        $response->assertSee('Підтримка');
+        $response->assertSee('Вийти з акаунту');
     }
 
     public function test_client_cannot_access_courier_profile_page(): void
@@ -149,6 +152,18 @@ class CourierProfileCabinetPageTest extends TestCase
             'amount' => 550,
             'status' => CourierWithdrawalRequest::STATUS_REQUESTED,
         ]);
+    }
+
+    public function test_courier_keeps_logout_action_reachable_after_popup_removal(): void
+    {
+        $courier = $this->createCourier();
+
+        $this->actingAs($courier, 'web')
+            ->from(route('courier.profile'))
+            ->post(route('logout'))
+            ->assertRedirect();
+
+        $this->assertGuest('web');
     }
 
     private function createCourier(array $overrides = []): User

@@ -26,7 +26,7 @@
             <button type="button" onclick="window.dispatchEvent(new CustomEvent('sheet:open',{detail:{name:'courierRatingDetails'}}))" class="mt-3 rounded-lg border border-white/20 px-2.5 py-1.5 text-xs">Докладніше</button>
         </article>
 
-        <article class="rounded-2xl border border-white/10 bg-[#0d1724] p-4">
+        <article id="courier-balance-block" class="rounded-2xl border border-white/10 bg-[#0d1724] p-4">
             <div class="text-xs uppercase tracking-wide text-slate-400">Фінанси</div>
             <div class="mt-2 text-sm text-slate-300">Загалом зароблено</div>
             <div class="text-xl font-bold">{{ number_format((int) $profile['balance_summary']['earned_total'], 2, ',', ' ') }} ₴</div>
@@ -54,6 +54,27 @@
         <div class="mt-3 rounded-xl border border-white/10 bg-[#101b2b] p-3">
             <div class="text-xs uppercase tracking-wide text-slate-400">Адреса ПМЖ</div>
             <p class="mt-1 text-sm">{{ $profile['profile_address']['residence_address'] }}</p>
+        </div>
+    </section>
+
+    <section class="mt-4 rounded-2xl border border-white/10 bg-[#0d1724] p-4">
+        <h2 class="text-sm font-semibold">Акаунт</h2>
+        <div class="mt-3 grid grid-cols-1 gap-2">
+            <a href="#courier-balance-block" class="flex items-center justify-between rounded-xl border border-white/10 bg-[#101b2b] px-3 py-2.5 text-sm font-medium">
+                <span>Гаманець / Баланс</span>
+                <span class="text-xs text-slate-400">Перейти</span>
+            </a>
+            <a href="https://t.me/poofsupport" target="_blank" rel="noopener noreferrer" class="flex items-center justify-between rounded-xl border border-white/10 bg-[#101b2b] px-3 py-2.5 text-sm font-medium">
+                <span>Підтримка</span>
+                <span class="text-xs text-slate-400">Telegram</span>
+            </a>
+            <form method="POST" action="{{ route('logout') }}">
+                @csrf
+                <button type="submit" class="flex w-full items-center justify-between rounded-xl border border-rose-500/30 bg-rose-500/10 px-3 py-2.5 text-left text-sm font-semibold text-rose-100">
+                    <span>Вийти з акаунту</span>
+                    <span class="text-xs text-rose-200">Logout</span>
+                </button>
+            </form>
         </div>
     </section>
 
