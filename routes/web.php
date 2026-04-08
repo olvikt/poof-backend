@@ -9,6 +9,7 @@ use App\Http\Controllers\Client\Payments\PaymentStartController;
 use App\Http\Controllers\Client\Payments\WayForPayReturnController;
 use App\Http\Controllers\Client\Subscriptions\SubscriptionCheckoutController;
 use App\Http\Controllers\Courier\CourierOrderLifecycleController;
+use App\Http\Controllers\Courier\CourierProfileController;
 use App\Http\Middleware\AdminOnly;
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\Pwa\ManifestController;
@@ -196,6 +197,10 @@ Route::middleware('auth:web')
         Route::get('/', fn () => redirect()->route('courier.orders'))->name('home');
         Route::get('/orders', AvailableOrders::class)->name('orders');
         Route::get('/my-orders', MyOrders::class)->name('my-orders');
+        Route::get('/profile', [CourierProfileController::class, 'show'])->name('profile');
+        Route::post('/profile/update', [CourierProfileController::class, 'update'])->name('profile.update');
+        Route::post('/profile/avatar', [CourierProfileController::class, 'updateAvatar'])->name('profile.avatar.update');
+        Route::post('/profile/withdrawal', [CourierProfileController::class, 'requestWithdrawal'])->name('profile.withdrawal.request');
         Route::post('/orders/{order}/accept', [CourierOrderLifecycleController::class, 'accept'])->name('orders.accept');
         Route::post('/orders/{order}/start', [CourierOrderLifecycleController::class, 'start'])->name('orders.start');
         Route::post('/orders/{order}/complete', [CourierOrderLifecycleController::class, 'complete'])->name('orders.complete');

@@ -72,6 +72,8 @@ class User extends Authenticatable implements FilamentUser
         'locale',
         'timezone',
         'avatar',
+        'residence_address',
+        'courier_verification_status',
 
         // courier runtime
         'is_online',
@@ -684,6 +686,11 @@ class User extends Authenticatable implements FilamentUser
     public function subscriptions(): HasMany
     {
         return $this->hasMany(ClientSubscription::class, 'client_id');
+    }
+
+    public function courierWithdrawalRequests(): HasMany
+    {
+        return $this->hasMany(CourierWithdrawalRequest::class, 'courier_id');
     }
 
     /**
