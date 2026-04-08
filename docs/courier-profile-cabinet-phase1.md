@@ -56,3 +56,13 @@ Runtime online toggle remains in courier layout header and keeps canonical sourc
 - Drop `courier_withdrawal_requests` table.
 - Remove added `users` fields (`residence_address`, `courier_verification_status`).
 - Remove profile routes/controller/actions/services.
+
+## Avatar upload transport and production limits (PR-1)
+
+- Courier avatar UX now follows the same Livewire sheet/form contract as client profile avatar flow (preview + explicit save action).
+- Application validation remains `image|max:2048` (2 MB).
+- To prevent server-level `413 Request Entity Too Large` pages in production, infrastructure limits must stay above app validation threshold:
+  - `nginx client_max_body_size` >= `3m`;
+  - `php upload_max_filesize` >= `3M`;
+  - `php post_max_size` >= `3M`.
+- If infra limits are below these values, users can still hit gateway-level 413 before Laravel validation executes.

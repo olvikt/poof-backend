@@ -114,11 +114,7 @@
     </x-poof.ui.bottom-sheet>
 
     <x-poof.ui.bottom-sheet name="courierEditAvatar" title="Аватар курʼєра">
-        <form method="POST" action="{{ route('courier.profile.avatar.update') }}" enctype="multipart/form-data" class="space-y-3">
-            @csrf
-            <input type="file" name="avatar" accept="image/*" class="poof-input w-full" required>
-            <button class="w-full rounded-xl bg-poof py-3 text-sm font-bold text-[#041015]">Оновити аватар</button>
-        </form>
+        <livewire:courier.avatar-form />
     </x-poof.ui.bottom-sheet>
 
     <x-poof.ui.bottom-sheet name="courierRatingDetails" title="Деталі рейтингу">
