@@ -8,6 +8,7 @@ use App\Models\CourierWithdrawalRequest;
 use App\Models\User;
 use App\Services\Courier\Earnings\CourierBalanceSummaryService;
 use App\Services\Courier\Payout\CourierPayoutPolicyService;
+use App\Services\Courier\Profile\CourierProfileWidgetCacheInvalidator;
 use Illuminate\Validation\ValidationException;
 
 class CreateCourierWithdrawalRequestAction
@@ -15,6 +16,7 @@ class CreateCourierWithdrawalRequestAction
     public function __construct(
         private readonly CourierBalanceSummaryService $balanceSummaryService,
         private readonly CourierPayoutPolicyService $policyService,
+        private readonly CourierProfileWidgetCacheInvalidator $cacheInvalidator,
     ) {
     }
 
@@ -43,11 +45,15 @@ class CreateCourierWithdrawalRequestAction
             ]);
         }
 
-        return CourierWithdrawalRequest::query()->create([
+        $request = CourierWithdrawalRequest::query()->create([
             'courier_id' => $courier->id,
             'amount' => $amount,
             'status' => CourierWithdrawalRequest::STATUS_REQUESTED,
             'notes' => $notes,
         ]);
+
+        $this->cacheInvalidator->invalidateBalanceSummary($courier);
+
+        return $request;
     }
 }
