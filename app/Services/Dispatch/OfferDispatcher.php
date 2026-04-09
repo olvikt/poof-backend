@@ -90,6 +90,7 @@ class OfferDispatcher
                 Log::debug('dispatch_skipped_deferred_under_lock', [
                     'flow' => 'offer_dispatch',
                     'order_id' => $locked->id,
+                    'trigger_source' => $triggerSource,
                     'dispatch_attempted' => false,
                     'dispatch_deferred' => true,
                     'dispatch_backoff_until' => $locked->next_dispatch_at->toIso8601String(),
@@ -118,6 +119,7 @@ class OfferDispatcher
                 Log::debug('dispatch_waiting_live_offer', [
                     'flow' => 'offer_dispatch',
                     'order_id' => $locked->id,
+                    'trigger_source' => $triggerSource,
                     'dispatch_attempted' => false,
                     'dispatch_waiting_live_offer' => true,
                     'order_age_seconds' => $orderAgeSeconds,
@@ -150,7 +152,21 @@ class OfferDispatcher
 
             $orderHasCoords = $this->hasCoords($locked->lat, $locked->lng);
 
+            $candidateFetchStartedAt = microtime(true);
             $couriers = $this->fetchCandidates($locked, $orderHasCoords, $now);
+            $candidateScanCount = $couriers->count();
+
+            Log::debug('dispatch_candidates_evaluated', [
+                'flow' => 'offer_dispatch',
+                'order_id' => $locked->id,
+                'attempt_count' => $attemptCount,
+                'trigger_source' => $triggerSource,
+                'search_radius_km' => $this->primaryRadiusKm,
+                'bbox_prefilter_applied' => $orderHasCoords,
+                'candidate_scan_count' => $candidateScanCount,
+                'candidate_count' => $candidateScanCount,
+                'elapsed_ms' => $this->elapsedMs($candidateFetchStartedAt),
+            ]);
 
             if ($couriers->isEmpty()) {
                 $reasonBreakdown = $this->candidateReasonBreakdown($locked, $orderHasCoords, $now);
@@ -162,6 +178,7 @@ class OfferDispatcher
                     reason: 'no_candidates',
                     orderAgeSeconds: $orderAgeSeconds,
                     startedAt: $startedAt,
+                    triggerSource: $triggerSource,
                 );
 
                 Log::debug('dispatch_no_candidates', [
@@ -170,7 +187,10 @@ class OfferDispatcher
                     'attempt_count' => $attemptCount,
                     'reason_breakdown' => $reasonBreakdown['reason_breakdown'],
                     'search_radius_km' => $this->primaryRadiusKm,
-                    'candidate_scan_count' => $reasonBreakdown['candidate_scan_count'],
+                    'bbox_prefilter_applied' => $orderHasCoords,
+                    'candidate_scan_count' => $candidateScanCount,
+                    'candidate_count' => 0,
+                    'diagnostic_candidate_scan_count' => $reasonBreakdown['candidate_scan_count'],
                     'trigger_source' => $triggerSource,
                     'order_age_seconds' => $orderAgeSeconds,
                     'elapsed_ms' => $this->elapsedMs($startedAt),
@@ -197,13 +217,18 @@ class OfferDispatcher
                     reason: 'no_pick',
                     orderAgeSeconds: $orderAgeSeconds,
                     startedAt: $startedAt,
+                    triggerSource: $triggerSource,
                 );
 
                 Log::debug('dispatch_no_pick', [
                     'flow' => 'offer_dispatch',
                     'order_id' => $locked->id,
+                    'search_radius_km' => $this->primaryRadiusKm,
+                    'bbox_prefilter_applied' => $orderHasCoords,
+                    'candidate_scan_count' => $candidateScanCount,
                     'candidate_count' => $couriers->count(),
                     'attempt_count' => $attemptCount,
+                    'trigger_source' => $triggerSource,
                     'order_age_seconds' => $orderAgeSeconds,
                     'elapsed_ms' => $this->elapsedMs($startedAt),
                 ]);
@@ -239,8 +264,12 @@ class OfferDispatcher
                 'courier_id' => $picked->id,
                 'offer_id' => $offer->id,
                 'ttl_seconds' => $this->ttlSeconds,
+                'search_radius_km' => $this->primaryRadiusKm,
+                'bbox_prefilter_applied' => $orderHasCoords,
+                'candidate_scan_count' => $candidateScanCount,
                 'candidate_count' => $couriers->count(),
                 'attempt_count' => $attemptCount,
+                'trigger_source' => $triggerSource,
                 'order_age_seconds' => $orderAgeSeconds,
                 'elapsed_ms' => $this->elapsedMs($startedAt),
             ]);
@@ -350,6 +379,7 @@ class OfferDispatcher
         string $reason,
         ?int $orderAgeSeconds,
         float $startedAt,
+        string $triggerSource,
     ): void {
         $backoffSeconds = $this->backoffSeconds($attemptCount);
         $backoffUntil = $now->copy()->addSeconds($backoffSeconds);
@@ -364,6 +394,7 @@ class OfferDispatcher
             'flow' => 'offer_dispatch',
             'order_id' => $orderId,
             'reason' => $reason,
+            'trigger_source' => $triggerSource,
             'dispatch_deferred' => true,
             'dispatch_backoff_until' => $backoffUntil->toIso8601String(),
             'attempt_count' => $attemptCount,

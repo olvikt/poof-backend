@@ -70,9 +70,10 @@ This keeps domain-specific scoring deterministic while reducing database + Eloqu
 Structured markers:
 
 - `dispatch_started`
+- `dispatch_candidates_evaluated`
 - `dispatch_deferred`
 - `dispatch_no_candidates`
-  - includes `reason_breakdown`, `candidate_scan_count`, `search_radius_km`, `trigger_source`
+  - includes `reason_breakdown`, `candidate_scan_count`, `candidate_count`, `search_radius_km`, `bbox_prefilter_applied`, `trigger_source`
 - `dispatch_no_pick`
 - `dispatch_offer_created`
 - `available_orders_render`
@@ -81,6 +82,9 @@ Structured markers:
 Common fields:
 - `order_id`
 - `candidate_count`
+- `candidate_scan_count`
+- `search_radius_km`
+- `bbox_prefilter_applied`
 - `picked_courier_id`
 - `dispatch_attempted`
 - `dispatch_deferred`
