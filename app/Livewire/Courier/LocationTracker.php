@@ -117,6 +117,8 @@ class LocationTracker extends Component
 
         // Resolve canonical runtime once per request.
         $runtime = $this->presenceService()->snapshot($user) ?? [];
+        $previousLat = $user->last_lat !== null ? (float) $user->last_lat : null;
+        $previousLng = $user->last_lng !== null ? (float) $user->last_lng : null;
         $ingestResult = $this->locationIngestService()->ingest($user, $lat, $lng, $accuracy, $runtime);
 
         if (! ($ingestResult['accepted'] ?? false)) {
@@ -158,10 +160,10 @@ class LocationTracker extends Component
 
         $distanceMoved = null;
 
-        if ($user->last_lat !== null && $user->last_lng !== null) {
+        if ($previousLat !== null && $previousLng !== null) {
             $distanceMoved = $this->distanceMeters(
-                (float) $user->last_lat,
-                (float) $user->last_lng,
+                $previousLat,
+                $previousLng,
                 $lat,
                 $lng
             );
