@@ -7,6 +7,9 @@
             <div class="flex items-center justify-between gap-2 px-4 py-2.5">
                 <div class="min-w-0">
                     <p class="truncate text-sm font-semibold tracking-[0.01em] text-slate-100">POOF Кур'єр</p>
+                    @isset($headerMeta)
+                        <p class="text-xs text-emerald-300">{{ $headerMeta }}</p>
+                    @endisset
                 </div>
 
                 <livewire:courier.online-toggle wire:key="courier-online-toggle-header" />

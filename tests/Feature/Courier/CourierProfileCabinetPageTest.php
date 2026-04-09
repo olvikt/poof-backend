@@ -124,7 +124,9 @@ class CourierProfileCabinetPageTest extends TestCase
         $response = $this->actingAs($courier, 'web')->get(route('courier.profile'));
 
         $response->assertOk();
-        $response->assertSee('Докладніше');
+        $response->assertSee('aria-label="Деталі рейтингу"', false);
+        $response->assertDontSee('>Докладніше<', false);
+        $response->assertSee("sheet:open',{detail:{name:'courierRatingDetails'}}", false);
         $response->assertSee('Оцінки клієнтів');
         $response->assertSee('Що покращує рейтинг:');
     }
@@ -146,14 +148,42 @@ class CourierProfileCabinetPageTest extends TestCase
         $response->assertDontSee('Статус:');
     }
 
-    public function test_profile_hero_shows_courier_identifier(): void
+    public function test_profile_header_renders_courier_identifier_as_secondary_metadata(): void
     {
         $courier = $this->createCourier();
 
         $response = $this->actingAs($courier, 'web')->get(route('courier.profile'));
 
         $response->assertOk();
-        $response->assertSee('id: '.$courier->courierProfile->id);
+        $response->assertSeeInOrder(["POOF Кур'єр", 'id: '.$courier->courierProfile->id]);
+        $response->assertSee('<p class="text-xs text-emerald-300">id: '.$courier->courierProfile->id.'</p>', false);
+        $response->assertDontSee('<p class="mt-1 text-xs text-slate-400">id: '.$courier->courierProfile->id.'</p>', false);
+    }
+
+    public function test_profile_hero_hides_email_and_uses_compact_phone_typography_contract(): void
+    {
+        $courier = $this->createCourier([
+            'phone' => '+380501112233',
+            'email' => 'hero-hidden@example.com',
+        ]);
+
+        $response = $this->actingAs($courier, 'web')->get(route('courier.profile'));
+
+        $response->assertOk();
+        $response->assertSee('<p class="text-xs text-slate-300">+380501112233</p>', false);
+        $response->assertDontSee('<p class="mt-1 text-sm text-slate-300">+380501112233</p>', false);
+        $response->assertDontSee('>hero-hidden@example.com</p>', false);
+    }
+
+    public function test_wallet_profile_block_does_not_render_duplicate_wallet_entry_copy_or_cta(): void
+    {
+        $courier = $this->createCourier();
+
+        $response = $this->actingAs($courier, 'web')->get(route('courier.profile'));
+
+        $response->assertOk();
+        $response->assertDontSee('Керування виводом і реквізитами перенесено на окрему сторінку.');
+        $response->assertDontSee('Відкрити гаманець');
     }
 
     public function test_rating_details_modal_headings_use_white_text_contract(): void
