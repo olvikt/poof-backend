@@ -49,15 +49,24 @@ class CourierWalletController extends Controller
         abort_if(! $courier instanceof User, 403);
 
         $payload = $request->validate([
-            'card_holder_name' => ['required', 'string', 'max:255'],
-            'card_number' => ['required', 'string', 'regex:/^[0-9\s]{12,24}$/'],
-            'bank_name' => ['nullable', 'string', 'max:255'],
+            'card_holder_name' => ['nullable', 'string', 'max:255'],
+            'card_number' => [
+                'required',
+                'string',
+                'regex:/^(?:\d{4}\s?){3}\d{4}$/',
+            ],
+            'bank_name' => ['required', 'string', 'max:255'],
             'notes' => ['nullable', 'string', 'max:1000'],
         ]);
 
+        $cardHolderName = trim((string) ($payload['card_holder_name'] ?? ''));
+        if ($cardHolderName === '') {
+            $cardHolderName = (string) $courier->name;
+        }
+
         $action->execute(
             $courier,
-            (string) $payload['card_holder_name'],
+            $cardHolderName,
             (string) $payload['card_number'],
             isset($payload['bank_name']) ? (string) $payload['bank_name'] : null,
             isset($payload['notes']) ? (string) $payload['notes'] : null,

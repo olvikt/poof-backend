@@ -72,6 +72,9 @@ class CourierWalletReadModelService
                 'minimum_withdrawal_amount_formatted' => $this->formatUah((int) ($payoutPolicy['min_withdrawal_amount'] ?? 0)),
                 'can_request_withdrawal' => (bool) ($payoutPolicy['can_request_withdrawal'] ?? false),
                 'withdrawal_block_reason' => $payoutPolicy['withdrawal_block_reason'] ?? null,
+                'withdrawal_block_message' => $this->withdrawalBlockReasonLabel(
+                    isset($payoutPolicy['withdrawal_block_reason']) ? (string) $payoutPolicy['withdrawal_block_reason'] : null
+                ),
             ],
             'earnings_summary' => [
                 'completed_orders_count' => (int) ($balance['completed_orders_count'] ?? 0),
@@ -97,11 +100,25 @@ class CourierWalletReadModelService
     private function withdrawalStatusLabel(string $status): string
     {
         return match ($status) {
-            CourierWithdrawalRequest::STATUS_REQUESTED => 'requested',
-            CourierWithdrawalRequest::STATUS_APPROVED => 'approved',
-            CourierWithdrawalRequest::STATUS_REJECTED => 'rejected',
-            CourierWithdrawalRequest::STATUS_PAID => 'paid',
+            CourierWithdrawalRequest::STATUS_REQUESTED => 'Створено',
+            CourierWithdrawalRequest::STATUS_APPROVED => 'Підтверджено',
+            CourierWithdrawalRequest::STATUS_REJECTED => 'Відхилено',
+            CourierWithdrawalRequest::STATUS_PAID => 'Виплачено',
             default => $status,
+        };
+    }
+
+    private function withdrawalBlockReasonLabel(?string $reason): ?string
+    {
+        if ($reason === null || $reason === '') {
+            return null;
+        }
+
+        return match ($reason) {
+            'below_minimum' => 'Мінімальна сума для виводу ще не досягнута.',
+            'insufficient_balance' => 'Недостатньо доступного балансу для виводу.',
+            'pending_request_exists' => 'У вас уже є активний запит на вивід.',
+            default => 'Наразі запит на вивід недоступний.',
         };
     }
 

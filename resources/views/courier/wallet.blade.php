@@ -1,7 +1,7 @@
 @component('layouts.courier')
 <div class="min-h-screen bg-[#070a10] px-4 pb-24 pt-4 text-white">
     <section class="rounded-3xl border border-white/10 bg-[#0d1724] p-4 shadow-[0_12px_36px_rgba(0,0,0,0.45)]">
-        <p class="text-xs uppercase tracking-wide text-slate-400">Courier wallet</p>
+        <p class="text-xs uppercase tracking-wide text-slate-400">Гаманець курʼєра</p>
         <h1 class="mt-1 text-2xl font-black">{{ $wallet['balance_summary']['current_balance_formatted'] }}</h1>
         <div class="mt-3 grid grid-cols-2 gap-2 text-xs">
             <div class="rounded-xl border border-white/10 bg-[#101b2b] p-3">
@@ -9,7 +9,7 @@
                 <p class="mt-1 font-semibold text-poof">{{ $wallet['balance_summary']['available_to_withdraw_formatted'] }}</p>
             </div>
             <div class="rounded-xl border border-white/10 bg-[#101b2b] p-3">
-                <p class="text-slate-400">Held / pending</p>
+                <p class="text-slate-400">Утримано / в обробці</p>
                 <p class="mt-1 font-semibold">{{ $wallet['balance_summary']['held_amount_formatted'] }}</p>
             </div>
             <div class="rounded-xl border border-white/10 bg-[#101b2b] p-3">
@@ -18,27 +18,28 @@
             </div>
             <div class="rounded-xl border border-white/10 bg-[#101b2b] p-3">
                 <p class="text-slate-400">Статус</p>
-                <p class="mt-1 font-semibold">{{ $wallet['balance_summary']['can_request_withdrawal'] ? 'can_request_withdrawal' : 'blocked' }}</p>
+                <p class="mt-1 font-semibold">{{ $wallet['balance_summary']['can_request_withdrawal'] ? 'Вивід доступний' : 'Вивід тимчасово недоступний' }}</p>
             </div>
         </div>
-        @if($wallet['balance_summary']['withdrawal_block_reason'])
-            <p class="mt-3 text-xs text-amber-300">withdrawal_block_reason: {{ $wallet['balance_summary']['withdrawal_block_reason'] }}</p>
+        @if($wallet['balance_summary']['withdrawal_block_message'])
+            <p class="mt-3 text-xs text-amber-300">{{ $wallet['balance_summary']['withdrawal_block_message'] }}</p>
         @endif
+
+        <div class="mt-4 flex justify-end">
+            <button
+                type="button"
+                data-e2e="wallet-withdrawal-cta"
+                class="rounded-xl px-4 py-2 text-sm font-bold transition {{ $wallet['balance_summary']['can_request_withdrawal'] ? 'bg-poof text-[#041015]' : 'cursor-not-allowed border border-white/15 bg-white/10 text-slate-400' }}"
+                @disabled(! $wallet['balance_summary']['can_request_withdrawal'])
+                onclick="window.dispatchEvent(new CustomEvent('sheet:open',{detail:{name:'courierWalletWithdrawal'}}))"
+            >
+                Запросити вивід
+            </button>
+        </div>
     </section>
 
     <section class="mt-4 rounded-2xl border border-white/10 bg-[#0d1724] p-4">
-        <h2 class="text-sm font-semibold">Запросити вивід</h2>
-        <form method="POST" action="{{ route('courier.wallet.withdrawals.request') }}" class="mt-3 space-y-3">
-            @csrf
-            <input type="number" min="1" name="amount" class="poof-input w-full" placeholder="Сума" required>
-            <textarea name="notes" class="poof-input w-full" placeholder="Коментар (опційно)"></textarea>
-            <button class="w-full rounded-xl bg-poof py-3 text-sm font-bold text-[#041015]" @disabled(! $wallet['balance_summary']['can_request_withdrawal'])>Надіслати запит</button>
-            @error('amount')
-                <p class="text-xs text-rose-300">{{ $message }}</p>
-            @enderror
-        </form>
-
-        <div class="mt-4">
+        <div>
             <p class="text-xs uppercase tracking-wide text-slate-400">Останні заявки</p>
             @forelse($wallet['recent_withdrawal_requests'] as $request)
                 <div class="mt-2 flex items-center justify-between rounded-xl border border-white/10 bg-[#101b2b] px-3 py-2 text-xs">
@@ -52,7 +53,17 @@
     </section>
 
     <section class="mt-4 rounded-2xl border border-white/10 bg-[#0d1724] p-4">
-        <h2 class="text-sm font-semibold">Банківська карта / payout requisites</h2>
+        <div class="flex items-center justify-between gap-2">
+            <h2 class="text-sm font-semibold">Банківська карта</h2>
+            <button
+                type="button"
+                class="flex h-7 w-7 items-center justify-center rounded-full bg-poof text-lg font-bold leading-none text-[#041015]"
+                aria-label="Додати або змінити реквізити"
+                onclick="window.dispatchEvent(new CustomEvent('sheet:open',{detail:{name:'courierWalletCard'}}))"
+            >
+                +
+            </button>
+        </div>
         @if($wallet['payout_requisites']['has_requisites'])
             <div class="mt-3 rounded-xl border border-emerald-400/20 bg-emerald-400/10 p-3 text-xs">
                 <p><span class="text-slate-300">Отримувач:</span> {{ $wallet['payout_requisites']['card_holder_name'] }}</p>
@@ -61,25 +72,18 @@
                     <p class="mt-1"><span class="text-slate-300">Банк:</span> {{ $wallet['payout_requisites']['bank_name'] }}</p>
                 @endif
             </div>
+        @else
+            <p class="mt-3 text-xs text-slate-400">Додайте реквізити для отримання виплат.</p>
         @endif
-
-        <form method="POST" action="{{ route('courier.wallet.requisites.save') }}" class="mt-3 space-y-3">
-            @csrf
-            <input name="card_holder_name" class="poof-input w-full" value="{{ old('card_holder_name', $wallet['payout_requisites']['card_holder_name']) }}" placeholder="Card holder name" required>
-            <input name="card_number" class="poof-input w-full" value="{{ old('card_number') }}" placeholder="0000 0000 0000 0000" required>
-            <input name="bank_name" class="poof-input w-full" value="{{ old('bank_name', $wallet['payout_requisites']['bank_name']) }}" placeholder="Банк (опційно)">
-            <textarea name="notes" class="poof-input w-full" placeholder="Нотатки (опційно)">{{ old('notes', $wallet['payout_requisites']['notes']) }}</textarea>
-            <button class="w-full rounded-xl border border-white/20 bg-white/5 py-3 text-sm font-semibold">Зберегти реквізити</button>
-        </form>
     </section>
 
     <section class="mt-4 rounded-2xl border border-white/10 bg-[#0d1724] p-4">
-        <h2 class="text-sm font-semibold">Earnings statistics</h2>
+        <h2 class="text-sm font-semibold">Статистика заробітку</h2>
         <div class="mt-3 grid grid-cols-2 gap-2 text-xs">
-            <div class="rounded-xl border border-white/10 bg-[#101b2b] p-3"><p class="text-slate-400">Completed orders</p><p class="mt-1 font-semibold">{{ $wallet['earnings_summary']['completed_orders_count'] }}</p></div>
-            <div class="rounded-xl border border-white/10 bg-[#101b2b] p-3"><p class="text-slate-400">Total gross</p><p class="mt-1 font-semibold">{{ $wallet['earnings_summary']['gross_earnings_total_formatted'] }}</p></div>
-            <div class="rounded-xl border border-white/10 bg-[#101b2b] p-3"><p class="text-slate-400">Total commission</p><p class="mt-1 font-semibold">{{ $wallet['earnings_summary']['platform_commission_total_formatted'] }}</p></div>
-            <div class="rounded-xl border border-white/10 bg-[#101b2b] p-3"><p class="text-slate-400">Total net</p><p class="mt-1 font-semibold">{{ $wallet['earnings_summary']['courier_net_balance_formatted'] }}</p></div>
+            <div class="rounded-xl border border-white/10 bg-[#101b2b] p-3"><p class="text-slate-400">Завершені замовлення</p><p class="mt-1 font-semibold">{{ $wallet['earnings_summary']['completed_orders_count'] }}</p></div>
+            <div class="rounded-xl border border-white/10 bg-[#101b2b] p-3"><p class="text-slate-400">Загальна сума брутто</p><p class="mt-1 font-semibold">{{ $wallet['earnings_summary']['gross_earnings_total_formatted'] }}</p></div>
+            <div class="rounded-xl border border-white/10 bg-[#101b2b] p-3"><p class="text-slate-400">Загальна комісія</p><p class="mt-1 font-semibold">{{ $wallet['earnings_summary']['platform_commission_total_formatted'] }}</p></div>
+            <div class="rounded-xl border border-white/10 bg-[#101b2b] p-3"><p class="text-slate-400">Загальна сума нетто</p><p class="mt-1 font-semibold">{{ $wallet['earnings_summary']['courier_net_balance_formatted'] }}</p></div>
         </div>
 
         <div class="mt-4 space-y-3">
@@ -103,5 +107,89 @@
             @endforelse
         </div>
     </section>
+
+    <x-poof.ui.bottom-sheet name="courierWalletWithdrawal" title="Запросити вивід" bodyClass="px-4 pb-6 pt-4">
+        <form method="POST" action="{{ route('courier.wallet.withdrawals.request') }}" class="space-y-3">
+            @csrf
+            <input type="number" min="1" name="amount" class="poof-input w-full" placeholder="Сума" value="{{ old('amount') }}" required>
+            <textarea name="notes" class="poof-input w-full" placeholder="Коментар (опційно)">{{ old('notes') }}</textarea>
+            <button class="w-full rounded-xl bg-poof py-3 text-sm font-bold text-[#041015]" @disabled(! $wallet['balance_summary']['can_request_withdrawal'])>Надіслати запит</button>
+            @error('amount')
+                <p class="text-xs text-rose-300">{{ $message }}</p>
+            @enderror
+        </form>
+    </x-poof.ui.bottom-sheet>
+
+    <x-poof.ui.bottom-sheet name="courierWalletCard" title="Реквізити для виплат" bodyClass="px-4 pb-6 pt-4">
+        <form
+            method="POST"
+            action="{{ route('courier.wallet.requisites.save') }}"
+            class="space-y-3"
+            x-data="{
+                cardNumber: @js(old('card_number')),
+                bankName: @js(old('bank_name', $wallet['payout_requisites']['bank_name'])),
+                formatCardNumber(event) {
+                    const digits = (event.target.value || '').replace(/\D/g, '').slice(0, 16);
+                    this.cardNumber = digits.replace(/(\d{4})(?=\d)/g, '$1 ').trim();
+                },
+                get cardNumberIsValid() {
+                    return (this.cardNumber || '').replace(/\D/g, '').length === 16;
+                },
+                get canSubmit() {
+                    return this.cardNumberIsValid && ((this.bankName || '').trim().length > 0);
+                }
+            }"
+        >
+            @csrf
+            <input name="card_holder_name" class="poof-input w-full" value="{{ old('card_holder_name', $wallet['payout_requisites']['card_holder_name']) }}" placeholder="Імʼя отримувача (опційно)">
+            <input
+                name="card_number"
+                class="poof-input w-full"
+                x-model="cardNumber"
+                x-on:input="formatCardNumber($event)"
+                placeholder="0000 0000 0000 0000"
+                maxlength="19"
+                inputmode="numeric"
+                autocomplete="cc-number"
+                required
+            >
+            <input name="bank_name" class="poof-input w-full" x-model="bankName" value="{{ old('bank_name', $wallet['payout_requisites']['bank_name']) }}" placeholder="Назва банку" required>
+            <textarea name="notes" class="poof-input w-full" placeholder="Нотатки (опційно)">{{ old('notes', $wallet['payout_requisites']['notes']) }}</textarea>
+            <button
+                class="w-full rounded-xl py-3 text-sm font-semibold transition"
+                :class="canSubmit ? 'bg-poof text-[#041015]' : 'cursor-not-allowed border border-white/20 bg-white/5 text-slate-300'"
+                :disabled="!canSubmit"
+            >
+                Зберегти реквізити
+            </button>
+            @error('card_number')
+                <p class="text-xs text-rose-300">{{ $message }}</p>
+            @enderror
+            @error('bank_name')
+                <p class="text-xs text-rose-300">{{ $message }}</p>
+            @enderror
+        </form>
+    </x-poof.ui.bottom-sheet>
 </div>
+
+@php
+    $hasWithdrawalFormErrors = old('amount') !== null && $errors->hasAny(['amount', 'notes']);
+    $hasCardFormErrors = old('card_number') !== null && $errors->hasAny(['card_number', 'bank_name', 'card_holder_name', 'notes']);
+@endphp
+
+@if($hasWithdrawalFormErrors)
+    <script>
+        window.addEventListener('load', () => {
+            window.dispatchEvent(new CustomEvent('sheet:open', { detail: { name: 'courierWalletWithdrawal' } }));
+        });
+    </script>
+@endif
+
+@if($hasCardFormErrors)
+    <script>
+        window.addEventListener('load', () => {
+            window.dispatchEvent(new CustomEvent('sheet:open', { detail: { name: 'courierWalletCard' } }));
+        });
+    </script>
+@endif
 @endcomponent
