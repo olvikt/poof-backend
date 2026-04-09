@@ -7,9 +7,13 @@ namespace Tests\Feature\Courier;
 use App\Actions\Courier\Payout\CreateCourierWithdrawalRequestAction;
 use App\Actions\Courier\Profile\PersistCourierAvatarAction;
 use App\Actions\Courier\Profile\PersistCourierProfileAction;
+use App\Actions\Courier\Verification\ApproveCourierVerificationRequestAction;
+use App\Actions\Courier\Verification\RejectCourierVerificationRequestAction;
+use App\Actions\Courier\Verification\SubmitCourierVerificationRequestAction;
 use App\DTO\Avatar\AvatarUploadData;
 use App\DTO\Courier\Profile\CourierProfileUpdateData;
 use App\Models\CourierEarning;
+use App\Models\CourierVerificationRequest;
 use App\Models\CourierWithdrawalRequest;
 use App\Models\User;
 use App\Services\Courier\Earnings\CourierBalanceSummaryService;
@@ -50,7 +54,7 @@ class CourierProfileWidgetCacheTest extends TestCase
         $this->app->instance(CourierBalanceSummaryService::class, $balance);
 
         $verification = Mockery::mock(CourierVerificationSummaryService::class);
-        $verification->shouldReceive('forCourier')->once()->andReturn(['status' => 'basic_profile_complete']);
+        $verification->shouldReceive('forCourier')->twice()->andReturn(['status' => 'basic_profile_complete']);
         $this->app->instance(CourierVerificationSummaryService::class, $verification);
 
         $policy = Mockery::mock(CourierPayoutPolicyService::class);
@@ -116,7 +120,6 @@ class CourierProfileWidgetCacheTest extends TestCase
         Cache::put(CourierProfileWidgetCacheKeys::forWidget($courier->id, CourierProfileWidgetCacheKeys::PROFILE_IDENTITY), ['a' => 1], 300);
         Cache::put(CourierProfileWidgetCacheKeys::forWidget($courier->id, CourierProfileWidgetCacheKeys::PROFILE_CONTACT), ['a' => 1], 300);
         Cache::put(CourierProfileWidgetCacheKeys::forWidget($courier->id, CourierProfileWidgetCacheKeys::PROFILE_ADDRESS), ['a' => 1], 300);
-        Cache::put(CourierProfileWidgetCacheKeys::forWidget($courier->id, CourierProfileWidgetCacheKeys::PROFILE_VERIFICATION), ['a' => 1], 300);
 
         app(PersistCourierProfileAction::class)->execute($courier, new CourierProfileUpdateData(
             name: 'Updated Courier',
@@ -128,7 +131,6 @@ class CourierProfileWidgetCacheTest extends TestCase
         $this->assertNull(Cache::get(CourierProfileWidgetCacheKeys::forWidget($courier->id, CourierProfileWidgetCacheKeys::PROFILE_IDENTITY)));
         $this->assertNull(Cache::get(CourierProfileWidgetCacheKeys::forWidget($courier->id, CourierProfileWidgetCacheKeys::PROFILE_CONTACT)));
         $this->assertNull(Cache::get(CourierProfileWidgetCacheKeys::forWidget($courier->id, CourierProfileWidgetCacheKeys::PROFILE_ADDRESS)));
-        $this->assertNull(Cache::get(CourierProfileWidgetCacheKeys::forWidget($courier->id, CourierProfileWidgetCacheKeys::PROFILE_VERIFICATION)));
     }
 
     public function test_avatar_update_invalidates_profile_media_block(): void
@@ -194,6 +196,78 @@ class CourierProfileWidgetCacheTest extends TestCase
             ->getJson('/api/courier/runtime')
             ->assertOk()
             ->assertJsonPath('runtime.online', true);
+    }
+
+    public function test_profile_read_model_does_not_lookup_cache_for_verification_widget(): void
+    {
+        $courier = $this->createCourier();
+        $verificationKey = CourierProfileWidgetCacheKeys::forWidget($courier->id, 'profile_verification');
+
+        Cache::spy();
+
+        app(CourierProfileReadModelService::class)->forCourier($courier);
+
+        Cache::shouldNotHaveReceived('get', [$verificationKey]);
+    }
+
+    public function test_warmed_profile_cache_does_not_make_verification_widget_stale(): void
+    {
+        Storage::fake('local');
+
+        $courier = $this->createCourier();
+
+        $service = app(CourierProfileReadModelService::class);
+        $before = $service->forCourier($courier);
+        $this->assertSame('not_submitted', $before['profile_verification']['status']);
+
+        app(SubmitCourierVerificationRequestAction::class)->execute(
+            $courier,
+            CourierVerificationRequest::DOCUMENT_TYPE_PASSPORT,
+            UploadedFile::fake()->image('passport.jpg')->size(300),
+        );
+
+        $after = $service->forCourier($courier->fresh());
+        $this->assertSame('pending_review', $after['profile_verification']['status']);
+    }
+
+    public function test_after_approve_next_profile_read_shows_verified_state_immediately(): void
+    {
+        $courier = $this->createCourier();
+        $admin = User::factory()->create(['role' => User::ROLE_ADMIN, 'is_active' => true]);
+
+        $request = CourierVerificationRequest::factory()->create([
+            'courier_id' => $courier->id,
+            'status' => CourierVerificationRequest::STATUS_PENDING_REVIEW,
+        ]);
+
+        $service = app(CourierProfileReadModelService::class);
+        $service->forCourier($courier);
+
+        app(ApproveCourierVerificationRequestAction::class)->execute($request, $admin);
+
+        $after = $service->forCourier($courier->fresh());
+        $this->assertSame('verified', $after['profile_verification']['status']);
+    }
+
+    public function test_after_reject_next_profile_read_shows_rejected_state_and_retry_cta_immediately(): void
+    {
+        $courier = $this->createCourier();
+        $admin = User::factory()->create(['role' => User::ROLE_ADMIN, 'is_active' => true]);
+
+        $request = CourierVerificationRequest::factory()->create([
+            'courier_id' => $courier->id,
+            'status' => CourierVerificationRequest::STATUS_PENDING_REVIEW,
+        ]);
+
+        $service = app(CourierProfileReadModelService::class);
+        $service->forCourier($courier);
+
+        app(RejectCourierVerificationRequestAction::class)->execute($request, $admin, 'Фото нечітке');
+
+        $after = $service->forCourier($courier->fresh());
+        $this->assertSame('rejected', $after['profile_verification']['status']);
+        $this->assertTrue((bool) $after['profile_verification']['can_submit']);
+        $this->assertSame('Надіслати повторно', $after['profile_verification']['cta_label']);
     }
 
     private function createCourier(array $overrides = []): User

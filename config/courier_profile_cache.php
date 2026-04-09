@@ -10,7 +10,6 @@ return [
         'profile_contact' => (int) env('COURIER_PROFILE_CACHE_PROFILE_CONTACT_TTL_SECONDS', 300),
         'profile_address' => (int) env('COURIER_PROFILE_CACHE_PROFILE_ADDRESS_TTL_SECONDS', 300),
         'profile_media' => (int) env('COURIER_PROFILE_CACHE_PROFILE_MEDIA_TTL_SECONDS', 300),
-        'profile_verification' => (int) env('COURIER_PROFILE_CACHE_PROFILE_VERIFICATION_TTL_SECONDS', 120),
         'rating_summary' => (int) env('COURIER_PROFILE_CACHE_RATING_SUMMARY_TTL_SECONDS', 120),
         'balance_summary' => (int) env('COURIER_PROFILE_CACHE_BALANCE_SUMMARY_TTL_SECONDS', 60),
     ],

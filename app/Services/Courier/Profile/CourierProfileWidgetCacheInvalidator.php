@@ -17,7 +17,6 @@ class CourierProfileWidgetCacheInvalidator
             CourierProfileWidgetCacheKeys::PROFILE_IDENTITY,
             CourierProfileWidgetCacheKeys::PROFILE_CONTACT,
             CourierProfileWidgetCacheKeys::PROFILE_ADDRESS,
-            CourierProfileWidgetCacheKeys::PROFILE_VERIFICATION,
         ]);
     }
 

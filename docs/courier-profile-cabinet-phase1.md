@@ -44,16 +44,17 @@ Runtime online toggle remains in courier layout header and keeps canonical sourc
 
 ## Bounded stale-safe cache (non-critical widgets only)
 - Cache scope is limited to profile cabinet read widgets:
-  - `profile_identity`, `profile_contact`, `profile_address`, `profile_media`, `profile_verification`
+  - `profile_identity`, `profile_contact`, `profile_address`, `profile_media`
   - `rating_summary`
   - `balance_summary` (including payout policy overlay)
+- `profile_verification` is intentionally excluded from cache and always read from source-of-truth verification request lifecycle to avoid stale badge/CTA/status states.
 - Key namespace: `courier:{id}:profile:{widget}`.
 - TTLs are configured via `config/courier_profile_cache.php` and env variables:
   - identity/contact/address/media: `300s`
-  - verification/rating: `120s`
+  - rating: `120s`
   - balance/payout eligibility: `60s`
 - Invalidation rules:
-  - `PersistCourierProfileAction` invalidates identity/contact/address/verification keys.
+  - `PersistCourierProfileAction` invalidates identity/contact/address keys.
   - `PersistCourierAvatarAction` invalidates media key.
   - `CreateCourierWithdrawalRequestAction` invalidates balance key.
 - Safety:

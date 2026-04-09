@@ -58,11 +58,7 @@ class CourierProfileReadModelService
             ],
         );
 
-        $profileVerification = $this->resolveCachedBlock(
-            $courier,
-            CourierProfileWidgetCacheKeys::PROFILE_VERIFICATION,
-            fn (): array => $this->verificationSummaryService->forCourier($courier),
-        );
+        $profileVerification = $this->verificationSummaryService->forCourier($courier);
 
         $ratingSummary = $this->resolveCachedBlock(
             $courier,

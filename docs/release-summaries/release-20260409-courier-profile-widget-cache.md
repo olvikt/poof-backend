@@ -2,9 +2,10 @@
 
 ## What is cached
 - Non-critical courier cabinet read blocks only:
-  - `profile_identity`, `profile_contact`, `profile_address`, `profile_media`, `profile_verification`
+  - `profile_identity`, `profile_contact`, `profile_address`, `profile_media`
   - `rating_summary`
   - `balance_summary` (ledger summary + payout policy overlay)
+- `profile_verification` is intentionally **not cached** and is always resolved directly from verification request lifecycle state to avoid stale verification badge/CTA/status.
 - Cache keys use explicit namespace per courier/widget:
   - `courier:{id}:profile:{widget}`
 
@@ -20,17 +21,18 @@
 ## Staleness bounds (TTL)
 Configured in `config/courier_profile_cache.php` (override via env):
 - `profile_identity/profile_contact/profile_address/profile_media`: 300s
-- `profile_verification/rating_summary`: 120s
+- `rating_summary`: 120s
 - `balance_summary`: 60s
 
 ## Invalidation rules
 - Profile update (`PersistCourierProfileAction`):
-  - invalidate identity/contact/address/verification blocks.
+  - invalidate identity/contact/address blocks.
 - Avatar update (`PersistCourierAvatarAction`):
   - invalidate media block.
 - Withdrawal request create (`CreateCourierWithdrawalRequestAction`):
   - invalidate balance/payout eligibility block.
 - Rating invalidation on order/offer lifecycle is not added in this phase; short TTL is used instead.
+- Verification flow invalidation is intentionally not needed, because verification block bypasses cache entirely.
 
 ## Failure behavior and degraded safety
 - Cache failures are non-fatal.

@@ -14,8 +14,6 @@ class CourierProfileWidgetCacheKeys
 
     public const PROFILE_MEDIA = 'profile_media';
 
-    public const PROFILE_VERIFICATION = 'profile_verification';
-
     public const RATING_SUMMARY = 'rating_summary';
 
     public const BALANCE_SUMMARY = 'balance_summary';
