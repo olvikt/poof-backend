@@ -2,6 +2,7 @@
 
 namespace App\Providers;
 
+use App\Support\Courier\Observability\CourierRuntimeRequestCollector;
 use Illuminate\Support\Facades\URL;
 use Illuminate\Support\ServiceProvider;
 use App\Services\Geocoding\Contracts\GeocoderInterface;
@@ -17,6 +18,11 @@ class AppServiceProvider extends ServiceProvider
         $this->app->bind(
             GeocoderInterface::class,
             GooglePlacesProvider::class
+        );
+
+        $this->app->scoped(
+            CourierRuntimeRequestCollector::class,
+            fn (): CourierRuntimeRequestCollector => new CourierRuntimeRequestCollector(),
         );
     }
 

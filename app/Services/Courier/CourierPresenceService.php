@@ -5,6 +5,7 @@ namespace App\Services\Courier;
 use App\Models\Courier;
 use App\Models\Order;
 use App\Models\User;
+use App\Support\Courier\Observability\CourierRuntimeRequestCollector;
 use Illuminate\Support\Facades\Log;
 
 class CourierPresenceService
@@ -17,6 +18,8 @@ class CourierPresenceService
 
     public function resolveAuthenticatedCourier(): ?User
     {
+        $this->collector()->incrementAuthenticatedCourierResolves();
+
         if ($this->authenticatedCourier instanceof User) {
             return $this->authenticatedCourier;
         }
@@ -34,6 +37,8 @@ class CourierPresenceService
 
     public function snapshot(?User $courier): ?array
     {
+        $this->collector()->incrementRuntimeSnapshotCalls();
+
         if (! $courier instanceof User) {
             return null;
         }
@@ -41,10 +46,16 @@ class CourierPresenceService
         $id = (int) $courier->id;
 
         if (array_key_exists($id, $this->runtimeCache)) {
-            return $this->runtimeCache[$id];
+            $runtime = $this->runtimeCache[$id];
+            $this->collector()->rememberRuntime($runtime);
+
+            return $runtime;
         }
 
-        return $this->runtimeCache[$id] = $courier->courierRuntimeSnapshot();
+        $runtime = $courier->courierRuntimeSnapshot();
+        $this->collector()->rememberRuntime($runtime);
+
+        return $this->runtimeCache[$id] = $runtime;
     }
 
 
@@ -57,6 +68,8 @@ class CourierPresenceService
 
     public function resolveActiveOrder(?User $courier): ?Order
     {
+        $this->collector()->incrementActiveOrderReads();
+
         if (! $courier instanceof User || ! $courier->isCourier()) {
             return null;
         }
@@ -186,5 +199,10 @@ class CourierPresenceService
             'active_order_status' => $activeOrderStatus,
             'target_status' => ((bool) ($runtime['online'] ?? false)) ? Courier::STATUS_OFFLINE : Courier::STATUS_ONLINE,
         ];
+    }
+
+    private function collector(): CourierRuntimeRequestCollector
+    {
+        return app(CourierRuntimeRequestCollector::class);
     }
 }

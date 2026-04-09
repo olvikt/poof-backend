@@ -65,13 +65,15 @@ Route::middleware('auth:sanctum')->group(function () {
     */
 
     // available orders for courier
-    Route::get('/orders/available', [CourierOrderController::class, 'available']);
+    Route::get('/orders/available', [CourierOrderController::class, 'available'])
+        ->middleware('observe.courier.runtime.endpoint:orders_available_api');
 
     // courier accepts order
     Route::post('/orders/{order}/accept', [CourierOrderController::class, 'accept']);
 
     // canonical courier runtime snapshot
-    Route::get('/courier/runtime', [CourierRuntimeController::class, 'show']);
+    Route::get('/courier/runtime', [CourierRuntimeController::class, 'show'])
+        ->middleware('observe.courier.runtime.endpoint:courier_runtime_api');
 });
 
 

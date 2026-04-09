@@ -14,6 +14,7 @@ use App\Services\Courier\Earnings\OrderCourierNetEarningPreviewService;
 use App\Services\Dispatch\DispatchTriggerPolicy;
 use App\Services\Dispatch\DispatchTriggerService;
 use App\Support\Courier\CourierNavigationRuntime;
+use App\Support\Courier\Observability\CourierRuntimeRequestCollector;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
@@ -342,6 +343,7 @@ class MyOrders extends Component
         $this->online = $this->presenceService()->canonicalOnline($courier);
 
         $runtimeStartedAt = microtime(true);
+        $this->collector()->incrementActiveOrderReads();
         $orders = Order::where('courier_id', $courier->id)
             ->whereIn('status', [
                 Order::STATUS_ACCEPTED,
@@ -392,6 +394,16 @@ class MyOrders extends Component
             'stats_elapsed_ms' => $statsElapsedMs,
             'active_tab' => $this->activeTab,
             'elapsed_ms' => (int) round((microtime(true) - $startedAt) * 1000),
+        ]);
+
+        $this->collector()->observeEndpoint('my_orders_render', 'livewire', $startedAt, [
+            'has_active_order' => $orders->isNotEmpty(),
+            'online' => $this->online,
+            'status' => $orders->isNotEmpty() ? (string) optional($orders->first())->status : null,
+            'runtime_pane_elapsed_ms' => $runtimeElapsedMs,
+            'stats_pane_elapsed_ms' => $statsElapsedMs,
+            'active_tab' => $this->activeTab,
+            'stats_pane_unavailable' => $this->statsPaneUnavailable,
         ]);
 
         return view('livewire.courier.my-orders', [
@@ -563,6 +575,11 @@ class MyOrders extends Component
     private function earningPreviewService(): OrderCourierNetEarningPreviewService
     {
         return app(OrderCourierNetEarningPreviewService::class);
+    }
+
+    private function collector(): CourierRuntimeRequestCollector
+    {
+        return app(CourierRuntimeRequestCollector::class);
     }
 
     private function isProofAware(Order $order): bool
