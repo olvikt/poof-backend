@@ -28,6 +28,7 @@
         <div class="mt-4 flex justify-end">
             <button
                 type="button"
+                data-e2e="wallet-withdrawal-cta"
                 class="rounded-xl px-4 py-2 text-sm font-bold transition {{ $wallet['balance_summary']['can_request_withdrawal'] ? 'bg-poof text-[#041015]' : 'cursor-not-allowed border border-white/15 bg-white/10 text-slate-400' }}"
                 @disabled(! $wallet['balance_summary']['can_request_withdrawal'])
                 onclick="window.dispatchEvent(new CustomEvent('sheet:open',{detail:{name:'courierWalletWithdrawal'}}))"
@@ -171,7 +172,12 @@
     </x-poof.ui.bottom-sheet>
 </div>
 
-@if($errors->has('amount'))
+@php
+    $hasWithdrawalFormErrors = old('amount') !== null && $errors->hasAny(['amount', 'notes']);
+    $hasCardFormErrors = old('card_number') !== null && $errors->hasAny(['card_number', 'bank_name', 'card_holder_name', 'notes']);
+@endphp
+
+@if($hasWithdrawalFormErrors)
     <script>
         window.addEventListener('load', () => {
             window.dispatchEvent(new CustomEvent('sheet:open', { detail: { name: 'courierWalletWithdrawal' } }));
@@ -179,7 +185,7 @@
     </script>
 @endif
 
-@if($errors->has('card_number') || $errors->has('bank_name') || $errors->has('card_holder_name'))
+@if($hasCardFormErrors)
     <script>
         window.addEventListener('load', () => {
             window.dispatchEvent(new CustomEvent('sheet:open', { detail: { name: 'courierWalletCard' } }));

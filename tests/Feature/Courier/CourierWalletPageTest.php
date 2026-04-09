@@ -91,14 +91,20 @@ class CourierWalletPageTest extends TestCase
 
         $blocked = $this->actingAs($courier, 'web')->get(route('courier.wallet'));
         $blocked->assertSee('Запросити вивід', false);
-        $blocked->assertSee('disabled', false);
+        $this->assertMatchesRegularExpression(
+            '/<button[^>]*data-e2e="wallet-withdrawal-cta"[^>]*disabled[^>]*>/',
+            $blocked->getContent()
+        );
 
         CourierEarning::query()->where('courier_id', $courier->id)->delete();
         $this->createSettledLedgerEntry($courier, 1000, 100, 900);
 
         $allowed = $this->actingAs($courier, 'web')->get(route('courier.wallet'));
         $allowed->assertSee('Запросити вивід', false);
-        $allowed->assertDontSee('cursor-not-allowed', false);
+        $this->assertDoesNotMatchRegularExpression(
+            '/<button[^>]*data-e2e="wallet-withdrawal-cta"[^>]*disabled[^>]*>/',
+            $allowed->getContent()
+        );
     }
 
     public function test_withdrawal_form_is_hidden_by_default_and_opened_by_sheet_trigger(): void
@@ -255,6 +261,42 @@ class CourierWalletPageTest extends TestCase
                 'bank_name' => 'Mono',
             ])
             ->assertSessionHasNoErrors();
+    }
+
+    public function test_withdrawal_sheet_reopens_on_notes_validation_error(): void
+    {
+        $courier = $this->createCourier();
+        $this->createSettledLedgerEntry($courier, 1000, 100, 900);
+
+        $response = $this->actingAs($courier, 'web')
+            ->followingRedirects()
+            ->post(route('courier.wallet.withdrawals.request'), [
+                'amount' => 100,
+                'notes' => str_repeat('a', 1001),
+            ]);
+
+        $response
+            ->assertSee('courierWalletWithdrawal')
+            ->assertSee("name: 'courierWalletWithdrawal'", false)
+            ->assertDontSee("name: 'courierWalletCard'", false);
+    }
+
+    public function test_card_sheet_reopens_on_notes_validation_error(): void
+    {
+        $courier = $this->createCourier();
+
+        $response = $this->actingAs($courier, 'web')
+            ->followingRedirects()
+            ->post(route('courier.wallet.requisites.save'), [
+                'card_number' => '4444 3333 2222 1111',
+                'bank_name' => 'Mono',
+                'notes' => str_repeat('a', 1001),
+            ]);
+
+        $response
+            ->assertSee('courierWalletCard')
+            ->assertSee("name: 'courierWalletCard'", false)
+            ->assertDontSee("name: 'courierWalletWithdrawal'", false);
     }
 
     private function createCourier(array $overrides = []): User
