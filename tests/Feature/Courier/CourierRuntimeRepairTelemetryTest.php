@@ -64,7 +64,9 @@ class CourierRuntimeRepairTelemetryTest extends TestCase
         Log::assertLogged('info', fn (string $message, array $context): bool => $message === 'courier_runtime_repair_write'
             && ($context['user_id'] ?? null) === $user->id
             && isset($context['field_changes']['is_online'])
-            && ($context['counter'] ?? null) === 'courier_runtime_repair_writes_total');
+            && ($context['counter'] ?? null) === 'courier_runtime_repair_writes_total'
+            && ($context['counter_labels']['field'] ?? null) === 'is_online'
+            && ($context['counter_labels']['repair_type'] ?? null) === 'compatibility_projection');
     }
 
     public function test_emitted_payload_contains_changed_fields(): void

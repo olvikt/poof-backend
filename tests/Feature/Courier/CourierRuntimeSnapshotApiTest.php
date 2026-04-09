@@ -118,8 +118,8 @@ class CourierRuntimeSnapshotApiTest extends TestCase
         $this->assertSame(Order::STATUS_IN_PROGRESS, $runtime['active_order_status']);
         $this->assertTrue($runtime['has_active_order']);
 
-        $this->assertTrue((bool) $courier->is_online);
-        $this->assertTrue((bool) $courier->is_busy);
+        $this->assertFalse((bool) $courier->is_online);
+        $this->assertFalse((bool) $courier->is_busy);
     }
 
 
@@ -280,6 +280,47 @@ class CourierRuntimeSnapshotApiTest extends TestCase
         $this->assertTrue($runtime['online']);
         $this->assertTrue($runtime['busy']);
         $this->assertSame(User::SESSION_ASSIGNED, $runtime['session_state']);
+    }
+
+    public function test_business_decisions_do_not_depend_on_raw_users_runtime_mirrors(): void
+    {
+        $courier = User::factory()->create([
+            'role' => User::ROLE_COURIER,
+            'is_active' => true,
+            // Intentionally drifted mirrors: should not block acceptance decisions.
+            'is_online' => false,
+            'is_busy' => true,
+            'session_state' => User::SESSION_OFFLINE,
+        ]);
+
+        Courier::query()->create([
+            'user_id' => $courier->id,
+            'status' => Courier::STATUS_ONLINE,
+        ]);
+
+        $this->assertTrue($courier->fresh()->canAcceptOrders());
+        $this->assertFalse($courier->fresh()->isBusyForAccept());
+
+        $client = User::factory()->create([
+            'role' => User::ROLE_CLIENT,
+            'is_active' => true,
+        ]);
+
+        Order::factory()->create([
+            'client_id' => $client->id,
+            'courier_id' => $courier->id,
+            'status' => Order::STATUS_ACCEPTED,
+            'payment_status' => Order::PAY_PAID,
+        ]);
+
+        $courier->update([
+            'is_online' => true,
+            'is_busy' => false,
+            'session_state' => User::SESSION_READY,
+        ]);
+
+        $this->assertTrue($courier->fresh()->isBusyForAccept());
+        $this->assertFalse($courier->fresh()->canAcceptOrders());
     }
 
 }

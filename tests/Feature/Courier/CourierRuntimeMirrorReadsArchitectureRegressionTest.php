@@ -13,6 +13,7 @@ class CourierRuntimeMirrorReadsArchitectureRegressionTest extends TestCase
     public function test_canonical_runtime_surfaces_do_not_read_raw_users_runtime_mirrors(): void
     {
         $files = [
+            'app/Support/CourierRuntimeStateResolver.php',
             'app/Support/CourierRuntimeSnapshot.php',
             'app/Http/Controllers/Api/CourierRuntimeController.php',
             'app/Livewire/Courier/AvailableOrders.php',
@@ -30,4 +31,3 @@ class CourierRuntimeMirrorReadsArchitectureRegressionTest extends TestCase
         }
     }
 }
-

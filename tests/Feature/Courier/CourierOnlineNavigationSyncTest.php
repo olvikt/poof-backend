@@ -608,7 +608,14 @@ class CourierOnlineNavigationSyncTest extends TestCase
             'lng' => $coords['lng'] ?? 35.0462,
         ]);
 
+        if ($orderStatus === Order::STATUS_IN_PROGRESS) {
+            $courier->markDelivering();
+        } else {
+            $courier->markBusy();
+        }
+
         $courier->refresh();
+        $order->refresh();
 
         return [$courier, $order];
     }
