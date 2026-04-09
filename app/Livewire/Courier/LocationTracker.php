@@ -4,6 +4,7 @@ namespace App\Livewire\Courier;
 
 use App\Models\Courier;
 use App\Models\User;
+use App\Services\Courier\LocationIngestService;
 use App\Services\Courier\CourierPresenceService;
 use App\Services\Dispatch\DispatchTriggerPolicy;
 use App\Services\Dispatch\DispatchTriggerService;
@@ -82,7 +83,7 @@ class LocationTracker extends Component
         }
 
         if (
-            in_array($courierProfile->status, Courier::ACTIVE_MAP_STATUSES, true) &&
+            in_array((string) ($runtime['status'] ?? Courier::STATUS_OFFLINE), Courier::ACTIVE_MAP_STATUSES, true) &&
             $user->last_lat &&
             $user->last_lng
         ) {
@@ -104,9 +105,7 @@ class LocationTracker extends Component
             return;
         }
 
-        $courierProfile = $user->courierProfile;
-
-        if (! $courierProfile) {
+        if (! $user->courierProfile) {
             return;
         }
 
@@ -114,40 +113,57 @@ class LocationTracker extends Component
         $lat = (float) $lat;
         $lng = (float) $lng;
         $accuracy = $accuracy !== null ? (float) $accuracy : null;
-
-        // ❌ защита от мусора
-        if (
-            $lat < -90 || $lat > 90 ||
-            $lng < -180 || $lng > 180
-        ) {
-            Log::warning('courier_location_rejected_invalid_coordinates', [
-                'flow' => 'courier_location',
-                'courier_id' => $user->id,
-                'lat' => $lat,
-                'lng' => $lng,
-            ]);
-            return;
-        }
-
         $maxAccuracyMeters = (float) config('courier_runtime.heartbeat.max_accuracy_meters', 120);
 
-        // ❌ фильтр неточного GPS (must match frontend heartbeat acceptance guard)
-        if ($accuracy && $accuracy > $maxAccuracyMeters) {
-            Log::debug('courier_location_rejected_low_accuracy', [
+        // Resolve canonical runtime once per request.
+        $runtime = $this->presenceService()->snapshot($user) ?? [];
+        $previousLat = $user->last_lat !== null ? (float) $user->last_lat : null;
+        $previousLng = $user->last_lng !== null ? (float) $user->last_lng : null;
+        $ingestResult = $this->locationIngestService()->ingest($user, $lat, $lng, $accuracy, $runtime);
+
+        if (! ($ingestResult['accepted'] ?? false)) {
+            $reason = (string) ($ingestResult['reason'] ?? 'unknown');
+
+            if ($reason === 'invalid_coordinates') {
+                Log::warning('courier_location_rejected_invalid_coordinates', [
+                    'flow' => 'courier_location',
+                    'courier_id' => $user->id,
+                    'lat' => $lat,
+                    'lng' => $lng,
+                ]);
+            }
+
+            if ($reason === 'low_accuracy') {
+                Log::debug('courier_location_rejected_low_accuracy', [
+                    'flow' => 'courier_location',
+                    'courier_id' => $user->id,
+                    'accuracy' => $accuracy,
+                    'max_accuracy_meters' => $maxAccuracyMeters,
+                ]);
+            }
+
+            if ($reason === 'runtime_not_active_map_status') {
+                Log::debug('courier_location_rejected_runtime_not_active', [
+                    'flow' => 'courier_location',
+                    'courier_id' => $user->id,
+                    'runtime_status' => (string) ($runtime['status'] ?? Courier::STATUS_OFFLINE),
+                ]);
+            }
+
+            Log::warning('courier_location_rejected', [
                 'flow' => 'courier_location',
                 'courier_id' => $user->id,
-                'accuracy' => $accuracy,
-                'max_accuracy_meters' => $maxAccuracyMeters,
+                'reason' => $reason,
             ]);
             return;
         }
 
         $distanceMoved = null;
 
-        if ($user->last_lat !== null && $user->last_lng !== null) {
+        if ($previousLat !== null && $previousLng !== null) {
             $distanceMoved = $this->distanceMeters(
-                (float) $user->last_lat,
-                (float) $user->last_lng,
+                $previousLat,
+                $previousLng,
                 $lat,
                 $lng
             );
@@ -161,18 +177,12 @@ class LocationTracker extends Component
             (int) config('dispatch.radius_km', 20),
             [
                 'courier_id' => $user->id,
-                'online' => $user->isCourierOnline(),
+                'online' => (bool) ($runtime['online'] ?? false),
                 'distance_moved' => $distanceMoved,
                 'has_moved_enough' => $hasMovedEnough,
                 'movement_threshold_meters' => $movementThresholdMeters,
             ],
         );
-
-        // -------------------------------------------------
-        // Обновляем координаты
-        // -------------------------------------------------
-
-        $user->updateLocation($lat, $lng);
 
         if (config('courier_runtime.heartbeat.diagnostic_logging', false)) {
             Log::info('courier_location_heartbeat_received', [
@@ -182,7 +192,7 @@ class LocationTracker extends Component
                 'max_accuracy_meters' => $maxAccuracyMeters,
                 'courier_status' => (string) optional($user->courierProfile)->status,
                 'last_location_at' => optional($user->courierProfile?->fresh())->last_location_at?->toIso8601String(),
-                'online' => $user->isCourierOnline(),
+                'online' => (bool) ($runtime['online'] ?? false),
             ]);
         }
 
@@ -218,6 +228,11 @@ class LocationTracker extends Component
     private function presenceService(): CourierPresenceService
     {
         return app(CourierPresenceService::class);
+    }
+
+    private function locationIngestService(): LocationIngestService
+    {
+        return app(LocationIngestService::class);
     }
 
     /**

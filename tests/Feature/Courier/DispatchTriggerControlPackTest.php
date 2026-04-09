@@ -131,6 +131,55 @@ class DispatchTriggerControlPackTest extends TestCase
         })->once();
     }
 
+    public function test_location_trigger_context_uses_previous_coordinates_for_large_movement(): void
+    {
+        $courier = $this->createCourier(online: true);
+        $this->actingAs($courier, 'web');
+
+        $service = Mockery::mock(DispatchTriggerService::class);
+        $service->shouldReceive('triggerQueueBatch')
+            ->once()
+            ->withArgs(function (string $source, int $radiusKm, array $context): bool {
+                return $source === DispatchTriggerPolicy::SOURCE_LOCATION_UPDATE
+                    && $radiusKm === (int) config('dispatch.radius_km', 20)
+                    && ($context['courier_id'] ?? null) !== null
+                    && ($context['online'] ?? null) === true
+                    && is_numeric($context['distance_moved'] ?? null)
+                    && (float) $context['distance_moved'] > (float) config('dispatch.trigger.location_movement_threshold_meters', 50)
+                    && ($context['has_moved_enough'] ?? null) === true;
+            })
+            ->andReturn(0);
+
+        $this->app->instance(DispatchTriggerService::class, $service);
+
+        Livewire::test(LocationTracker::class)
+            ->call('updateLocation', 48.4685, 35.0505, 15);
+    }
+
+    public function test_location_trigger_context_marks_tiny_movement_below_threshold(): void
+    {
+        $courier = $this->createCourier(online: true);
+        $this->actingAs($courier, 'web');
+
+        $service = Mockery::mock(DispatchTriggerService::class);
+        $service->shouldReceive('triggerQueueBatch')
+            ->once()
+            ->withArgs(function (string $source, int $radiusKm, array $context): bool {
+                return $source === DispatchTriggerPolicy::SOURCE_LOCATION_UPDATE
+                    && $radiusKm === (int) config('dispatch.radius_km', 20)
+                    && ($context['online'] ?? null) === true
+                    && is_numeric($context['distance_moved'] ?? null)
+                    && (float) $context['distance_moved'] < (float) config('dispatch.trigger.location_movement_threshold_meters', 50)
+                    && ($context['has_moved_enough'] ?? null) === false;
+            })
+            ->andReturn(0);
+
+        $this->app->instance(DispatchTriggerService::class, $service);
+
+        Livewire::test(LocationTracker::class)
+            ->call('updateLocation', 48.46405, 35.04605, 15);
+    }
+
     private function createCourier(bool $online = false): User
     {
         $courier = User::factory()->create([
