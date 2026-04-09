@@ -147,7 +147,7 @@ class CourierRuntimeStateSyncTest extends TestCase
         $this->assertTrue($courier->hasActiveCourierOrder());
     }
 
-    public function test_legacy_desynced_state_is_self_healed_by_runtime_api(): void
+    public function test_legacy_desynced_state_runtime_api_reads_canonical_snapshot_without_write_side_self_heal(): void
     {
         [$courier, $order] = $this->createCourierWithActiveOrder(Order::STATUS_ACCEPTED);
 
@@ -164,10 +164,11 @@ class CourierRuntimeStateSyncTest extends TestCase
         $order->refresh();
 
         $this->assertSame(Order::STATUS_ACCEPTED, $order->status);
-        $this->assertSame(Courier::STATUS_ASSIGNED, $courier->courierProfile->status);
-        $this->assertTrue((bool) $courier->is_busy);
+        // Read-path stays pure: canonical snapshot is correct, but DB mirrors are not rewritten on read.
+        $this->assertSame(Courier::STATUS_OFFLINE, $courier->courierProfile->status);
+        $this->assertFalse((bool) $courier->is_busy);
         $this->assertTrue((bool) $courier->is_online);
-        $this->assertSame(User::SESSION_ASSIGNED, $courier->session_state);
+        $this->assertSame(User::SESSION_OFFLINE, $courier->session_state);
     }
 
     public function test_active_order_prevents_forced_offline_transition(): void
@@ -288,7 +289,7 @@ class CourierRuntimeStateSyncTest extends TestCase
         $this->assertSame(User::SESSION_OFFLINE, $freeCourier->session_state);
     }
 
-    public function test_location_tracker_mount_repairs_legacy_desync_for_active_order(): void
+    public function test_location_tracker_mount_emits_canonical_runtime_sync_without_mount_time_repair_writes(): void
     {
         [$courier] = $this->createCourierWithActiveOrder(Order::STATUS_ACCEPTED);
 
@@ -321,10 +322,11 @@ class CourierRuntimeStateSyncTest extends TestCase
 
         $courier->refresh();
 
-        $this->assertSame(Courier::STATUS_ASSIGNED, $courier->courierProfile->status);
-        $this->assertTrue((bool) $courier->is_busy);
+        // Mount is read-only: no implicit repair writes.
+        $this->assertSame(Courier::STATUS_OFFLINE, $courier->courierProfile->status);
+        $this->assertFalse((bool) $courier->is_busy);
         $this->assertTrue((bool) $courier->is_online);
-        $this->assertSame(User::SESSION_ASSIGNED, $courier->session_state);
+        $this->assertSame(User::SESSION_OFFLINE, $courier->session_state);
     }
 
     public function test_dispatch_uses_canonical_courier_state_for_availability(): void
