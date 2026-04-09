@@ -42,6 +42,26 @@ Computed:
 Profile page does not pull/poll available/my orders hot paths.
 Runtime online toggle remains in courier layout header and keeps canonical source contract intact.
 
+## Bounded stale-safe cache (non-critical widgets only)
+- Cache scope is limited to profile cabinet read widgets:
+  - `profile_identity`, `profile_contact`, `profile_address`, `profile_media`
+  - `rating_summary`
+  - `balance_summary` (including payout policy overlay)
+- `profile_verification` is intentionally excluded from cache and always read from source-of-truth verification request lifecycle to avoid stale badge/CTA/status states.
+- Key namespace: `courier:{id}:profile:{widget}`.
+- TTLs are configured via `config/courier_profile_cache.php` and env variables:
+  - identity/contact/address/media: `300s`
+  - rating: `120s`
+  - balance/payout eligibility: `60s`
+- Invalidation rules:
+  - `PersistCourierProfileAction` invalidates identity/contact/address keys.
+  - `PersistCourierAvatarAction` invalidates media key.
+  - `CreateCourierWithdrawalRequestAction` invalidates balance key.
+- Safety:
+  - cache read/write failures never break rendering; code falls back to direct read-model computation.
+  - cacheability is intentionally bounded-stale and non-authoritative.
+- Explicitly out of scope (must stay uncached): `courierRuntimeSnapshot`, `CourierPresenceService` canonical runtime methods, `AvailableOrders`, `MyOrders` hot runtime pane, `LocationTracker`, dispatch/candidate logic.
+
 ## Rollback notes
 - Drop `courier_withdrawal_requests` table.
 - Remove added `users` fields (`residence_address`, `courier_verification_status`).

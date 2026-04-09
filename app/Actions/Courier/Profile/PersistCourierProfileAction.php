@@ -6,9 +6,15 @@ namespace App\Actions\Courier\Profile;
 
 use App\DTO\Courier\Profile\CourierProfileUpdateData;
 use App\Models\User;
+use App\Services\Courier\Profile\CourierProfileWidgetCacheInvalidator;
 
 class PersistCourierProfileAction
 {
+    public function __construct(
+        private readonly CourierProfileWidgetCacheInvalidator $cacheInvalidator,
+    ) {
+    }
+
     public function execute(User $courier, CourierProfileUpdateData $payload): User
     {
         $courier->update($payload->toUserAttributes());
@@ -18,6 +24,8 @@ class PersistCourierProfileAction
         if ($verificationStatus !== $courier->courier_verification_status) {
             $courier->update(['courier_verification_status' => $verificationStatus]);
         }
+
+        $this->cacheInvalidator->invalidateProfileIdentity($courier);
 
         return $courier->fresh();
     }
