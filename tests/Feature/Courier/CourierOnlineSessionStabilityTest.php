@@ -5,15 +5,18 @@ namespace Tests\Feature\Courier;
 use App\Jobs\MarkInactiveCouriers;
 use App\Livewire\Courier\LocationTracker;
 use App\Models\Courier;
+use App\Models\Order;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Log;
 use Livewire\Livewire;
+use Tests\Concerns\BuildsOrderRuntimeFixtures;
 use Tests\TestCase;
 
 class CourierOnlineSessionStabilityTest extends TestCase
 {
     use RefreshDatabase;
+    use BuildsOrderRuntimeFixtures;
 
     public function test_online_session_survives_switching_between_courier_tabs(): void
     {
@@ -132,6 +135,84 @@ class CourierOnlineSessionStabilityTest extends TestCase
         })->once();
     }
 
+    public function test_active_order_with_stale_offline_raw_status_is_synced_by_explicit_location_ingest_boundary(): void
+    {
+        Log::spy();
+        [$courier, $order] = $this->createCourierWithAcceptedOrder();
+
+        $courier->courierProfile()->update([
+            'status' => Courier::STATUS_OFFLINE,
+            'last_location_at' => now()->subMinutes(5),
+        ]);
+        $courier->update([
+            'last_lat' => 50.4501,
+            'last_lng' => 30.5234,
+        ]);
+
+        // Canonical read stays pure before ingest boundary write.
+        $this->assertSame(Courier::STATUS_ASSIGNED, $courier->fresh()->courierRuntimeState());
+        $this->assertSame(Courier::STATUS_OFFLINE, $courier->fresh()->courierProfile->status);
+
+        $this->actingAs($courier, 'web');
+        Livewire::test(LocationTracker::class)
+            ->call('updateLocation', 48.4647, 35.0462, 20);
+
+        $courier->refresh();
+        $order->refresh();
+
+        $this->assertSame(Order::STATUS_ACCEPTED, $order->status);
+        $this->assertSame(Courier::STATUS_ASSIGNED, $courier->courierProfile->status);
+        $this->assertNotNull($courier->courierProfile->last_location_at);
+        $this->assertSame(Courier::STATUS_ASSIGNED, $courier->courierRuntimeState());
+
+        $admin = User::factory()->create([
+            'role' => User::ROLE_ADMIN,
+            'is_active' => true,
+        ]);
+
+        $this->actingAs($admin, 'web')
+            ->getJson('/api/admin/map-data')
+            ->assertOk()
+            ->assertJsonFragment([
+                'id' => $courier->courierProfile->id,
+                'status' => Courier::STATUS_ASSIGNED,
+            ]);
+
+        Log::shouldHaveReceived('info')->withArgs(function (string $message, array $context): bool {
+            return $message === 'location_ingest_status_sync_boundary'
+                && ($context['counter'] ?? null) === 'location_ingest_status_sync_total'
+                && ($context['counter_labels']['reason'] ?? null) === 'active_order_status_enforced';
+        })->once();
+    }
+
+    public function test_offline_free_courier_heartbeat_does_not_silently_promote_online(): void
+    {
+        $courier = $this->createCourier();
+        $this->actingAs($courier, 'web');
+
+        Livewire::test(LocationTracker::class)
+            ->call('updateLocation', 48.4647, 35.0462, 20);
+
+        $courier->refresh();
+        $this->assertSame(Courier::STATUS_OFFLINE, $courier->courierProfile->status);
+        $this->assertNull($courier->courierProfile->last_location_at);
+        $this->assertFalse($courier->isCourierOnline());
+    }
+
+    public function test_runtime_sync_payload_remains_non_authoritative_against_canonical_backend_truth(): void
+    {
+        $courier = $this->createCourier();
+
+        $this->actingAs($courier, 'web');
+        $component = Livewire::test(LocationTracker::class);
+
+        $component->dispatch('courier:runtime-sync', online: true, status: Courier::STATUS_ONLINE);
+
+        $courier->refresh();
+        $this->assertSame(Courier::STATUS_OFFLINE, $courier->courierProfile->status);
+        $this->assertFalse($courier->isCourierOnline());
+    }
+
     private function createCourier(): User
     {
         $courier = User::factory()->create([
@@ -148,5 +229,22 @@ class CourierOnlineSessionStabilityTest extends TestCase
         ]);
 
         return $courier;
+    }
+
+    /**
+     * @return array{User,Order}
+     */
+    private function createCourierWithAcceptedOrder(): array
+    {
+        $client = User::factory()->create([
+            'role' => User::ROLE_CLIENT,
+            'is_active' => true,
+        ]);
+
+        $courier = $this->createCourier();
+        $courier->goOnline();
+        $order = $this->createAcceptedOrderAssignedToCourier($client, $courier);
+
+        return [$courier->fresh(), $order->fresh()];
     }
 }
