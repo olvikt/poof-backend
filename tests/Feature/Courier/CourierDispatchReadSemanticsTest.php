@@ -449,8 +449,11 @@ class CourierDispatchReadSemanticsTest extends TestCase
             return ($breakdown['courier_offline'] ?? 0) >= 1
                 && ($breakdown['stale_location'] ?? 0) >= 1
                 && ($breakdown['busy_active_order'] ?? 0) >= 1
-                && ($context['candidate_scan_count'] ?? 0) >= 1
+                && ($context['candidate_scan_count'] ?? null) === 0
+                && ($context['diagnostic_candidate_scan_count'] ?? 0) >= 1
+                && ($context['candidate_count'] ?? null) === 0
                 && ($context['search_radius_km'] ?? null) !== null
+                && array_key_exists('bbox_prefilter_applied', $context)
                 && ($context['trigger_source'] ?? null) === 'test_case';
         });
     }
@@ -476,6 +479,32 @@ class CourierDispatchReadSemanticsTest extends TestCase
 
         Log::assertNotLogged('debug', function (string $message): bool {
             return $message === 'dispatch_no_candidates';
+        });
+
+        Log::assertLogged('info', function (string $message, array $context): bool {
+            if ($message !== 'dispatch_offer_created') {
+                return false;
+            }
+
+            return ($context['trigger_source'] ?? null) === 'winner_test'
+                && ($context['candidate_scan_count'] ?? 0) >= 1
+                && ($context['candidate_count'] ?? 0) >= 1
+                && ($context['search_radius_km'] ?? null) !== null
+                && array_key_exists('bbox_prefilter_applied', $context)
+                && array_key_exists('elapsed_ms', $context);
+        });
+
+        Log::assertLogged('debug', function (string $message, array $context): bool {
+            if ($message !== 'dispatch_candidates_evaluated') {
+                return false;
+            }
+
+            return ($context['trigger_source'] ?? null) === 'winner_test'
+                && ($context['candidate_scan_count'] ?? 0) >= 1
+                && ($context['candidate_count'] ?? 0) >= 1
+                && ($context['search_radius_km'] ?? null) !== null
+                && array_key_exists('bbox_prefilter_applied', $context)
+                && array_key_exists('elapsed_ms', $context);
         });
     }
 

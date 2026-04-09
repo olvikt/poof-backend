@@ -40,4 +40,22 @@ class OrderOfferBoundaryArchitectureTest extends TestCase
         $this->assertStringContainsString("->whereNotNull('next_dispatch_at')", $dispatcher);
         $this->assertStringContainsString("->whereNull('next_dispatch_at')", $dispatcher);
     }
+
+    public function test_hot_path_query_shapes_keep_intended_sql_boundaries(): void
+    {
+        $dispatcher = $this->normalizedFile('app/Services/Dispatch/OfferDispatcher.php');
+        $availableOrders = $this->normalizedFile('app/Livewire/Courier/AvailableOrders.php');
+        $myOrders = $this->normalizedFile('app/Livewire/Courier/MyOrders.php');
+
+        $this->assertStringContainsString("->join('couriers', 'couriers.user_id', '=', 'users.id')", $dispatcher);
+        $this->assertStringContainsString('->whereNotExists(function ($sub): void {', $dispatcher);
+        $this->assertStringNotContainsString("->select('users.*')", $dispatcher);
+        $this->assertStringNotContainsString("->select('orders.*', 'users.*')", $dispatcher);
+
+        $this->assertStringContainsString('->alivePendingForCourierOrders((int) $courier->id)', $availableOrders);
+        $this->assertStringContainsString("->where('courier_id', $courier->id)", $myOrders);
+        $this->assertStringContainsString("->whereIn('status', [", $myOrders);
+        $this->assertStringContainsString('Order::STATUS_ACCEPTED', $myOrders);
+        $this->assertStringContainsString('Order::STATUS_IN_PROGRESS', $myOrders);
+    }
 }

@@ -1,5 +1,7 @@
 # Courier Runtime / Read / Dispatch Release Checklist
 
+Primary EXPLAIN runbook for PR #532: `docs/courier-dispatch-hot-query-explain-pack.md`.
+
 ## 1) Hot query inventory (manual verification list)
 
 > In this environment EXPLAIN was not run against production-like data. Use this checklist on server before release.
@@ -42,7 +44,7 @@
 - **Potential frequency:** every dispatch attempt.
 - **Why hot:** high cardinality under courier growth.
 - **Expected indexes:** `users_role_active_idx`, `couriers_status_last_location_idx`, `orders_courier_status_accepted_idx` (for NOT EXISTS).
-- **Server check:** EXPLAIN correlated NOT EXISTS cost; verify bounded rows before PHP scoring.
+- **Server check:** EXPLAIN correlated NOT EXISTS cost; verify bounded rows before PHP scoring (`candidate_scan_count` p95 remains below hard cap).
 
 ### Q6. Live pending offer existence check
 - **Query shape:** `order_offers` by order + pending + expires_at > now.
@@ -56,6 +58,7 @@
 
 ### Logs that should exist on hot path
 - `dispatch_started`
+- `dispatch_candidates_evaluated`
 - `dispatch_no_candidates`
 - `dispatch_no_pick`
 - `dispatch_offer_created`
@@ -70,10 +73,14 @@
 - `courier_runtime_endpoint_observed` (unified endpoint/request observability marker)
 
 ### Metrics/SLO candidates to monitor
-- Dispatch latency (p50/p95/p99) from `dispatch_started` → `dispatch_offer_created|dispatch_no_*`.
+- Dispatch latency (p50/p95/p99) from `dispatch_started` → `dispatch_offer_created|dispatch_no_*|dispatch_deferred`.
 - No-candidate rate (`dispatch_no_candidates` / dispatch attempts).
 - Offer expiry rate (expired pending offers / created offers).
 - Stale location rate (courier filtered by stale `last_location_at`).
+- Candidate scan cardinality from `dispatch_candidates_evaluated`:
+  - `candidate_scan_count` p50/p95/p99
+  - `candidate_count` p50/p95/p99
+  - split by `trigger_source` and `bbox_prefilter_applied`
 - Render/read latency for `available_orders_render` and `my_orders_render`.
 - Runtime drift signal rate (`optimistic_runtime_state_overridden`, cross-tab repair markers).
 - Runtime snapshot pressure per surface from `courier_runtime_endpoint_observed`:
@@ -118,6 +125,7 @@
 ### Must-pass before production
 1. Courier feature test suite (runtime consistency + dispatch semantics).
 2. Manual EXPLAIN checklist for Q1–Q6 on prod-like data.
+   - Use the exact SQL pack in `docs/courier-dispatch-hot-query-explain-pack.md`.
 3. Smoke checks for cross-component consistency:
    - `OnlineToggle`
    - `AvailableOrders`
@@ -128,8 +136,8 @@
 1. Rollback app deploy to previous build.
 2. No schema rollback required for this PR (no migration changes).
 3. Observability rollback is code-only:
-   - remove route middleware `observe.courier.runtime.endpoint` from courier read endpoints;
-   - remove `courier_runtime_endpoint_observed` emissions from Livewire courier hot surfaces.
+   - keep runtime endpoint markers;
+   - disable/rollback dispatch candidate observability markers if logging cost becomes noisy (`dispatch_candidates_evaluated`, expanded dispatch outcome payload fields).
 3. Validate post-rollback:
    - toggle online/offline works;
    - pending offers visible/accept flow works;
