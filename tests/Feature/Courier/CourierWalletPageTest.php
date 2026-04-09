@@ -27,9 +27,19 @@ class CourierWalletPageTest extends TestCase
         $this->actingAs($courier, 'web')
             ->get(route('courier.wallet'))
             ->assertOk()
-            ->assertSee('Courier wallet')
+            ->assertSee('Гаманець курʼєра')
             ->assertSee('Запросити вивід')
-            ->assertSee('payout requisites');
+            ->assertSee('Банківська карта')
+            ->assertDontSee('Courier wallet')
+            ->assertDontSee('Held / pending')
+            ->assertDontSee('can_request_withdrawal')
+            ->assertDontSee('blocked')
+            ->assertDontSee('payout requisites')
+            ->assertDontSee('Earnings statistics')
+            ->assertDontSee('Completed orders')
+            ->assertDontSee('Total gross')
+            ->assertDontSee('Total commission')
+            ->assertDontSee('Total net');
     }
 
     public function test_client_cannot_access_wallet_page(): void
@@ -54,8 +64,68 @@ class CourierWalletPageTest extends TestCase
         $response->assertOk();
         $response->assertSee('500,00 ₴', false);
         $response->assertSee('450,00 ₴', false);
-        $response->assertSee('Completed orders');
+        $response->assertSee('Завершені замовлення');
         $response->assertSee('#', false);
+    }
+
+    public function test_wallet_does_not_expose_raw_withdrawal_block_reason_and_uses_ua_message(): void
+    {
+        config()->set('courier_payout.minimum_withdrawal_amount', 500);
+        $courier = $this->createCourier();
+        $this->createSettledLedgerEntry($courier, 200, 20, 180);
+
+        $response = $this->actingAs($courier, 'web')->get(route('courier.wallet'));
+
+        $response
+            ->assertOk()
+            ->assertSee('Мінімальна сума для виводу ще не досягнута.')
+            ->assertDontSee('withdrawal_block_reason')
+            ->assertDontSee('below_minimum');
+    }
+
+    public function test_hero_withdrawal_cta_is_disabled_when_payout_policy_blocks_and_enabled_when_allowed(): void
+    {
+        config()->set('courier_payout.minimum_withdrawal_amount', 500);
+        $courier = $this->createCourier();
+        $this->createSettledLedgerEntry($courier, 200, 20, 180);
+
+        $blocked = $this->actingAs($courier, 'web')->get(route('courier.wallet'));
+        $blocked->assertSee('Запросити вивід', false);
+        $blocked->assertSee('disabled', false);
+
+        CourierEarning::query()->where('courier_id', $courier->id)->delete();
+        $this->createSettledLedgerEntry($courier, 1000, 100, 900);
+
+        $allowed = $this->actingAs($courier, 'web')->get(route('courier.wallet'));
+        $allowed->assertSee('Запросити вивід', false);
+        $allowed->assertDontSee('cursor-not-allowed', false);
+    }
+
+    public function test_withdrawal_form_is_hidden_by_default_and_opened_by_sheet_trigger(): void
+    {
+        $courier = $this->createCourier();
+
+        $response = $this->actingAs($courier, 'web')->get(route('courier.wallet'));
+
+        $response
+            ->assertOk()
+            ->assertSee('courierWalletWithdrawal-sheet-panel')
+            ->assertSee("sheet:open',{detail:{name:'courierWalletWithdrawal'}}", false);
+    }
+
+    public function test_card_form_is_hidden_by_default_and_opened_by_plus_trigger(): void
+    {
+        $courier = $this->createCourier();
+
+        $response = $this->actingAs($courier, 'web')->get(route('courier.wallet'));
+
+        $response
+            ->assertOk()
+            ->assertSee('aria-label="Додати або змінити реквізити"', false)
+            ->assertSee("sheet:open',{detail:{name:'courierWalletCard'}}", false)
+            ->assertSee('courierWalletCard-sheet-panel')
+            ->assertSee('placeholder="0000 0000 0000 0000"', false)
+            ->assertSee('maxlength="19"', false);
     }
 
     public function test_minimum_withdrawal_and_insufficient_balance_are_blocked_and_valid_request_persists(): void
@@ -107,7 +177,6 @@ class CourierWalletPageTest extends TestCase
 
         $this->actingAs($courier, 'web')
             ->post(route('courier.wallet.requisites.save'), [
-                'card_holder_name' => 'Ivan Courier',
                 'card_number' => '4444 3333 2222 1111',
                 'bank_name' => 'Mono',
                 'notes' => 'Main card',
@@ -158,6 +227,32 @@ class CourierWalletPageTest extends TestCase
             ->post(route('courier.wallet.requisites.save'), [
                 'card_holder_name' => 'Name',
                 'card_number' => '4242 4242 4242 4242',
+                'bank_name' => 'Mono',
+            ])
+            ->assertSessionHasNoErrors();
+    }
+
+    public function test_card_number_validation_requires_exact_16_digit_contract_and_bank_name(): void
+    {
+        $courier = $this->createCourier();
+
+        $this->actingAs($courier, 'web')
+            ->post(route('courier.wallet.requisites.save'), [
+                'card_number' => '4444 3333 2222',
+                'bank_name' => 'Mono',
+            ])
+            ->assertSessionHasErrors('card_number');
+
+        $this->actingAs($courier, 'web')
+            ->post(route('courier.wallet.requisites.save'), [
+                'card_number' => '4444 3333 2222 1111',
+            ])
+            ->assertSessionHasErrors('bank_name');
+
+        $this->actingAs($courier, 'web')
+            ->post(route('courier.wallet.requisites.save'), [
+                'card_number' => '4444333322221111',
+                'bank_name' => 'Mono',
             ])
             ->assertSessionHasNoErrors();
     }
