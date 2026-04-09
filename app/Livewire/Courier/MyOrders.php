@@ -15,6 +15,7 @@ use App\Services\Dispatch\DispatchTriggerPolicy;
 use App\Services\Dispatch\DispatchTriggerService;
 use App\Support\Courier\CourierNavigationRuntime;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
@@ -36,6 +37,7 @@ class MyOrders extends Component
     public bool $hasInitializedCompletedStatsExpansion = false;
     public bool $hasUserInteractedWithCompletedStats = false;
     public string $activeTab = 'orders';
+    public bool $statsPaneUnavailable = false;
 
     protected $listeners = [
         'order-updated' => '$refresh',
@@ -332,11 +334,14 @@ class MyOrders extends Component
                 'online' => false,
                 'completedStats' => collect(),
                 'orderEarningPreviews' => [],
+                'nearbyAreaSummary' => $this->defaultNearbyAreaSummary(),
+                'statsPaneUnavailable' => false,
             ])->layout('layouts.courier');
         }
 
         $this->online = $this->presenceService()->canonicalOnline($courier);
 
+        $runtimeStartedAt = microtime(true);
         $orders = Order::where('courier_id', $courier->id)
             ->whereIn('status', [
                 Order::STATUS_ACCEPTED,
@@ -347,7 +352,78 @@ class MyOrders extends Component
             ->get();
 
         $orders = $this->appendDistance($orders, $courier);
-        $completedStats = $this->completedStatsQuery()->forCourier($courier);
+        $runtimeElapsedMs = (int) round((microtime(true) - $runtimeStartedAt) * 1000);
+        $nearbyAreaSummary = $this->resolveNearbyAreaSummaryCached($courier);
+
+        Log::debug('my_orders_runtime_render', [
+            'flow' => 'courier_cabinet',
+            'courier_id' => $courier->id,
+            'active_order_count' => $orders->count(),
+            'elapsed_ms' => $runtimeElapsedMs,
+        ]);
+
+        $completedStats = collect();
+        $completedStatsCount = 0;
+        $statsElapsedMs = 0;
+        $this->statsPaneUnavailable = false;
+
+        if ($this->activeTab === 'stats') {
+            $statsStartedAt = microtime(true);
+            $completedStats = $this->resolveCompletedStats($courier);
+            $completedStatsCount = $completedStats->count();
+            $statsElapsedMs = (int) round((microtime(true) - $statsStartedAt) * 1000);
+
+            Log::debug('my_orders_stats_render', [
+                'flow' => 'courier_cabinet',
+                'courier_id' => $courier->id,
+                'completed_stats_count' => $completedStatsCount,
+                'active_order_count' => $orders->count(),
+                'elapsed_ms' => $statsElapsedMs,
+                'stats_pane_unavailable' => $this->statsPaneUnavailable,
+            ]);
+        }
+
+        Log::debug('my_orders_render', [
+            'flow' => 'courier_cabinet',
+            'courier_id' => $courier->id,
+            'active_order_count' => $orders->count(),
+            'completed_stats_count' => $completedStatsCount,
+            'runtime_elapsed_ms' => $runtimeElapsedMs,
+            'stats_elapsed_ms' => $statsElapsedMs,
+            'active_tab' => $this->activeTab,
+            'elapsed_ms' => (int) round((microtime(true) - $startedAt) * 1000),
+        ]);
+
+        return view('livewire.courier.my-orders', [
+            'orders' => $orders,
+            'online' => $this->online,
+            'completedStats' => $completedStats,
+            'orderEarningPreviews' => $orders->mapWithKeys(
+                fn (Order $order): array => [$order->id => $this->earningPreviewService()->forOrder($order)]
+            )->all(),
+            'nearbyAreaSummary' => $nearbyAreaSummary,
+            'statsPaneUnavailable' => $this->statsPaneUnavailable,
+            'mapBootstrap' => $this->resolveMapBootstrap($orders, $courier),
+            'pollIntervalSeconds' => $orders->isEmpty() ? self::POLL_IDLE_SECONDS : self::POLL_ACTIVE_SECONDS,
+        ])->layout('layouts.courier');
+    }
+
+    private function resolveCompletedStats(User $courier): Collection
+    {
+        try {
+            $completedStats = $this->completedStatsQuery()->forCourier($courier);
+        } catch (\Throwable $exception) {
+            $this->statsPaneUnavailable = true;
+
+            Log::warning('my_orders_stats_render_failed', [
+                'flow' => 'courier_cabinet',
+                'courier_id' => $courier->id,
+                'exception' => $exception::class,
+                'message' => $exception->getMessage(),
+            ]);
+
+            return collect();
+        }
 
         $availableDates = $completedStats->pluck('date')->all();
         $this->expandedCompletedStatDates = array_values(array_intersect($this->expandedCompletedStatDates, $availableDates));
@@ -364,24 +440,19 @@ class MyOrders extends Component
             $this->hasInitializedCompletedStatsExpansion = true;
         }
 
-        Log::debug('my_orders_render', [
-            'flow' => 'courier_cabinet',
-            'courier_id' => $courier->id,
-            'active_order_count' => $orders->count(),
-            'elapsed_ms' => (int) round((microtime(true) - $startedAt) * 1000),
-        ]);
+        return $completedStats;
+    }
 
-        return view('livewire.courier.my-orders', [
-            'orders' => $orders,
-            'online' => $this->online,
-            'completedStats' => $completedStats,
-            'orderEarningPreviews' => $orders->mapWithKeys(
-                fn (Order $order): array => [$order->id => $this->earningPreviewService()->forOrder($order)]
-            )->all(),
-            'nearbyAreaSummary' => $this->resolveNearbyAreaSummary($courier),
-            'mapBootstrap' => $this->resolveMapBootstrap($orders, $courier),
-            'pollIntervalSeconds' => $orders->isEmpty() ? self::POLL_IDLE_SECONDS : self::POLL_ACTIVE_SECONDS,
-        ])->layout('layouts.courier');
+    private function resolveNearbyAreaSummaryCached(User $courier): array
+    {
+        $ttlSeconds = max(5, (int) config('courier_runtime.my_orders.nearby_summary_ttl_seconds', 45));
+        $cacheKey = sprintf('courier:%d:my-orders:nearby-area-summary', $courier->id);
+
+        return Cache::remember(
+            $cacheKey,
+            now()->addSeconds($ttlSeconds),
+            fn (): array => $this->resolveNearbyAreaSummary($courier),
+        );
     }
 
     private function resolveNearbyAreaSummary(User $courier): array
@@ -411,6 +482,14 @@ class MyOrders extends Component
         return [
             'orders_count' => (int) ($summary?->orders_count ?? 0),
             'total_earning' => (int) ($summary?->total_earning ?? 0),
+        ];
+    }
+
+    private function defaultNearbyAreaSummary(): array
+    {
+        return [
+            'orders_count' => 0,
+            'total_earning' => 0,
         ];
     }
 

@@ -54,4 +54,8 @@ return [
     'completed_stats' => [
         'days' => (int) env('COURIER_COMPLETED_STATS_DAYS', 14),
     ],
+
+    'my_orders' => [
+        'nearby_summary_ttl_seconds' => (int) env('COURIER_MY_ORDERS_NEARBY_SUMMARY_TTL_SECONDS', 45),
+    ],
 ];

@@ -443,6 +443,38 @@
             <span class="text-xs text-slate-400">Останні {{ (int) config('courier_runtime.completed_stats.days', 14) }} днів</span>
         </div>
 
+        @if($statsPaneUnavailable ?? false)
+            <div class="mb-3 rounded-2xl border border-amber-300/40 bg-amber-500/10 px-3 py-3 text-xs text-amber-200">
+                Статистика тимчасово недоступна. Активні замовлення та дії курʼєра працюють у штатному режимі.
+            </div>
+        @endif
+
+        @php
+            $nearbyOrdersCount = (int) ($nearbyAreaSummary['orders_count'] ?? 0);
+            $nearbyTotalEarning = (int) ($nearbyAreaSummary['total_earning'] ?? 0);
+            $nearbyZeroState = $nearbyOrdersCount === 0;
+        @endphp
+
+        <div class="mb-3 rounded-2xl border border-white/10 bg-white/[0.02] px-3 py-3">
+            <div class="text-xs text-slate-400">Пропозиції в районі</div>
+            <div class="mt-2 flex items-center justify-between gap-3 text-sm">
+                <span
+                    @class([
+                        'inline-flex rounded-full border px-2 py-0.5 text-[11px] font-semibold',
+                        'border-emerald-400/40 bg-emerald-500/15 text-emerald-300' => ! $nearbyZeroState,
+                        'nearby-empty-state-chip border-amber-300/30 bg-amber-500/10 text-amber-200' => $nearbyZeroState,
+                    ])
+                >{{ $nearbyOrdersCount }} замовлень</span>
+                <span
+                    @class([
+                        'font-semibold',
+                        'text-emerald-300' => ! $nearbyZeroState,
+                        'nearby-empty-state-amount text-slate-400' => $nearbyZeroState,
+                    ])
+                >на {{ $nearbyTotalEarning }} грн.</span>
+            </div>
+        </div>
+
         @if(($completedStats ?? collect())->isEmpty())
             <div class="rounded-2xl border border-white/10 bg-white/[0.02] px-3 py-4 text-sm text-slate-400">
                 Ще немає виконаних замовлень за обраний період.
