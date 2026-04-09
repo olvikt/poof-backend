@@ -218,6 +218,39 @@ class CourierRuntimeStateSyncTest extends TestCase
         $this->assertSame(User::SESSION_OFFLINE, $courier->session_state);
     }
 
+    public function test_interleaved_toggle_start_complete_flows_end_with_consistent_runtime_and_projection(): void
+    {
+        [$courier, $order] = $this->createCourierWithActiveOrder(Order::STATUS_ACCEPTED);
+
+        // Simulate drift that can happen under heavy polling + concurrent UI actions.
+        $courier->update([
+            'is_online' => false,
+            'is_busy' => false,
+            'session_state' => User::SESSION_OFFLINE,
+        ]);
+
+        // Toggle/offline must stay blocked by active order and must not corrupt canonical status.
+        $courier->goOffline(force: true);
+        $courier->refresh();
+        $order->refresh();
+        $this->assertSame(Courier::STATUS_ASSIGNED, $courier->courierProfile->status);
+        $this->assertSame(Order::STATUS_ACCEPTED, $order->status);
+
+        // Start + complete transition should restore stable canonical/projection sync.
+        $this->assertTrue($order->startBy($courier));
+        $this->assertTrue($order->fresh()->completeBy($courier));
+
+        $courier->refresh();
+        $order->refresh();
+
+        $this->assertSame(Order::STATUS_DONE, $order->status);
+        $this->assertSame(Courier::STATUS_ONLINE, $courier->courierProfile->status);
+        $this->assertTrue((bool) $courier->is_online);
+        $this->assertFalse((bool) $courier->is_busy);
+        $this->assertSame(User::SESSION_READY, $courier->session_state);
+        $this->assertFalse($courier->hasActiveCourierOrder());
+    }
+
     public function test_ttl_job_self_heals_active_order_and_offlines_only_stale_free_courier(): void
     {
         [$busyCourier] = $this->createCourierWithActiveOrder(Order::STATUS_ACCEPTED);

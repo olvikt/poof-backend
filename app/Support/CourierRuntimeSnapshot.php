@@ -34,7 +34,7 @@ class CourierRuntimeSnapshot
             return null;
         }
 
-        $runtime = $user->repairCourierRuntimeState(true);
+        $runtime = app(CourierRuntimeStateResolver::class)->resolveForUser($user);
 
         if (! is_array($runtime)) {
             return null;

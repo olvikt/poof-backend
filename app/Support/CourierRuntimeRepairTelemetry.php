@@ -20,6 +20,8 @@ class CourierRuntimeRepairTelemetry
         bool $hadActiveOrder,
         ?string $courierStatus,
         string $sourceContext,
+        string $repairType = 'unknown',
+        string $repairReason = 'unspecified',
     ): void {
         $changes = [];
 
@@ -39,16 +41,25 @@ class CourierRuntimeRepairTelemetry
             return;
         }
 
-        Log::info('courier_runtime_repair_write', [
-            'user_id' => $userId,
-            'courier_id' => $courierId,
-            'field_changes' => $changes,
-            'had_active_order' => $hadActiveOrder,
-            'courier_status' => $courierStatus,
-            'source_context' => $sourceContext,
-            'counter' => 'courier_runtime_repair_writes_total',
-            'counter_increment' => 1,
-        ]);
+        foreach ($changes as $field => $diff) {
+            Log::info('courier_runtime_repair_write', [
+                'user_id' => $userId,
+                'courier_id' => $courierId,
+                'field' => $field,
+                'change' => $diff,
+                'field_changes' => [$field => $diff],
+                'had_active_order' => $hadActiveOrder,
+                'courier_status' => $courierStatus,
+                'source_context' => $sourceContext,
+                'counter' => 'courier_runtime_repair_writes_total',
+                'counter_increment' => 1,
+                'counter_labels' => [
+                    'field' => $field,
+                    'repair_type' => $repairType,
+                    'repair_reason' => $repairReason,
+                ],
+            ]);
+        }
     }
 
     private static function normalize(mixed $value): mixed
