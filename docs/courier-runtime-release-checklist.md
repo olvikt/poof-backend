@@ -67,6 +67,7 @@
 - `my_orders_render`
 - `courier_dispatch_triggered_from_location_update`
 - `optimistic_runtime_state_overridden`
+- `courier_runtime_endpoint_observed` (unified endpoint/request observability marker)
 
 ### Metrics/SLO candidates to monitor
 - Dispatch latency (p50/p95/p99) from `dispatch_started` → `dispatch_offer_created|dispatch_no_*`.
@@ -75,6 +76,42 @@
 - Stale location rate (courier filtered by stale `last_location_at`).
 - Render/read latency for `available_orders_render` and `my_orders_render`.
 - Runtime drift signal rate (`optimistic_runtime_state_overridden`, cross-tab repair markers).
+- Runtime snapshot pressure per surface from `courier_runtime_endpoint_observed`:
+  - `runtime_snapshot_calls`
+  - `active_order_reads`
+  - `authenticated_courier_resolves`
+  - `elapsed_ms` (p50/p95/p99 per `endpoint_name` + `surface_type`)
+
+### Unified marker dimensions (`courier_runtime_endpoint_observed`)
+- `endpoint_name` (e.g. `courier_runtime_api`, `orders_available_api`, `available_orders_render`, `my_orders_render`, `location_tracker_mount`, `location_tracker_render`)
+- `surface_type` (`api` / `livewire`)
+- `elapsed_ms`
+- `runtime_snapshot_calls`
+- `active_order_reads`
+- `authenticated_courier_resolves`
+- `has_active_order`
+- `online`
+- `status`
+- Aggregation metadata: `counter=courier_runtime_endpoint_observed_total`, `counter_type=request`
+
+### Alert heuristics (watch window for PR #528 + #529 + #530)
+- Alert on p95 `elapsed_ms` regression per `endpoint_name` above release baseline.
+- Alert on abnormal growth of `runtime_snapshot_calls` median for:
+  - `available_orders_render` (high-polling hot surface),
+  - `my_orders_render` (runtime pane vs stats pane via `runtime_pane_elapsed_ms` / `stats_pane_elapsed_ms`),
+  - `courier_runtime_api` and `orders_available_api` (API pressure baseline).
+- Alert if `active_order_reads` unexpectedly grows on endpoints that should stay read-light.
+- Correlate `has_active_order=true` cohorts separately to avoid false positives from busy-courier traffic.
+
+### Rollout comparison playbook (before/after PR #528 + #529)
+1. Capture 24h baseline before rollout for each endpoint:
+   - request rate,
+   - p95 `elapsed_ms`,
+   - median/p95 `runtime_snapshot_calls`,
+   - median `active_order_reads`.
+2. Repeat for 24h after rollout and compare per endpoint + `surface_type`.
+3. Investigate deltas first on `available_orders_render` and `my_orders_render` cohorts (highest polling impact).
+4. Keep existing `available_orders_render`, `my_orders_render`, `dispatch_*` markers enabled for root-cause drilldown.
 
 ## 3) Release gates
 
@@ -90,6 +127,9 @@
 ### Rollback strategy
 1. Rollback app deploy to previous build.
 2. No schema rollback required for this PR (no migration changes).
+3. Observability rollback is code-only:
+   - remove route middleware `observe.courier.runtime.endpoint` from courier read endpoints;
+   - remove `courier_runtime_endpoint_observed` emissions from Livewire courier hot surfaces.
 3. Validate post-rollback:
    - toggle online/offline works;
    - pending offers visible/accept flow works;

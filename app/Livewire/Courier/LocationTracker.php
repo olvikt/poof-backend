@@ -8,6 +8,7 @@ use App\Services\Courier\LocationIngestService;
 use App\Services\Courier\CourierPresenceService;
 use App\Services\Dispatch\DispatchTriggerPolicy;
 use App\Services\Dispatch\DispatchTriggerService;
+use App\Support\Courier\Observability\CourierRuntimeRequestCollector;
 use Illuminate\Support\Facades\Log;
 use Livewire\Component;
 
@@ -31,9 +32,13 @@ class LocationTracker extends Component
      */
     public function mount(): void
     {
+        $startedAt = microtime(true);
         $user = $this->presenceService()->resolveAuthenticatedCourier();
 
         if (! $user instanceof User || ! $user->courierProfile) {
+            $this->collector()->observeEndpoint('location_tracker_mount', 'livewire', $startedAt, [
+                'status' => 'unauthorized',
+            ]);
             return;
         }
 
@@ -94,6 +99,12 @@ class LocationTracker extends Component
                 ],
             ]);
         }
+
+        $this->collector()->observeEndpoint('location_tracker_mount', 'livewire', $startedAt, [
+            'online' => (bool) ($runtime['online'] ?? false),
+            'has_active_order' => (bool) ($runtime['has_active_order'] ?? false),
+            'status' => (string) ($runtime['status'] ?? Courier::STATUS_OFFLINE),
+        ]);
     }
 
     public function updateLocation($lat, $lng, $accuracy = null): void
@@ -240,11 +251,23 @@ class LocationTracker extends Component
      */
     public function render()
     {
+        $startedAt = microtime(true);
         $user = $this->presenceService()->resolveAuthenticatedCourier();
         $runtime = $this->presenceService()->snapshot($user);
+
+        $this->collector()->observeEndpoint('location_tracker_render', 'livewire', $startedAt, [
+            'online' => (bool) ($runtime['online'] ?? false),
+            'has_active_order' => (bool) ($runtime['has_active_order'] ?? false),
+            'status' => (string) ($runtime['status'] ?? Courier::STATUS_OFFLINE),
+        ]);
 
         return view('livewire.courier.location-tracker', [
             'runtimeSnapshot' => $runtime,
         ]);
+    }
+
+    private function collector(): CourierRuntimeRequestCollector
+    {
+        return app(CourierRuntimeRequestCollector::class);
     }
 }

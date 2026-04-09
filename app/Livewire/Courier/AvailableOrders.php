@@ -7,6 +7,7 @@ use App\Models\OrderOffer;
 use App\Models\User;
 use App\Services\Courier\CourierPresenceService;
 use App\Support\Courier\CourierNavigationRuntime;
+use App\Support\Courier\Observability\CourierRuntimeRequestCollector;
 use Illuminate\Support\Facades\Log;
 use Livewire\Component;
 
@@ -100,6 +101,12 @@ class AvailableOrders extends Component
             'elapsed_ms' => (int) round((microtime(true) - $startedAt) * 1000),
         ]);
 
+        $this->collector()->observeEndpoint('available_orders_render', 'livewire', $startedAt, [
+            'has_active_order' => $this->activeOrder !== null,
+            'online' => $this->online,
+            'status' => (string) ($runtime['status'] ?? null),
+        ]);
+
         return view('livewire.courier.available-orders', [
             'orders' => $orders,
             'geoRequired' => false,
@@ -158,5 +165,10 @@ class AvailableOrders extends Component
     private function navigationRuntime(): CourierNavigationRuntime
     {
         return app(CourierNavigationRuntime::class);
+    }
+
+    private function collector(): CourierRuntimeRequestCollector
+    {
+        return app(CourierRuntimeRequestCollector::class);
     }
 }

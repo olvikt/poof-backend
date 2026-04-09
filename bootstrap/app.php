@@ -5,6 +5,7 @@ use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
 use Illuminate\Http\Request;
 use Illuminate\Http\Exceptions\ThrottleRequestsException;
+use App\Http\Middleware\ObserveCourierRuntimeEndpoint;
 
 return Application::configure(basePath: dirname(__DIR__))
     ->withRouting(
@@ -17,6 +18,9 @@ return Application::configure(basePath: dirname(__DIR__))
         __DIR__.'/../app/Console/Commands',
     ])
     ->withMiddleware(function (Middleware $middleware) {
+        $middleware->alias([
+            'observe.courier.runtime.endpoint' => ObserveCourierRuntimeEndpoint::class,
+        ]);
 
         // ✅ ВАЖНО: подключаем web middleware
         $middleware->web(append: [
@@ -45,4 +49,3 @@ return Application::configure(basePath: dirname(__DIR__))
         });
     })
     ->create();
-
