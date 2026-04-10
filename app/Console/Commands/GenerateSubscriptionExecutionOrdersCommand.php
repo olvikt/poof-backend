@@ -13,7 +13,7 @@ class GenerateSubscriptionExecutionOrdersCommand extends Command
 {
     protected $signature = 'subscriptions:generate-execution-orders {--limit=100}';
 
-    protected $description = 'Generate due pending payment orders for active paid auto-renew subscriptions';
+    protected $description = 'Generate due pending payment orders for active paid subscriptions';
 
     public function handle(): int
     {
@@ -22,7 +22,6 @@ class GenerateSubscriptionExecutionOrdersCommand extends Command
         $subscriptions = ClientSubscription::query()
             ->with(['plan', 'address'])
             ->where('status', ClientSubscription::STATUS_ACTIVE)
-            ->where('auto_renew', true)
             ->whereNotNull('next_run_at')
             ->where('next_run_at', '<=', now())
             ->orderBy('next_run_at')
