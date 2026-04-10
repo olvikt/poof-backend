@@ -12,6 +12,7 @@ use App\Models\SubscriptionPlan;
 use App\Services\Orders\Completion\OrderCompletionPolicyAssignmentService;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
 
 trait HandlesOrderSubmission
 {
@@ -136,21 +137,37 @@ trait HandlesOrderSubmission
             return null;
         }
 
-        $subscription = ClientSubscription::unguarded(function () use ($plan): ClientSubscription {
-            return ClientSubscription::query()->create([
-                'client_id' => (int) Auth::id(),
-                'subscription_plan_id' => (int) $plan->id,
-                'address_id' => $this->address_id,
-                'status' => ClientSubscription::STATUS_ACTIVE,
-                'next_run_at' => Carbon::parse(sprintf('%s %s', (string) $this->scheduled_date, (string) $this->scheduled_time_from)),
-                'ends_at' => Carbon::now()->addMonth(),
-                'auto_renew' => true,
-                'renewals_count' => 0,
-                'meta' => [
-                    'frequency_type' => $plan->frequency_type,
-                    'checkout_origin' => 'checkout',
-                ],
-            ]);
+        $subscription = DB::transaction(function () use ($plan): ClientSubscription {
+            $clientId = (int) Auth::id();
+
+            $existing = ClientSubscription::query()
+                ->where('client_id', $clientId)
+                ->where('address_id', $this->address_id)
+                ->where('status', ClientSubscription::STATUS_ACTIVE)
+                ->lockForUpdate()
+                ->orderBy('id')
+                ->first();
+
+            if ($existing) {
+                return $existing;
+            }
+
+            return ClientSubscription::unguarded(function () use ($plan, $clientId): ClientSubscription {
+                return ClientSubscription::query()->create([
+                    'client_id' => $clientId,
+                    'subscription_plan_id' => (int) $plan->id,
+                    'address_id' => $this->address_id,
+                    'status' => ClientSubscription::STATUS_ACTIVE,
+                    'next_run_at' => Carbon::parse(sprintf('%s %s', (string) $this->scheduled_date, (string) $this->scheduled_time_from)),
+                    'ends_at' => Carbon::now()->addMonth(),
+                    'auto_renew' => true,
+                    'renewals_count' => 0,
+                    'meta' => [
+                        'frequency_type' => $plan->frequency_type,
+                        'checkout_origin' => 'checkout',
+                    ],
+                ]);
+            });
         });
 
         return (int) $subscription->id;

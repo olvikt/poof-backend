@@ -9,6 +9,7 @@ use App\Models\ClientSubscription;
 use App\Models\Order;
 use App\Support\Orders\OrderPromiseResolver;
 use Carbon\CarbonImmutable;
+use Illuminate\Support\Facades\DB;
 
 class MarkOrderAsPaidAction
 {
@@ -51,22 +52,30 @@ class MarkOrderAsPaidAction
             return;
         }
 
-        $subscription = ClientSubscription::query()->find($order->subscription_id);
+        DB::transaction(function () use ($order): void {
+            $subscription = ClientSubscription::query()
+                ->where('id', $order->subscription_id)
+                ->lockForUpdate()
+                ->first();
 
-        if (! $subscription) {
-            return;
-        }
+            if (! $subscription) {
+                return;
+            }
 
-        $periodStart = CarbonImmutable::instance($order->created_at ?? now());
+            $periodStart = CarbonImmutable::instance($order->created_at ?? now());
 
-        $subscription->forceFill([
-            'status' => $subscription->status === ClientSubscription::STATUS_CANCELLED
-                ? ClientSubscription::STATUS_CANCELLED
-                : ClientSubscription::STATUS_ACTIVE,
-            'paused_at' => null,
-            'last_run_at' => $periodStart,
-            'ends_at' => $periodStart->addMonth(),
-            'renewals_count' => max(0, (int) $subscription->renewals_count) + 1,
-        ])->save();
+            $subscription->forceFill([
+                'status' => $subscription->status === ClientSubscription::STATUS_CANCELLED
+                    ? ClientSubscription::STATUS_CANCELLED
+                    : ClientSubscription::STATUS_ACTIVE,
+                'paused_at' => null,
+                'last_run_at' => $periodStart,
+                'ends_at' => $periodStart->addMonth(),
+                'renewals_count' => max(0, (int) $subscription->renewals_count) + 1,
+            ]);
+
+            $subscription->assertNoActiveScopeConflict();
+            $subscription->save();
+        });
     }
 }

@@ -117,3 +117,48 @@ php artisan subscriptions:generate-execution-orders --limit=100
 4. Validate per subscription:
    - at most one unresolved pending execution order exists per subscription,
    - `next_run_at` advances only after pending order resolution and next successful generation.
+
+## Follow-up hardening (P1/P2 duplicate active scopes)
+
+### Uniqueness scope decision
+
+To prevent overlapping recurring execution orders, active uniqueness is enforced on:
+
+- `client_id`
+- `address_id`
+
+Interpretation: for one customer and one service address, only one active subscription is allowed at a time.
+
+### Runtime/DB guardrails
+
+- App-level guard validates active-scope conflict during:
+  - checkout pay/renew order creation,
+  - paused → active resume,
+  - subscription lifecycle activation after payment.
+- Race safety: these paths now lock target rows (`lockForUpdate`) inside DB transactions before conflict checks + writes.
+- DB protection: `client_subscriptions.active_scope_key` + unique index (`client_subscriptions_active_scope_unique`) enforces one active scope key at the storage layer.
+
+### Production duplicate detection/remediation
+
+1. Detect duplicates:
+
+```bash
+php artisan subscriptions:detect-duplicate-active --dry-run
+```
+
+2. Review JSON output:
+   - `duplicate_scope_count`
+   - `duplicate_subscription_count`
+   - `scopes[*].keeper_id` (oldest row kept active)
+   - `duplicate_ids` (rows that would be remediated)
+
+3. Apply remediation:
+
+```bash
+php artisan subscriptions:detect-duplicate-active --remediate
+```
+
+Remediation policy:
+- keep oldest active row per (`client_id`, `address_id`) scope,
+- set all newer conflicting active rows to `status=paused`,
+- stamp `paused_at=now`.
