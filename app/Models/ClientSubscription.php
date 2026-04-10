@@ -90,6 +90,11 @@ class ClientSubscription extends Model
             return;
         }
 
+        $this->assertNoOtherActiveSubscriptionInScope();
+    }
+
+    public function assertNoOtherActiveSubscriptionInScope(): void
+    {
         $conflict = $this->overlappingActiveSubscriptionsQuery()
             ->orderBy('id')
             ->first(['id']);

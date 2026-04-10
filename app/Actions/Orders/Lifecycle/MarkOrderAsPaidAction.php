@@ -9,7 +9,9 @@ use App\Models\ClientSubscription;
 use App\Models\Order;
 use App\Support\Orders\OrderPromiseResolver;
 use Carbon\CarbonImmutable;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Validation\ValidationException;
 
 class MarkOrderAsPaidAction
 {
@@ -22,6 +24,20 @@ class MarkOrderAsPaidAction
      */
     public function handle(Order $order): void
     {
+        if ($this->hasActivationConflict($order)) {
+            $order->forceFill([
+                'payment_status' => Order::PAY_PAID,
+                'status' => Order::STATUS_CANCELLED,
+            ])->save();
+
+            Log::warning('Subscription payment marked as paid but cancelled due to active-scope conflict.', [
+                'order_id' => (int) $order->id,
+                'subscription_id' => (int) ($order->subscription_id ?? 0),
+            ]);
+
+            return;
+        }
+
         $promiseAttributes = $this->promiseResolver->resolveCreateAttributes($order->toArray());
 
         $order->forceFill([
@@ -41,7 +57,21 @@ class MarkOrderAsPaidAction
             return;
         }
 
-        $this->syncSubscriptionLifecycleAfterPayment($freshOrder);
+        try {
+            $this->syncSubscriptionLifecycleAfterPayment($freshOrder);
+        } catch (ValidationException $exception) {
+            $freshOrder->forceFill([
+                'status' => Order::STATUS_CANCELLED,
+            ])->save();
+
+            Log::warning('Subscription payment cancelled after paid transition due to active-scope conflict.', [
+                'order_id' => (int) $freshOrder->id,
+                'subscription_id' => (int) ($freshOrder->subscription_id ?? 0),
+                'reason' => collect($exception->errors())->flatten()->first(),
+            ]);
+
+            return;
+        }
 
         event(new OrderCreated($freshOrder));
     }
@@ -77,5 +107,20 @@ class MarkOrderAsPaidAction
             $subscription->assertNoActiveScopeConflict();
             $subscription->save();
         });
+    }
+
+    private function hasActivationConflict(Order $order): bool
+    {
+        if ($order->subscription_id === null) {
+            return false;
+        }
+
+        $subscription = ClientSubscription::query()->find($order->subscription_id);
+
+        if (! $subscription) {
+            return false;
+        }
+
+        return $subscription->overlappingActiveSubscriptionsQuery()->exists();
     }
 }

@@ -42,7 +42,7 @@ class SubscriptionCheckoutController extends Controller
                 ->lockForUpdate()
                 ->firstOrFail();
 
-            $lockedSubscription->assertNoActiveScopeConflict();
+            $lockedSubscription->assertNoOtherActiveSubscriptionInScope();
 
             $existingPending = $lockedSubscription->generatedOrders()
                 ->where('payment_status', Order::PAY_PENDING)
