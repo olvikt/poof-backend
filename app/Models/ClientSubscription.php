@@ -228,8 +228,7 @@ class ClientSubscription extends Model
     public function canGenerateNextOrderAutomatically(): bool
     {
         return $this->lifecycle_state === self::STATUS_ACTIVE
-            && $this->billing_state === self::BILLING_PAID
-            && (bool) $this->auto_renew;
+            && $this->billing_state === self::BILLING_PAID;
     }
 
     public function getFrequencyLabelAttribute(): string

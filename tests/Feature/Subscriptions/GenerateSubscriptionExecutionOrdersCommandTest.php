@@ -63,6 +63,24 @@ class GenerateSubscriptionExecutionOrdersCommandTest extends TestCase
             ->count());
     }
 
+    public function test_it_creates_due_execution_order_for_legacy_active_subscription_with_auto_renew_disabled(): void
+    {
+        $subscription = $this->createPaidSubscription([
+            'next_run_at' => now()->subDays(2),
+            'auto_renew' => false,
+        ]);
+
+        Artisan::call('subscriptions:generate-execution-orders --limit=100');
+
+        $this->assertDatabaseHas('orders', [
+            'subscription_id' => $subscription->id,
+            'origin' => Order::ORIGIN_SUBSCRIPTION,
+            'order_type' => Order::TYPE_SUBSCRIPTION,
+            'payment_status' => Order::PAY_PENDING,
+            'status' => Order::STATUS_NEW,
+        ]);
+    }
+
     private function createPaidSubscription(array $overrides = []): ClientSubscription
     {
         $client = User::factory()->create(['role' => User::ROLE_CLIENT, 'is_active' => true]);
