@@ -80,3 +80,40 @@ If this behavioral change is not accepted:
 - `checked` and `created` are non-zero for due active paid subscriptions
 - no duplicate pending subscription orders per subscription
 - subscriptions page still reflects user auto-renew preference independently from recurring execution order creation
+
+## Follow-up hotfix guidance (PR #534)
+
+### Updated overdue semantics
+
+- Generator now aligns overdue subscriptions to the **nearest valid current slot** (frequency-aligned, not historical backlog replay).
+- Product invariant: a subscription may have only **one unresolved pending execution order** at a time.
+- New payable order generation is blocked until that pending order is resolved (paid/cancelled/expired) to prevent unpaid backlog growth.
+- Slot duplicate checks are normalized to **minute precision** so legacy rows with non-zero seconds still block duplicate creation for the same slot.
+
+### Remediation for already-created stale orders (`#80`, `#81`)
+
+1. Identify stale pending subscription orders whose scheduled slot is already in the past:
+
+```sql
+SELECT id, subscription_id, status, payment_status, scheduled_date, scheduled_time_from
+FROM orders
+WHERE origin = 'subscription'
+  AND payment_status = 'pending'
+  AND status IN ('new', 'searching')
+  AND TIMESTAMP(scheduled_date, COALESCE(scheduled_time_from, '00:00:00')) < NOW()
+ORDER BY subscription_id, scheduled_date, scheduled_time_from;
+```
+
+2. For each stale order, choose one remediation policy with product/ops:
+   - cancel stale order (recommended for historical slots that should not dispatch), or
+   - reschedule to the next approved execution slot if operations requires fulfillment.
+
+3. After remediation, run generation once and verify the subscription is no longer stuck:
+
+```bash
+php artisan subscriptions:generate-execution-orders --limit=100
+```
+
+4. Validate per subscription:
+   - at most one unresolved pending execution order exists per subscription,
+   - `next_run_at` advances only after pending order resolution and next successful generation.

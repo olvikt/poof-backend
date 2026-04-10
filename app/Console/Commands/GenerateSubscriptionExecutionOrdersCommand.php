@@ -18,6 +18,7 @@ class GenerateSubscriptionExecutionOrdersCommand extends Command
     public function handle(): int
     {
         $limit = max(1, (int) $this->option('limit'));
+        $now = CarbonImmutable::now();
 
         $subscriptions = ClientSubscription::query()
             ->with(['plan', 'address'])
@@ -34,6 +35,7 @@ class GenerateSubscriptionExecutionOrdersCommand extends Command
             'created' => 0,
             'skipped_unpaid' => 0,
             'skipped_pending_exists' => 0,
+            'skipped_duplicate_slot' => 0,
         ];
 
         foreach ($subscriptions as $subscription) {
@@ -41,6 +43,25 @@ class GenerateSubscriptionExecutionOrdersCommand extends Command
                 $summary['skipped_unpaid']++;
 
                 continue;
+            }
+
+            $runAt = $this->resolveGenerationSlot(
+                CarbonImmutable::instance($subscription->next_run_at ?? $now),
+                (string) ($subscription->plan?->frequency_type ?? $subscription->meta['frequency_type'] ?? ''),
+                $now,
+            );
+            $runAtMinute = $runAt->setSecond(0);
+
+            $existingPendingForSlot = $subscription->generatedOrders()
+                ->where('payment_status', Order::PAY_PENDING)
+                ->where('origin', Order::ORIGIN_SUBSCRIPTION)
+                ->whereDate('scheduled_date', $runAt->toDateString())
+                ->whereTime('scheduled_time_from', '>=', $runAtMinute->format('H:i:00'))
+                ->whereTime('scheduled_time_from', '<=', $runAtMinute->format('H:i:59'))
+                ->exists();
+
+            if ($existingPendingForSlot) {
+                $summary['skipped_duplicate_slot']++;
             }
 
             $existingPending = $subscription->generatedOrders()
@@ -53,8 +74,6 @@ class GenerateSubscriptionExecutionOrdersCommand extends Command
 
                 continue;
             }
-
-            $runAt = CarbonImmutable::instance($subscription->next_run_at ?? now());
 
             Order::createFromLegacyWebContract([
                 'client_id' => (int) $subscription->client_id,
@@ -98,6 +117,17 @@ class GenerateSubscriptionExecutionOrdersCommand extends Command
         $this->line(json_encode($summary, JSON_UNESCAPED_SLASHES));
 
         return self::SUCCESS;
+    }
+
+    private function resolveGenerationSlot(CarbonImmutable $nextRunAt, string $frequency, CarbonImmutable $now): CarbonImmutable
+    {
+        $slot = $nextRunAt;
+
+        while ($slot->lessThan($now)) {
+            $slot = $this->resolveNextRunAt($slot, $frequency);
+        }
+
+        return $slot;
     }
 
     private function resolveNextRunAt(CarbonImmutable $from, string $frequency): CarbonImmutable

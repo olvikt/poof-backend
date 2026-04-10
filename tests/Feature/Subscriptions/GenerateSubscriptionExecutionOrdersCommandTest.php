@@ -9,6 +9,7 @@ use App\Models\ClientSubscription;
 use App\Models\Order;
 use App\Models\SubscriptionPlan;
 use App\Models\User;
+use Carbon\Carbon;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Artisan;
 use Tests\TestCase;
@@ -17,10 +18,19 @@ class GenerateSubscriptionExecutionOrdersCommandTest extends TestCase
 {
     use RefreshDatabase;
 
-    public function test_it_creates_due_execution_order_and_moves_next_run_forward(): void
+    protected function tearDown(): void
     {
+        Carbon::setTestNow();
+
+        parent::tearDown();
+    }
+
+    public function test_it_generates_nearest_valid_current_slot_for_overdue_subscription(): void
+    {
+        Carbon::setTestNow(Carbon::parse('2026-04-10 12:00:00'));
+
         $subscription = $this->createPaidSubscription([
-            'next_run_at' => now()->subDays(3),
+            'next_run_at' => now()->subDays(10),
         ]);
 
         Artisan::call('subscriptions:generate-execution-orders --limit=100');
@@ -31,16 +41,20 @@ class GenerateSubscriptionExecutionOrdersCommandTest extends TestCase
             'order_type' => Order::TYPE_SUBSCRIPTION,
             'payment_status' => Order::PAY_PENDING,
             'status' => Order::STATUS_NEW,
+            'scheduled_date' => '2026-04-12',
+            'scheduled_time_from' => '12:00:00',
         ]);
 
         $subscription->refresh();
-        $this->assertTrue($subscription->next_run_at->isFuture());
+        $this->assertSame('2026-04-15 12:00:00', $subscription->next_run_at?->format('Y-m-d H:i:s'));
     }
 
-    public function test_it_does_not_create_duplicate_pending_order_for_same_subscription(): void
+    public function test_it_does_not_create_duplicate_order_for_existing_pending_target_slot(): void
     {
+        Carbon::setTestNow(Carbon::parse('2026-04-10 12:00:00'));
+
         $subscription = $this->createPaidSubscription([
-            'next_run_at' => now()->subDay(),
+            'next_run_at' => Carbon::parse('2026-04-09 12:00:00'),
         ]);
 
         Order::createForTesting([
@@ -53,6 +67,77 @@ class GenerateSubscriptionExecutionOrdersCommandTest extends TestCase
             'address_text' => 'вул. Підписки, 10',
             'price' => 450,
             'client_charge_amount' => 450,
+            'scheduled_date' => '2026-04-12',
+            'scheduled_time_from' => '12:00',
+            'scheduled_time_to' => '14:00',
+        ]);
+
+        Artisan::call('subscriptions:generate-execution-orders --limit=100');
+
+        $this->assertSame(1, Order::query()
+            ->where('subscription_id', $subscription->id)
+            ->where('payment_status', Order::PAY_PENDING)
+            ->count());
+
+        $subscription->refresh();
+        $this->assertSame('2026-04-09 12:00:00', $subscription->next_run_at?->format('Y-m-d H:i:s'));
+    }
+
+    public function test_it_blocks_new_generation_when_any_unresolved_pending_order_exists(): void
+    {
+        Carbon::setTestNow(Carbon::parse('2026-04-10 12:00:00'));
+
+        $subscription = $this->createPaidSubscription([
+            'next_run_at' => Carbon::parse('2026-04-01 12:00:00'),
+        ]);
+
+        Order::createForTesting([
+            'client_id' => $subscription->client_id,
+            'subscription_id' => $subscription->id,
+            'status' => Order::STATUS_NEW,
+            'payment_status' => Order::PAY_PENDING,
+            'order_type' => Order::TYPE_SUBSCRIPTION,
+            'origin' => Order::ORIGIN_SUBSCRIPTION,
+            'address_text' => 'вул. Підписки, 10',
+            'price' => 450,
+            'client_charge_amount' => 450,
+            'scheduled_date' => '2026-04-01',
+            'scheduled_time_from' => '12:00',
+            'scheduled_time_to' => '14:00',
+        ]);
+
+        Artisan::call('subscriptions:generate-execution-orders --limit=100');
+
+        $this->assertSame(1, Order::query()
+            ->where('subscription_id', $subscription->id)
+            ->where('payment_status', Order::PAY_PENDING)
+            ->count());
+
+        $subscription->refresh();
+        $this->assertSame('2026-04-01 12:00:00', $subscription->next_run_at?->format('Y-m-d H:i:s'));
+    }
+
+    public function test_it_treats_pending_order_in_same_minute_as_duplicate_even_with_non_zero_seconds(): void
+    {
+        Carbon::setTestNow(Carbon::parse('2026-04-10 12:00:00'));
+
+        $subscription = $this->createPaidSubscription([
+            'next_run_at' => Carbon::parse('2026-04-09 12:00:00'),
+        ]);
+
+        Order::createForTesting([
+            'client_id' => $subscription->client_id,
+            'subscription_id' => $subscription->id,
+            'status' => Order::STATUS_NEW,
+            'payment_status' => Order::PAY_PENDING,
+            'order_type' => Order::TYPE_SUBSCRIPTION,
+            'origin' => Order::ORIGIN_SUBSCRIPTION,
+            'address_text' => 'вул. Підписки, 10',
+            'price' => 450,
+            'client_charge_amount' => 450,
+            'scheduled_date' => '2026-04-12',
+            'scheduled_time_from' => '12:00:30',
+            'scheduled_time_to' => '14:00',
         ]);
 
         Artisan::call('subscriptions:generate-execution-orders --limit=100');
@@ -79,6 +164,38 @@ class GenerateSubscriptionExecutionOrdersCommandTest extends TestCase
             'payment_status' => Order::PAY_PENDING,
             'status' => Order::STATUS_NEW,
         ]);
+    }
+
+    public function test_repeat_runs_do_not_duplicate_same_slot_and_do_not_stall_on_backlog(): void
+    {
+        Carbon::setTestNow(Carbon::parse('2026-04-10 12:00:00'));
+
+        $subscription = $this->createPaidSubscription([
+            'next_run_at' => Carbon::parse('2026-04-01 12:00:00'),
+        ]);
+
+        Order::createForTesting([
+            'client_id' => $subscription->client_id,
+            'subscription_id' => $subscription->id,
+            'status' => Order::STATUS_NEW,
+            'payment_status' => Order::PAY_PENDING,
+            'order_type' => Order::TYPE_SUBSCRIPTION,
+            'origin' => Order::ORIGIN_SUBSCRIPTION,
+            'address_text' => 'вул. Підписки, 10',
+            'price' => 450,
+            'client_charge_amount' => 450,
+            'scheduled_date' => '2026-04-01',
+            'scheduled_time_from' => '12:00',
+            'scheduled_time_to' => '14:00',
+        ]);
+
+        Artisan::call('subscriptions:generate-execution-orders --limit=100');
+        Artisan::call('subscriptions:generate-execution-orders --limit=100');
+
+        $this->assertSame(1, Order::query()
+            ->where('subscription_id', $subscription->id)
+            ->where('payment_status', Order::PAY_PENDING)
+            ->count());
     }
 
     private function createPaidSubscription(array $overrides = []): ClientSubscription
