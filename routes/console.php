@@ -100,6 +100,11 @@ Schedule::command('orders:completion-proof:auto-confirm --limit=100')
     ->name('poof-completion-proof-auto-confirm')
     ->description('Auto-confirm due proof completion requests')
     ->everyMinute();
+
+Schedule::command('subscriptions:generate-execution-orders --limit=100')
+    ->name('poof-subscriptions-generate-execution-orders')
+    ->description('Generate due recurring subscription execution orders')
+    ->everyMinute();
 Artisan::command('orders:auto-expire {--limit=200}', function () {
     $limit = max(1, (int) $this->option('limit'));
     /** @var OrderAutoExpireService $service */
