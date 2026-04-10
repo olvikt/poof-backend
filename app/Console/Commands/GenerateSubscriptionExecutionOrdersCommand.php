@@ -18,6 +18,7 @@ class GenerateSubscriptionExecutionOrdersCommand extends Command
     public function handle(): int
     {
         $limit = max(1, (int) $this->option('limit'));
+        $now = CarbonImmutable::now();
 
         $subscriptions = ClientSubscription::query()
             ->with(['plan', 'address'])
@@ -34,6 +35,7 @@ class GenerateSubscriptionExecutionOrdersCommand extends Command
             'created' => 0,
             'skipped_unpaid' => 0,
             'skipped_pending_exists' => 0,
+            'skipped_duplicate_slot' => 0,
         ];
 
         foreach ($subscriptions as $subscription) {
@@ -43,18 +45,48 @@ class GenerateSubscriptionExecutionOrdersCommand extends Command
                 continue;
             }
 
-            $existingPending = $subscription->generatedOrders()
+            $runAt = $this->resolveGenerationSlot(
+                CarbonImmutable::instance($subscription->next_run_at ?? $now),
+                (string) ($subscription->plan?->frequency_type ?? $subscription->meta['frequency_type'] ?? ''),
+                $now,
+            );
+
+            $existingPendingForSlot = $subscription->generatedOrders()
                 ->where('payment_status', Order::PAY_PENDING)
                 ->where('origin', Order::ORIGIN_SUBSCRIPTION)
+                ->whereDate('scheduled_date', $runAt->toDateString())
+                ->whereTime('scheduled_time_from', $runAt->format('H:i:s'))
                 ->exists();
 
-            if ($existingPending) {
-                $summary['skipped_pending_exists']++;
+            if ($existingPendingForSlot) {
+                $summary['skipped_duplicate_slot']++;
+                $subscription->forceFill([
+                    'next_run_at' => $this->resolveNextRunAt($runAt, (string) ($subscription->plan?->frequency_type ?? $subscription->meta['frequency_type'] ?? '')),
+                ])->save();
 
                 continue;
             }
 
-            $runAt = CarbonImmutable::instance($subscription->next_run_at ?? now());
+            $existingPending = $subscription->generatedOrders()
+                ->where('payment_status', Order::PAY_PENDING)
+                ->where('origin', Order::ORIGIN_SUBSCRIPTION)
+                ->where(function ($query) use ($runAt): void {
+                    $query->whereDate('scheduled_date', '>', $runAt->toDateString())
+                        ->orWhere(function ($inner) use ($runAt): void {
+                            $inner->whereDate('scheduled_date', $runAt->toDateString())
+                                ->whereTime('scheduled_time_from', '>=', $runAt->format('H:i:s'));
+                        });
+                })
+                ->exists();
+
+            if ($existingPending) {
+                $summary['skipped_pending_exists']++;
+                $subscription->forceFill([
+                    'next_run_at' => $this->resolveNextRunAt($runAt, (string) ($subscription->plan?->frequency_type ?? $subscription->meta['frequency_type'] ?? '')),
+                ])->save();
+
+                continue;
+            }
 
             Order::createFromLegacyWebContract([
                 'client_id' => (int) $subscription->client_id,
@@ -98,6 +130,17 @@ class GenerateSubscriptionExecutionOrdersCommand extends Command
         $this->line(json_encode($summary, JSON_UNESCAPED_SLASHES));
 
         return self::SUCCESS;
+    }
+
+    private function resolveGenerationSlot(CarbonImmutable $nextRunAt, string $frequency, CarbonImmutable $now): CarbonImmutable
+    {
+        $slot = $nextRunAt;
+
+        while ($slot->lessThan($now)) {
+            $slot = $this->resolveNextRunAt($slot, $frequency);
+        }
+
+        return $slot;
     }
 
     private function resolveNextRunAt(CarbonImmutable $from, string $frequency): CarbonImmutable

@@ -80,3 +80,39 @@ If this behavioral change is not accepted:
 - `checked` and `created` are non-zero for due active paid subscriptions
 - no duplicate pending subscription orders per subscription
 - subscriptions page still reflects user auto-renew preference independently from recurring execution order creation
+
+## Follow-up hotfix guidance (PR #534)
+
+### Updated overdue semantics
+
+- Generator now aligns overdue subscriptions to the **nearest valid current slot** (frequency-aligned, not historical backlog replay).
+- `next_run_at` always advances from that computed slot, so it does not stay in the past.
+- stale historical pending orders no longer block generation of the current slot forever.
+
+### Remediation for already-created stale orders (`#80`, `#81`)
+
+1. Identify stale pending subscription orders whose scheduled slot is already in the past:
+
+```sql
+SELECT id, subscription_id, status, payment_status, scheduled_date, scheduled_time_from
+FROM orders
+WHERE origin = 'subscription'
+  AND payment_status = 'pending'
+  AND status IN ('new', 'searching')
+  AND TIMESTAMP(scheduled_date, COALESCE(scheduled_time_from, '00:00:00')) < NOW()
+ORDER BY subscription_id, scheduled_date, scheduled_time_from;
+```
+
+2. For each stale order, choose one remediation policy with product/ops:
+   - cancel stale order (recommended for historical slots that should not dispatch), or
+   - reschedule to the next approved execution slot if operations requires fulfillment.
+
+3. After remediation, run generation once and verify the subscription is no longer stuck:
+
+```bash
+php artisan subscriptions:generate-execution-orders --limit=100
+```
+
+4. Validate per subscription:
+   - at most one pending order exists for the intended current/future slot,
+   - `next_run_at` is in the future and frequency-aligned.
