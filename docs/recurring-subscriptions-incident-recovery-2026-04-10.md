@@ -86,8 +86,9 @@ If this behavioral change is not accepted:
 ### Updated overdue semantics
 
 - Generator now aligns overdue subscriptions to the **nearest valid current slot** (frequency-aligned, not historical backlog replay).
-- `next_run_at` always advances from that computed slot, so it does not stay in the past.
-- stale historical pending orders no longer block generation of the current slot forever.
+- Product invariant: a subscription may have only **one unresolved pending execution order** at a time.
+- New payable order generation is blocked until that pending order is resolved (paid/cancelled/expired) to prevent unpaid backlog growth.
+- Slot duplicate checks are normalized to **minute precision** so legacy rows with non-zero seconds still block duplicate creation for the same slot.
 
 ### Remediation for already-created stale orders (`#80`, `#81`)
 
@@ -114,5 +115,5 @@ php artisan subscriptions:generate-execution-orders --limit=100
 ```
 
 4. Validate per subscription:
-   - at most one pending order exists for the intended current/future slot,
-   - `next_run_at` is in the future and frequency-aligned.
+   - at most one unresolved pending execution order exists per subscription,
+   - `next_run_at` advances only after pending order resolution and next successful generation.

@@ -80,10 +80,10 @@ class GenerateSubscriptionExecutionOrdersCommandTest extends TestCase
             ->count());
 
         $subscription->refresh();
-        $this->assertSame('2026-04-15 12:00:00', $subscription->next_run_at?->format('Y-m-d H:i:s'));
+        $this->assertSame('2026-04-09 12:00:00', $subscription->next_run_at?->format('Y-m-d H:i:s'));
     }
 
-    public function test_it_ignores_stale_pending_backlog_order_and_generates_current_slot(): void
+    public function test_it_blocks_new_generation_when_any_unresolved_pending_order_exists(): void
     {
         Carbon::setTestNow(Carbon::parse('2026-04-10 12:00:00'));
 
@@ -108,20 +108,44 @@ class GenerateSubscriptionExecutionOrdersCommandTest extends TestCase
 
         Artisan::call('subscriptions:generate-execution-orders --limit=100');
 
-        $this->assertDatabaseHas('orders', [
-            'subscription_id' => $subscription->id,
-            'payment_status' => Order::PAY_PENDING,
-            'scheduled_date' => '2026-04-10',
-            'scheduled_time_from' => '12:00:00',
-        ]);
-
-        $this->assertSame(2, Order::query()
+        $this->assertSame(1, Order::query()
             ->where('subscription_id', $subscription->id)
             ->where('payment_status', Order::PAY_PENDING)
             ->count());
 
         $subscription->refresh();
-        $this->assertSame('2026-04-13 12:00:00', $subscription->next_run_at?->format('Y-m-d H:i:s'));
+        $this->assertSame('2026-04-01 12:00:00', $subscription->next_run_at?->format('Y-m-d H:i:s'));
+    }
+
+    public function test_it_treats_pending_order_in_same_minute_as_duplicate_even_with_non_zero_seconds(): void
+    {
+        Carbon::setTestNow(Carbon::parse('2026-04-10 12:00:00'));
+
+        $subscription = $this->createPaidSubscription([
+            'next_run_at' => Carbon::parse('2026-04-09 12:00:00'),
+        ]);
+
+        Order::createForTesting([
+            'client_id' => $subscription->client_id,
+            'subscription_id' => $subscription->id,
+            'status' => Order::STATUS_NEW,
+            'payment_status' => Order::PAY_PENDING,
+            'order_type' => Order::TYPE_SUBSCRIPTION,
+            'origin' => Order::ORIGIN_SUBSCRIPTION,
+            'address_text' => 'вул. Підписки, 10',
+            'price' => 450,
+            'client_charge_amount' => 450,
+            'scheduled_date' => '2026-04-12',
+            'scheduled_time_from' => '12:00:30',
+            'scheduled_time_to' => '14:00',
+        ]);
+
+        Artisan::call('subscriptions:generate-execution-orders --limit=100');
+
+        $this->assertSame(1, Order::query()
+            ->where('subscription_id', $subscription->id)
+            ->where('payment_status', Order::PAY_PENDING)
+            ->count());
     }
 
     public function test_it_creates_due_execution_order_for_legacy_active_subscription_with_auto_renew_disabled(): void
@@ -168,7 +192,7 @@ class GenerateSubscriptionExecutionOrdersCommandTest extends TestCase
         Artisan::call('subscriptions:generate-execution-orders --limit=100');
         Artisan::call('subscriptions:generate-execution-orders --limit=100');
 
-        $this->assertSame(2, Order::query()
+        $this->assertSame(1, Order::query()
             ->where('subscription_id', $subscription->id)
             ->where('payment_status', Order::PAY_PENDING)
             ->count());

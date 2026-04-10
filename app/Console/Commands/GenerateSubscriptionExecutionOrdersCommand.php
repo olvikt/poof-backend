@@ -50,40 +50,27 @@ class GenerateSubscriptionExecutionOrdersCommand extends Command
                 (string) ($subscription->plan?->frequency_type ?? $subscription->meta['frequency_type'] ?? ''),
                 $now,
             );
+            $runAtMinute = $runAt->setSecond(0);
 
             $existingPendingForSlot = $subscription->generatedOrders()
                 ->where('payment_status', Order::PAY_PENDING)
                 ->where('origin', Order::ORIGIN_SUBSCRIPTION)
                 ->whereDate('scheduled_date', $runAt->toDateString())
-                ->whereTime('scheduled_time_from', $runAt->format('H:i:s'))
+                ->whereTime('scheduled_time_from', '>=', $runAtMinute->format('H:i:00'))
+                ->whereTime('scheduled_time_from', '<=', $runAtMinute->format('H:i:59'))
                 ->exists();
 
             if ($existingPendingForSlot) {
                 $summary['skipped_duplicate_slot']++;
-                $subscription->forceFill([
-                    'next_run_at' => $this->resolveNextRunAt($runAt, (string) ($subscription->plan?->frequency_type ?? $subscription->meta['frequency_type'] ?? '')),
-                ])->save();
-
-                continue;
             }
 
             $existingPending = $subscription->generatedOrders()
                 ->where('payment_status', Order::PAY_PENDING)
                 ->where('origin', Order::ORIGIN_SUBSCRIPTION)
-                ->where(function ($query) use ($runAt): void {
-                    $query->whereDate('scheduled_date', '>', $runAt->toDateString())
-                        ->orWhere(function ($inner) use ($runAt): void {
-                            $inner->whereDate('scheduled_date', $runAt->toDateString())
-                                ->whereTime('scheduled_time_from', '>=', $runAt->format('H:i:s'));
-                        });
-                })
                 ->exists();
 
             if ($existingPending) {
                 $summary['skipped_pending_exists']++;
-                $subscription->forceFill([
-                    'next_run_at' => $this->resolveNextRunAt($runAt, (string) ($subscription->plan?->frequency_type ?? $subscription->meta['frequency_type'] ?? '')),
-                ])->save();
 
                 continue;
             }
