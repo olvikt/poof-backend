@@ -6,7 +6,9 @@ namespace App\Livewire\Client;
 
 use App\Models\ClientSubscription;
 use Carbon\CarbonImmutable;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Collection;
+use Illuminate\Validation\ValidationException;
 use Livewire\Component;
 
 class SubscriptionsPage extends Component
@@ -71,10 +73,34 @@ class SubscriptionsPage extends Component
             return;
         }
 
-        $subscription->forceFill([
-            'status' => ClientSubscription::STATUS_ACTIVE,
-            'paused_at' => null,
-        ])->save();
+        try {
+            DB::transaction(function () use ($subscriptionId): void {
+                $subscription = ClientSubscription::query()
+                    ->where('id', $subscriptionId)
+                    ->where('client_id', auth()->id())
+                    ->lockForUpdate()
+                    ->first();
+
+                if (! $subscription || ! $subscription->canResume()) {
+                    throw ValidationException::withMessages([
+                        'subscription' => 'Відновити можна лише підписку в статусі «На паузі».',
+                    ]);
+                }
+
+                $subscription->forceFill([
+                    'status' => ClientSubscription::STATUS_ACTIVE,
+                    'paused_at' => null,
+                ]);
+
+                $subscription->assertNoActiveScopeConflict();
+                $subscription->save();
+            });
+        } catch (ValidationException $exception) {
+            $message = collect($exception->errors())->flatten()->first() ?? 'Для цієї адреси вже існує активна підписка.';
+            $this->dispatch('notify', type: 'error', message: $message);
+
+            return;
+        }
 
         $this->dispatch('notify', type: 'success', message: 'Підписку відновлено.');
 

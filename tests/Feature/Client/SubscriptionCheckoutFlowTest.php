@@ -83,5 +83,46 @@ class SubscriptionCheckoutFlowTest extends TestCase
             ->assertSee('Докладніше')
             ->assertDontSee('Скасувати');
     }
-}
 
+    public function test_pay_route_blocks_duplicate_active_scope_before_creating_pending_order(): void
+    {
+        $client = User::factory()->create(['role' => User::ROLE_CLIENT]);
+        $plan = SubscriptionPlan::factory()->create(['monthly_price' => 500]);
+        $address = ClientAddress::createForUser($client->id, [
+            'label' => 'home',
+            'title' => 'Дім',
+            'address_text' => 'вул. Платіжна, 11',
+            'city' => 'Київ',
+            'street' => 'Платіжна',
+            'house' => '11',
+            'lat' => 50.45,
+            'lng' => 30.52,
+        ]);
+
+        ClientSubscription::unguarded(fn (): ClientSubscription => ClientSubscription::query()->create([
+            'client_id' => $client->id,
+            'subscription_plan_id' => $plan->id,
+            'address_id' => $address->id,
+            'status' => ClientSubscription::STATUS_ACTIVE,
+            'auto_renew' => true,
+            'next_run_at' => now()->addDay(),
+            'ends_at' => now()->addMonth(),
+        ]));
+
+        $target = ClientSubscription::unguarded(fn (): ClientSubscription => ClientSubscription::query()->create([
+            'client_id' => $client->id,
+            'subscription_plan_id' => $plan->id,
+            'address_id' => $address->id,
+            'status' => ClientSubscription::STATUS_PAUSED,
+            'auto_renew' => true,
+            'next_run_at' => now()->addDay(),
+            'ends_at' => now()->addMonth(),
+        ]));
+
+        $response = $this->actingAs($client, 'web')
+            ->post(route('client.subscriptions.pay', $target));
+
+        $response->assertStatus(422);
+        $this->assertSame(0, Order::query()->where('subscription_id', $target->id)->count());
+    }
+}

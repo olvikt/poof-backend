@@ -124,6 +124,45 @@ class SubscriptionExecutionDispatchFlowTest extends TestCase
         ]);
     }
 
+    public function test_paid_subscription_order_is_cancelled_without_exception_when_activation_scope_conflicts(): void
+    {
+        $client = User::factory()->create(['role' => User::ROLE_CLIENT, 'is_active' => true]);
+        $baseSubscription = $this->createPaidSubscription($client);
+
+        $conflictingSubscription = ClientSubscription::unguarded(fn (): ClientSubscription => ClientSubscription::query()->create([
+            'client_id' => $client->id,
+            'subscription_plan_id' => $baseSubscription->subscription_plan_id,
+            'address_id' => $baseSubscription->address_id,
+            'status' => ClientSubscription::STATUS_PAUSED,
+            'paused_at' => now(),
+            'next_run_at' => now()->addDay(),
+            'ends_at' => now()->addMonth(),
+            'auto_renew' => true,
+        ]));
+
+        $order = Order::createForTesting([
+            'client_id' => $client->id,
+            'status' => Order::STATUS_NEW,
+            'payment_status' => Order::PAY_PENDING,
+            'order_type' => Order::TYPE_SUBSCRIPTION,
+            'origin' => Order::ORIGIN_SUBSCRIPTION,
+            'subscription_id' => $conflictingSubscription->id,
+            'address_text' => 'вул. Підписки, 12',
+            'lat' => 50.4501,
+            'lng' => 30.5234,
+            'price' => 400,
+            'client_charge_amount' => 400,
+        ]);
+
+        app(MarkOrderAsPaidAction::class)->handle($order->fresh());
+
+        $order->refresh();
+
+        $this->assertSame(Order::PAY_PAID, $order->payment_status);
+        $this->assertSame(Order::STATUS_CANCELLED, $order->status);
+        $this->assertSame(ClientSubscription::STATUS_PAUSED, $conflictingSubscription->fresh()?->status);
+    }
+
     public function test_paused_subscription_cannot_be_renewed_until_resumed(): void
     {
         $client = User::factory()->create(['role' => User::ROLE_CLIENT, 'is_active' => true]);

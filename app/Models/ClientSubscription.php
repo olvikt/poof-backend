@@ -3,9 +3,11 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Validation\ValidationException;
 
 class ClientSubscription extends Model
 {
@@ -44,6 +46,15 @@ class ClientSubscription extends Model
         'meta' => 'array',
     ];
 
+    protected static function booted(): void
+    {
+        static::saving(function (ClientSubscription $subscription): void {
+            $subscription->active_scope_key = $subscription->isActiveLifecycleStatus()
+                ? self::buildActiveScopeKey((int) $subscription->client_id, $subscription->address_id !== null ? (int) $subscription->address_id : null)
+                : null;
+        });
+    }
+
     public function client(): BelongsTo
     {
         return $this->belongsTo(User::class, 'client_id');
@@ -62,6 +73,39 @@ class ClientSubscription extends Model
     public function generatedOrders(): HasMany
     {
         return $this->hasMany(Order::class, 'subscription_id');
+    }
+
+    public function overlappingActiveSubscriptionsQuery(): Builder
+    {
+        return self::query()
+            ->where('client_id', (int) $this->client_id)
+            ->where('address_id', $this->address_id)
+            ->where('status', self::STATUS_ACTIVE)
+            ->when($this->exists, fn ($query) => $query->where('id', '!=', (int) $this->id));
+    }
+
+    public function assertNoActiveScopeConflict(): void
+    {
+        if (! $this->isActiveLifecycleStatus()) {
+            return;
+        }
+
+        $this->assertNoOtherActiveSubscriptionInScope();
+    }
+
+    public function assertNoOtherActiveSubscriptionInScope(): void
+    {
+        $conflict = $this->overlappingActiveSubscriptionsQuery()
+            ->orderBy('id')
+            ->first(['id']);
+
+        if (! $conflict) {
+            return;
+        }
+
+        throw ValidationException::withMessages([
+            'subscription' => 'Для цієї адреси вже існує активна підписка.',
+        ]);
     }
     public function getStatusLabelAttribute(): string
     {
@@ -239,6 +283,16 @@ class ClientSubscription extends Model
             'every_3_days' => '1 раз в 3 дні',
             default => 'За графіком',
         };
+    }
+
+    public function isActiveLifecycleStatus(): bool
+    {
+        return $this->status === self::STATUS_ACTIVE;
+    }
+
+    public static function buildActiveScopeKey(int $clientId, ?int $addressId): string
+    {
+        return sprintf('c:%d:a:%d', $clientId, $addressId ?? 0);
     }
 
 }
