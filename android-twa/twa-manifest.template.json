@@ -1,0 +1,25 @@
+{
+  "packageId": "ua.com.poof.app",
+  "host": "app.poof.com.ua",
+  "name": "POOF",
+  "launcherName": "POOF",
+  "display": "standalone",
+  "themeColor": "#18191f",
+  "backgroundColor": "#18191f",
+  "startUrl": "/",
+  "orientation": "portrait",
+  "enableNotifications": false,
+  "applicationId": "ua.com.poof.app",
+  "appVersionName": "1.0.0",
+  "appVersionCode": 1,
+  "maskableIconUrl": "https://app.poof.com.ua/assets/icons/client-icon-512-maskable.png",
+  "iconUrl": "https://app.poof.com.ua/assets/icons/client-icon-512.png",
+  "signingKey": {
+    "path": "keys/release.keystore",
+    "alias": "upload",
+    "storePassword": "__SET_IN_LOCAL_ENV__",
+    "keyPassword": "__SET_IN_LOCAL_ENV__"
+  },
+  "webManifestUrl": "https://app.poof.com.ua/manifest.json",
+  "fallbackType": "customtabs"
+}

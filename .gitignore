@@ -23,3 +23,8 @@ public/vendor
 Homestead.json
 Homestead.yaml
 Thumbs.db
+
+# Android TWA local artifacts
+/ua.com.poof.app/
+/android-twa/twa-manifest.json
+/android-twa/keys/

@@ -1,0 +1,16 @@
+# Bubblewrap generated Android project
+ua.com.poof.app/
+
+# Local manifest with secrets
+twa-manifest.json
+
+# Signing materials
+keys/
+*.keystore
+*.jks
+*.p12
+
+# Local environment files
+.env
+.env.*
+local.properties
