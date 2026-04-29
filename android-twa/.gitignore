@@ -2,10 +2,10 @@
 ua.com.poof.app/
 
 # Local manifest with secrets
-android-twa/twa-manifest.json
+twa-manifest.json
 
 # Signing materials
-android-twa/keys/
+keys/
 *.keystore
 *.jks
 *.p12
