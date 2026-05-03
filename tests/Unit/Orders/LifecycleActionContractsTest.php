@@ -88,6 +88,54 @@ class LifecycleActionContractsTest extends TestCase
         });
     }
 
+    public function test_mark_as_paid_action_rejects_forbidden_transition_from_done_to_searching(): void
+    {
+        Event::fake([OrderCreated::class]);
+
+        $client = User::factory()->create([
+            'role' => User::ROLE_CLIENT,
+            'is_active' => true,
+        ]);
+
+        $order = Order::createForTesting([
+            'client_id' => $client->id,
+            'status' => Order::STATUS_DONE,
+            'payment_status' => Order::PAY_PAID,
+            'completed_at' => now()->subMinute(),
+            'address_text' => 'вул. Фінальна, 1',
+            'price' => 100,
+        ]);
+
+        app(MarkOrderAsPaidAction::class)->handle($order->fresh());
+
+        $order->refresh();
+
+        $this->assertSame(Order::STATUS_DONE, $order->status, 'FSM contract forbids terminal -> non-terminal rollback.');
+        Event::assertNotDispatched(OrderCreated::class);
+    }
+
+    public function test_mark_as_paid_action_preserves_terminal_cancelled_state_immutability(): void
+    {
+        $client = User::factory()->create([
+            'role' => User::ROLE_CLIENT,
+            'is_active' => true,
+        ]);
+
+        $order = Order::createForTesting([
+            'client_id' => $client->id,
+            'status' => Order::STATUS_CANCELLED,
+            'payment_status' => Order::PAY_PENDING,
+            'address_text' => 'вул. Скасована, 1',
+            'price' => 100,
+        ]);
+
+        app(MarkOrderAsPaidAction::class)->handle($order->fresh());
+
+        $order->refresh();
+
+        $this->assertSame(Order::STATUS_CANCELLED, $order->status, 'Terminal states must be immutable.');
+    }
+
     /**
      * @return array{0: User, 1: Order}
      */
