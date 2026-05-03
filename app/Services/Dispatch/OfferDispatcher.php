@@ -81,6 +81,8 @@ class OfferDispatcher
                     'status' => (string) ($locked?->status ?? 'missing'),
                     'reason' => $locked === null ? 'order_not_found_under_lock' : 'order_not_dispatchable_state',
                     'trigger_source' => $triggerSource,
+                    'order_age_seconds' => null,
+                    'elapsed_ms' => $this->elapsedMs($startedAt),
                 ]);
                 return null;
             }
@@ -93,6 +95,8 @@ class OfferDispatcher
                     'status' => (string) $locked->status,
                     'reason' => 'order_promise_expired',
                     'trigger_source' => $triggerSource,
+                    'order_age_seconds' => $locked->created_at ? $locked->created_at->diffInSeconds($now) : null,
+                    'elapsed_ms' => $this->elapsedMs($startedAt),
                 ]);
 
                 return null;
@@ -109,6 +113,7 @@ class OfferDispatcher
                     'trigger_source' => $triggerSource,
                     'dispatch_backoff_until' => $locked->next_dispatch_at->toIso8601String(),
                     'order_age_seconds' => $orderAgeSeconds,
+                    'elapsed_ms' => $this->elapsedMs($startedAt),
                 ]);
 
                 return null;
@@ -136,6 +141,7 @@ class OfferDispatcher
                     'reason' => 'waiting_live_offer',
                     'trigger_source' => $triggerSource,
                     'order_age_seconds' => $orderAgeSeconds,
+                    'elapsed_ms' => $this->elapsedMs($startedAt),
                 ]);
 
                 return null;
@@ -156,7 +162,9 @@ class OfferDispatcher
                 'status' => (string) $locked->status,
                 'reason' => null,
                 'attempt_count' => $attemptCount,
+                'trigger_source' => $triggerSource,
                 'order_age_seconds' => $orderAgeSeconds,
+                'elapsed_ms' => $this->elapsedMs($startedAt),
             ]);
 
             /* -------------------------------------------------
@@ -201,7 +209,14 @@ class OfferDispatcher
                     'reason' => 'no_candidates',
                     'attempt_count' => $attemptCount,
                     'reason_breakdown' => $reasonBreakdown['reason_breakdown'],
+                    'search_radius_km' => $this->primaryRadiusKm,
+                    'bbox_prefilter_applied' => $orderHasCoords,
+                    'candidate_scan_count' => $candidateScanCount,
+                    'candidate_count' => 0,
+                    'diagnostic_candidate_scan_count' => $reasonBreakdown['candidate_scan_count'],
                     'trigger_source' => $triggerSource,
+                    'order_age_seconds' => $orderAgeSeconds,
+                    'elapsed_ms' => $this->elapsedMs($startedAt),
                     'counter' => 'offer_not_created_total',
                     'counter_increment' => 1,
                 ]);
@@ -237,6 +252,12 @@ class OfferDispatcher
                     'reason' => 'no_pick',
                     'attempt_count' => $attemptCount,
                     'trigger_source' => $triggerSource,
+                    'search_radius_km' => $this->primaryRadiusKm,
+                    'bbox_prefilter_applied' => $orderHasCoords,
+                    'candidate_scan_count' => $candidateScanCount,
+                    'candidate_count' => $couriers->count(),
+                    'order_age_seconds' => $orderAgeSeconds,
+                    'elapsed_ms' => $this->elapsedMs($startedAt),
                     'counter' => 'offer_not_created_total',
                     'counter_increment' => 1,
                 ]);
@@ -275,6 +296,12 @@ class OfferDispatcher
                 'offer_id' => $offer->id,
                 'attempt_count' => $attemptCount,
                 'trigger_source' => $triggerSource,
+                'search_radius_km' => $this->primaryRadiusKm,
+                'bbox_prefilter_applied' => $orderHasCoords,
+                'candidate_scan_count' => $candidateScanCount,
+                'candidate_count' => $couriers->count(),
+                'order_age_seconds' => $orderAgeSeconds,
+                'elapsed_ms' => $this->elapsedMs($startedAt),
                 'counter' => 'offer_created_total',
                 'counter_increment' => 1,
             ]);
