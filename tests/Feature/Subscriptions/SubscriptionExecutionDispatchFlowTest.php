@@ -15,6 +15,7 @@ use App\Models\OrderOffer;
 use App\Models\SubscriptionPlan;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Carbon;
 use Livewire\Livewire;
 use Tests\TestCase;
 
@@ -61,6 +62,70 @@ class SubscriptionExecutionDispatchFlowTest extends TestCase
 
         Livewire::test(AvailableOrders::class)
             ->assertSee('Пошук замовлень...');
+    }
+
+    public function test_unpaid_cancelled_and_expired_subscription_orders_are_not_dispatchable_and_not_visible_for_courier(): void
+    {
+        $client = User::factory()->create(['role' => User::ROLE_CLIENT, 'is_active' => true]);
+        $courier = $this->createOnlineCourier();
+        $subscription = $this->createPaidSubscription($client);
+
+        $unpaid = Order::createForTesting([
+            'client_id' => $client->id,
+            'status' => Order::STATUS_NEW,
+            'payment_status' => Order::PAY_PENDING,
+            'order_type' => Order::TYPE_SUBSCRIPTION,
+            'origin' => Order::ORIGIN_SUBSCRIPTION,
+            'subscription_id' => $subscription->id,
+            'address_text' => 'Несплачений',
+            'lat' => 50.4501,
+            'lng' => 30.5234,
+            'price' => 400,
+        ]);
+        $cancelled = Order::createForTesting([
+            'client_id' => $client->id,
+            'status' => Order::STATUS_CANCELLED,
+            'payment_status' => Order::PAY_PAID,
+            'order_type' => Order::TYPE_SUBSCRIPTION,
+            'origin' => Order::ORIGIN_SUBSCRIPTION,
+            'subscription_id' => $subscription->id,
+            'address_text' => 'Скасований',
+            'lat' => 50.4501,
+            'lng' => 30.5234,
+            'price' => 400,
+        ]);
+        $expired = Order::createForTesting([
+            'client_id' => $client->id,
+            'status' => Order::STATUS_SEARCHING,
+            'payment_status' => Order::PAY_PAID,
+            'order_type' => Order::TYPE_SUBSCRIPTION,
+            'origin' => Order::ORIGIN_SUBSCRIPTION,
+            'subscription_id' => $subscription->id,
+            'address_text' => 'Протермінований',
+            'lat' => 50.4501,
+            'lng' => 30.5234,
+            'price' => 400,
+            'valid_until_at' => Carbon::now()->subMinute(),
+        ]);
+
+        $this->assertFalse($unpaid->fresh()->isDispatchableForOfferPipeline());
+        $this->assertFalse($cancelled->fresh()->isDispatchableForOfferPipeline());
+        $this->assertFalse($expired->fresh()->isDispatchableForOfferPipeline());
+
+        $this->assertNull(app(\App\Services\Dispatch\OfferDispatcher::class)->dispatchForOrder($unpaid->fresh()));
+        $this->assertNull(app(\App\Services\Dispatch\OfferDispatcher::class)->dispatchForOrder($cancelled->fresh()));
+        $this->assertNull(app(\App\Services\Dispatch\OfferDispatcher::class)->dispatchForOrder($expired->fresh()));
+
+        $this->assertDatabaseMissing('order_offers', ['order_id' => $unpaid->id, 'courier_id' => $courier->id]);
+        $this->assertDatabaseMissing('order_offers', ['order_id' => $cancelled->id, 'courier_id' => $courier->id]);
+        $this->assertDatabaseMissing('order_offers', ['order_id' => $expired->id, 'courier_id' => $courier->id]);
+
+        $this->actingAs($courier, 'web');
+
+        Livewire::test(AvailableOrders::class)
+            ->assertDontSee('Несплачений')
+            ->assertDontSee('Скасований')
+            ->assertDontSee('Протермінований');
     }
 
     public function test_orders_list_excludes_subscription_execution_orders(): void
