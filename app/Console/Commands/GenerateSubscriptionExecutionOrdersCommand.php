@@ -62,6 +62,17 @@ class GenerateSubscriptionExecutionOrdersCommand extends Command
 
             if ($existingPendingForSlot) {
                 $summary['skipped_duplicate_slot']++;
+
+                logger()->debug('subscriptions.generate-execution-orders.skipped-duplicate-slot', [
+                    'subscription_id' => (int) $subscription->id,
+                    'order_type' => Order::TYPE_SUBSCRIPTION,
+                    'origin' => Order::ORIGIN_SUBSCRIPTION,
+                    'scheduled_date' => $runAt->toDateString(),
+                    'scheduled_time_from' => $runAt->format('H:i'),
+                    'scheduled_time_to' => $runAt->addHours(2)->format('H:i'),
+                ]);
+
+                continue;
             }
 
             $existingPending = $subscription->generatedOrders()
