@@ -25,6 +25,12 @@ class MarkOrderAsPaidAction
     public function handle(Order $order): void
     {
         if (in_array($order->status, [Order::STATUS_DONE, Order::STATUS_CANCELLED, Order::STATUS_EXPIRED], true)) {
+            Log::info('order_paid_skipped_terminal', [
+                'order_id' => (int) $order->id,
+                'subscription_id' => $order->subscription_id !== null ? (int) $order->subscription_id : null,
+                'status' => (string) $order->status,
+                'reason' => 'terminal_status',
+            ]);
             if ($order->payment_status !== Order::PAY_PAID) {
                 $order->forceFill([
                     'payment_status' => Order::PAY_PAID,
@@ -84,6 +90,16 @@ class MarkOrderAsPaidAction
         }
 
         event(new OrderCreated($freshOrder));
+
+        Log::info('order_marked_paid', [
+            'order_id' => (int) $freshOrder->id,
+            'subscription_id' => $freshOrder->subscription_id !== null ? (int) $freshOrder->subscription_id : null,
+            'status' => (string) $freshOrder->status,
+            'reason' => null,
+            'payment_status' => (string) $freshOrder->payment_status,
+            'counter' => 'order_marked_paid_total',
+            'counter_increment' => 1,
+        ]);
     }
 
     private function syncSubscriptionLifecycleAfterPayment(Order $order): void

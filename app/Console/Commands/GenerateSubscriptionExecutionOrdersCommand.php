@@ -41,6 +41,14 @@ class GenerateSubscriptionExecutionOrdersCommand extends Command
         foreach ($subscriptions as $subscription) {
             if (! $subscription->canGenerateNextOrderAutomatically()) {
                 $summary['skipped_unpaid']++;
+                logger()->info('subscription_execution_skipped_reason', [
+                    'subscription_id' => (int) $subscription->id,
+                    'order_id' => null,
+                    'status' => (string) $subscription->status,
+                    'reason' => 'subscription_not_eligible_for_auto_generation',
+                    'counter' => 'subscription_execution_skipped_total',
+                    'counter_increment' => 1,
+                ]);
 
                 continue;
             }
@@ -63,13 +71,18 @@ class GenerateSubscriptionExecutionOrdersCommand extends Command
             if ($existingPendingForSlot) {
                 $summary['skipped_duplicate_slot']++;
 
-                logger()->debug('subscriptions.generate-execution-orders.skipped-duplicate-slot', [
+                logger()->info('subscription_execution_skipped_duplicate', [
                     'subscription_id' => (int) $subscription->id,
+                    'order_id' => null,
+                    'status' => (string) $subscription->status,
+                    'reason' => 'duplicate_pending_for_generation_slot',
                     'order_type' => Order::TYPE_SUBSCRIPTION,
                     'origin' => Order::ORIGIN_SUBSCRIPTION,
                     'scheduled_date' => $runAt->toDateString(),
                     'scheduled_time_from' => $runAt->format('H:i'),
                     'scheduled_time_to' => $runAt->addHours(2)->format('H:i'),
+                    'counter' => 'subscription_execution_skipped_duplicate_total',
+                    'counter_increment' => 1,
                 ]);
 
                 continue;
@@ -82,11 +95,19 @@ class GenerateSubscriptionExecutionOrdersCommand extends Command
 
             if ($existingPending) {
                 $summary['skipped_pending_exists']++;
+                logger()->info('subscription_execution_skipped_reason', [
+                    'subscription_id' => (int) $subscription->id,
+                    'order_id' => null,
+                    'status' => (string) $subscription->status,
+                    'reason' => 'pending_execution_order_already_exists',
+                    'counter' => 'subscription_execution_skipped_total',
+                    'counter_increment' => 1,
+                ]);
 
                 continue;
             }
 
-            Order::createFromLegacyWebContract([
+            $order = Order::createFromLegacyWebContract([
                 'client_id' => (int) $subscription->client_id,
                 'order_type' => Order::TYPE_SUBSCRIPTION,
                 'status' => Order::STATUS_NEW,
@@ -123,6 +144,15 @@ class GenerateSubscriptionExecutionOrdersCommand extends Command
             ])->save();
 
             $summary['created']++;
+            logger()->info('subscription_execution_generated', [
+                'subscription_id' => (int) $subscription->id,
+                'order_id' => (int) $order->id,
+                'status' => (string) $order->status,
+                'reason' => null,
+                'payment_status' => (string) $order->payment_status,
+                'counter' => 'subscription_execution_generated_total',
+                'counter_increment' => 1,
+            ]);
         }
 
         $this->line(json_encode($summary, JSON_UNESCAPED_SLASHES));
