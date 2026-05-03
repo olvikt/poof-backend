@@ -24,6 +24,16 @@ class MarkOrderAsPaidAction
      */
     public function handle(Order $order): void
     {
+        if (in_array($order->status, [Order::STATUS_DONE, Order::STATUS_CANCELLED, Order::STATUS_EXPIRED], true)) {
+            if ($order->payment_status !== Order::PAY_PAID) {
+                $order->forceFill([
+                    'payment_status' => Order::PAY_PAID,
+                ])->save();
+            }
+
+            return;
+        }
+
         if ($this->hasActivationConflict($order)) {
             $order->forceFill([
                 'payment_status' => Order::PAY_PAID,
