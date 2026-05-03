@@ -75,11 +75,29 @@ class OfferDispatcher
 
             // Заказ уже не ищется или уже назначен
             if (! $locked || $locked->status !== Order::STATUS_SEARCHING || $locked->courier_id !== null) {
+                Log::debug('dispatch_skipped', [
+                    'order_id' => $order->id,
+                    'subscription_id' => $order->subscription_id !== null ? (int) $order->subscription_id : null,
+                    'status' => (string) ($locked?->status ?? 'missing'),
+                    'reason' => $locked === null ? 'order_not_found_under_lock' : 'order_not_dispatchable_state',
+                    'trigger_source' => $triggerSource,
+                    'order_age_seconds' => null,
+                    'elapsed_ms' => $this->elapsedMs($startedAt),
+                ]);
                 return null;
             }
 
             if ($locked->isPromiseExpired()) {
                 $this->orderAutoExpireService->expireOne((int) $locked->id, $now);
+                Log::debug('dispatch_skipped', [
+                    'order_id' => $locked->id,
+                    'subscription_id' => $locked->subscription_id !== null ? (int) $locked->subscription_id : null,
+                    'status' => (string) $locked->status,
+                    'reason' => 'order_promise_expired',
+                    'trigger_source' => $triggerSource,
+                    'order_age_seconds' => $locked->created_at ? $locked->created_at->diffInSeconds($now) : null,
+                    'elapsed_ms' => $this->elapsedMs($startedAt),
+                ]);
 
                 return null;
             }
@@ -87,12 +105,12 @@ class OfferDispatcher
             $orderAgeSeconds = $locked->created_at ? $locked->created_at->diffInSeconds($now) : null;
 
             if ($locked->next_dispatch_at && $locked->next_dispatch_at->isFuture()) {
-                Log::debug('dispatch_skipped_deferred_under_lock', [
-                    'flow' => 'offer_dispatch',
+                Log::debug('dispatch_skipped', [
                     'order_id' => $locked->id,
+                    'subscription_id' => $locked->subscription_id !== null ? (int) $locked->subscription_id : null,
+                    'status' => (string) $locked->status,
+                    'reason' => 'next_dispatch_at_in_future',
                     'trigger_source' => $triggerSource,
-                    'dispatch_attempted' => false,
-                    'dispatch_deferred' => true,
                     'dispatch_backoff_until' => $locked->next_dispatch_at->toIso8601String(),
                     'order_age_seconds' => $orderAgeSeconds,
                     'elapsed_ms' => $this->elapsedMs($startedAt),
@@ -116,12 +134,12 @@ class OfferDispatcher
                 ]);
 
             if ($this->hasLivePendingOffer((int) $locked->id, $now)) {
-                Log::debug('dispatch_waiting_live_offer', [
-                    'flow' => 'offer_dispatch',
+                Log::debug('dispatch_skipped', [
                     'order_id' => $locked->id,
+                    'subscription_id' => $locked->subscription_id !== null ? (int) $locked->subscription_id : null,
+                    'status' => (string) $locked->status,
+                    'reason' => 'waiting_live_offer',
                     'trigger_source' => $triggerSource,
-                    'dispatch_attempted' => false,
-                    'dispatch_waiting_live_offer' => true,
                     'order_age_seconds' => $orderAgeSeconds,
                     'elapsed_ms' => $this->elapsedMs($startedAt),
                 ]);
@@ -139,11 +157,14 @@ class OfferDispatcher
                 ]);
 
             Log::debug('dispatch_started', [
-                'flow' => 'offer_dispatch',
                 'order_id' => $locked->id,
-                'dispatch_attempted' => true,
+                'subscription_id' => $locked->subscription_id !== null ? (int) $locked->subscription_id : null,
+                'status' => (string) $locked->status,
+                'reason' => null,
                 'attempt_count' => $attemptCount,
+                'trigger_source' => $triggerSource,
                 'order_age_seconds' => $orderAgeSeconds,
+                'elapsed_ms' => $this->elapsedMs($startedAt),
             ]);
 
             /* -------------------------------------------------
@@ -181,9 +202,11 @@ class OfferDispatcher
                     triggerSource: $triggerSource,
                 );
 
-                Log::debug('dispatch_no_candidates', [
-                    'flow' => 'offer_dispatch',
+                Log::info('offer_not_created', [
                     'order_id' => $locked->id,
+                    'subscription_id' => $locked->subscription_id !== null ? (int) $locked->subscription_id : null,
+                    'status' => (string) $locked->status,
+                    'reason' => 'no_candidates',
                     'attempt_count' => $attemptCount,
                     'reason_breakdown' => $reasonBreakdown['reason_breakdown'],
                     'search_radius_km' => $this->primaryRadiusKm,
@@ -194,6 +217,8 @@ class OfferDispatcher
                     'trigger_source' => $triggerSource,
                     'order_age_seconds' => $orderAgeSeconds,
                     'elapsed_ms' => $this->elapsedMs($startedAt),
+                    'counter' => 'offer_not_created_total',
+                    'counter_increment' => 1,
                 ]);
                 return null;
             }
@@ -220,17 +245,21 @@ class OfferDispatcher
                     triggerSource: $triggerSource,
                 );
 
-                Log::debug('dispatch_no_pick', [
-                    'flow' => 'offer_dispatch',
+                Log::info('offer_not_created', [
                     'order_id' => $locked->id,
+                    'subscription_id' => $locked->subscription_id !== null ? (int) $locked->subscription_id : null,
+                    'status' => (string) $locked->status,
+                    'reason' => 'no_pick',
+                    'attempt_count' => $attemptCount,
+                    'trigger_source' => $triggerSource,
                     'search_radius_km' => $this->primaryRadiusKm,
                     'bbox_prefilter_applied' => $orderHasCoords,
                     'candidate_scan_count' => $candidateScanCount,
                     'candidate_count' => $couriers->count(),
-                    'attempt_count' => $attemptCount,
-                    'trigger_source' => $triggerSource,
                     'order_age_seconds' => $orderAgeSeconds,
                     'elapsed_ms' => $this->elapsedMs($startedAt),
+                    'counter' => 'offer_not_created_total',
+                    'counter_increment' => 1,
                 ]);
                 return null;
             }
@@ -258,20 +287,23 @@ class OfferDispatcher
                     'next_dispatch_at' => null,
                 ]);
 
-            Log::info('dispatch_offer_created', [
-                'flow' => 'offer_dispatch',
+            Log::info('offer_created', [
                 'order_id' => $locked->id,
+                'subscription_id' => $locked->subscription_id !== null ? (int) $locked->subscription_id : null,
+                'status' => (string) $locked->status,
+                'reason' => null,
                 'courier_id' => $picked->id,
                 'offer_id' => $offer->id,
-                'ttl_seconds' => $this->ttlSeconds,
+                'attempt_count' => $attemptCount,
+                'trigger_source' => $triggerSource,
                 'search_radius_km' => $this->primaryRadiusKm,
                 'bbox_prefilter_applied' => $orderHasCoords,
                 'candidate_scan_count' => $candidateScanCount,
                 'candidate_count' => $couriers->count(),
-                'attempt_count' => $attemptCount,
-                'trigger_source' => $triggerSource,
                 'order_age_seconds' => $orderAgeSeconds,
                 'elapsed_ms' => $this->elapsedMs($startedAt),
+                'counter' => 'offer_created_total',
+                'counter_increment' => 1,
             ]);
 
             return $offer;

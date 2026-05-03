@@ -131,11 +131,15 @@ class WayForPayCallbackController extends Controller
         }
 
         if ($isSuccessStatus && $alreadyPaid) {
-            Log::info('WayForPay duplicate callback ignored: order already paid.', [
-                'event' => 'wayforpay_callback_duplicate_ignored',
+            Log::info('payment_callback_replayed', [
                 'order_id' => $order->id,
+                'subscription_id' => $order->subscription_id !== null ? (int) $order->subscription_id : null,
+                'status' => (string) $order->status,
+                'reason' => 'order_already_paid',
                 'order_reference' => $validated['orderReference'],
                 'transaction_status' => $validated['transactionStatus'],
+                'counter' => 'payment_callback_replayed_total',
+                'counter_increment' => 1,
             ]);
         }
 
