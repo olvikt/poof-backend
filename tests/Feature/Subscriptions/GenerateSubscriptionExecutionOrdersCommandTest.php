@@ -148,6 +148,45 @@ class GenerateSubscriptionExecutionOrdersCommandTest extends TestCase
             ->count());
     }
 
+    public function test_it_does_not_create_second_pending_order_when_slot_duplicate_is_detected_without_global_pending_guard(): void
+    {
+        Carbon::setTestNow(Carbon::parse('2026-04-10 12:00:00'));
+
+        $subscription = $this->createPaidSubscription([
+            'next_run_at' => Carbon::parse('2026-04-09 12:00:00'),
+        ]);
+
+        Order::createForTesting([
+            'client_id' => $subscription->client_id,
+            'subscription_id' => $subscription->id,
+            'status' => Order::STATUS_NEW,
+            'payment_status' => Order::PAY_PENDING,
+            'order_type' => Order::TYPE_SUBSCRIPTION,
+            'origin' => Order::ORIGIN_SUBSCRIPTION,
+            'address_text' => 'вул. Підписки, 10',
+            'price' => 450,
+            'client_charge_amount' => 450,
+            'scheduled_date' => '2026-04-12',
+            'scheduled_time_from' => '12:00:15',
+            'scheduled_time_to' => '14:00',
+        ]);
+
+        // Simulate stale unresolved order outside "pending" scope so only slot-level uniqueness must protect us.
+        Order::query()
+            ->where('subscription_id', $subscription->id)
+            ->where('origin', Order::ORIGIN_SUBSCRIPTION)
+            ->where('payment_status', Order::PAY_PENDING)
+            ->update(['payment_status' => Order::PAY_PAID]);
+
+        Artisan::call('subscriptions:generate-execution-orders --limit=100');
+
+        $this->assertSame(1, Order::query()
+            ->where('subscription_id', $subscription->id)
+            ->where('origin', Order::ORIGIN_SUBSCRIPTION)
+            ->whereDate('scheduled_date', '2026-04-12')
+            ->count(), 'Slot-level uniqueness must block duplicate execution orders even when no global pending order remains.');
+    }
+
     public function test_it_creates_due_execution_order_for_legacy_active_subscription_with_auto_renew_disabled(): void
     {
         $subscription = $this->createPaidSubscription([
