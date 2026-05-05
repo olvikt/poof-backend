@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Actions\Orders\Lifecycle;
 
+use App\Actions\Subscriptions\CreateSubscriptionExecutionOrderAction;
 use App\Events\OrderCreated;
 use App\Models\ClientSubscription;
 use App\Models\Order;
@@ -15,7 +16,10 @@ use Illuminate\Validation\ValidationException;
 
 class MarkOrderAsPaidAction
 {
-    public function __construct(private readonly OrderPromiseResolver $promiseResolver)
+    public function __construct(
+        private readonly OrderPromiseResolver $promiseResolver,
+        private readonly CreateSubscriptionExecutionOrderAction $createSubscriptionExecutionOrder,
+    )
     {
     }
 
@@ -50,6 +54,12 @@ class MarkOrderAsPaidAction
                 'order_id' => (int) $order->id,
                 'subscription_id' => (int) ($order->subscription_id ?? 0),
             ]);
+
+            return;
+        }
+
+        if ($order->order_type === Order::TYPE_SUBSCRIPTION && $order->origin === Order::ORIGIN_CHECKOUT) {
+            $this->handleSubscriptionCheckoutPaymentOrder($order);
 
             return;
         }
@@ -100,6 +110,35 @@ class MarkOrderAsPaidAction
             'counter' => 'order_marked_paid_total',
             'counter_increment' => 1,
         ]);
+    }
+
+    private function handleSubscriptionCheckoutPaymentOrder(Order $order): void
+    {
+        $order->forceFill([
+            'payment_status' => Order::PAY_PAID,
+            'status' => Order::STATUS_DONE,
+        ])->save();
+
+        $freshOrder = $order->fresh();
+
+        if (! $freshOrder) {
+            return;
+        }
+
+        $this->syncSubscriptionLifecycleAfterPayment($freshOrder);
+
+        if ($freshOrder->subscription_id === null) {
+            return;
+        }
+
+        $subscription = ClientSubscription::query()->with(['plan', 'address'])->find($freshOrder->subscription_id);
+
+        if (! $subscription) {
+            return;
+        }
+
+        $runAt = CarbonImmutable::instance($freshOrder->created_at ?? now());
+        $this->createSubscriptionExecutionOrder->handle($subscription, $runAt);
     }
 
     private function syncSubscriptionLifecycleAfterPayment(Order $order): void

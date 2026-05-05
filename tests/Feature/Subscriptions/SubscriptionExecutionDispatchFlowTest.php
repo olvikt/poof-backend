@@ -14,6 +14,7 @@ use App\Models\Order;
 use App\Models\OrderOffer;
 use App\Models\SubscriptionPlan;
 use App\Models\User;
+use Illuminate\Support\Facades\Event;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Carbon;
 use Livewire\Livewire;
@@ -187,6 +188,63 @@ class SubscriptionExecutionDispatchFlowTest extends TestCase
             'courier_id' => $courier->id,
             'status' => OrderOffer::STATUS_PENDING,
         ]);
+    }
+
+    public function test_paid_subscription_checkout_order_is_not_dispatchable_and_generates_first_execution_order(): void
+    {
+        Event::fake([\App\Events\OrderCreated::class]);
+
+        $client = User::factory()->create(['role' => User::ROLE_CLIENT, 'is_active' => true]);
+        $courier = $this->createOnlineCourier();
+        $plan = SubscriptionPlan::factory()->create(['monthly_price' => 45, 'pickups_per_month' => 10]);
+        $address = ClientAddress::createForUser($client->id, [
+            'label' => 'home', 'title' => 'Дім', 'address_text' => 'вул. Тест, 1', 'city' => 'Київ', 'street' => 'Тест', 'house' => '1', 'lat' => 50.45, 'lng' => 30.52,
+        ]);
+        $subscription = ClientSubscription::unguarded(fn (): ClientSubscription => ClientSubscription::query()->create([
+            'client_id' => $client->id,
+            'subscription_plan_id' => $plan->id,
+            'address_id' => $address->id,
+            'status' => ClientSubscription::STATUS_ACTIVE,
+            'next_run_at' => now()->addDay(),
+            'ends_at' => now()->addMonth(),
+            'auto_renew' => true,
+            'renewals_count' => 0,
+        ]));
+
+        $checkout = Order::createForTesting([
+            'client_id' => $client->id,
+            'status' => Order::STATUS_NEW,
+            'payment_status' => Order::PAY_PENDING,
+            'order_type' => Order::TYPE_SUBSCRIPTION,
+            'origin' => Order::ORIGIN_CHECKOUT,
+            'subscription_id' => $subscription->id,
+            'address_id' => $address->id,
+            'address_text' => $address->address_text,
+            'lat' => 50.45,
+            'lng' => 30.52,
+            'price' => 45,
+            'client_charge_amount' => 45,
+            'courier_payout_amount' => 45,
+        ]);
+
+        app(MarkOrderAsPaidAction::class)->handle($checkout->fresh());
+
+        $this->assertSame(Order::STATUS_DONE, $checkout->fresh()->status);
+        $this->assertFalse($checkout->fresh()->isDispatchableForOfferPipeline());
+        Event::assertNotDispatched(\App\Events\OrderCreated::class);
+
+        $execution = Order::query()->where('subscription_id', $subscription->id)->where('origin', Order::ORIGIN_SUBSCRIPTION)->latest('id')->first();
+        $this->assertNotNull($execution);
+        $this->assertSame(Order::STATUS_SEARCHING, $execution->status);
+        $this->assertSame(Order::PAY_PAID, $execution->payment_status);
+        $this->assertSame(4, (int) $execution->price);
+        $this->assertSame(0, (int) $execution->client_charge_amount);
+        $this->assertSame(4, (int) $execution->courier_payout_amount);
+
+        $this->actingAs($courier, 'web');
+        Livewire::test(AvailableOrders::class)
+            ->assertSee('вул. Тест, 1');
+        $this->assertDatabaseMissing('order_offers', ['order_id' => $checkout->id, 'courier_id' => $courier->id]);
     }
 
     public function test_paid_subscription_order_is_cancelled_without_exception_when_activation_scope_conflicts(): void

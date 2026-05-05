@@ -395,6 +395,10 @@ public function markAsPaid(): void
 
     public function isDispatchableForOfferPipeline(): bool
     {
+        if ($this->origin === self::ORIGIN_CHECKOUT && $this->order_type === self::TYPE_SUBSCRIPTION) {
+            return false;
+        }
+
         return $this->payment_status === self::PAY_PAID
             && $this->status === self::STATUS_SEARCHING
             && $this->courier_id === null
