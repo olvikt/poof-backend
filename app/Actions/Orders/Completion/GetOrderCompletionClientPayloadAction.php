@@ -16,7 +16,7 @@ class GetOrderCompletionClientPayloadAction
     {
     }
 
-    public function handle(Order $order, User $client): ?array
+    public function handle(Order $order, User $client, bool $logView = true): ?array
     {
         if ((int) $order->client_id !== (int) $client->id) {
             return null;
@@ -29,12 +29,14 @@ class GetOrderCompletionClientPayloadAction
 
         $isAwaiting = $request->status === OrderCompletionRequest::STATUS_AWAITING_CLIENT_CONFIRMATION;
 
-        Log::info('completion_client_payload_viewed', [
-            'flow' => 'order_completion_proof',
-            'order_id' => $order->id,
-            'completion_request_id' => $request->id,
-            'client_id' => $client->id,
-        ]);
+        if ($logView) {
+            Log::info('completion_client_payload_viewed', [
+                'flow' => 'order_completion_proof',
+                'order_id' => $order->id,
+                'completion_request_id' => $request->id,
+                'client_id' => $client->id,
+            ]);
+        }
 
         return [
             'order_id' => $order->id,

@@ -306,7 +306,7 @@ class SubscriptionsPage extends Component
         $client = auth()->user();
         $history = $orders
             ->map(function (Order $order) use ($client): array {
-                $completionPayload = app(GetOrderCompletionClientPayloadAction::class)->handle($order, $client);
+                $completionPayload = app(GetOrderCompletionClientPayloadAction::class)->handle($order, $client, false);
 
                 return [
                     'id' => (int) $order->id,
