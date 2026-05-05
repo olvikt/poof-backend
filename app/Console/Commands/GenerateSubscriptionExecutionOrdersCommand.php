@@ -37,6 +37,7 @@ class GenerateSubscriptionExecutionOrdersCommand extends Command
             'skipped_pending_exists' => 0,
             'skipped_duplicate_slot' => 0,
             'skipped_planned_exhausted' => 0,
+            'skipped_period_expired' => 0,
         ];
 
         foreach ($subscriptions as $subscription) {
@@ -59,6 +60,25 @@ class GenerateSubscriptionExecutionOrdersCommand extends Command
                 (string) ($subscription->plan?->frequency_type ?? $subscription->meta['frequency_type'] ?? ''),
                 $now,
             );
+
+            if ($subscription->ends_at !== null && $runAt->greaterThanOrEqualTo(CarbonImmutable::instance($subscription->ends_at))) {
+                $summary['skipped_period_expired']++;
+                $subscription->forceFill([
+                    'next_run_at' => $this->resolveNextRunAt($runAt, (string) ($subscription->plan?->frequency_type ?? $subscription->meta['frequency_type'] ?? '')),
+                ])->save();
+
+                logger()->info('subscription_execution_skipped_reason', [
+                    'subscription_id' => (int) $subscription->id,
+                    'order_id' => null,
+                    'status' => (string) $subscription->status,
+                    'reason' => 'subscription_period_expired',
+                    'counter' => 'subscription_execution_skipped_total',
+                    'counter_increment' => 1,
+                ]);
+
+                continue;
+            }
+
             $runAtMinute = $runAt->setSecond(0);
 
             $existingPendingForSlot = $subscription->generatedOrders()
@@ -230,12 +250,11 @@ class GenerateSubscriptionExecutionOrdersCommand extends Command
      */
     private function resolveBillingPeriodBounds(ClientSubscription $subscription, CarbonImmutable $runAt): array
     {
-        $periodEnd = $subscription->ends_at !== null
-            ? CarbonImmutable::instance($subscription->ends_at)->startOfDay()
-            : $runAt->endOfMonth()->startOfDay();
+        $periodStart = $runAt->startOfMonth()->startOfDay();
+        $periodEnd = $periodStart->addMonth();
 
         return [
-            'start' => $periodEnd->subMonth(),
+            'start' => $periodStart,
             'end' => $periodEnd,
         ];
     }
