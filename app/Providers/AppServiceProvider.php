@@ -8,7 +8,9 @@ use Illuminate\Support\ServiceProvider;
 use App\Services\Geocoding\Contracts\GeocoderInterface;
 use App\Services\Geocoding\Providers\GooglePlacesProvider;
 use Filament\Tables\Columns\TextColumn;
+use App\Models\Order;
 use App\Models\User;
+use App\Observers\OrderObserver;
 use App\Observers\UserObserver;
 
 class AppServiceProvider extends ServiceProvider
@@ -29,6 +31,7 @@ class AppServiceProvider extends ServiceProvider
     public function boot(): void
     {
         User::observe(UserObserver::class);
+        Order::observe(OrderObserver::class);
 
         if ($this->app->environment('production')) {
             URL::forceScheme('https');

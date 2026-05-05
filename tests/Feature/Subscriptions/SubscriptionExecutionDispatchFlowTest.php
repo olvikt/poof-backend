@@ -4,6 +4,9 @@ declare(strict_types=1);
 
 namespace Tests\Feature\Subscriptions;
 
+use App\Actions\Orders\Completion\ConfirmOrderCompletionByClientAction;
+use App\Actions\Orders\Completion\SubmitOrderCompletionByCourierAction;
+use App\Actions\Orders\Completion\UploadOrderCompletionProofAction;
 use App\Actions\Orders\Lifecycle\MarkOrderAsPaidAction;
 use App\Livewire\Client\OrdersList;
 use App\Livewire\Courier\AvailableOrders;
@@ -11,6 +14,9 @@ use App\Models\ClientAddress;
 use App\Models\ClientSubscription;
 use App\Models\Courier;
 use App\Models\Order;
+use App\Models\CourierEarning;
+use App\Models\OrderCompletionProof;
+use App\Models\OrderCompletionRequest;
 use App\Models\OrderOffer;
 use App\Models\SubscriptionPlan;
 use App\Models\User;
@@ -240,11 +246,130 @@ class SubscriptionExecutionDispatchFlowTest extends TestCase
         $this->assertSame(4, (int) $execution->price);
         $this->assertSame(0, (int) $execution->client_charge_amount);
         $this->assertSame(4, (int) $execution->courier_payout_amount);
+        $this->assertSame(Order::COMPLETION_POLICY_DOOR_TWO_PHOTO_CLIENT_CONFIRM, $execution->completion_policy);
+        $this->assertDatabaseMissing('order_completion_requests', ['order_id' => $execution->id]);
+        $this->assertSame(0, OrderCompletionRequest::query()->where('order_id', $execution->id)->count());
+        $this->assertDatabaseMissing('courier_earnings', ['order_id' => $execution->id]);
 
         $this->actingAs($courier, 'web');
         Livewire::test(AvailableOrders::class)
             ->assertSee('вул. Тест, 1');
         $this->assertDatabaseMissing('order_offers', ['order_id' => $checkout->id, 'courier_id' => $courier->id]);
+    }
+
+
+    public function test_subscription_execution_order_remains_searching_after_short_delay(): void
+    {
+        $client = User::factory()->create(['role' => User::ROLE_CLIENT, 'is_active' => true]);
+        $plan = SubscriptionPlan::factory()->create(['monthly_price' => 45, 'pickups_per_month' => 10, 'frequency_type' => 'daily']);
+        $address = ClientAddress::createForUser($client->id, [
+            'label' => 'home', 'title' => 'Дім', 'address_text' => 'вул. Стабільна, 1', 'city' => 'Київ', 'street' => 'Стабільна', 'house' => '1', 'lat' => 50.45, 'lng' => 30.52,
+        ]);
+
+        $subscription = ClientSubscription::unguarded(fn (): ClientSubscription => ClientSubscription::query()->create([
+            'client_id' => $client->id,
+            'subscription_plan_id' => $plan->id,
+            'address_id' => $address->id,
+            'status' => ClientSubscription::STATUS_ACTIVE,
+            'next_run_at' => now()->addDay(),
+            'ends_at' => now()->addMonth(),
+            'auto_renew' => true,
+            'renewals_count' => 0,
+        ]));
+
+        $checkout = Order::createForTesting([
+            'client_id' => $client->id,
+            'status' => Order::STATUS_NEW,
+            'payment_status' => Order::PAY_PENDING,
+            'order_type' => Order::TYPE_SUBSCRIPTION,
+            'origin' => Order::ORIGIN_CHECKOUT,
+            'subscription_id' => $subscription->id,
+            'address_id' => $address->id,
+            'address_text' => $address->address_text,
+            'lat' => 50.45,
+            'lng' => 30.52,
+            'price' => 45,
+            'client_charge_amount' => 45,
+            'courier_payout_amount' => 45,
+        ]);
+
+        app(MarkOrderAsPaidAction::class)->handle($checkout->fresh());
+
+        $execution = Order::query()->where('subscription_id', $subscription->id)->where('origin', Order::ORIGIN_SUBSCRIPTION)->latest('id')->firstOrFail();
+
+        sleep(1);
+        $execution->refresh();
+
+        $this->assertSame(Order::STATUS_SEARCHING, $execution->status);
+        $this->assertSame(Order::PAY_PAID, $execution->payment_status);
+        $this->assertDatabaseMissing('order_completion_requests', ['order_id' => $execution->id]);
+    }
+
+
+    public function test_subscription_execution_order_full_completion_lifecycle_with_proofs_and_single_earning(): void
+    {
+        $client = User::factory()->create(['role' => User::ROLE_CLIENT, 'is_active' => true]);
+        $courier = $this->createOnlineCourier();
+        $plan = SubscriptionPlan::factory()->create(['monthly_price' => 45, 'pickups_per_month' => 10]);
+        $address = ClientAddress::createForUser($client->id, [
+            'label' => 'home', 'title' => 'Дім', 'address_text' => 'вул. ЖЦ, 1', 'city' => 'Київ', 'street' => 'ЖЦ', 'house' => '1', 'lat' => 50.45, 'lng' => 30.52,
+        ]);
+        $subscription = ClientSubscription::unguarded(fn (): ClientSubscription => ClientSubscription::query()->create([
+            'client_id' => $client->id,
+            'subscription_plan_id' => $plan->id,
+            'address_id' => $address->id,
+            'status' => ClientSubscription::STATUS_ACTIVE,
+            'next_run_at' => now()->addDay(),
+            'ends_at' => now()->addMonth(),
+            'auto_renew' => true,
+            'renewals_count' => 0,
+        ]));
+
+        $checkout = Order::createForTesting([
+            'client_id' => $client->id,
+            'status' => Order::STATUS_NEW,
+            'payment_status' => Order::PAY_PENDING,
+            'order_type' => Order::TYPE_SUBSCRIPTION,
+            'origin' => Order::ORIGIN_CHECKOUT,
+            'subscription_id' => $subscription->id,
+            'address_id' => $address->id,
+            'address_text' => $address->address_text,
+            'lat' => 50.45,
+            'lng' => 30.52,
+            'price' => 45,
+            'client_charge_amount' => 45,
+            'courier_payout_amount' => 45,
+        ]);
+
+        app(MarkOrderAsPaidAction::class)->handle($checkout->fresh());
+
+        $execution = Order::query()->where('subscription_id', $subscription->id)->where('origin', Order::ORIGIN_SUBSCRIPTION)->latest('id')->firstOrFail();
+        $execution->forceFill([
+            'courier_id' => $courier->id,
+            'status' => Order::STATUS_ACCEPTED,
+            'accepted_at' => now(),
+        ])->save();
+
+        $courier->markBusy();
+        $execution->startByCourier($courier);
+
+        $this->assertSame(Order::STATUS_IN_PROGRESS, $execution->fresh()->status);
+
+        $this->assertTrue(app(UploadOrderCompletionProofAction::class)->handle($execution, $courier, OrderCompletionProof::TYPE_DOOR_PHOTO, 'proofs/sub-door.jpg'));
+        $this->assertTrue(app(UploadOrderCompletionProofAction::class)->handle($execution, $courier, OrderCompletionProof::TYPE_CONTAINER_PHOTO, 'proofs/sub-container.jpg'));
+        $this->assertTrue(app(SubmitOrderCompletionByCourierAction::class)->handle($execution, $courier));
+
+        $request = OrderCompletionRequest::query()->where('order_id', $execution->id)->firstOrFail();
+        $this->assertSame(OrderCompletionRequest::STATUS_AWAITING_CLIENT_CONFIRMATION, $request->status);
+        $this->assertSame(Order::STATUS_IN_PROGRESS, $execution->fresh()->status);
+        $this->assertSame(0, CourierEarning::query()->where('order_id', $execution->id)->count());
+
+        $courier->refresh();
+        $this->assertFalse((bool) $courier->is_busy);
+
+        $this->assertTrue(app(ConfirmOrderCompletionByClientAction::class)->handle($execution, $client));
+        $this->assertSame(Order::STATUS_DONE, $execution->fresh()->status);
+        $this->assertSame(1, CourierEarning::query()->where('order_id', $execution->id)->count());
     }
 
     public function test_first_execution_uses_checkout_scheduled_slot_and_advances_next_run_without_duplicate_generation(): void
