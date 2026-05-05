@@ -4,7 +4,12 @@ declare(strict_types=1);
 
 namespace App\Livewire\Client;
 
+use App\Actions\Orders\Completion\ConfirmOrderCompletionByClientAction;
+use App\Actions\Orders\Completion\CreateOrderCompletionDisputeAction;
+use App\Actions\Orders\Completion\GetOrderCompletionClientPayloadAction;
 use App\Models\ClientSubscription;
+use App\Models\Order;
+use App\Models\OrderCompletionRequest;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Collection;
@@ -156,6 +161,34 @@ class SubscriptionsPage extends Component
         $this->showDetailsModal = true;
     }
 
+    public function confirmExecutionCompletion(int $subscriptionId, int $orderId): void
+    {
+        $order = $this->findOwnSubscriptionOrder($subscriptionId, $orderId);
+
+        if (! $order || ! app(ConfirmOrderCompletionByClientAction::class)->handle($order, auth()->user())) {
+            $this->dispatch('notify', type: 'error', message: 'Неможливо підтвердити завершення виносу.');
+
+            return;
+        }
+
+        $this->dispatch('notify', type: 'success', message: 'Винос підтверджено. Дякуємо!');
+        $this->openDetails($subscriptionId);
+    }
+
+    public function disputeExecutionCompletion(int $subscriptionId, int $orderId): void
+    {
+        $order = $this->findOwnSubscriptionOrder($subscriptionId, $orderId);
+
+        if (! $order || ! app(CreateOrderCompletionDisputeAction::class)->handle($order, auth()->user(), 'proof_mismatch', null)) {
+            $this->dispatch('notify', type: 'error', message: 'Неможливо відкрити спір для цього виносу.');
+
+            return;
+        }
+
+        $this->dispatch('notify', type: 'success', message: 'Спір відкрито. Підтримка перевірить звернення.');
+        $this->openDetails($subscriptionId);
+    }
+
     protected function reload(): void
     {
         $userId = (int) auth()->id();
@@ -198,7 +231,17 @@ class SubscriptionsPage extends Component
         return ClientSubscription::query()
             ->where('id', $subscriptionId)
             ->where('client_id', auth()->id())
-            ->with(['plan', 'address', 'generatedOrders' => fn ($query) => $query->orderBy('scheduled_date')])
+            ->with(['plan', 'address', 'generatedOrders' => fn ($query) => $query->with('completionRequest.proofs')->orderBy('scheduled_date')])
+            ->first();
+    }
+
+    protected function findOwnSubscriptionOrder(int $subscriptionId, int $orderId): ?Order
+    {
+        return Order::query()
+            ->whereKey($orderId)
+            ->where('subscription_id', $subscriptionId)
+            ->where('client_id', auth()->id())
+            ->with('completionRequest.proofs')
             ->first();
     }
 
@@ -260,13 +303,20 @@ class SubscriptionsPage extends Component
             }
         }
 
+        $client = auth()->user();
         $history = $orders
-            ->map(fn (\App\Models\Order $order): array => [
-                'id' => (int) $order->id,
-                'status' => \App\Models\Order::STATUS_LABELS[$order->status] ?? $order->status,
-                'date' => $order->scheduled_date?->format('d.m.Y') ?? optional($order->created_at)->format('d.m.Y') ?? '—',
-                'is_subscription_origin' => $order->origin === \App\Models\Order::ORIGIN_SUBSCRIPTION,
-            ])
+            ->map(function (Order $order) use ($client): array {
+                $completionPayload = app(GetOrderCompletionClientPayloadAction::class)->handle($order, $client);
+
+                return [
+                    'id' => (int) $order->id,
+                    'status' => Order::STATUS_LABELS[$order->status] ?? $order->status,
+                    'date' => $order->scheduled_date?->format('d.m.Y') ?? optional($order->created_at)->format('d.m.Y') ?? '—',
+                    'is_subscription_origin' => $order->origin === Order::ORIGIN_SUBSCRIPTION,
+                    'completion_payload' => $completionPayload,
+                    'awaiting_client_confirmation' => ($completionPayload['status'] ?? null) === OrderCompletionRequest::STATUS_AWAITING_CLIENT_CONFIRMATION,
+                ];
+            })
             ->all();
 
         return [

@@ -164,9 +164,45 @@
                 <p class="text-xs uppercase tracking-wide text-gray-500">Історія виносів</p>
                 <div class="mt-2 space-y-2">
                     @forelse(($details['history'] ?? []) as $executionOrder)
-                        <div class="flex items-center justify-between text-xs text-gray-300">
-                            <span>#{{ $executionOrder['id'] }} · {{ $executionOrder['date'] }}</span>
-                            <span class="text-gray-400">{{ $executionOrder['status'] }}</span>
+                        <div class="rounded-lg border border-gray-800 bg-gray-900/50 p-2 text-xs text-gray-300">
+                            <div class="flex items-center justify-between">
+                                <span>#{{ $executionOrder['id'] }} · {{ $executionOrder['date'] }}</span>
+                                <span class="text-gray-400">{{ $executionOrder['status'] }}</span>
+                            </div>
+
+                            @if($executionOrder['awaiting_client_confirmation'] ?? false)
+                                @php($proofs = $executionOrder['completion_payload']['proofs'] ?? [])
+                                @if(!empty($proofs))
+                                    <div class="mt-2">
+                                        <p class="text-[11px] text-gray-500">Фотоотчёт</p>
+                                        <div class="mt-1 grid grid-cols-4 gap-1">
+                                            @foreach($proofs as $proof)
+                                                @if(!empty($proof['url']))
+                                                    <a href="{{ $proof['url'] }}" target="_blank" rel="noopener noreferrer">
+                                                        <img src="{{ $proof['url'] }}" alt="proof {{ $proof['type'] ?? 'photo' }}" class="h-14 w-full rounded object-cover" />
+                                                    </a>
+                                                @endif
+                                            @endforeach
+                                        </div>
+                                    </div>
+                                @endif
+
+                                <div class="mt-2 flex flex-wrap gap-1.5">
+                                    @if(!empty($proofs) && !empty($proofs[0]['url']))
+                                        <a href="{{ $proofs[0]['url'] }}" target="_blank" rel="noopener noreferrer" class="rounded-lg border border-gray-700 px-2 py-1 text-[11px] text-gray-200">
+                                            Переглянути фотоотчёт
+                                        </a>
+                                    @else
+                                        <span class="rounded-lg border border-gray-800 px-2 py-1 text-[11px] text-gray-500">Фотоотчёт відсутній</span>
+                                    @endif
+                                    <button wire:click="confirmExecutionCompletion({{ $detailsSubscriptionId }}, {{ $executionOrder['id'] }})" type="button" class="rounded-lg bg-yellow-400 px-2 py-1 text-[11px] font-semibold text-black">
+                                        Підтвердити
+                                    </button>
+                                    <button wire:click="disputeExecutionCompletion({{ $detailsSubscriptionId }}, {{ $executionOrder['id'] }})" type="button" class="rounded-lg border border-red-500/40 px-2 py-1 text-[11px] text-red-200">
+                                        Відкрити спір
+                                    </button>
+                                </div>
+                            @endif
                         </div>
                     @empty
                         <p class="text-xs text-gray-500">Виноси ще не створені.</p>
