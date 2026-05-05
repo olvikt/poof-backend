@@ -125,7 +125,22 @@ class MarkOrderAsPaidAction
             return;
         }
 
-        $this->syncSubscriptionLifecycleAfterPayment($freshOrder);
+        try {
+            $this->syncSubscriptionLifecycleAfterPayment($freshOrder);
+        } catch (ValidationException $exception) {
+            $freshOrder->forceFill([
+                'payment_status' => Order::PAY_PAID,
+                'status' => Order::STATUS_CANCELLED,
+            ])->save();
+
+            Log::warning('Subscription checkout payment cancelled due to active-scope conflict.', [
+                'order_id' => (int) $freshOrder->id,
+                'subscription_id' => (int) ($freshOrder->subscription_id ?? 0),
+                'reason' => collect($exception->errors())->flatten()->first(),
+            ]);
+
+            return;
+        }
 
         if ($freshOrder->subscription_id === null) {
             return;

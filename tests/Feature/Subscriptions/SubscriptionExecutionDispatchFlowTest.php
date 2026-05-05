@@ -337,6 +337,61 @@ class SubscriptionExecutionDispatchFlowTest extends TestCase
         $this->assertSame(1, Order::query()->where('subscription_id', $subscription->id)->where('origin', Order::ORIGIN_SUBSCRIPTION)->count());
     }
 
+    public function test_checkout_subscription_payment_conflict_cancels_checkout_and_does_not_create_execution(): void
+    {
+        Event::fake([\App\Events\OrderCreated::class]);
+
+        $client = User::factory()->create(['role' => User::ROLE_CLIENT, 'is_active' => true]);
+        $plan = SubscriptionPlan::factory()->create(['monthly_price' => 45, 'pickups_per_month' => 10, 'frequency_type' => 'every_3_days']);
+        $address = ClientAddress::createForUser($client->id, [
+            'label' => 'home', 'title' => 'Дім', 'address_text' => 'вул. Конфлікт, 1', 'city' => 'Київ', 'street' => 'Конфлікт', 'house' => '1', 'lat' => 50.45, 'lng' => 30.52,
+        ]);
+
+        ClientSubscription::unguarded(fn (): ClientSubscription => ClientSubscription::query()->create([
+            'client_id' => $client->id,
+            'subscription_plan_id' => $plan->id,
+            'address_id' => $address->id,
+            'status' => ClientSubscription::STATUS_ACTIVE,
+            'next_run_at' => now()->addDay(),
+            'ends_at' => now()->addMonth(),
+            'auto_renew' => true,
+            'renewals_count' => 1,
+        ]));
+
+        $checkoutSubscription = ClientSubscription::unguarded(fn (): ClientSubscription => ClientSubscription::query()->create([
+            'client_id' => $client->id,
+            'subscription_plan_id' => $plan->id,
+            'address_id' => $address->id,
+            'status' => ClientSubscription::STATUS_PAUSED,
+            'paused_at' => now(),
+            'next_run_at' => now()->addDay(),
+            'ends_at' => now()->addMonth(),
+            'auto_renew' => true,
+            'renewals_count' => 0,
+        ]));
+
+        $checkout = Order::createForTesting([
+            'client_id' => $client->id,
+            'status' => Order::STATUS_NEW,
+            'payment_status' => Order::PAY_PENDING,
+            'order_type' => Order::TYPE_SUBSCRIPTION,
+            'origin' => Order::ORIGIN_CHECKOUT,
+            'subscription_id' => $checkoutSubscription->id,
+            'scheduled_date' => now()->addDay()->format('Y-m-d'),
+            'scheduled_time_from' => '14:00',
+            'price' => 45,
+            'client_charge_amount' => 45,
+        ]);
+
+        app(MarkOrderAsPaidAction::class)->handle($checkout->fresh());
+
+        $checkout->refresh();
+        $this->assertSame(Order::PAY_PAID, $checkout->payment_status);
+        $this->assertSame(Order::STATUS_CANCELLED, $checkout->status);
+        $this->assertSame(0, Order::query()->where('subscription_id', $checkoutSubscription->id)->where('origin', Order::ORIGIN_SUBSCRIPTION)->count());
+        Event::assertNotDispatched(\App\Events\OrderCreated::class);
+    }
+
     public function test_paid_subscription_order_is_cancelled_without_exception_when_activation_scope_conflicts(): void
     {
         $client = User::factory()->create(['role' => User::ROLE_CLIENT, 'is_active' => true]);
