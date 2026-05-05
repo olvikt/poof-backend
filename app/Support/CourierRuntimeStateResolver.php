@@ -29,7 +29,7 @@ class CourierRuntimeStateResolver
         }
 
         $activeOrderStatus = $user->takenOrders()
-            ->activeForCourier()
+            ->activeForCourierRuntime()
             ->orderByRaw("CASE WHEN status = ? THEN 0 ELSE 1 END", [Order::STATUS_IN_PROGRESS])
             ->value('status');
 

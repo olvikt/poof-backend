@@ -324,6 +324,31 @@ public function markAsPaid(): void
         ]);
     }
 
+
+    public function scopeRuntimeBlockingForCourier(Builder $query): Builder
+    {
+        return $query
+            ->where(function (Builder $activeQuery): void {
+                $activeQuery
+                    ->where('status', self::STATUS_ACCEPTED)
+                    ->orWhere(function (Builder $inProgressQuery): void {
+                        $inProgressQuery
+                            ->where('status', self::STATUS_IN_PROGRESS)
+                            ->whereDoesntHave('completionRequest', function (Builder $completionQuery): void {
+                                $completionQuery->whereIn('status', [
+                                    OrderCompletionRequest::STATUS_AWAITING_CLIENT_CONFIRMATION,
+                                    OrderCompletionRequest::STATUS_DISPUTED,
+                                ]);
+                            });
+                    });
+            });
+    }
+
+    public function scopeActiveForCourierRuntime(Builder $query): Builder
+    {
+        return $query->runtimeBlockingForCourier();
+    }
+
     public function scopeActiveForClient(Builder $query): Builder
     {
         return $query->whereIn('status', [

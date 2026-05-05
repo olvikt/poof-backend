@@ -175,7 +175,7 @@ class User extends Authenticatable implements FilamentUser
         }
 
         return $this->takenOrders()
-            ->activeForCourier()
+            ->activeForCourierRuntime()
             ->exists();
     }
 
@@ -193,7 +193,7 @@ class User extends Authenticatable implements FilamentUser
             return false;
         }
 
-        return $this->takenOrders()->activeForCourier()->exists();
+        return $this->takenOrders()->activeForCourierRuntime()->exists();
     }
 
     /**
@@ -349,7 +349,7 @@ class User extends Authenticatable implements FilamentUser
         $fromStatus = (string) $courier->status;
 
         $activeOrderStatus = $this->takenOrders()
-            ->activeForCourier()
+            ->activeForCourierRuntime()
             ->orderByRaw("CASE WHEN status = ? THEN 0 ELSE 1 END", [Order::STATUS_IN_PROGRESS])
             ->value('status');
 
