@@ -13,7 +13,7 @@ class GenerateSubscriptionExecutionOrdersCommand extends Command
 {
     protected $signature = 'subscriptions:generate-execution-orders {--limit=100}';
 
-    protected $description = 'Generate due pending payment orders for active paid subscriptions';
+    protected $description = 'Generate due paid execution orders for active paid subscriptions';
 
     public function handle(): int
     {
@@ -107,6 +107,8 @@ class GenerateSubscriptionExecutionOrdersCommand extends Command
                 continue;
             }
 
+            $allocatedAmount = $this->resolveExecutionAllocatedAmount($subscription, $runAt);
+
             $order = Order::createFromLegacyWebContract([
                 'client_id' => (int) $subscription->client_id,
                 'order_type' => Order::TYPE_SUBSCRIPTION,
@@ -126,9 +128,9 @@ class GenerateSubscriptionExecutionOrdersCommand extends Command
                 'scheduled_time_to' => $runAt->addHours(2)->format('H:i'),
                 'handover_type' => Order::HANDOVER_DOOR,
                 'bags_count' => (int) ($subscription->plan?->max_bags ?? 1),
-                'price' => $this->resolveExecutionAllocatedAmount($subscription, $runAt),
+                'price' => $allocatedAmount,
                 'client_charge_amount' => 0,
-                'courier_payout_amount' => $this->resolveExecutionAllocatedAmount($subscription, $runAt),
+                'courier_payout_amount' => $allocatedAmount,
                 'system_subsidy_amount' => 0,
                 'funding_source' => Order::FUNDING_CLIENT,
                 'benefit_type' => null,
