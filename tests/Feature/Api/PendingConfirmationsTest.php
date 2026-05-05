@@ -18,10 +18,11 @@ class PendingConfirmationsTest extends TestCase
     {
         $client = User::factory()->create(['role' => User::ROLE_CLIENT, 'is_active' => true]);
         $otherClient = User::factory()->create(['role' => User::ROLE_CLIENT, 'is_active' => true]);
+        $courier = User::factory()->create(['role' => User::ROLE_COURIER, 'is_active' => true]);
 
-        $subscriptionOrder = $this->createAwaitingOrder($client->id, 101);
-        $oneTimeOrder = $this->createAwaitingOrder($client->id, null);
-        $this->createAwaitingOrder($otherClient->id, 202);
+        $subscriptionOrder = $this->createAwaitingOrder($client->id, $courier->id, 101);
+        $oneTimeOrder = $this->createAwaitingOrder($client->id, $courier->id, null);
+        $this->createAwaitingOrder($otherClient->id, $courier->id, 202);
 
         $this->actingAs($client, 'sanctum');
 
@@ -45,10 +46,31 @@ class PendingConfirmationsTest extends TestCase
             ->assertJsonCount(0, 'data.pending_confirmations.items');
     }
 
-    private function createAwaitingOrder(int $clientId, ?int $subscriptionId): Order
+    public function test_disputed_order_is_not_included_in_pending_confirmations_count(): void
+    {
+        $client = User::factory()->create(['role' => User::ROLE_CLIENT, 'is_active' => true]);
+        $courier = User::factory()->create(['role' => User::ROLE_COURIER, 'is_active' => true]);
+
+        $this->createAwaitingOrder($client->id, $courier->id, 505);
+        $disputedOrder = $this->createAwaitingOrder($client->id, $courier->id, 606);
+
+        OrderCompletionRequest::query()
+            ->where('order_id', $disputedOrder->id)
+            ->update(['status' => OrderCompletionRequest::STATUS_DISPUTED]);
+
+        $this->actingAs($client, 'sanctum');
+
+        $this->getJson('/api/client/pending-confirmations')
+            ->assertOk()
+            ->assertJsonPath('data.pending_confirmations.count', 1)
+            ->assertJsonCount(1, 'data.pending_confirmations.items');
+    }
+
+    private function createAwaitingOrder(int $clientId, int $courierId, ?int $subscriptionId): Order
     {
         $order = Order::createForTesting([
             'client_id' => $clientId,
+            'courier_id' => $courierId,
             'status' => Order::STATUS_IN_PROGRESS,
             'payment_status' => Order::PAY_PAID,
             'order_type' => $subscriptionId ? Order::TYPE_SUBSCRIPTION : Order::TYPE_ONE_TIME,
@@ -60,6 +82,7 @@ class PendingConfirmationsTest extends TestCase
 
         OrderCompletionRequest::query()->create([
             'order_id' => $order->id,
+            'courier_id' => $courierId,
             'status' => OrderCompletionRequest::STATUS_AWAITING_CLIENT_CONFIRMATION,
             'submitted_at' => now()->subMinutes(30),
             'auto_confirmation_due_at' => now()->addHours(23),
