@@ -324,7 +324,8 @@ public function markAsPaid(): void
         ]);
     }
 
-    public function scopeActiveForCourierRuntime(Builder $query): Builder
+
+    public function scopeRuntimeBlockingForCourier(Builder $query): Builder
     {
         return $query
             ->where(function (Builder $activeQuery): void {
@@ -341,6 +342,11 @@ public function markAsPaid(): void
                             });
                     });
             });
+    }
+
+    public function scopeActiveForCourierRuntime(Builder $query): Builder
+    {
+        return $query->runtimeBlockingForCourier();
     }
 
     public function scopeActiveForClient(Builder $query): Builder

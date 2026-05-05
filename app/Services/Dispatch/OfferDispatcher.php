@@ -566,10 +566,23 @@ class OfferDispatcher
                 $sub->selectRaw('1')
                     ->from('orders')
                     ->whereColumn('orders.courier_id', 'users.id')
-                    ->whereIn('orders.status', [
-                        Order::STATUS_ACCEPTED,
-                        Order::STATUS_IN_PROGRESS,
-                    ]);
+                    ->where(function ($blocking): void {
+                        $blocking
+                            ->where('orders.status', Order::STATUS_ACCEPTED)
+                            ->orWhere(function ($inProgress): void {
+                                $inProgress
+                                    ->where('orders.status', Order::STATUS_IN_PROGRESS)
+                                    ->whereNotExists(function ($completion): void {
+                                        $completion->selectRaw('1')
+                                            ->from('order_completion_requests')
+                                            ->whereColumn('order_completion_requests.order_id', 'orders.id')
+                                            ->whereIn('order_completion_requests.status', [
+                                                \App\Models\OrderCompletionRequest::STATUS_AWAITING_CLIENT_CONFIRMATION,
+                                                \App\Models\OrderCompletionRequest::STATUS_DISPUTED,
+                                            ]);
+                                    });
+                            });
+                    });
             })
             ;
 
@@ -617,7 +630,7 @@ class OfferDispatcher
             ->all();
 
         $busyCourierIds = Order::query()
-            ->whereIn('status', [Order::STATUS_ACCEPTED, Order::STATUS_IN_PROGRESS])
+            ->runtimeBlockingForCourier()
             ->whereNotNull('courier_id')
             ->pluck('courier_id')
             ->map(fn ($id) => (int) $id)
