@@ -252,6 +252,54 @@ class SubscriptionExecutionDispatchFlowTest extends TestCase
         $this->assertDatabaseMissing('order_offers', ['order_id' => $checkout->id, 'courier_id' => $courier->id]);
     }
 
+
+    public function test_subscription_execution_order_remains_searching_after_short_delay(): void
+    {
+        $client = User::factory()->create(['role' => User::ROLE_CLIENT, 'is_active' => true]);
+        $plan = SubscriptionPlan::factory()->create(['monthly_price' => 45, 'pickups_per_month' => 10, 'frequency_type' => 'daily']);
+        $address = ClientAddress::createForUser($client->id, [
+            'label' => 'home', 'title' => 'Дім', 'address_text' => 'вул. Стабільна, 1', 'city' => 'Київ', 'street' => 'Стабільна', 'house' => '1', 'lat' => 50.45, 'lng' => 30.52,
+        ]);
+
+        $subscription = ClientSubscription::unguarded(fn (): ClientSubscription => ClientSubscription::query()->create([
+            'client_id' => $client->id,
+            'subscription_plan_id' => $plan->id,
+            'address_id' => $address->id,
+            'status' => ClientSubscription::STATUS_ACTIVE,
+            'next_run_at' => now()->addDay(),
+            'ends_at' => now()->addMonth(),
+            'auto_renew' => true,
+            'renewals_count' => 0,
+        ]));
+
+        $checkout = Order::createForTesting([
+            'client_id' => $client->id,
+            'status' => Order::STATUS_NEW,
+            'payment_status' => Order::PAY_PENDING,
+            'order_type' => Order::TYPE_SUBSCRIPTION,
+            'origin' => Order::ORIGIN_CHECKOUT,
+            'subscription_id' => $subscription->id,
+            'address_id' => $address->id,
+            'address_text' => $address->address_text,
+            'lat' => 50.45,
+            'lng' => 30.52,
+            'price' => 45,
+            'client_charge_amount' => 45,
+            'courier_payout_amount' => 45,
+        ]);
+
+        app(MarkOrderAsPaidAction::class)->handle($checkout->fresh());
+
+        $execution = Order::query()->where('subscription_id', $subscription->id)->where('origin', Order::ORIGIN_SUBSCRIPTION)->latest('id')->firstOrFail();
+
+        sleep(1);
+        $execution->refresh();
+
+        $this->assertSame(Order::STATUS_SEARCHING, $execution->status);
+        $this->assertSame(Order::PAY_PAID, $execution->payment_status);
+        $this->assertDatabaseMissing('order_completion_requests', ['order_id' => $execution->id]);
+    }
+
     public function test_first_execution_uses_checkout_scheduled_slot_and_advances_next_run_without_duplicate_generation(): void
     {
         Carbon::setTestNow(Carbon::parse('2026-05-05 10:00:00'));
