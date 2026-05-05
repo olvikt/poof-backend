@@ -36,6 +36,7 @@ class GenerateSubscriptionExecutionOrdersCommand extends Command
             'skipped_unpaid' => 0,
             'skipped_pending_exists' => 0,
             'skipped_duplicate_slot' => 0,
+            'skipped_planned_exhausted' => 0,
         ];
 
         foreach ($subscriptions as $subscription) {
@@ -107,7 +108,39 @@ class GenerateSubscriptionExecutionOrdersCommand extends Command
                 continue;
             }
 
-            $allocatedAmount = $this->resolveExecutionAllocatedAmount($subscription, $runAt);
+            $periodBounds = $this->resolveBillingPeriodBounds($subscription, $runAt);
+            $plannedExecutionCount = max(1, (int) ($subscription->plan?->pickups_per_month ?? 1));
+            $currentPeriodExecutions = $this->resolveCurrentPeriodExecutionsCount(
+                $subscription,
+                $periodBounds['start'],
+                $periodBounds['end'],
+            );
+
+            if ($currentPeriodExecutions >= $plannedExecutionCount) {
+                $summary['skipped_planned_exhausted']++;
+                $nextPeriodRunAt = $periodBounds['end']->setTime($runAt->hour, $runAt->minute, $runAt->second);
+
+                $subscription->forceFill([
+                    'next_run_at' => $nextPeriodRunAt,
+                ])->save();
+
+                logger()->info('subscription_execution_skipped_reason', [
+                    'subscription_id' => (int) $subscription->id,
+                    'order_id' => null,
+                    'status' => (string) $subscription->status,
+                    'reason' => 'planned_execution_count_exhausted',
+                    'counter' => 'subscription_execution_skipped_total',
+                    'counter_increment' => 1,
+                ]);
+
+                continue;
+            }
+
+            $allocatedAmount = $this->resolveExecutionAllocatedAmount(
+                $subscription,
+                $currentPeriodExecutions,
+                $plannedExecutionCount,
+            );
 
             $order = Order::createFromLegacyWebContract([
                 'client_id' => (int) $subscription->client_id,
@@ -162,32 +195,49 @@ class GenerateSubscriptionExecutionOrdersCommand extends Command
         return self::SUCCESS;
     }
 
-    private function resolveExecutionAllocatedAmount(ClientSubscription $subscription, CarbonImmutable $runAt): int
+    private function resolveExecutionAllocatedAmount(
+        ClientSubscription $subscription,
+        int $currentPeriodExecutions,
+        int $plannedExecutionCount,
+    ): int
     {
         $totalPaidAmount = max(0, (int) ($subscription->plan?->monthly_price ?? 0));
-        $plannedExecutionCount = max(1, (int) ($subscription->plan?->pickups_per_month ?? 1));
-
         $baseAmount = intdiv($totalPaidAmount, $plannedExecutionCount);
         $remainder = $totalPaidAmount % $plannedExecutionCount;
-
-        $periodEnd = $subscription->ends_at !== null
-            ? CarbonImmutable::instance($subscription->ends_at)->startOfDay()
-            : $runAt->endOfMonth()->startOfDay();
-        $periodStart = $periodEnd->subMonth();
-
-        $currentPeriodExecutions = $subscription->generatedOrders()
-            ->where('origin', Order::ORIGIN_SUBSCRIPTION)
-            ->whereDate('scheduled_date', '>=', $periodStart->toDateString())
-            ->whereDate('scheduled_date', '<', $periodEnd->toDateString())
-            ->count();
-
-        $currentExecutionIndex = min($currentPeriodExecutions, $plannedExecutionCount - 1);
+        $currentExecutionIndex = max(0, $currentPeriodExecutions);
 
         if ($currentExecutionIndex === $plannedExecutionCount - 1) {
             return $baseAmount + $remainder;
         }
 
         return $baseAmount;
+    }
+
+    private function resolveCurrentPeriodExecutionsCount(
+        ClientSubscription $subscription,
+        CarbonImmutable $periodStart,
+        CarbonImmutable $periodEnd,
+    ): int {
+        return $subscription->generatedOrders()
+            ->where('origin', Order::ORIGIN_SUBSCRIPTION)
+            ->whereDate('scheduled_date', '>=', $periodStart->toDateString())
+            ->whereDate('scheduled_date', '<', $periodEnd->toDateString())
+            ->count();
+    }
+
+    /**
+     * @return array{start: CarbonImmutable, end: CarbonImmutable}
+     */
+    private function resolveBillingPeriodBounds(ClientSubscription $subscription, CarbonImmutable $runAt): array
+    {
+        $periodEnd = $subscription->ends_at !== null
+            ? CarbonImmutable::instance($subscription->ends_at)->startOfDay()
+            : $runAt->endOfMonth()->startOfDay();
+
+        return [
+            'start' => $periodEnd->subMonth(),
+            'end' => $periodEnd,
+        ];
     }
 
     private function resolveGenerationSlot(CarbonImmutable $nextRunAt, string $frequency, CarbonImmutable $now): CarbonImmutable

@@ -314,6 +314,38 @@ class GenerateSubscriptionExecutionOrdersCommandTest extends TestCase
         $this->assertSame((int) $order->price, (int) $order->courier_payout_amount);
     }
 
+    public function test_it_does_not_generate_more_than_planned_executions_within_billing_period(): void
+    {
+        Carbon::setTestNow(Carbon::parse('2026-04-01 12:00:00'));
+
+        $subscription = $this->createPaidSubscription([
+            'next_run_at' => Carbon::parse('2026-04-01 12:00:00'),
+            'ends_at' => Carbon::parse('2026-05-01 00:00:00'),
+        ], [
+            'monthly_price' => 45,
+            'pickups_per_month' => 10,
+            'frequency_type' => 'every_3_days',
+        ]);
+
+        for ($i = 0; $i < 11; $i++) {
+            Carbon::setTestNow(Carbon::parse('2026-04-01 12:00:00')->addDays($i * 3));
+            Artisan::call('subscriptions:generate-execution-orders --limit=100');
+        }
+
+        $generatedOrders = Order::query()
+            ->where('subscription_id', $subscription->id)
+            ->where('origin', Order::ORIGIN_SUBSCRIPTION)
+            ->whereDate('scheduled_date', '>=', '2026-04-01')
+            ->whereDate('scheduled_date', '<', '2026-05-01')
+            ->orderBy('scheduled_date')
+            ->get();
+
+        $this->assertCount(10, $generatedOrders);
+        $this->assertSame([4, 4, 4, 4, 4, 4, 4, 4, 4, 9], $generatedOrders->pluck('price')->all());
+        $this->assertSame(45, (int) $generatedOrders->sum('price'));
+        $this->assertSame('2026-05-01 12:00:00', $subscription->fresh()->next_run_at?->format('Y-m-d H:i:s'));
+    }
+
     private function createPaidSubscription(array $overrides = [], array $planOverrides = []): ClientSubscription
     {
         $client = User::factory()->create(['role' => User::ROLE_CLIENT, 'is_active' => true]);
