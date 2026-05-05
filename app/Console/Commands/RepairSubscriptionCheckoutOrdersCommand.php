@@ -44,11 +44,24 @@ class RepairSubscriptionCheckoutOrdersCommand extends Command
                 continue;
             }
 
-            $this->createSubscriptionExecutionOrder->handle($subscription, CarbonImmutable::instance($order->created_at ?? now()));
+            $this->createSubscriptionExecutionOrder->handle($subscription, $this->resolveFirstExecutionRunAt($order));
         }
 
         $this->info('Repaired: '.$orders->count());
 
         return self::SUCCESS;
+    }
+
+    private function resolveFirstExecutionRunAt(Order $checkoutOrder): CarbonImmutable
+    {
+        if ($checkoutOrder->scheduled_date !== null && $checkoutOrder->scheduled_time_from !== null) {
+            return CarbonImmutable::parse(sprintf('%s %s', (string) $checkoutOrder->scheduled_date, (string) $checkoutOrder->scheduled_time_from));
+        }
+
+        if ($checkoutOrder->scheduled_date !== null) {
+            return CarbonImmutable::parse((string) $checkoutOrder->scheduled_date)->setTimeFromTimeString(now()->format('H:i:s'));
+        }
+
+        return CarbonImmutable::instance($checkoutOrder->created_at ?? now());
     }
 }

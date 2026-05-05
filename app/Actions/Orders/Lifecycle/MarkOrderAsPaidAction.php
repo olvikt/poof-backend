@@ -137,8 +137,43 @@ class MarkOrderAsPaidAction
             return;
         }
 
-        $runAt = CarbonImmutable::instance($freshOrder->created_at ?? now());
-        $this->createSubscriptionExecutionOrder->handle($subscription, $runAt);
+        $runAt = $this->resolveFirstExecutionRunAt($freshOrder);
+        $createdExecution = $this->createSubscriptionExecutionOrder->handle($subscription, $runAt);
+
+        if ($createdExecution && $subscription->next_run_at !== null) {
+            $currentNextRunAt = CarbonImmutable::instance($subscription->next_run_at);
+            if ($currentNextRunAt->equalTo($runAt)) {
+                $subscription->forceFill([
+                    'next_run_at' => $this->resolveNextRunAt(
+                        $runAt,
+                        (string) ($subscription->plan?->frequency_type ?? $subscription->meta['frequency_type'] ?? ''),
+                    ),
+                ])->save();
+            }
+        }
+    }
+
+    private function resolveFirstExecutionRunAt(Order $checkoutOrder): CarbonImmutable
+    {
+        if ($checkoutOrder->scheduled_date !== null && $checkoutOrder->scheduled_time_from !== null) {
+            return CarbonImmutable::parse(sprintf('%s %s', (string) $checkoutOrder->scheduled_date, (string) $checkoutOrder->scheduled_time_from));
+        }
+
+        if ($checkoutOrder->scheduled_date !== null) {
+            return CarbonImmutable::parse((string) $checkoutOrder->scheduled_date)->setTimeFromTimeString(now()->format('H:i:s'));
+        }
+
+        return CarbonImmutable::instance($checkoutOrder->created_at ?? now());
+    }
+
+    private function resolveNextRunAt(CarbonImmutable $from, string $frequency): CarbonImmutable
+    {
+        return match ($frequency) {
+            'daily' => $from->addDay(),
+            'every_2_days' => $from->addDays(2),
+            'every_3_days' => $from->addDays(3),
+            default => $from->addDay(),
+        };
     }
 
     private function syncSubscriptionLifecycleAfterPayment(Order $order): void

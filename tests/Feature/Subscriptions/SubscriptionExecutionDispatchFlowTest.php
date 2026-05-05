@@ -247,6 +247,96 @@ class SubscriptionExecutionDispatchFlowTest extends TestCase
         $this->assertDatabaseMissing('order_offers', ['order_id' => $checkout->id, 'courier_id' => $courier->id]);
     }
 
+    public function test_first_execution_uses_checkout_scheduled_slot_and_advances_next_run_without_duplicate_generation(): void
+    {
+        Carbon::setTestNow(Carbon::parse('2026-05-05 10:00:00'));
+        $client = User::factory()->create(['role' => User::ROLE_CLIENT, 'is_active' => true]);
+        SubscriptionPlan::factory()->create(['id' => 501, 'monthly_price' => 45, 'pickups_per_month' => 10, 'frequency_type' => 'every_3_days']);
+        $plan = SubscriptionPlan::query()->findOrFail(501);
+        $address = ClientAddress::createForUser($client->id, [
+            'label' => 'home', 'title' => 'Дім', 'address_text' => 'вул. Слот, 1', 'city' => 'Київ', 'street' => 'Слот', 'house' => '1', 'lat' => 50.45, 'lng' => 30.52,
+        ]);
+
+        $firstRunAt = Carbon::parse('2026-05-06 14:00:00');
+        $subscription = ClientSubscription::unguarded(fn (): ClientSubscription => ClientSubscription::query()->create([
+            'client_id' => $client->id,
+            'subscription_plan_id' => $plan->id,
+            'address_id' => $address->id,
+            'status' => ClientSubscription::STATUS_ACTIVE,
+            'next_run_at' => $firstRunAt,
+            'ends_at' => now()->addMonth(),
+            'auto_renew' => true,
+            'renewals_count' => 0,
+            'meta' => ['frequency_type' => 'every_3_days'],
+        ]));
+
+        $checkout = Order::createForTesting([
+            'client_id' => $client->id,
+            'status' => Order::STATUS_NEW,
+            'payment_status' => Order::PAY_PENDING,
+            'order_type' => Order::TYPE_SUBSCRIPTION,
+            'origin' => Order::ORIGIN_CHECKOUT,
+            'subscription_id' => $subscription->id,
+            'address_id' => $address->id,
+            'address_text' => $address->address_text,
+            'scheduled_date' => '2026-05-06',
+            'scheduled_time_from' => '14:00',
+            'price' => 45,
+            'client_charge_amount' => 45,
+        ]);
+
+        app(MarkOrderAsPaidAction::class)->handle($checkout->fresh());
+
+        $execution = Order::query()->where('subscription_id', $subscription->id)->where('origin', Order::ORIGIN_SUBSCRIPTION)->firstOrFail();
+        $this->assertSame('2026-05-06', $execution->scheduled_date?->format('Y-m-d'));
+        $this->assertSame('14:00', substr((string) $execution->scheduled_time_from, 0, 5));
+        $this->assertSame(4, (int) $execution->price);
+
+        $subscription->refresh();
+        $this->assertSame('2026-05-09 14:00:00', $subscription->next_run_at?->format('Y-m-d H:i:s'));
+
+        $this->artisan('subscriptions:generate-execution-orders', ['--limit' => 10])->assertSuccessful();
+        $this->assertSame(1, Order::query()->where('subscription_id', $subscription->id)->where('origin', Order::ORIGIN_SUBSCRIPTION)->count());
+        Carbon::setTestNow();
+    }
+
+    public function test_repeated_mark_as_paid_does_not_duplicate_first_execution_on_same_slot(): void
+    {
+        $client = User::factory()->create(['role' => User::ROLE_CLIENT, 'is_active' => true]);
+        $plan = SubscriptionPlan::factory()->create(['monthly_price' => 45, 'pickups_per_month' => 10, 'frequency_type' => 'every_3_days']);
+        $address = ClientAddress::createForUser($client->id, [
+            'label' => 'home', 'title' => 'Дім', 'address_text' => 'вул. Дубль, 1', 'city' => 'Київ', 'street' => 'Дубль', 'house' => '1', 'lat' => 50.45, 'lng' => 30.52,
+        ]);
+        $subscription = ClientSubscription::unguarded(fn (): ClientSubscription => ClientSubscription::query()->create([
+            'client_id' => $client->id,
+            'subscription_plan_id' => $plan->id,
+            'address_id' => $address->id,
+            'status' => ClientSubscription::STATUS_ACTIVE,
+            'next_run_at' => Carbon::parse('2026-05-06 14:00:00'),
+            'ends_at' => now()->addMonth(),
+            'auto_renew' => true,
+            'renewals_count' => 0,
+            'meta' => ['frequency_type' => 'every_3_days'],
+        ]));
+
+        $checkout = Order::createForTesting([
+            'client_id' => $client->id,
+            'status' => Order::STATUS_NEW,
+            'payment_status' => Order::PAY_PENDING,
+            'order_type' => Order::TYPE_SUBSCRIPTION,
+            'origin' => Order::ORIGIN_CHECKOUT,
+            'subscription_id' => $subscription->id,
+            'scheduled_date' => '2026-05-06',
+            'scheduled_time_from' => '14:00',
+            'price' => 45,
+        ]);
+
+        app(MarkOrderAsPaidAction::class)->handle($checkout->fresh());
+        app(MarkOrderAsPaidAction::class)->handle($checkout->fresh());
+
+        $this->assertSame(1, Order::query()->where('subscription_id', $subscription->id)->where('origin', Order::ORIGIN_SUBSCRIPTION)->count());
+    }
+
     public function test_paid_subscription_order_is_cancelled_without_exception_when_activation_scope_conflicts(): void
     {
         $client = User::factory()->create(['role' => User::ROLE_CLIENT, 'is_active' => true]);
