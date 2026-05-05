@@ -39,8 +39,8 @@ class GenerateSubscriptionExecutionOrdersCommandTest extends TestCase
             'subscription_id' => $subscription->id,
             'origin' => Order::ORIGIN_SUBSCRIPTION,
             'order_type' => Order::TYPE_SUBSCRIPTION,
-            'payment_status' => Order::PAY_PENDING,
-            'status' => Order::STATUS_NEW,
+            'payment_status' => Order::PAY_PAID,
+            'status' => Order::STATUS_SEARCHING,
             'scheduled_date' => '2026-04-12',
             'scheduled_time_from' => '12:00:00',
         ]);
@@ -200,8 +200,8 @@ class GenerateSubscriptionExecutionOrdersCommandTest extends TestCase
             'subscription_id' => $subscription->id,
             'origin' => Order::ORIGIN_SUBSCRIPTION,
             'order_type' => Order::TYPE_SUBSCRIPTION,
-            'payment_status' => Order::PAY_PENDING,
-            'status' => Order::STATUS_NEW,
+            'payment_status' => Order::PAY_PAID,
+            'status' => Order::STATUS_SEARCHING,
         ]);
     }
 
@@ -237,15 +237,186 @@ class GenerateSubscriptionExecutionOrdersCommandTest extends TestCase
             ->count());
     }
 
-    private function createPaidSubscription(array $overrides = []): ClientSubscription
+
+    public function test_it_allocates_execution_price_from_monthly_subscription_amount(): void
+    {
+        Carbon::setTestNow(Carbon::parse('2026-04-10 12:00:00'));
+
+        $subscription = $this->createPaidSubscription([
+            'next_run_at' => Carbon::parse('2026-04-10 12:00:00'),
+            'ends_at' => Carbon::parse('2026-05-01 00:00:00'),
+        ], [
+            'monthly_price' => 45,
+            'pickups_per_month' => 10,
+            'frequency_type' => 'every_3_days',
+        ]);
+
+        Artisan::call('subscriptions:generate-execution-orders --limit=100');
+
+        $order = Order::query()->where('subscription_id', $subscription->id)->latest('id')->firstOrFail();
+
+        $this->assertNotSame(45, (int) $order->price);
+        $this->assertSame(4, (int) $order->price);
+        $this->assertSame((int) $order->price, (int) $order->courier_payout_amount);
+        $this->assertSame(Order::PAY_PAID, $order->payment_status);
+        $this->assertSame(Order::STATUS_SEARCHING, $order->status);
+    }
+
+    public function test_execution_allocations_sum_to_monthly_price_with_remainder_on_last_execution(): void
+    {
+        Carbon::setTestNow(Carbon::parse('2026-04-01 12:00:00'));
+
+        $subscription = $this->createPaidSubscription([
+            'next_run_at' => Carbon::parse('2026-04-01 12:00:00'),
+            'ends_at' => Carbon::parse('2026-05-01 00:00:00'),
+        ], [
+            'monthly_price' => 45,
+            'pickups_per_month' => 10,
+            'frequency_type' => 'every_3_days',
+        ]);
+
+        for ($i = 0; $i < 10; $i++) {
+            Carbon::setTestNow(Carbon::parse('2026-04-01 12:00:00')->addDays($i * 3));
+            Artisan::call('subscriptions:generate-execution-orders --limit=100');
+        }
+
+        $generatedOrders = Order::query()
+            ->where('subscription_id', $subscription->id)
+            ->where('origin', Order::ORIGIN_SUBSCRIPTION)
+            ->whereDate('scheduled_date', '>=', '2026-04-01')
+            ->whereDate('scheduled_date', '<', '2026-05-01')
+            ->orderBy('scheduled_date')
+            ->get();
+
+        $this->assertCount(10, $generatedOrders);
+        $this->assertSame([4, 4, 4, 4, 4, 4, 4, 4, 4, 9], $generatedOrders->pluck('price')->all());
+        $this->assertSame(45, (int) $generatedOrders->sum('price'));
+        $this->assertSame(9, (int) $generatedOrders->last()->price);
+    }
+
+    public function test_generated_execution_price_equals_courier_payout_amount(): void
+    {
+        Carbon::setTestNow(Carbon::parse('2026-04-10 12:00:00'));
+
+        $subscription = $this->createPaidSubscription([
+            'next_run_at' => Carbon::parse('2026-04-10 12:00:00'),
+            'ends_at' => Carbon::parse('2026-05-01 00:00:00'),
+        ], [
+            'monthly_price' => 45,
+            'pickups_per_month' => 10,
+            'frequency_type' => 'every_3_days',
+        ]);
+
+        Artisan::call('subscriptions:generate-execution-orders --limit=100');
+
+        $order = Order::query()->where('subscription_id', $subscription->id)->latest('id')->firstOrFail();
+
+        $this->assertSame((int) $order->price, (int) $order->courier_payout_amount);
+    }
+
+    public function test_it_does_not_generate_more_than_planned_executions_within_billing_period(): void
+    {
+        Carbon::setTestNow(Carbon::parse('2026-04-01 12:00:00'));
+
+        $subscription = $this->createPaidSubscription([
+            'next_run_at' => Carbon::parse('2026-04-01 12:00:00'),
+            'ends_at' => Carbon::parse('2026-05-01 00:00:00'),
+        ], [
+            'monthly_price' => 45,
+            'pickups_per_month' => 10,
+            'frequency_type' => 'every_3_days',
+        ]);
+
+        for ($i = 0; $i < 11; $i++) {
+            Carbon::setTestNow(Carbon::parse('2026-04-01 12:00:00')->addDays($i * 3));
+            Artisan::call('subscriptions:generate-execution-orders --limit=100');
+        }
+
+        $generatedOrders = Order::query()
+            ->where('subscription_id', $subscription->id)
+            ->where('origin', Order::ORIGIN_SUBSCRIPTION)
+            ->whereDate('scheduled_date', '>=', '2026-04-01')
+            ->whereDate('scheduled_date', '<', '2026-05-01')
+            ->orderBy('scheduled_date')
+            ->get();
+
+        $this->assertCount(10, $generatedOrders);
+        $this->assertSame([4, 4, 4, 4, 4, 4, 4, 4, 4, 9], $generatedOrders->pluck('price')->all());
+        $this->assertSame(45, (int) $generatedOrders->sum('price'));
+        $this->assertSame('2026-05-01 12:00:00', $subscription->fresh()->next_run_at?->format('Y-m-d H:i:s'));
+    }
+
+    public function test_it_generates_new_period_after_renewal_instead_of_repeating_exhaustion(): void
+    {
+        Carbon::setTestNow(Carbon::parse('2026-04-01 12:00:00'));
+
+        $subscription = $this->createPaidSubscription([
+            'next_run_at' => Carbon::parse('2026-04-01 12:00:00'),
+            'ends_at' => Carbon::parse('2026-05-01 00:00:00'),
+        ], [
+            'monthly_price' => 45,
+            'pickups_per_month' => 10,
+            'frequency_type' => 'every_3_days',
+        ]);
+
+        for ($i = 0; $i < 11; $i++) {
+            Carbon::setTestNow(Carbon::parse('2026-04-01 12:00:00')->addDays($i * 3));
+            Artisan::call('subscriptions:generate-execution-orders --limit=100');
+        }
+
+        $this->assertSame('2026-05-01 12:00:00', $subscription->fresh()->next_run_at?->format('Y-m-d H:i:s'));
+
+        $subscription->forceFill([
+            'ends_at' => Carbon::parse('2026-06-01 00:00:00'),
+        ])->save();
+
+        Carbon::setTestNow(Carbon::parse('2026-05-01 12:00:00'));
+        Artisan::call('subscriptions:generate-execution-orders --limit=100');
+
+        $mayFirstExecution = Order::query()
+            ->where('subscription_id', $subscription->id)
+            ->whereDate('scheduled_date', '2026-05-01')
+            ->where('origin', Order::ORIGIN_SUBSCRIPTION)
+            ->first();
+
+        $this->assertNotNull($mayFirstExecution);
+        $this->assertSame(4, (int) $mayFirstExecution->price);
+    }
+
+    public function test_it_skips_generation_after_period_end_when_not_renewed(): void
+    {
+        Carbon::setTestNow(Carbon::parse('2026-05-01 12:00:00'));
+
+        $subscription = $this->createPaidSubscription([
+            'next_run_at' => Carbon::parse('2026-05-01 12:00:00'),
+            'ends_at' => Carbon::parse('2026-05-01 00:00:00'),
+        ], [
+            'monthly_price' => 45,
+            'pickups_per_month' => 10,
+            'frequency_type' => 'every_3_days',
+        ]);
+
+        Artisan::call('subscriptions:generate-execution-orders --limit=100');
+        $subscription->refresh();
+
+        $this->assertSame(0, Order::query()
+            ->where('subscription_id', $subscription->id)
+            ->whereDate('scheduled_date', '2026-05-01')
+            ->where('origin', Order::ORIGIN_SUBSCRIPTION)
+            ->count());
+        $this->assertTrue($subscription->next_run_at !== null && $subscription->next_run_at->greaterThan(Carbon::parse('2026-05-01 12:00:00')));
+    }
+
+    private function createPaidSubscription(array $overrides = [], array $planOverrides = []): ClientSubscription
     {
         $client = User::factory()->create(['role' => User::ROLE_CLIENT, 'is_active' => true]);
 
-        $plan = SubscriptionPlan::factory()->create([
+        $plan = SubscriptionPlan::factory()->create(array_merge([
             'monthly_price' => 450,
+            'pickups_per_month' => 10,
             'max_bags' => 2,
             'frequency_type' => 'every_3_days',
-        ]);
+        ], $planOverrides));
 
         $address = ClientAddress::createForUser($client->id, [
             'label' => 'home',
@@ -278,6 +449,9 @@ class GenerateSubscriptionExecutionOrdersCommandTest extends TestCase
             'order_type' => Order::TYPE_SUBSCRIPTION,
             'origin' => Order::ORIGIN_SUBSCRIPTION,
             'address_text' => 'вул. Підписки, 10',
+            'scheduled_date' => now()->subMonths(2)->toDateString(),
+            'scheduled_time_from' => '10:00',
+            'scheduled_time_to' => '12:00',
             'price' => 450,
             'client_charge_amount' => 450,
         ]);
