@@ -17,6 +17,7 @@ use App\Http\Controllers\Api\AdminMapController;
 use App\Http\Controllers\Api\AdminRuntimeDiagnosticsController;
 use App\Http\Controllers\Api\Payments\WayForPayCallbackController;
 use App\Http\Controllers\Api\Client\OrderCompletionClientController;
+use App\Http\Controllers\Api\Client\PendingConfirmationsController;
 use App\Http\Controllers\Api\Admin\OrderCompletionDisputeAdminController;
 
 
@@ -50,6 +51,7 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/client/orders/{order}/completion-proof', [OrderCompletionClientController::class, 'show']);
     Route::post('/client/orders/{order}/completion-proof/confirm', [OrderCompletionClientController::class, 'confirm']);
     Route::post('/client/orders/{order}/completion-proof/disputes', [OrderCompletionClientController::class, 'openDispute']);
+    Route::get('/client/pending-confirmations', PendingConfirmationsController::class);
 
     // ADMIN/SUPPORT COMPLETION DISPUTES
     Route::get('/admin/completion-disputes', [OrderCompletionDisputeAdminController::class, 'index']);
