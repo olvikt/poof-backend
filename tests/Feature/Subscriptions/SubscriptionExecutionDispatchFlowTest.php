@@ -237,7 +237,12 @@ class SubscriptionExecutionDispatchFlowTest extends TestCase
 
         $this->assertSame(Order::STATUS_DONE, $checkout->fresh()->status);
         $this->assertFalse($checkout->fresh()->isDispatchableForOfferPipeline());
-        Event::assertNotDispatched(\App\Events\OrderCreated::class);
+        Event::assertDispatched(\App\Events\OrderCreated::class, function (\App\Events\OrderCreated $event) use ($subscription): bool {
+            return $event->order->subscription_id === $subscription->id
+                && $event->order->origin === Order::ORIGIN_SUBSCRIPTION
+                && $event->order->status === Order::STATUS_SEARCHING
+                && $event->order->payment_status === Order::PAY_PAID;
+        });
 
         $execution = Order::query()->where('subscription_id', $subscription->id)->where('origin', Order::ORIGIN_SUBSCRIPTION)->latest('id')->first();
         $this->assertNotNull($execution);
