@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Actions\Orders\Lifecycle;
 
+use App\Actions\Subscriptions\CreateSubscriptionExecutionOrderAction;
 use App\Events\OrderCreated;
 use App\Models\ClientSubscription;
 use App\Models\Order;
@@ -15,7 +16,10 @@ use Illuminate\Validation\ValidationException;
 
 class MarkOrderAsPaidAction
 {
-    public function __construct(private readonly OrderPromiseResolver $promiseResolver)
+    public function __construct(
+        private readonly OrderPromiseResolver $promiseResolver,
+        private readonly CreateSubscriptionExecutionOrderAction $createSubscriptionExecutionOrder,
+    )
     {
     }
 
@@ -50,6 +54,12 @@ class MarkOrderAsPaidAction
                 'order_id' => (int) $order->id,
                 'subscription_id' => (int) ($order->subscription_id ?? 0),
             ]);
+
+            return;
+        }
+
+        if ($order->order_type === Order::TYPE_SUBSCRIPTION && $order->origin === Order::ORIGIN_CHECKOUT) {
+            $this->handleSubscriptionCheckoutPaymentOrder($order);
 
             return;
         }
@@ -100,6 +110,85 @@ class MarkOrderAsPaidAction
             'counter' => 'order_marked_paid_total',
             'counter_increment' => 1,
         ]);
+    }
+
+    private function handleSubscriptionCheckoutPaymentOrder(Order $order): void
+    {
+        $order->forceFill([
+            'payment_status' => Order::PAY_PAID,
+            'status' => Order::STATUS_DONE,
+        ])->save();
+
+        $freshOrder = $order->fresh();
+
+        if (! $freshOrder) {
+            return;
+        }
+
+        try {
+            $this->syncSubscriptionLifecycleAfterPayment($freshOrder);
+        } catch (ValidationException $exception) {
+            $freshOrder->forceFill([
+                'payment_status' => Order::PAY_PAID,
+                'status' => Order::STATUS_CANCELLED,
+            ])->save();
+
+            Log::warning('Subscription checkout payment cancelled due to active-scope conflict.', [
+                'order_id' => (int) $freshOrder->id,
+                'subscription_id' => (int) ($freshOrder->subscription_id ?? 0),
+                'reason' => collect($exception->errors())->flatten()->first(),
+            ]);
+
+            return;
+        }
+
+        if ($freshOrder->subscription_id === null) {
+            return;
+        }
+
+        $subscription = ClientSubscription::query()->with(['plan', 'address'])->find($freshOrder->subscription_id);
+
+        if (! $subscription) {
+            return;
+        }
+
+        $runAt = $this->resolveFirstExecutionRunAt($freshOrder);
+        $createdExecution = $this->createSubscriptionExecutionOrder->handle($subscription, $runAt);
+
+        if ($createdExecution && $subscription->next_run_at !== null) {
+            $currentNextRunAt = CarbonImmutable::instance($subscription->next_run_at);
+            if ($currentNextRunAt->equalTo($runAt)) {
+                $subscription->forceFill([
+                    'next_run_at' => $this->resolveNextRunAt(
+                        $runAt,
+                        (string) ($subscription->plan?->frequency_type ?? $subscription->meta['frequency_type'] ?? ''),
+                    ),
+                ])->save();
+            }
+        }
+    }
+
+    private function resolveFirstExecutionRunAt(Order $checkoutOrder): CarbonImmutable
+    {
+        if ($checkoutOrder->scheduled_date !== null && $checkoutOrder->scheduled_time_from !== null) {
+            return CarbonImmutable::parse(sprintf('%s %s', (string) $checkoutOrder->scheduled_date, (string) $checkoutOrder->scheduled_time_from));
+        }
+
+        if ($checkoutOrder->scheduled_date !== null) {
+            return CarbonImmutable::parse((string) $checkoutOrder->scheduled_date)->setTimeFromTimeString(now()->format('H:i:s'));
+        }
+
+        return CarbonImmutable::instance($checkoutOrder->created_at ?? now());
+    }
+
+    private function resolveNextRunAt(CarbonImmutable $from, string $frequency): CarbonImmutable
+    {
+        return match ($frequency) {
+            'daily' => $from->addDay(),
+            'every_2_days' => $from->addDays(2),
+            'every_3_days' => $from->addDays(3),
+            default => $from->addDay(),
+        };
     }
 
     private function syncSubscriptionLifecycleAfterPayment(Order $order): void
