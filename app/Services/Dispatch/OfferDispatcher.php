@@ -155,6 +155,7 @@ class OfferDispatcher
                     'last_dispatch_attempt_at' => $now,
                     'dispatch_attempts' => $attemptCount,
                 ]);
+            $locked->forceFill(['dispatch_attempts' => $attemptCount]);
 
             Log::debug('dispatch_started', [
                 'order_id' => $locked->id,
@@ -182,7 +183,7 @@ class OfferDispatcher
                 'order_id' => $locked->id,
                 'attempt_count' => $attemptCount,
                 'trigger_source' => $triggerSource,
-                'search_radius_km' => $this->primaryRadiusKm,
+                'search_radius_km' => $this->dispatchRadiusKmForOrder($locked),
                 'bbox_prefilter_applied' => $orderHasCoords,
                 'candidate_scan_count' => $candidateScanCount,
                 'candidate_count' => $candidateScanCount,
@@ -209,7 +210,7 @@ class OfferDispatcher
                     'reason' => 'no_candidates',
                     'attempt_count' => $attemptCount,
                     'reason_breakdown' => $reasonBreakdown['reason_breakdown'],
-                    'search_radius_km' => $this->primaryRadiusKm,
+                    'search_radius_km' => $this->dispatchRadiusKmForOrder($locked),
                     'bbox_prefilter_applied' => $orderHasCoords,
                     'candidate_scan_count' => $candidateScanCount,
                     'candidate_count' => 0,
@@ -252,7 +253,7 @@ class OfferDispatcher
                     'reason' => 'no_pick',
                     'attempt_count' => $attemptCount,
                     'trigger_source' => $triggerSource,
-                    'search_radius_km' => $this->primaryRadiusKm,
+                    'search_radius_km' => $this->dispatchRadiusKmForOrder($locked),
                     'bbox_prefilter_applied' => $orderHasCoords,
                     'candidate_scan_count' => $candidateScanCount,
                     'candidate_count' => $couriers->count(),
@@ -296,7 +297,7 @@ class OfferDispatcher
                 'offer_id' => $offer->id,
                 'attempt_count' => $attemptCount,
                 'trigger_source' => $triggerSource,
-                'search_radius_km' => $this->primaryRadiusKm,
+                'search_radius_km' => $this->dispatchRadiusKmForOrder($locked),
                 'bbox_prefilter_applied' => $orderHasCoords,
                 'candidate_scan_count' => $candidateScanCount,
                 'candidate_count' => $couriers->count(),
@@ -499,7 +500,7 @@ class OfferDispatcher
                     (float) $order->lng
                 );
 
-                if ($distance > $this->primaryRadiusKm) {
+                if ($distance > $this->dispatchRadiusKmForOrder($order)) {
                     return null;
                 }
 
@@ -516,6 +517,7 @@ class OfferDispatcher
                     'distance'  => $distance,
                     'idle'      => $idle,
                     'rotation'  => $rotation,
+                    'workload_today' => (int) ($courier->workload_today ?? 0),
                 ];
             })
             ->filter()
@@ -536,14 +538,18 @@ class OfferDispatcher
             ->filter(fn ($x) => (float) $x['distance'] <= $windowMax)
             ->values();
 
-        // 4) внутри окна сортируем: distance ASC, idle DESC, rotation DESC
+        // 4) внутри окна сортируем по score: distance + workload_penalty + recency_penalty
         $winner = $window
             ->sort(function ($a, $b) {
-                if ($a['distance'] !== $b['distance']) {
-                    return $a['distance'] <=> $b['distance'];
-                }
-                if ($a['idle'] !== $b['idle']) {
-                    return $b['idle'] <=> $a['idle'];
+                $aScore = ($a['distance'] * (float) config('dispatch.fairness.distance_weight', 1.0))
+                    + ($a['workload_today'] * (float) config('dispatch.fairness.workload_penalty_weight', 0.6))
+                    + ((1 / max(1, $a['rotation'])) * (float) config('dispatch.fairness.recency_penalty_weight', 0.2));
+                $bScore = ($b['distance'] * (float) config('dispatch.fairness.distance_weight', 1.0))
+                    + ($b['workload_today'] * (float) config('dispatch.fairness.workload_penalty_weight', 0.6))
+                    + ((1 / max(1, $b['rotation'])) * (float) config('dispatch.fairness.recency_penalty_weight', 0.2));
+
+                if ($aScore !== $bScore) {
+                    return $aScore <=> $bScore;
                 }
                 return $b['rotation'] <=> $a['rotation'];
             })
@@ -554,6 +560,8 @@ class OfferDispatcher
 
     protected function fetchCandidates(Order $order, bool $orderHasCoords, $now): Collection
     {
+        $maxAttempts = (int) config('dispatch.fairness.max_offer_attempts_per_courier', 3);
+        $cooldownMinutes = (int) config('dispatch.fairness.reoffer_cooldown_minutes', 5);
         $query = DB::table('users')
             ->join('couriers', 'couriers.user_id', '=', 'users.id')
             ->where('users.role', 'courier')
@@ -584,13 +592,30 @@ class OfferDispatcher
                             });
                     });
             })
+            ->whereNotExists(function ($sub) use ($order, $maxAttempts): void {
+                $sub->selectRaw('1')
+                    ->from('order_offers')
+                    ->whereColumn('order_offers.courier_id', 'users.id')
+                    ->where('order_offers.order_id', $order->id)
+                    ->whereIn('order_offers.status', [OrderOffer::STATUS_DECLINED, OrderOffer::STATUS_EXPIRED])
+                    ->groupBy('order_offers.courier_id')
+                    ->havingRaw('COUNT(*) >= ?', [$maxAttempts]);
+            })
+            ->whereNotExists(function ($sub) use ($order, $now, $cooldownMinutes): void {
+                $sub->selectRaw('1')
+                    ->from('order_offers')
+                    ->whereColumn('order_offers.courier_id', 'users.id')
+                    ->where('order_offers.order_id', $order->id)
+                    ->whereIn('order_offers.status', [OrderOffer::STATUS_DECLINED, OrderOffer::STATUS_EXPIRED])
+                    ->whereRaw('COALESCE(order_offers.last_offered_at, order_offers.created_at) > ?', [$now->copy()->subMinutes($cooldownMinutes)]);
+            })
             ;
 
         if ($orderHasCoords) {
             [$latMin, $latMax, $lngMin, $lngMax] = $this->distanceBoundingBox(
                 (float) $order->lat,
                 (float) $order->lng,
-                $this->primaryRadiusKm + $this->distanceWindowKm
+                $this->dispatchRadiusKmForOrder($order) + $this->distanceWindowKm
             );
 
             $query
@@ -605,6 +630,7 @@ class OfferDispatcher
                 'users.last_lng',
                 'users.last_completed_at',
                 'users.last_offer_at',
+                DB::raw("(select count(*) from orders o where o.courier_id = users.id and o.status = 'done' and date(o.completed_at) = current_date) as workload_today"),
             ])
             ->limit($this->maxCouriersToScan)
             ->get()
@@ -619,6 +645,8 @@ class OfferDispatcher
     protected function candidateReasonBreakdown(Order $order, bool $orderHasCoords, Carbon $now): array
     {
         $baseScanLimit = $this->maxCouriersToScan * 2;
+        $maxAttempts = (int) config('dispatch.fairness.max_offer_attempts_per_courier', 3);
+        $cooldownThreshold = $now->copy()->subMinutes((int) config('dispatch.fairness.reoffer_cooldown_minutes', 5));
         $staleThreshold = $now->copy()->subSeconds((int) config('courier_runtime.freshness.dispatch_candidate_location_seconds', 60));
         $alivePendingCourierIds = OrderOffer::query()
             ->where('order_id', $order->id)
@@ -660,10 +688,13 @@ class OfferDispatcher
             'duplicate_alive_pending' => 0,
             'outside_bbox' => 0,
             'missing_coordinates' => 0,
+            'rejected_recently' => 0,
+            'max_attempts_reached' => 0,
+            'cooldown_active' => 0,
         ];
 
         [$latMin, $latMax, $lngMin, $lngMax] = $orderHasCoords
-            ? $this->distanceBoundingBox((float) $order->lat, (float) $order->lng, $this->primaryRadiusKm + $this->distanceWindowKm)
+            ? $this->distanceBoundingBox((float) $order->lat, (float) $order->lng, $this->dispatchRadiusKmForOrder($order) + $this->distanceWindowKm)
             : [null, null, null, null];
 
         foreach ($scan as $row) {
@@ -694,6 +725,29 @@ class OfferDispatcher
 
             if (in_array((int) $row->id, $alivePendingCourierIds, true)) {
                 $reasons['duplicate_alive_pending']++;
+                continue;
+            }
+
+            $attempts = OrderOffer::query()
+                ->where('order_id', $order->id)
+                ->where('courier_id', (int) $row->id)
+                ->whereIn('status', [OrderOffer::STATUS_DECLINED, OrderOffer::STATUS_EXPIRED])
+                ->count();
+            if ($attempts >= $maxAttempts) {
+                $reasons['max_attempts_reached']++;
+                continue;
+            }
+
+            $latestRejected = OrderOffer::query()
+                ->where('order_id', $order->id)
+                ->where('courier_id', (int) $row->id)
+                ->whereIn('status', [OrderOffer::STATUS_DECLINED, OrderOffer::STATUS_EXPIRED])
+                ->latest('last_offered_at')
+                ->first();
+            $lastOfferedAt = $latestRejected?->last_offered_at ?? $latestRejected?->created_at;
+            if ($lastOfferedAt && $lastOfferedAt->gt($cooldownThreshold)) {
+                $reasons['rejected_recently']++;
+                $reasons['cooldown_active']++;
                 continue;
             }
 
@@ -764,5 +818,18 @@ class OfferDispatcher
             sin($dLon / 2) ** 2;
 
         return $r * (2 * atan2(sqrt($a), sqrt(1 - $a)));
+    }
+
+    protected function dispatchRadiusKmForOrder(Order $order): float
+    {
+        $attempts = (int) ($order->dispatch_attempts ?? 0);
+        $stepSeconds = max(1, (int) config('dispatch.fairness.starvation_step_seconds', 120));
+        $step = max(0, intdiv($attempts * $this->dispatchBackoffBaseSeconds, $stepSeconds));
+        $extra = min(
+            $step * (float) config('dispatch.fairness.starvation_radius_step_km', 1.5),
+            (float) config('dispatch.fairness.starvation_max_extra_radius_km', 10.0),
+        );
+
+        return $this->primaryRadiusKm + $extra;
     }
 }

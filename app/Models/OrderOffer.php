@@ -224,6 +224,7 @@ class OrderOffer extends Model
             'sequence' => 1,
             'status' => self::STATUS_PENDING,
             'expires_at' => now()->addSeconds($ttlSeconds),
+            'last_offered_at' => now(),
         ]);
     }
 
