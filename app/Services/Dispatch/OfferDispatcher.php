@@ -155,6 +155,7 @@ class OfferDispatcher
                     'last_dispatch_attempt_at' => $now,
                     'dispatch_attempts' => $attemptCount,
                 ]);
+            $locked->forceFill(['dispatch_attempts' => $attemptCount]);
 
             Log::debug('dispatch_started', [
                 'order_id' => $locked->id,
@@ -606,7 +607,7 @@ class OfferDispatcher
                     ->whereColumn('order_offers.courier_id', 'users.id')
                     ->where('order_offers.order_id', $order->id)
                     ->whereIn('order_offers.status', [OrderOffer::STATUS_DECLINED, OrderOffer::STATUS_EXPIRED])
-                    ->where('order_offers.updated_at', '>', $now->copy()->subMinutes($cooldownMinutes));
+                    ->whereRaw('COALESCE(order_offers.last_offered_at, order_offers.created_at) > ?', [$now->copy()->subMinutes($cooldownMinutes)]);
             })
             ;
 
@@ -741,9 +742,10 @@ class OfferDispatcher
                 ->where('order_id', $order->id)
                 ->where('courier_id', (int) $row->id)
                 ->whereIn('status', [OrderOffer::STATUS_DECLINED, OrderOffer::STATUS_EXPIRED])
-                ->latest('updated_at')
+                ->latest('last_offered_at')
                 ->first();
-            if ($latestRejected && $latestRejected->updated_at && $latestRejected->updated_at->gt($cooldownThreshold)) {
+            $lastOfferedAt = $latestRejected?->last_offered_at ?? $latestRejected?->created_at;
+            if ($lastOfferedAt && $lastOfferedAt->gt($cooldownThreshold)) {
                 $reasons['rejected_recently']++;
                 $reasons['cooldown_active']++;
                 continue;
