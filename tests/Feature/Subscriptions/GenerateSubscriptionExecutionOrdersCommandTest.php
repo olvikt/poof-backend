@@ -39,8 +39,8 @@ class GenerateSubscriptionExecutionOrdersCommandTest extends TestCase
             'subscription_id' => $subscription->id,
             'origin' => Order::ORIGIN_SUBSCRIPTION,
             'order_type' => Order::TYPE_SUBSCRIPTION,
-            'payment_status' => Order::PAY_PENDING,
-            'status' => Order::STATUS_NEW,
+            'payment_status' => Order::PAY_PAID,
+            'status' => Order::STATUS_SEARCHING,
             'scheduled_date' => '2026-04-12',
             'scheduled_time_from' => '12:00:00',
         ]);
@@ -200,8 +200,8 @@ class GenerateSubscriptionExecutionOrdersCommandTest extends TestCase
             'subscription_id' => $subscription->id,
             'origin' => Order::ORIGIN_SUBSCRIPTION,
             'order_type' => Order::TYPE_SUBSCRIPTION,
-            'payment_status' => Order::PAY_PENDING,
-            'status' => Order::STATUS_NEW,
+            'payment_status' => Order::PAY_PAID,
+            'status' => Order::STATUS_SEARCHING,
         ]);
     }
 
@@ -237,15 +237,76 @@ class GenerateSubscriptionExecutionOrdersCommandTest extends TestCase
             ->count());
     }
 
-    private function createPaidSubscription(array $overrides = []): ClientSubscription
+
+    public function test_it_allocates_execution_price_from_monthly_subscription_amount(): void
+    {
+        Carbon::setTestNow(Carbon::parse('2026-04-10 12:00:00'));
+
+        $subscription = $this->createPaidSubscription([
+            'next_run_at' => Carbon::parse('2026-04-10 12:00:00'),
+            'ends_at' => Carbon::parse('2026-05-01 00:00:00'),
+        ], [
+            'monthly_price' => 45,
+            'pickups_per_month' => 10,
+            'frequency_type' => 'every_3_days',
+        ]);
+
+        Artisan::call('subscriptions:generate-execution-orders --limit=100');
+
+        $order = Order::query()->where('subscription_id', $subscription->id)->latest('id')->firstOrFail();
+
+        $this->assertNotSame(45, (int) $order->price);
+        $this->assertSame(4, (int) $order->price);
+        $this->assertSame((int) $order->price, (int) $order->courier_payout_amount);
+        $this->assertSame(Order::PAY_PAID, $order->payment_status);
+        $this->assertSame(Order::STATUS_SEARCHING, $order->status);
+    }
+
+    public function test_execution_allocations_sum_to_monthly_price_with_remainder_on_last_execution(): void
+    {
+        Carbon::setTestNow(Carbon::parse('2026-04-10 12:00:00'));
+
+        $subscription = $this->createPaidSubscription([
+            'ends_at' => Carbon::parse('2026-05-01 00:00:00'),
+        ], [
+            'monthly_price' => 45,
+            'pickups_per_month' => 10,
+            'frequency_type' => 'every_3_days',
+        ]);
+
+        $sum = 0;
+
+        for ($i = 0; $i < 10; $i++) {
+            $runAt = Carbon::parse('2026-04-01 12:00:00')->addDays($i * 3);
+            Order::createForTesting([
+                'client_id' => $subscription->client_id,
+                'subscription_id' => $subscription->id,
+                'status' => Order::STATUS_DONE,
+                'payment_status' => Order::PAY_PAID,
+                'order_type' => Order::TYPE_SUBSCRIPTION,
+                'origin' => Order::ORIGIN_SUBSCRIPTION,
+                'address_text' => 'вул. Підписки, 10',
+                'scheduled_date' => $runAt->toDateString(),
+                'price' => $i === 9 ? 9 : 4,
+                'courier_payout_amount' => $i === 9 ? 9 : 4,
+                'client_charge_amount' => 0,
+            ]);
+            $sum += $i === 9 ? 9 : 4;
+        }
+
+        $this->assertSame(45, $sum);
+    }
+
+    private function createPaidSubscription(array $overrides = [], array $planOverrides = []): ClientSubscription
     {
         $client = User::factory()->create(['role' => User::ROLE_CLIENT, 'is_active' => true]);
 
-        $plan = SubscriptionPlan::factory()->create([
+        $plan = SubscriptionPlan::factory()->create(array_merge([
             'monthly_price' => 450,
+            'pickups_per_month' => 10,
             'max_bags' => 2,
             'frequency_type' => 'every_3_days',
-        ]);
+        ], $planOverrides));
 
         $address = ClientAddress::createForUser($client->id, [
             'label' => 'home',

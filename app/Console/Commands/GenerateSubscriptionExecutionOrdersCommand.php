@@ -61,7 +61,7 @@ class GenerateSubscriptionExecutionOrdersCommand extends Command
             $runAtMinute = $runAt->setSecond(0);
 
             $existingPendingForSlot = $subscription->generatedOrders()
-                ->where('payment_status', Order::PAY_PENDING)
+                ->whereIn('payment_status', [Order::PAY_PENDING, Order::PAY_PAID])
                 ->where('origin', Order::ORIGIN_SUBSCRIPTION)
                 ->whereDate('scheduled_date', $runAt->toDateString())
                 ->whereTime('scheduled_time_from', '>=', $runAtMinute->format('H:i:00'))
@@ -110,8 +110,8 @@ class GenerateSubscriptionExecutionOrdersCommand extends Command
             $order = Order::createFromLegacyWebContract([
                 'client_id' => (int) $subscription->client_id,
                 'order_type' => Order::TYPE_SUBSCRIPTION,
-                'status' => Order::STATUS_NEW,
-                'payment_status' => Order::PAY_PENDING,
+                'status' => Order::STATUS_SEARCHING,
+                'payment_status' => Order::PAY_PAID,
                 'address_id' => $subscription->address_id,
                 'address_text' => (string) ($subscription->address?->address_text ?? 'Адреса підписки'),
                 'lat' => $subscription->address?->lat,
@@ -126,9 +126,9 @@ class GenerateSubscriptionExecutionOrdersCommand extends Command
                 'scheduled_time_to' => $runAt->addHours(2)->format('H:i'),
                 'handover_type' => Order::HANDOVER_DOOR,
                 'bags_count' => (int) ($subscription->plan?->max_bags ?? 1),
-                'price' => (int) ($subscription->plan?->monthly_price ?? 0),
-                'client_charge_amount' => (int) ($subscription->plan?->monthly_price ?? 0),
-                'courier_payout_amount' => (int) ($subscription->plan?->monthly_price ?? 0),
+                'price' => $this->resolveExecutionAllocatedAmount($subscription, $runAt),
+                'client_charge_amount' => 0,
+                'courier_payout_amount' => $this->resolveExecutionAllocatedAmount($subscription, $runAt),
                 'system_subsidy_amount' => 0,
                 'funding_source' => Order::FUNDING_CLIENT,
                 'benefit_type' => null,
@@ -158,6 +158,34 @@ class GenerateSubscriptionExecutionOrdersCommand extends Command
         $this->line(json_encode($summary, JSON_UNESCAPED_SLASHES));
 
         return self::SUCCESS;
+    }
+
+    private function resolveExecutionAllocatedAmount(ClientSubscription $subscription, CarbonImmutable $runAt): int
+    {
+        $totalPaidAmount = max(0, (int) ($subscription->plan?->monthly_price ?? 0));
+        $plannedExecutionCount = max(1, (int) ($subscription->plan?->pickups_per_month ?? 1));
+
+        $baseAmount = intdiv($totalPaidAmount, $plannedExecutionCount);
+        $remainder = $totalPaidAmount % $plannedExecutionCount;
+
+        $periodEnd = $subscription->ends_at !== null
+            ? CarbonImmutable::instance($subscription->ends_at)->startOfDay()
+            : $runAt->endOfMonth()->startOfDay();
+        $periodStart = $periodEnd->subMonth();
+
+        $currentPeriodExecutions = $subscription->generatedOrders()
+            ->where('origin', Order::ORIGIN_SUBSCRIPTION)
+            ->whereDate('scheduled_date', '>=', $periodStart->toDateString())
+            ->whereDate('scheduled_date', '<', $periodEnd->toDateString())
+            ->count();
+
+        $currentExecutionIndex = min($currentPeriodExecutions, $plannedExecutionCount - 1);
+
+        if ($currentExecutionIndex === $plannedExecutionCount - 1) {
+            return $baseAmount + $remainder;
+        }
+
+        return $baseAmount;
     }
 
     private function resolveGenerationSlot(CarbonImmutable $nextRunAt, string $frequency, CarbonImmutable $now): CarbonImmutable
