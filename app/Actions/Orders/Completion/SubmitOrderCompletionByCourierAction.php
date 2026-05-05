@@ -84,6 +84,8 @@ class SubmitOrderCompletionByCourierAction
                 'auto_confirmation_due_at' => now()->addHours(max(1, (int) config('order_completion_proof.auto_confirm_hours', 24))),
             ])->save();
 
+            $courier->markFree();
+
             Log::info('completion_submitted', [
                 'flow' => 'order_completion_proof',
                 'order_id' => $lockedOrder->id,

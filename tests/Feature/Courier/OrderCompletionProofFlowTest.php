@@ -14,7 +14,9 @@ use App\Models\CourierEarning;
 use App\Models\Order;
 use App\Models\OrderCompletionProof;
 use App\Models\OrderCompletionRequest;
+use App\Models\OrderOffer;
 use App\Models\User;
+use Livewire\Livewire;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
@@ -145,6 +147,56 @@ class OrderCompletionProofFlowTest extends TestCase
 
         $this->assertTrue(app(ConfirmOrderCompletionByClientAction::class)->handle($order));
         $this->assertDatabaseCount('courier_earnings', 1);
+    }
+
+
+    public function test_courier_is_released_after_submit_and_can_see_available_orders_before_final_confirmation(): void
+    {
+        [$courier, $order] = $this->createInProgressPaidOrder(Order::HANDOVER_DOOR);
+
+        $nextOrder = Order::createForTesting([
+            'client_id' => $order->client_id,
+            'status' => Order::STATUS_SEARCHING,
+            'payment_status' => Order::PAY_PAID,
+            'address_text' => 'next available order address',
+            'price' => 180,
+        ]);
+
+        OrderOffer::query()->create([
+            'order_id' => $nextOrder->id,
+            'courier_id' => $courier->id,
+            'type' => OrderOffer::TYPE_PRIMARY,
+            'sequence' => 1,
+            'status' => OrderOffer::STATUS_PENDING,
+            'expires_at' => now()->addMinutes(15),
+        ]);
+
+        app(StartOrderCompletionProofAction::class)->handle($order, $courier);
+        app(UploadOrderCompletionProofAction::class)->handle($order, $courier, OrderCompletionProof::TYPE_DOOR_PHOTO, 'proofs/door.jpg');
+        app(UploadOrderCompletionProofAction::class)->handle($order, $courier, OrderCompletionProof::TYPE_CONTAINER_PHOTO, 'proofs/container.jpg');
+
+        $this->assertTrue(app(SubmitOrderCompletionByCourierAction::class)->handle($order, $courier));
+
+        $request = OrderCompletionRequest::query()->where('order_id', $order->id)->firstOrFail();
+        $this->assertSame(OrderCompletionRequest::STATUS_AWAITING_CLIENT_CONFIRMATION, $request->status);
+
+        $courier->refresh();
+        $this->assertSame(Courier::STATUS_ONLINE, $courier->courierProfile->status);
+        $this->assertFalse((bool) $courier->is_busy);
+        $this->assertSame(User::SESSION_READY, $courier->session_state);
+
+        $this->actingAs($courier);
+        Livewire::test(\App\Livewire\Courier\AvailableOrders::class)
+            ->assertSet('activeOrder', null)
+            ->assertSee('next available order address');
+
+        $this->assertSame(Order::STATUS_IN_PROGRESS, $order->fresh()->status);
+        $this->assertDatabaseCount('courier_earnings', 0);
+
+        $this->assertTrue(app(ConfirmOrderCompletionByClientAction::class)->handle($order));
+
+        $this->assertSame(Order::STATUS_DONE, $order->fresh()->status);
+        $this->assertSame(1, CourierEarning::query()->where('order_id', $order->id)->count());
     }
 
     public function test_legacy_non_door_order_completion_still_finalizes_immediately(): void
