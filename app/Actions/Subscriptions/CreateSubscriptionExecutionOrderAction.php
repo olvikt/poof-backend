@@ -6,10 +6,15 @@ namespace App\Actions\Subscriptions;
 
 use App\Models\ClientSubscription;
 use App\Models\Order;
+use App\Services\Orders\Completion\OrderCompletionPolicyAssignmentService;
 use Carbon\CarbonImmutable;
 
 class CreateSubscriptionExecutionOrderAction
 {
+    public function __construct(private readonly OrderCompletionPolicyAssignmentService $completionPolicyAssignment)
+    {
+    }
+
     public function handle(ClientSubscription $subscription, ?CarbonImmutable $runAt = null): ?Order
     {
         $runAt ??= CarbonImmutable::now();
@@ -57,7 +62,7 @@ class CreateSubscriptionExecutionOrderAction
             'scheduled_time_from' => $runAt->format('H:i'),
             'scheduled_time_to' => $runAt->addHours(2)->format('H:i'),
             'handover_type' => Order::HANDOVER_DOOR,
-            'completion_policy' => Order::COMPLETION_POLICY_NONE,
+            'completion_policy' => $this->completionPolicyAssignment->assignForCreate(Order::HANDOVER_DOOR),
             'bags_count' => (int) ($subscription->plan?->max_bags ?? 1),
             'price' => $allocatedAmount,
             'client_charge_amount' => 0,

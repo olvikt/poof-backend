@@ -274,6 +274,7 @@ class SubscriptionsPage extends Component
     {
         $planRuns = max(1, (int) ($subscription->plan?->pickups_per_month ?? 0));
         $orders = $subscription->generatedOrders
+            ->filter(fn (Order $order): bool => $order->origin === Order::ORIGIN_SUBSCRIPTION)
             ->sortBy('scheduled_date')
             ->values();
         $completedRuns = $orders->where('status', \App\Models\Order::STATUS_DONE)->count();
