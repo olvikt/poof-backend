@@ -57,6 +57,7 @@ class CreateSubscriptionExecutionOrderAction
             'scheduled_time_from' => $runAt->format('H:i'),
             'scheduled_time_to' => $runAt->addHours(2)->format('H:i'),
             'handover_type' => Order::HANDOVER_DOOR,
+            'completion_policy' => Order::COMPLETION_POLICY_NONE,
             'bags_count' => (int) ($subscription->plan?->max_bags ?? 1),
             'price' => $allocatedAmount,
             'client_charge_amount' => 0,

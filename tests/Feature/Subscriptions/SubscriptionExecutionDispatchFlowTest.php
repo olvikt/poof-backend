@@ -11,6 +11,7 @@ use App\Models\ClientAddress;
 use App\Models\ClientSubscription;
 use App\Models\Courier;
 use App\Models\Order;
+use App\Models\OrderCompletionRequest;
 use App\Models\OrderOffer;
 use App\Models\SubscriptionPlan;
 use App\Models\User;
@@ -240,6 +241,10 @@ class SubscriptionExecutionDispatchFlowTest extends TestCase
         $this->assertSame(4, (int) $execution->price);
         $this->assertSame(0, (int) $execution->client_charge_amount);
         $this->assertSame(4, (int) $execution->courier_payout_amount);
+        $this->assertSame(Order::COMPLETION_POLICY_NONE, $execution->completion_policy);
+        $this->assertDatabaseMissing('order_completion_requests', ['order_id' => $execution->id]);
+        $this->assertSame(0, OrderCompletionRequest::query()->where('order_id', $execution->id)->count());
+        $this->assertDatabaseMissing('courier_earnings', ['order_id' => $execution->id]);
 
         $this->actingAs($courier, 'web');
         Livewire::test(AvailableOrders::class)
