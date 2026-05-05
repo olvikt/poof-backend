@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Tests\Feature\Courier;
 
 use App\Actions\Orders\Completion\ConfirmOrderCompletionByClientAction;
+use App\Actions\Orders\Completion\CreateOrderCompletionDisputeAction;
 use App\Actions\Orders\Completion\StartOrderCompletionProofAction;
 use App\Actions\Orders\Completion\SubmitOrderCompletionByCourierAction;
 use App\Actions\Orders\Completion\UploadOrderCompletionProofAction;
@@ -13,6 +14,7 @@ use App\Models\Courier;
 use App\Models\CourierEarning;
 use App\Models\Order;
 use App\Models\OrderCompletionProof;
+use App\Models\OrderCompletionDispute;
 use App\Models\OrderCompletionRequest;
 use App\Models\OrderOffer;
 use App\Models\User;
@@ -197,6 +199,62 @@ class OrderCompletionProofFlowTest extends TestCase
 
         $this->assertSame(Order::STATUS_DONE, $order->fresh()->status);
         $this->assertSame(1, CourierEarning::query()->where('order_id', $order->id)->count());
+    }
+
+    public function test_disputed_completion_request_does_not_reblock_courier_runtime(): void
+    {
+        [$courier, $order] = $this->createInProgressPaidOrder(Order::HANDOVER_DOOR);
+
+        $nextOrder = Order::createForTesting([
+            'client_id' => $order->client_id,
+            'status' => Order::STATUS_SEARCHING,
+            'payment_status' => Order::PAY_PAID,
+            'address_text' => 'available after dispute',
+            'price' => 220,
+        ]);
+
+        OrderOffer::query()->create([
+            'order_id' => $nextOrder->id,
+            'courier_id' => $courier->id,
+            'type' => OrderOffer::TYPE_PRIMARY,
+            'sequence' => 1,
+            'status' => OrderOffer::STATUS_PENDING,
+            'expires_at' => now()->addMinutes(20),
+        ]);
+
+        app(StartOrderCompletionProofAction::class)->handle($order, $courier);
+        app(UploadOrderCompletionProofAction::class)->handle($order, $courier, OrderCompletionProof::TYPE_DOOR_PHOTO, 'proofs/door.jpg');
+        app(UploadOrderCompletionProofAction::class)->handle($order, $courier, OrderCompletionProof::TYPE_CONTAINER_PHOTO, 'proofs/container.jpg');
+        $this->assertTrue(app(SubmitOrderCompletionByCourierAction::class)->handle($order, $courier));
+
+        $courier->refresh();
+        $this->assertSame(Courier::STATUS_ONLINE, $courier->courierProfile->status);
+        $this->assertFalse((bool) $courier->is_busy);
+        $this->assertSame(User::SESSION_READY, $courier->session_state);
+
+        $client = User::query()->findOrFail($order->client_id);
+        $this->assertTrue(app(CreateOrderCompletionDisputeAction::class)->handle($order, $client, 'not_my_bag', 'opened from test'));
+
+        $request = OrderCompletionRequest::query()->where('order_id', $order->id)->firstOrFail();
+        $this->assertSame(OrderCompletionRequest::STATUS_DISPUTED, $request->status);
+        $this->assertDatabaseHas('order_completion_disputes', [
+            'order_id' => $order->id,
+            'completion_request_id' => $request->id,
+            'status' => OrderCompletionDispute::STATUS_OPEN,
+        ]);
+
+        $courier->refresh();
+        $this->assertSame(Order::STATUS_IN_PROGRESS, $order->fresh()->status);
+        $this->assertSame(Courier::STATUS_ONLINE, $courier->courierProfile->status);
+        $this->assertFalse((bool) $courier->is_busy);
+        $this->assertSame(User::SESSION_READY, $courier->session_state);
+
+        $this->actingAs($courier);
+        Livewire::test(\App\Livewire\Courier\AvailableOrders::class)
+            ->assertSet('activeOrder', null)
+            ->assertSee('available after dispute');
+
+        $this->assertDatabaseCount('courier_earnings', 0);
     }
 
     public function test_legacy_non_door_order_completion_still_finalizes_immediately(): void
