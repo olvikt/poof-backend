@@ -541,12 +541,18 @@ class OfferDispatcher
         // 4) внутри окна сортируем по score: distance + workload_penalty + recency_penalty
         $winner = $window
             ->sort(function ($a, $b) {
-                $aScore = ($a['distance'] * (float) config('dispatch.fairness.distance_weight', 1.0))
+                $aScore = round(
+                    ($a['distance'] * (float) config('dispatch.fairness.distance_weight', 1.0))
                     + ($a['workload_today'] * (float) config('dispatch.fairness.workload_penalty_weight', 0.6))
-                    + ((1 / max(1, $a['rotation'])) * (float) config('dispatch.fairness.recency_penalty_weight', 0.2));
-                $bScore = ($b['distance'] * (float) config('dispatch.fairness.distance_weight', 1.0))
+                    + ((1 / max(1, $a['rotation'])) * (float) config('dispatch.fairness.recency_penalty_weight', 0.2)),
+                    8,
+                );
+                $bScore = round(
+                    ($b['distance'] * (float) config('dispatch.fairness.distance_weight', 1.0))
                     + ($b['workload_today'] * (float) config('dispatch.fairness.workload_penalty_weight', 0.6))
-                    + ((1 / max(1, $b['rotation'])) * (float) config('dispatch.fairness.recency_penalty_weight', 0.2));
+                    + ((1 / max(1, $b['rotation'])) * (float) config('dispatch.fairness.recency_penalty_weight', 0.2)),
+                    8,
+                );
 
                 if ($aScore !== $bScore) {
                     return $aScore <=> $bScore;
