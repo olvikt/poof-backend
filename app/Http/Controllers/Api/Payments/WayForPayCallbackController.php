@@ -126,7 +126,7 @@ class WayForPayCallbackController extends Controller
         $isSuccessStatus = in_array($validated['transactionStatus'], self::SUCCESS_STATUSES, true);
         $alreadyPaid = $order->isPaid();
 
-        if ($isSuccessStatus && ! $alreadyPaid) {
+        if ($isSuccessStatus) {
             $order->markAsPaid();
         }
 

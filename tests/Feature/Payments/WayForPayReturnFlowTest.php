@@ -3,12 +3,17 @@
 namespace Tests\Feature\Payments;
 
 use App\Http\Controllers\Client\Payments\WayForPayReturnController;
+use App\Events\OrderCreated;
+use App\Models\ClientAddress;
+use App\Models\ClientSubscription;
 use App\Models\Order;
+use App\Models\SubscriptionPlan;
 use App\Models\User;
 use App\Services\Payments\WayForPay\WayForPaySignature;
 use Illuminate\Foundation\Http\Middleware\VerifyCsrfToken;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Session\Middleware\StartSession;
+use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Log;
 use Tests\TestCase;
 
@@ -561,6 +566,76 @@ class WayForPayReturnFlowTest extends TestCase
     /**
      * @return array<string, string>
      */
+
+    public function test_callback_for_paid_subscription_checkout_repairs_missing_execution_order_and_dispatches_order_created(): void
+    {
+        $secret = 'test-secret';
+        config()->set('payments.wayforpay.merchant_secret', $secret);
+
+        Event::fake([OrderCreated::class]);
+
+        $client = User::factory()->create([
+            'role' => User::ROLE_CLIENT,
+            'is_active' => true,
+        ]);
+
+        $address = ClientAddress::query()->create([
+            'client_id' => $client->id,
+            'label' => 'Дім',
+            'address_text' => 'вул. Відновлення, 10',
+            'lat' => 50.4501,
+            'lng' => 30.5234,
+            'is_default' => true,
+        ]);
+
+        $plan = SubscriptionPlan::factory()->create([
+            'is_active' => true,
+            'frequency_type' => 'daily',
+        ]);
+
+        $subscription = ClientSubscription::query()->create([
+            'client_id' => $client->id,
+            'plan_id' => $plan->id,
+            'address_id' => $address->id,
+            'status' => ClientSubscription::STATUS_ACTIVE,
+            'frequency_type' => 'daily',
+            'next_run_at' => now(),
+        ]);
+
+        $checkout = Order::createForTesting([
+            'client_id' => $client->id,
+            'status' => Order::STATUS_DONE,
+            'payment_status' => Order::PAY_PAID,
+            'order_type' => Order::TYPE_SUBSCRIPTION,
+            'origin' => Order::ORIGIN_CHECKOUT,
+            'subscription_id' => $subscription->id,
+            'address_text' => 'вул. Відновлення, 10',
+            'lat' => 50.4501,
+            'lng' => 30.5234,
+            'price' => 100,
+            'client_charge_amount' => 100,
+        ]);
+
+        $payload = $this->buildSignedPayload((string) $checkout->id, $secret, 'Approved');
+
+        $this->postJson('/api/payments/wayforpay/callback', $payload)
+            ->assertOk()
+            ->assertJsonPath('status', 'accept');
+
+        $execution = Order::query()
+            ->where('subscription_id', $subscription->id)
+            ->where('origin', Order::ORIGIN_SUBSCRIPTION)
+            ->latest('id')
+            ->first();
+
+        $this->assertNotNull($execution);
+        $this->assertSame(Order::STATUS_DONE, $checkout->fresh()->status);
+        $this->assertSame(Order::PAY_PAID, $execution->payment_status);
+        $this->assertSame(Order::STATUS_SEARCHING, $execution->status);
+
+        Event::assertDispatched(OrderCreated::class, fn (OrderCreated $event): bool => $event->order->id === $execution->id);
+    }
+
     private function buildSignedPayload(string $orderReference, string $secret, string $transactionStatus): array
     {
         $payload = [

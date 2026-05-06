@@ -28,6 +28,15 @@ class MarkOrderAsPaidAction
      */
     public function handle(Order $order): void
     {
+        Log::info('order_mark_paid_entered', [
+            'order_id' => (int) $order->id,
+            'subscription_id' => $order->subscription_id !== null ? (int) $order->subscription_id : null,
+            'status' => (string) $order->status,
+            'payment_status' => (string) $order->payment_status,
+            'origin' => (string) $order->origin,
+            'order_type' => (string) $order->order_type,
+        ]);
+
         if (in_array($order->status, [Order::STATUS_DONE, Order::STATUS_CANCELLED, Order::STATUS_EXPIRED], true)) {
             Log::info('order_paid_skipped_terminal', [
                 'order_id' => (int) $order->id,
@@ -40,6 +49,8 @@ class MarkOrderAsPaidAction
                     'payment_status' => Order::PAY_PAID,
                 ])->save();
             }
+
+            $this->repairMissingSubscriptionExecutionOrder($order->fresh() ?? $order);
 
             return;
         }
@@ -179,6 +190,63 @@ class MarkOrderAsPaidAction
                 ])->save();
             }
         }
+    }
+
+
+    private function repairMissingSubscriptionExecutionOrder(Order $order): void
+    {
+        if ($order->origin !== Order::ORIGIN_CHECKOUT
+            || $order->order_type !== Order::TYPE_SUBSCRIPTION
+            || $order->payment_status !== Order::PAY_PAID
+            || $order->status !== Order::STATUS_DONE
+            || $order->subscription_id === null) {
+            return;
+        }
+
+        $subscription = ClientSubscription::query()->with(['plan', 'address'])->find($order->subscription_id);
+        if (! $subscription) {
+            return;
+        }
+
+        Log::info('execution_order_repair_triggered', [
+            'order_id' => (int) $order->id,
+            'subscription_id' => (int) $order->subscription_id,
+            'scheduled_date' => $order->scheduled_date,
+            'scheduled_time_from' => $order->scheduled_time_from,
+            'checkout_origin' => (string) $order->origin,
+            'checkout_status' => (string) $order->status,
+            'checkout_payment_status' => (string) $order->payment_status,
+        ]);
+
+        $createdExecution = $this->createSubscriptionExecutionOrder->handle($subscription, $this->resolveFirstExecutionRunAt($order));
+
+        if ($createdExecution) {
+            Log::info('execution_order_repair_created', [
+                'order_id' => (int) $order->id,
+                'subscription_id' => (int) $order->subscription_id,
+                'scheduled_date' => $order->scheduled_date,
+                'scheduled_time_from' => $order->scheduled_time_from,
+                'checkout_origin' => (string) $order->origin,
+                'checkout_status' => (string) $order->status,
+                'checkout_payment_status' => (string) $order->payment_status,
+                'execution_order_id' => (int) $createdExecution->id,
+            ]);
+
+            event(new OrderCreated($createdExecution));
+
+            return;
+        }
+
+        Log::info('execution_order_repair_skipped', [
+            'reason' => 'execution_order_already_exists',
+            'order_id' => (int) $order->id,
+            'subscription_id' => (int) $order->subscription_id,
+            'scheduled_date' => $order->scheduled_date,
+            'scheduled_time_from' => $order->scheduled_time_from,
+            'checkout_origin' => (string) $order->origin,
+            'checkout_status' => (string) $order->status,
+            'checkout_payment_status' => (string) $order->payment_status,
+        ]);
     }
 
     private function resolveFirstExecutionRunAt(Order $checkoutOrder): CarbonImmutable
