@@ -55,7 +55,10 @@ class RepairSubscriptionCheckoutOrdersCommand extends Command
     private function resolveFirstExecutionRunAt(Order $checkoutOrder): CarbonImmutable
     {
         if ($checkoutOrder->scheduled_date !== null && $checkoutOrder->scheduled_time_from !== null) {
-            return CarbonImmutable::parse(sprintf('%s %s', (string) $checkoutOrder->scheduled_date, (string) $checkoutOrder->scheduled_time_from));
+            $date = CarbonImmutable::parse((string) $checkoutOrder->scheduled_date)->toDateString();
+            $time = CarbonImmutable::parse((string) $checkoutOrder->scheduled_time_from)->format('H:i:s');
+
+            return CarbonImmutable::parse(sprintf('%s %s', $date, $time));
         }
 
         if ($checkoutOrder->scheduled_date !== null) {
