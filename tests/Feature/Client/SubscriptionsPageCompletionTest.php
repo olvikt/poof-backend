@@ -17,6 +17,7 @@ use App\Models\OrderCompletionProof;
 use App\Models\OrderCompletionRequest;
 use App\Models\SubscriptionPlan;
 use App\Models\User;
+use Carbon\CarbonImmutable;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Livewire\Livewire;
 use Tests\TestCase;
@@ -82,6 +83,60 @@ class SubscriptionsPageCompletionTest extends TestCase
         $this->assertSame($owner->id, $order->fresh()->client_id);
     }
 
+
+    public function test_card_shows_checkout_order_number_and_paid_date(): void
+    {
+        $client = User::factory()->create();
+        $plan = SubscriptionPlan::query()->firstOrFail();
+
+        $subscription = ClientSubscription::unguarded(fn () => ClientSubscription::query()->create([
+            'client_id' => $client->id,
+            'subscription_plan_id' => $plan->id,
+            'status' => ClientSubscription::STATUS_ACTIVE,
+            'next_run_at' => now()->addDay(),
+            'ends_at' => now()->addMonth(),
+            'auto_renew' => true,
+        ]));
+
+        Order::createForTesting([
+            'client_id' => $client->id,
+            'subscription_id' => $subscription->id,
+            'origin' => Order::ORIGIN_CHECKOUT,
+            'order_type' => Order::TYPE_SUBSCRIPTION,
+            'payment_status' => Order::PAY_PAID,
+            'paid_at' => CarbonImmutable::create(2026, 5, 6, 9, 30, 0),
+            'address_text' => 'Subscription address',
+            'price' => 500,
+        ]);
+
+        $this->actingAs($client);
+
+        Livewire::test(SubscriptionsPage::class)
+            ->assertSee('Замовлення №')
+            ->assertSee('Оплачено: 06.05.2026');
+    }
+
+    public function test_active_subscription_does_not_show_resume_button(): void
+    {
+        [$client, $subscription] = $this->seedSubscriptionWithStatus(ClientSubscription::STATUS_ACTIVE, now()->addMonth());
+
+        $this->actingAs($client);
+
+        Livewire::test(SubscriptionsPage::class)
+            ->assertDontSee('Продовжити');
+    }
+
+    public function test_paused_or_expired_subscription_shows_resume_button(): void
+    {
+        [$pausedClient] = $this->seedSubscriptionWithStatus(ClientSubscription::STATUS_PAUSED, now()->addMonth());
+        [$expiredClient] = $this->seedSubscriptionWithStatus(ClientSubscription::STATUS_ACTIVE, now()->subDay());
+
+        $this->actingAs($pausedClient);
+        Livewire::test(SubscriptionsPage::class)->assertSee('Продовжити');
+
+        $this->actingAs($expiredClient);
+        Livewire::test(SubscriptionsPage::class)->assertSee('Продовжити');
+    }
     private function seedAwaitingExecutionOrder(): array
     {
         $client = User::factory()->create();
@@ -118,6 +173,34 @@ class SubscriptionsPageCompletionTest extends TestCase
         app(SubmitOrderCompletionByCourierAction::class)->handle($order, $courierUser);
 
         return [$client, $subscription, $order->fresh()];
+    }
+
+
+    private function seedSubscriptionWithStatus(string $status, $endsAt): array
+    {
+        $client = User::factory()->create();
+        $plan = SubscriptionPlan::query()->firstOrFail();
+
+        $subscription = ClientSubscription::unguarded(fn () => ClientSubscription::query()->create([
+            'client_id' => $client->id,
+            'subscription_plan_id' => $plan->id,
+            'status' => $status,
+            'next_run_at' => now()->addDay(),
+            'ends_at' => $endsAt,
+            'auto_renew' => true,
+        ]));
+
+        Order::createForTesting([
+            'client_id' => $client->id,
+            'subscription_id' => $subscription->id,
+            'origin' => Order::ORIGIN_CHECKOUT,
+            'order_type' => Order::TYPE_SUBSCRIPTION,
+            'payment_status' => Order::PAY_PAID,
+            'address_text' => 'Subscription address',
+            'price' => 500,
+        ]);
+
+        return [$client, $subscription];
     }
 
     private function seedSecondClientAndSubscription(): array

@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Http\Controllers\Client\Payments;
 
 use App\Http\Controllers\Controller;
+use App\Models\Order;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -21,13 +22,7 @@ class WayForPayReturnController extends Controller
         $orderReference = trim((string) $request->input('orderReference', ''));
         $isApproved = $transactionStatus === 'approved';
 
-        $target = $isApproved
-            ? (string) config('payments.wayforpay.approved_url')
-            : (string) config('payments.wayforpay.declined_url');
-
-        if (! $this->isAllowedRedirectTarget($target)) {
-            $target = route('client.orders');
-        }
+        $target = $this->resolveTargetByPaymentState($isApproved, $orderReference);
 
         $destination = $this->appendPaymentStateToTarget($target, $isApproved, $orderReference);
         $finalizeUrl = route('payments.wayforpay.return.finalize', [
@@ -97,6 +92,30 @@ class WayForPayReturnController extends Controller
         ], $response));
 
         return $response;
+    }
+
+
+    private function resolveTargetByPaymentState(bool $isApproved, string $orderReference): string
+    {
+        $target = $isApproved
+            ? (string) config('payments.wayforpay.approved_url')
+            : (string) config('payments.wayforpay.declined_url');
+
+        if ($isApproved && ctype_digit($orderReference)) {
+            $order = Order::query()
+                ->select(['id', 'order_type'])
+                ->find((int) $orderReference);
+
+            if ($order?->order_type === Order::TYPE_SUBSCRIPTION) {
+                $target = route('client.subscriptions');
+            }
+        }
+
+        if (! $this->isAllowedRedirectTarget($target)) {
+            return route('client.orders');
+        }
+
+        return $target;
     }
 
     private function appendPaymentStateToTarget(string $target, bool $isApproved, string $orderReference): string

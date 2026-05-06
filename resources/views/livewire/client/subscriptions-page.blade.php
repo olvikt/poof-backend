@@ -64,6 +64,10 @@
                         {{ $subscription->ui_status_label }}
                     </span>
                 </div>
+                <div class="mt-2 space-y-1 text-xs text-gray-400">
+                    <p>Замовлення №{{ $subscription->latestPaidCheckoutOrder?->id ?? '—' }}</p>
+                    <p>Оплачено: {{ optional($subscription->latestPaidCheckoutOrder?->paid_at ?? $subscription->latestPaidCheckoutOrder?->created_at)?->format('d.m.Y') ?? '—' }}</p>
+                </div>
 
                 <div class="mt-3 grid grid-cols-2 gap-3 text-sm text-gray-300">
                     <p>Частота: <span class="text-white">{{ $subscription->frequency_label }}</span></p>
@@ -90,7 +94,7 @@
                     @endif
                 @endif
 
-                <div class="mt-4 flex flex-wrap gap-2">
+                <div class="mt-4 flex flex-wrap items-center gap-2 md:flex-nowrap">
                     @if($tab === 'active' && $subscription->canPay())
                         <form method="POST" action="{{ route('client.subscriptions.pay', $subscription) }}">
                             @csrf
@@ -103,14 +107,14 @@
                         @elseif($subscription->canPause())
                             <button wire:click="pause({{ $subscription->id }})" type="button" class="rounded-xl border border-gray-700 px-3 py-2 text-sm text-gray-200">Пауза</button>
                         @endif
-                        @if($subscription->canRenew())
+                        @if($this->shouldShowResumeButton($subscription) && $subscription->canRenew())
                             <form method="POST" action="{{ route('client.subscriptions.renew', $subscription) }}">
                                 @csrf
-                                <button type="submit" class="rounded-xl bg-yellow-400 px-4 py-2 text-sm font-semibold text-black">Продовжити</button>
+                                <button type="submit" class="rounded-xl bg-emerald-500 px-4 py-2 text-sm font-semibold text-white hover:bg-emerald-400">Продовжити</button>
                             </form>
                         @endif
                         @if($subscription->canOpenDetails())
-                            <button wire:click="openDetails({{ $subscription->id }})" type="button" class="rounded-xl border border-gray-700 px-3 py-2 text-sm text-gray-200">Докладніше</button>
+                            <button wire:click="openDetails({{ $subscription->id }})" type="button" class="inline-flex items-center gap-1 rounded-xl border border-yellow-400/50 px-4 py-2 text-sm text-yellow-200 transition hover:border-yellow-300 hover:bg-yellow-300/10">Докладніше <span aria-hidden="true">→</span></button>
                         @endif
                     @else
                         <span class="rounded-xl border border-gray-700 px-3 py-2 text-sm text-gray-400">В архіві</span>
@@ -121,7 +125,7 @@
                         </form>
                         @endif
                         @if($subscription->canOpenDetails())
-                            <button wire:click="openDetails({{ $subscription->id }})" type="button" class="rounded-xl border border-gray-700 px-3 py-2 text-sm text-gray-200">Докладніше</button>
+                            <button wire:click="openDetails({{ $subscription->id }})" type="button" class="inline-flex items-center gap-1 rounded-xl border border-yellow-400/50 px-4 py-2 text-sm text-yellow-200 transition hover:border-yellow-300 hover:bg-yellow-300/10">Докладніше <span aria-hidden="true">→</span></button>
                         @endif
                     @endif
                 </div>
