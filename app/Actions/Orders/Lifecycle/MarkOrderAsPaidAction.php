@@ -208,11 +208,45 @@ class MarkOrderAsPaidAction
             return;
         }
 
+        Log::info('execution_order_repair_triggered', [
+            'order_id' => (int) $order->id,
+            'subscription_id' => (int) $order->subscription_id,
+            'scheduled_date' => $order->scheduled_date,
+            'scheduled_time_from' => $order->scheduled_time_from,
+            'checkout_origin' => (string) $order->origin,
+            'checkout_status' => (string) $order->status,
+            'checkout_payment_status' => (string) $order->payment_status,
+        ]);
+
         $createdExecution = $this->createSubscriptionExecutionOrder->handle($subscription, $this->resolveFirstExecutionRunAt($order));
 
         if ($createdExecution) {
+            Log::info('execution_order_repair_created', [
+                'order_id' => (int) $order->id,
+                'subscription_id' => (int) $order->subscription_id,
+                'scheduled_date' => $order->scheduled_date,
+                'scheduled_time_from' => $order->scheduled_time_from,
+                'checkout_origin' => (string) $order->origin,
+                'checkout_status' => (string) $order->status,
+                'checkout_payment_status' => (string) $order->payment_status,
+                'execution_order_id' => (int) $createdExecution->id,
+            ]);
+
             event(new OrderCreated($createdExecution));
+
+            return;
         }
+
+        Log::info('execution_order_repair_skipped', [
+            'reason' => 'execution_order_already_exists',
+            'order_id' => (int) $order->id,
+            'subscription_id' => (int) $order->subscription_id,
+            'scheduled_date' => $order->scheduled_date,
+            'scheduled_time_from' => $order->scheduled_time_from,
+            'checkout_origin' => (string) $order->origin,
+            'checkout_status' => (string) $order->status,
+            'checkout_payment_status' => (string) $order->payment_status,
+        ]);
     }
 
     private function resolveFirstExecutionRunAt(Order $checkoutOrder): CarbonImmutable
