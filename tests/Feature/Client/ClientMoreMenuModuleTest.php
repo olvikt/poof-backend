@@ -127,6 +127,50 @@ class ClientMoreMenuModuleTest extends TestCase
             ->assertSee('Продовжити');
     }
 
+    public function test_subscriptions_page_renders_latest_paid_order_id_and_created_at_without_paid_at_column_dependency(): void
+    {
+        $client = User::factory()->create(['role' => User::ROLE_CLIENT]);
+        $plan = SubscriptionPlan::factory()->create();
+
+        $subscription = ClientSubscription::unguarded(fn (): ClientSubscription => ClientSubscription::query()->create([
+            'client_id' => $client->id,
+            'subscription_plan_id' => $plan->id,
+            'status' => ClientSubscription::STATUS_ACTIVE,
+            'auto_renew' => true,
+            'ends_at' => now()->addDays(14),
+        ]));
+
+        $olderOrder = Order::createForTesting([
+            'client_id' => $client->id,
+            'subscription_id' => $subscription->id,
+            'payment_status' => Order::PAY_PAID,
+            'status' => Order::STATUS_DONE,
+            'order_type' => Order::TYPE_SUBSCRIPTION,
+            'price' => 300,
+            'client_charge_amount' => 300,
+            'created_at' => now()->subDays(2),
+        ]);
+
+        $latestOrder = Order::createForTesting([
+            'client_id' => $client->id,
+            'subscription_id' => $subscription->id,
+            'payment_status' => Order::PAY_PAID,
+            'status' => Order::STATUS_DONE,
+            'order_type' => Order::TYPE_SUBSCRIPTION,
+            'price' => 450,
+            'client_charge_amount' => 450,
+            'created_at' => now()->subDay(),
+        ]);
+
+        $response = $this->actingAs($client, 'web')
+            ->get(route('client.subscriptions'));
+
+        $response->assertOk()
+            ->assertSee('Замовлення №'.$latestOrder->id)
+            ->assertSee('Створено: '.$latestOrder->created_at->format('d.m.Y'))
+            ->assertDontSee('Замовлення №'.$olderOrder->id);
+    }
+
     public function test_subscriptions_page_marks_unpaid_subscription_and_shows_pay_cta(): void
     {
         $client = User::factory()->create(['role' => User::ROLE_CLIENT]);
