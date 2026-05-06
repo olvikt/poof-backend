@@ -155,6 +155,19 @@ class MarkOrderAsPaidAction
         $runAt = $this->resolveFirstExecutionRunAt($freshOrder);
         $createdExecution = $this->createSubscriptionExecutionOrder->handle($subscription, $runAt);
 
+        if ($createdExecution) {
+            event(new OrderCreated($createdExecution));
+
+            Log::info('execution_order_dispatch_attempt', [
+                'order_id' => (int) $createdExecution->id,
+                'subscription_id' => $createdExecution->subscription_id !== null ? (int) $createdExecution->subscription_id : null,
+                'status' => (string) $createdExecution->status,
+                'payment_status' => (string) $createdExecution->payment_status,
+                'origin' => (string) $createdExecution->origin,
+                'reason' => null,
+            ]);
+        }
+
         if ($createdExecution && $subscription->next_run_at !== null) {
             $currentNextRunAt = CarbonImmutable::instance($subscription->next_run_at);
             if ($currentNextRunAt->equalTo($runAt)) {
