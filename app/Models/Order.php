@@ -337,6 +337,7 @@ public function markAsPaid(): void
                             ->whereDoesntHave('completionRequest', function (Builder $completionQuery): void {
                                 $completionQuery->whereIn('status', [
                                     OrderCompletionRequest::STATUS_AWAITING_CLIENT_CONFIRMATION,
+                                    OrderCompletionRequest::STATUS_CLIENT_CONFIRMED,
                                     OrderCompletionRequest::STATUS_DISPUTED,
                                 ]);
                             });

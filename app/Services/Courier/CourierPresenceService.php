@@ -82,10 +82,8 @@ class CourierPresenceService
 
         return $this->activeOrderCache[$id] = Order::query()
             ->where('courier_id', $courier->id)
-            ->whereIn('status', [
-                Order::STATUS_ACCEPTED,
-                Order::STATUS_IN_PROGRESS,
-            ])
+            ->activeForCourierRuntime()
+            ->orderByRaw("CASE WHEN status = ? THEN 0 ELSE 1 END", [Order::STATUS_IN_PROGRESS])
             ->latest('accepted_at')
             ->first();
     }
