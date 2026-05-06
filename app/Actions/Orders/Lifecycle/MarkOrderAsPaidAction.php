@@ -293,12 +293,16 @@ class MarkOrderAsPaidAction
 
             $periodStart = CarbonImmutable::instance($order->created_at ?? now());
 
+            $frequency = (string) ($subscription->plan?->frequency_type ?? $subscription->meta['frequency_type'] ?? 'daily');
+            $nextRunAt = $this->resolveNextRunAt($periodStart, $frequency);
+
             $subscription->forceFill([
                 'status' => $subscription->status === ClientSubscription::STATUS_CANCELLED
                     ? ClientSubscription::STATUS_CANCELLED
                     : ClientSubscription::STATUS_ACTIVE,
                 'paused_at' => null,
                 'last_run_at' => $periodStart,
+                'next_run_at' => $nextRunAt,
                 'ends_at' => $periodStart->addMonth(),
                 'renewals_count' => max(0, (int) $subscription->renewals_count) + 1,
             ]);
