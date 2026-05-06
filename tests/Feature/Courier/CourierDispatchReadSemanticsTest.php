@@ -240,6 +240,53 @@ class CourierDispatchReadSemanticsTest extends TestCase
         $this->assertNotSame($freshCourier->id, $offer->courier_id);
     }
 
+
+    public function test_dispatch_score_calculation_is_deterministic_for_near_equal_floats(): void
+    {
+        config()->set('dispatch.fairness.distance_weight', 1.0);
+        config()->set('dispatch.fairness.workload_penalty_weight', 0.0);
+        config()->set('dispatch.fairness.recency_penalty_weight', 0.0);
+
+        $client = User::factory()->create(['role' => User::ROLE_CLIENT, 'is_active' => true]);
+
+        $firstCourier = $this->createOnlineCourier(
+            lat: 50.4501000,
+            lng: 30.5234000,
+            lastCompletedAt: now()->subMinutes(30),
+            lastOfferAt: now()->subMinutes(30),
+        );
+
+        $secondCourier = $this->createOnlineCourier(
+            lat: 50.4501001,
+            lng: 30.5234001,
+            lastCompletedAt: now()->subMinutes(20),
+            lastOfferAt: now()->subMinutes(20),
+        );
+
+        $order = Order::createForTesting([
+            'client_id' => $client->id,
+            'status' => Order::STATUS_SEARCHING,
+            'payment_status' => Order::PAY_PAID,
+            'address_text' => 'Deterministic score order',
+            'price' => 100,
+            'lat' => 50.4501,
+            'lng' => 30.5234,
+        ]);
+
+        $offer = app(OfferDispatcher::class)->dispatchForOrder($order);
+
+        $this->assertNotNull($offer);
+        $this->assertContains($offer->courier_id, [$firstCourier->id, $secondCourier->id]);
+
+        OrderOffer::query()->delete();
+        $order->forceFill(['dispatch_attempts' => 0, 'next_dispatch_at' => null])->save();
+
+        $secondOffer = app(OfferDispatcher::class)->dispatchForOrder($order->fresh());
+
+        $this->assertNotNull($secondOffer);
+        $this->assertSame($offer->courier_id, $secondOffer->courier_id);
+    }
+
     public function test_deferred_undeliverable_order_does_not_starve_new_dispatchable_order(): void
     {
         $client = User::factory()->create(['role' => User::ROLE_CLIENT, 'is_active' => true]);
