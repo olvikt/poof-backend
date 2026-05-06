@@ -7,6 +7,7 @@ use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Validation\ValidationException;
 
 class ClientSubscription extends Model
@@ -73,6 +74,15 @@ class ClientSubscription extends Model
     public function generatedOrders(): HasMany
     {
         return $this->hasMany(Order::class, 'subscription_id');
+    }
+
+    public function latestPaidCheckoutOrder(): HasOne
+    {
+        return $this->hasOne(Order::class, 'subscription_id')
+            ->where('origin', Order::ORIGIN_CHECKOUT)
+            ->where('order_type', Order::TYPE_SUBSCRIPTION)
+            ->where('payment_status', Order::PAY_PAID)
+            ->latestOfMany('paid_at');
     }
 
     public function overlappingActiveSubscriptionsQuery(): Builder

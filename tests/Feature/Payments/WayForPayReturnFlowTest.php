@@ -160,6 +160,58 @@ class WayForPayReturnFlowTest extends TestCase
             ->assertSee('#'.$order->id, false);
     }
 
+
+    public function test_subscription_payment_success_redirects_to_subscriptions_page(): void
+    {
+        $client = User::factory()->create([
+            'role' => User::ROLE_CLIENT,
+            'is_active' => true,
+        ]);
+
+        $order = Order::createForTesting([
+            'client_id' => $client->id,
+            'status' => Order::STATUS_NEW,
+            'payment_status' => Order::PAY_PAID,
+            'order_type' => Order::TYPE_SUBSCRIPTION,
+            'origin' => Order::ORIGIN_CHECKOUT,
+            'address_text' => 'вул. Subscription Return, 1',
+            'price' => 100,
+        ]);
+
+        $finalizeUrl = (string) $this->actingAs($client)->post('/payments/wayforpay/return', [
+            'transactionStatus' => 'Approved',
+            'orderReference' => (string) $order->id,
+        ])->headers->get('Location');
+
+        $this->actingAs($client)->get($finalizeUrl)
+            ->assertRedirect('/client/subscriptions?payment=success&source=wayforpay_return&order='.$order->id);
+    }
+
+    public function test_one_time_payment_success_redirects_to_orders_page(): void
+    {
+        $client = User::factory()->create([
+            'role' => User::ROLE_CLIENT,
+            'is_active' => true,
+        ]);
+
+        $order = Order::createForTesting([
+            'client_id' => $client->id,
+            'status' => Order::STATUS_NEW,
+            'payment_status' => Order::PAY_PAID,
+            'order_type' => Order::TYPE_ONE_TIME,
+            'origin' => Order::ORIGIN_WEB,
+            'address_text' => 'вул. One Time Return, 1',
+            'price' => 100,
+        ]);
+
+        $finalizeUrl = (string) $this->actingAs($client)->post('/payments/wayforpay/return', [
+            'transactionStatus' => 'Approved',
+            'orderReference' => (string) $order->id,
+        ])->headers->get('Location');
+
+        $this->actingAs($client)->get($finalizeUrl)
+            ->assertRedirect('/client/orders?payment=success&source=wayforpay_return&order='.$order->id);
+    }
     public function test_wayforpay_return_does_not_mark_order_as_paid(): void
     {
         config()->set('payments.wayforpay.approved_url', '/client/orders');

@@ -196,7 +196,7 @@ class SubscriptionsPage extends Component
 
         $this->subscriptions = ClientSubscription::query()
             ->where('client_id', $userId)
-            ->with(['plan', 'address'])
+            ->with(['plan', 'address', 'latestPaidCheckoutOrder'])
             ->withCount(['generatedOrders as paid_orders_count' => fn ($query) => $query->where('payment_status', 'paid')])
             ->withSum(['generatedOrders as paid_amount' => fn ($query) => $query->where('payment_status', 'paid')], 'client_charge_amount')
             ->withSum(['generatedOrders as fallback_paid_amount' => fn ($query) => $query->where('payment_status', 'paid')], 'price')
@@ -243,6 +243,13 @@ class SubscriptionsPage extends Component
             ->where('client_id', auth()->id())
             ->with('completionRequest.proofs')
             ->first();
+    }
+
+    public function shouldShowResumeButton(ClientSubscription $subscription): bool
+    {
+        $isExpired = $subscription->ends_at !== null && $subscription->ends_at->isPast();
+
+        return $subscription->display_status === ClientSubscription::STATUS_PAUSED || $isExpired;
     }
 
     public function activeSubscriptions(): Collection
