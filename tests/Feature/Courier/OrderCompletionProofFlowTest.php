@@ -201,6 +201,81 @@ class OrderCompletionProofFlowTest extends TestCase
         $this->assertSame(1, CourierEarning::query()->where('order_id', $order->id)->count());
     }
 
+
+    public function test_client_confirmed_in_progress_order_is_not_active_for_runtime_and_does_not_block_new_current_order(): void
+    {
+        [$courier, $oldOrder] = $this->createInProgressPaidOrder(Order::HANDOVER_DOOR);
+
+        app(StartOrderCompletionProofAction::class)->handle($oldOrder, $courier);
+        app(UploadOrderCompletionProofAction::class)->handle($oldOrder, $courier, OrderCompletionProof::TYPE_DOOR_PHOTO, 'proofs/door-old.jpg');
+        app(UploadOrderCompletionProofAction::class)->handle($oldOrder, $courier, OrderCompletionProof::TYPE_CONTAINER_PHOTO, 'proofs/container-old.jpg');
+        $this->assertTrue(app(SubmitOrderCompletionByCourierAction::class)->handle($oldOrder, $courier));
+        $this->assertTrue(app(ConfirmOrderCompletionByClientAction::class)->handle($oldOrder));
+
+        $newOrder = Order::createForTesting([
+            'client_id' => $oldOrder->client_id,
+            'courier_id' => $courier->id,
+            'status' => Order::STATUS_ACCEPTED,
+            'payment_status' => Order::PAY_PAID,
+            'origin' => Order::ORIGIN_SUBSCRIPTION,
+            'order_type' => Order::TYPE_SUBSCRIPTION,
+            'accepted_at' => now(),
+            'address_text' => 'new accepted execution order',
+            'price' => 245,
+        ]);
+
+        $runtime = $courier->fresh()->courierRuntimeSnapshot();
+        $this->assertTrue((bool) ($runtime['has_active_order'] ?? false));
+        $this->assertSame(Order::STATUS_ACCEPTED, $runtime['active_order_status'] ?? null);
+
+        $this->actingAs($courier->fresh());
+        Livewire::test(\App\Livewire\Courier\AvailableOrders::class)
+            ->assertSet('activeOrder.id', $newOrder->id)
+            ->assertSet('activeOrder.status', Order::STATUS_ACCEPTED);
+
+        $this->assertFalse(Order::query()->whereKey($oldOrder->id)->activeForCourierRuntime()->exists());
+        $this->assertDatabaseHas('order_completion_requests', [
+            'order_id' => $oldOrder->id,
+            'status' => OrderCompletionRequest::STATUS_CLIENT_CONFIRMED,
+        ]);
+        $this->assertDatabaseHas('courier_earnings', ['order_id' => $oldOrder->id]);
+    }
+
+    public function test_client_confirmed_old_order_clears_active_runtime_until_new_order_is_accepted(): void
+    {
+        [$courier, $oldOrder] = $this->createInProgressPaidOrder(Order::HANDOVER_DOOR);
+
+        app(StartOrderCompletionProofAction::class)->handle($oldOrder, $courier);
+        app(UploadOrderCompletionProofAction::class)->handle($oldOrder, $courier, OrderCompletionProof::TYPE_DOOR_PHOTO, 'proofs/door-only.jpg');
+        app(UploadOrderCompletionProofAction::class)->handle($oldOrder, $courier, OrderCompletionProof::TYPE_CONTAINER_PHOTO, 'proofs/container-only.jpg');
+        $this->assertTrue(app(SubmitOrderCompletionByCourierAction::class)->handle($oldOrder, $courier));
+        $this->assertTrue(app(ConfirmOrderCompletionByClientAction::class)->handle($oldOrder));
+
+        $runtime = $courier->fresh()->courierRuntimeSnapshot();
+        $this->assertFalse((bool) ($runtime['has_active_order'] ?? false));
+        $this->assertNull($runtime['active_order_status'] ?? null);
+
+        $newOrder = Order::createForTesting([
+            'client_id' => $oldOrder->client_id,
+            'status' => Order::STATUS_SEARCHING,
+            'payment_status' => Order::PAY_PAID,
+            'address_text' => 'new runtime candidate order',
+            'price' => 185,
+        ]);
+
+        $newOrder->forceFill([
+            'courier_id' => $courier->id,
+            'status' => Order::STATUS_ACCEPTED,
+            'accepted_at' => now(),
+            'origin' => Order::ORIGIN_SUBSCRIPTION,
+            'order_type' => Order::TYPE_SUBSCRIPTION,
+        ])->save();
+
+        $runtimeAfterAccept = $courier->fresh()->courierRuntimeSnapshot();
+        $this->assertTrue((bool) ($runtimeAfterAccept['has_active_order'] ?? false));
+        $this->assertSame(Order::STATUS_ACCEPTED, $runtimeAfterAccept['active_order_status'] ?? null);
+    }
+
     public function test_disputed_completion_request_does_not_reblock_courier_runtime(): void
     {
         [$courier, $order] = $this->createInProgressPaidOrder(Order::HANDOVER_DOOR);
