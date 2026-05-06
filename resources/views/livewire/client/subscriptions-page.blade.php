@@ -66,7 +66,7 @@
                 </div>
                 <div class="mt-2 space-y-1 text-xs text-gray-400">
                     <p>Замовлення №{{ $subscription->latestPaidCheckoutOrder?->id ?? '—' }}</p>
-                    <p>Оплачено: {{ optional($subscription->latestPaidCheckoutOrder?->paid_at ?? $subscription->latestPaidCheckoutOrder?->created_at)?->format('d.m.Y') ?? '—' }}</p>
+                    <p>Створено: {{ $subscription->latestPaidCheckoutOrder?->created_at?->format('d.m.Y') ?? '—' }}</p>
                 </div>
 
                 <div class="mt-3 grid grid-cols-2 gap-3 text-sm text-gray-300">

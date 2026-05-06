@@ -82,7 +82,7 @@ class ClientSubscription extends Model
             ->where('origin', Order::ORIGIN_CHECKOUT)
             ->where('order_type', Order::TYPE_SUBSCRIPTION)
             ->where('payment_status', Order::PAY_PAID)
-            ->latestOfMany('paid_at');
+            ->latestOfMany('id');
     }
 
     public function overlappingActiveSubscriptionsQuery(): Builder
