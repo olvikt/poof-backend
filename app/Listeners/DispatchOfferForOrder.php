@@ -3,8 +3,10 @@
 namespace App\Listeners;
 
 use App\Events\OrderCreated;
+use App\Models\OrderOffer;
 use App\Services\Dispatch\DispatchTriggerPolicy;
 use App\Services\Dispatch\DispatchTriggerService;
+use Illuminate\Support\Facades\Log;
 
 class DispatchOfferForOrder
 {
@@ -17,6 +19,23 @@ class DispatchOfferForOrder
         $order = $event->order->fresh();
 
         if (! $order || ! $order->isDispatchableForOfferPipeline()) {
+            return;
+        }
+
+        $hasPendingOffer = OrderOffer::query()
+            ->where('order_id', $order->id)
+            ->where('status', OrderOffer::STATUS_PENDING)
+            ->exists();
+
+        if ($hasPendingOffer) {
+            Log::debug('dispatch_skipped', [
+                'order_id' => (int) $order->id,
+                'subscription_id' => $order->subscription_id !== null ? (int) $order->subscription_id : null,
+                'status' => (string) $order->status,
+                'reason' => 'already_dispatched_pending_offer_exists',
+                'trigger_source' => DispatchTriggerPolicy::SOURCE_ORDER_CREATED,
+            ]);
+
             return;
         }
 
