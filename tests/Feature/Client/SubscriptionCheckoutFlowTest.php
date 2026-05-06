@@ -125,4 +125,69 @@ class SubscriptionCheckoutFlowTest extends TestCase
         $response->assertStatus(422);
         $this->assertSame(0, Order::query()->where('subscription_id', $target->id)->count());
     }
+
+    public function test_paid_subscription_checkout_order_is_visible_in_active_subscriptions_tab(): void
+    {
+        $client = User::factory()->create(['role' => User::ROLE_CLIENT]);
+        $plan = SubscriptionPlan::factory()->create([
+            'name' => 'Пакет Комфорт',
+            'monthly_price' => 790,
+            'frequency_type' => 'daily',
+        ]);
+        $address = ClientAddress::createForUser($client->id, [
+            'label' => 'home',
+            'title' => 'Дім',
+            'address_text' => 'вул. Тестова, 15',
+            'city' => 'Київ',
+            'street' => 'Тестова',
+            'house' => '15',
+            'lat' => 50.45,
+            'lng' => 30.52,
+        ]);
+
+        $subscription = ClientSubscription::unguarded(fn (): ClientSubscription => ClientSubscription::query()->create([
+            'client_id' => $client->id,
+            'subscription_plan_id' => $plan->id,
+            'address_id' => $address->id,
+            'status' => ClientSubscription::STATUS_ACTIVE,
+            'auto_renew' => true,
+            'renewals_count' => 0,
+            'meta' => ['frequency_type' => 'daily', 'checkout_origin' => 'checkout'],
+        ]));
+
+        $checkoutOrder = Order::createForTesting([
+            'client_id' => $client->id,
+            'subscription_id' => $subscription->id,
+            'address_id' => $address->id,
+            'address_text' => $address->address_text,
+            'origin' => Order::ORIGIN_CHECKOUT,
+            'order_type' => Order::TYPE_SUBSCRIPTION,
+            'status' => Order::STATUS_NEW,
+            'payment_status' => Order::PAY_PENDING,
+            'price' => 790,
+            'client_charge_amount' => 790,
+        ]);
+
+        $checkoutOrder->markAsPaid();
+
+        $checkoutOrder = $checkoutOrder->fresh()->load('subscription');
+        $subscription = $subscription->fresh()->load('latestPaidCheckoutOrder');
+
+        $this->assertNotNull($subscription, 'Expected subscription to exist after payment.');
+        $this->assertSame((int) $subscription->id, (int) $checkoutOrder->subscription_id, 'Expected subscription_id to be linked on checkout order.');
+        $this->assertSame(Order::PAY_PAID, $checkoutOrder->payment_status, 'Expected checkout order payment_status=paid.');
+        $this->assertSame(Order::STATUS_DONE, $checkoutOrder->status, 'Expected checkout order status=done.');
+        $this->assertSame(ClientSubscription::STATUS_ACTIVE, $subscription->status, 'Expected subscription status=active.');
+        $this->assertNotNull($subscription->ends_at, 'Expected subscription ends_at to be filled.');
+        $this->assertNotNull($subscription->next_run_at, 'Expected subscription next_run_at to be filled.');
+
+        $this->actingAs($client, 'web')
+            ->get('/client/subscriptions')
+            ->assertOk()
+            ->assertSee('Замовлення №'.$checkoutOrder->id)
+            ->assertSee('Створено: '.$checkoutOrder->created_at?->format('d.m.Y'))
+            ->assertSee('Пакет Комфорт')
+            ->assertSee('Активна')
+            ->assertDontSee('Архів підписок порожній.');
+    }
 }
