@@ -52,6 +52,19 @@ trait HandlesPricingTrialPolicy
         $this->price = 0;
     }
 
+    public function selectRegularOrder(): void
+    {
+        $this->selected_subscription_plan_id = null;
+        $this->subscription_frequency = null;
+
+        if ($this->is_trial) {
+            $this->disableTrial();
+            return;
+        }
+
+        $this->recalculatePrice();
+    }
+
     protected function userAlreadyUsedTrial(): bool
     {
         return Order::query()

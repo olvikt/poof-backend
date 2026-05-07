@@ -61,6 +61,20 @@ class OrderCreateSubscriptionCheckoutTest extends TestCase
             ->assertSet('price', 209);
     }
 
+    public function test_default_state_has_regular_order_active_and_subscription_inactive(): void
+    {
+        $user = User::factory()->create();
+        $this->actingAs($user);
+
+        Livewire::test(OrderCreate::class)
+            ->assertSet('selected_subscription_plan_id', null)
+            ->assertSee('Тип замовлення')
+            ->assertSee('Разовий винос')
+            ->assertSee('Підписка')
+            ->assertSee('Оплата лише за цей винос')
+            ->assertSee('Регулярні виноси вигідніше');
+    }
+
     public function test_subscription_selected_disables_bag_selection_and_removes_active_bag_highlight(): void
     {
         $user = User::factory()->create();
@@ -99,14 +113,31 @@ class OrderCreateSubscriptionCheckoutTest extends TestCase
         Livewire::test(OrderCreate::class)
             ->call('selectSubscriptionPlan', $plan->id)
             ->assertSet('price', 400)
-            ->call('selectBags', 3)
-            ->assertSet('bags_count', 1)
-            ->call('selectTrial', 1)
-            ->call('disableTrial')
+            ->call('selectRegularOrder')
+            ->assertSet('selected_subscription_plan_id', null)
             ->call('selectBags', 3)
             ->assertSet('bags_count', 3)
-            ->assertSet('selected_subscription_plan_id', null)
             ->assertSet('price', 209);
+    }
+
+    public function test_select_trial_clears_subscription_and_keeps_regular_order_flow(): void
+    {
+        $user = User::factory()->create();
+        $this->actingAs($user);
+
+        $plan = SubscriptionPlan::query()->where('slug', 'every-3-days')->firstOrFail();
+
+        Livewire::test(OrderCreate::class)
+            ->call('selectSubscriptionPlan', $plan->id)
+            ->assertSet('selected_subscription_plan_id', $plan->id)
+            ->call('selectTrial', 1)
+            ->assertSet('selected_subscription_plan_id', null)
+            ->assertSet('is_trial', true)
+            ->assertSet('price', 0)
+            ->call('selectBags', 2)
+            ->assertSet('is_trial', false)
+            ->assertSet('bags_count', 2)
+            ->assertSet('price', 159);
     }
 
     public function test_subscription_modal_shows_correct_prices_pickups_approx_and_saving_percent_for_all_default_plans(): void

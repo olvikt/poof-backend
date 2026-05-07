@@ -322,6 +322,31 @@
 
 	
 
+	{{-- ================= ORDER TYPE ================= --}}
+	<div class="mb-5">
+		<x-poof.section title="Тип замовлення">
+			<div class="grid grid-cols-2 gap-4 w-full">
+				<div wire:click="selectRegularOrder">
+					<x-poof.trial-option
+						title="Разовий винос"
+						subtitle="Оплата лише за цей винос"
+						:active="$selected_subscription_plan_id === null"
+						active-class="border-yellow-400 bg-gradient-to-b from-yellow-300 to-yellow-400 text-black shadow-lg"
+					/>
+				</div>
+
+				<div wire:click="openSubscriptionModal">
+					<x-poof.trial-option
+						title="Підписка"
+						subtitle="Регулярні виноси вигідніше"
+						:active="$selected_subscription_plan_id !== null"
+						active-class="border-yellow-400 bg-gradient-to-b from-yellow-300 to-yellow-400 text-black shadow-lg"
+					/>
+				</div>
+			</div>
+		</x-poof.section>
+	</div>
+
 	{{-- ================= BAGS ================= --}}
 	<div class="mb-5">
 		<x-poof.section title="Кількість мішків">
@@ -334,7 +359,7 @@
 							:count="$count"
 							:price="$bagPrice"
 							:active="$selected_subscription_plan_id ? false : $bags_count === $count"
-							:disabled="$is_trial || $selected_subscription_plan_id"
+							:disabled="$selected_subscription_plan_id"
 						/>
 					</div>
 				@endforeach
@@ -358,7 +383,6 @@
 			:is-trial="$is_trial"
 			:trial-days="$trial_days"
 			:trial-used="$trial_used"
-			:selected-subscription-plan-id="$selected_subscription_plan_id"
 		/>	
 
 	{{-- ================= DIVIDER ================= --}}
