@@ -146,6 +146,7 @@ public function markAsPaid(): void
         'window_from_at',
         'window_to_at',
         'valid_until_at',
+        'dispatch_available_at',
         'expired_at',
         'expired_reason',
         'client_wait_preference',
