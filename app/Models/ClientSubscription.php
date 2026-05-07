@@ -24,6 +24,10 @@ class ClientSubscription extends Model
     public const BILLING_PAID = 'paid';
     public const BILLING_PAYMENT_FAILED = 'payment_failed';
     public const BILLING_RENEWAL_DUE = 'renewal_due';
+    public const PREFERRED_WINDOW_MORNING = 'morning';
+    public const PREFERRED_WINDOW_NOON = 'noon';
+    public const PREFERRED_WINDOW_AFTERNOON = 'afternoon';
+    public const PREFERRED_WINDOW_EVENING = 'evening';
 
     public const STATUS_LABELS = [
         self::STATUS_DRAFT => 'Чернетка',
@@ -37,6 +41,7 @@ class ClientSubscription extends Model
     protected $guarded = ['*'];
 
     protected $casts = [
+        'starts_at' => 'datetime',
         'next_run_at' => 'datetime',
         'last_run_at' => 'datetime',
         'ends_at' => 'datetime',
@@ -46,6 +51,16 @@ class ClientSubscription extends Model
         'cancelled_at' => 'datetime',
         'meta' => 'array',
     ];
+
+    public static function preferredWindowSlots(): array
+    {
+        return [
+            self::PREFERRED_WINDOW_MORNING => ['08:00:00', '12:00:00'],
+            self::PREFERRED_WINDOW_NOON => ['12:00:00', '14:00:00'],
+            self::PREFERRED_WINDOW_AFTERNOON => ['14:00:00', '16:00:00'],
+            self::PREFERRED_WINDOW_EVENING => ['16:00:00', '18:00:00'],
+        ];
+    }
 
     protected static function booted(): void
     {

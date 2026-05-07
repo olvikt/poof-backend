@@ -25,6 +25,10 @@ class StartOrderByCourierAction
                 return false;
             }
 
+            if ($lockedOrder->isDispatchDeferred()) {
+                return false;
+            }
+
             $lockedOrder->forceFill([
                 'status' => Order::STATUS_IN_PROGRESS,
                 'started_at' => now(),

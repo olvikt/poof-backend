@@ -119,6 +119,21 @@ class OfferDispatcher
                 return null;
             }
 
+            if ($locked->isDispatchDeferred()) {
+                Log::debug('dispatch_skipped', [
+                    'order_id' => $locked->id,
+                    'subscription_id' => $locked->subscription_id !== null ? (int) $locked->subscription_id : null,
+                    'status' => (string) $locked->status,
+                    'reason' => 'dispatch_available_at_in_future',
+                    'trigger_source' => $triggerSource,
+                    'dispatch_available_at' => $locked->dispatch_available_at?->toIso8601String(),
+                    'order_age_seconds' => $orderAgeSeconds,
+                    'elapsed_ms' => $this->elapsedMs($startedAt),
+                ]);
+
+                return null;
+            }
+
             /* -------------------------------------------------
              | 1) EXPIRE DEAD PENDING (zombie fix)
              | ------------------------------------------------- */
@@ -375,6 +390,10 @@ class OfferDispatcher
             ->where(function ($q) use ($now): void {
                 $q->whereNull('next_dispatch_at')
                     ->orWhere('next_dispatch_at', '<=', $now);
+            })
+            ->where(function ($q) use ($now): void {
+                $q->whereNull('dispatch_available_at')
+                    ->orWhere('dispatch_available_at', '<=', $now);
             });
     }
 

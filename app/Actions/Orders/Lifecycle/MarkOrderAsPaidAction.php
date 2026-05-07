@@ -251,18 +251,18 @@ class MarkOrderAsPaidAction
 
     private function resolveFirstExecutionRunAt(Order $checkoutOrder): CarbonImmutable
     {
-        if ($checkoutOrder->scheduled_date !== null && $checkoutOrder->scheduled_time_from !== null) {
-            $date = CarbonImmutable::parse((string) $checkoutOrder->scheduled_date)->toDateString();
-            $time = CarbonImmutable::parse((string) $checkoutOrder->scheduled_time_from)->format('H:i:s');
-
-            return CarbonImmutable::parse(sprintf('%s %s', $date, $time));
-        }
+        $baseNow = CarbonImmutable::instance($checkoutOrder->created_at ?? now());
+        $firstRunDate = $baseNow->lt($baseNow->setTime(12, 0)) ? $baseNow->startOfDay() : $baseNow->addDay()->startOfDay();
 
         if ($checkoutOrder->scheduled_date !== null) {
-            return CarbonImmutable::parse((string) $checkoutOrder->scheduled_date)->setTimeFromTimeString(now()->format('H:i:s'));
+            $firstRunDate = CarbonImmutable::parse((string) $checkoutOrder->scheduled_date)->startOfDay();
         }
 
-        return CarbonImmutable::instance($checkoutOrder->created_at ?? now());
+        $preferredFrom = $checkoutOrder->scheduled_time_from
+            ? CarbonImmutable::parse((string) $checkoutOrder->scheduled_time_from)->format('H:i:s')
+            : '12:00:00';
+
+        return $firstRunDate->setTimeFromTimeString($preferredFrom);
     }
 
     private function resolveNextRunAt(CarbonImmutable $from, string $frequency): CarbonImmutable
@@ -291,7 +291,9 @@ class MarkOrderAsPaidAction
                 return;
             }
 
-            $periodStart = CarbonImmutable::instance($order->created_at ?? now());
+            $periodStart = $order->origin === Order::ORIGIN_CHECKOUT && $order->order_type === Order::TYPE_SUBSCRIPTION
+                ? $this->resolveFirstExecutionRunAt($order)
+                : CarbonImmutable::instance($order->created_at ?? now());
 
             $frequency = (string) ($subscription->plan?->frequency_type ?? $subscription->meta['frequency_type'] ?? 'daily');
             $nextRunAt = $this->resolveNextRunAt($periodStart, $frequency);
@@ -301,6 +303,7 @@ class MarkOrderAsPaidAction
                     ? ClientSubscription::STATUS_CANCELLED
                     : ClientSubscription::STATUS_ACTIVE,
                 'paused_at' => null,
+                'starts_at' => $periodStart,
                 'last_run_at' => $periodStart,
                 'next_run_at' => $nextRunAt,
                 'ends_at' => $periodStart->addMonth(),
