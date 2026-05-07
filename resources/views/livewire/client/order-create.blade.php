@@ -328,15 +328,13 @@
 			<div class="flex gap-3">
 
 				@foreach($pricing as $count => $bagPrice)
-					<div
-						wire:click="selectBags({{ $count }})"
-						class="flex-1"
-					>
+					<div class="flex-1">
 						<x-poof.bag-option
+							wire:click="selectBags({{ $count }})"
 							:count="$count"
 							:price="$bagPrice"
-							:active="$bags_count === $count"
-							:disabled="$is_trial"
+							:active="$selected_subscription_plan_id ? false : $bags_count === $count"
+							:disabled="$is_trial || $selected_subscription_plan_id"
 						/>
 					</div>
 				@endforeach
@@ -360,6 +358,7 @@
 			:is-trial="$is_trial"
 			:trial-days="$trial_days"
 			:trial-used="$trial_used"
+			:selected-subscription-plan-id="$selected_subscription_plan_id"
 		/>	
 
 	{{-- ================= DIVIDER ================= --}}

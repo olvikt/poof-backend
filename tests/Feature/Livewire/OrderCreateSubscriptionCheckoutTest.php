@@ -43,9 +43,70 @@ class OrderCreateSubscriptionCheckoutTest extends TestCase
             ->call('selectSubscriptionPlan', $plan->id)
             ->assertSet('price', 400)
             ->call('selectBags', 3)
-            ->assertSet('bags_count', 3)
+            ->assertSet('bags_count', 1)
             ->assertSet('price', 400)
             ->assertSee('Підписка: фінальна місячна ціна вже врахована у «До оплати».');
+    }
+
+    public function test_regular_mode_renders_clickable_bag_button_and_updates_bags_and_price(): void
+    {
+        $user = User::factory()->create();
+        $this->actingAs($user);
+
+        Livewire::test(OrderCreate::class)
+            ->assertSeeHtml('wire:click="selectBags(1)"')
+            ->assertSeeHtml('type="button"')
+            ->call('selectBags', 3)
+            ->assertSet('bags_count', 3)
+            ->assertSet('price', 209);
+    }
+
+    public function test_subscription_selected_disables_bag_selection_and_removes_active_bag_highlight(): void
+    {
+        $user = User::factory()->create();
+        $this->actingAs($user);
+
+        $plan = SubscriptionPlan::query()->where('slug', 'every-3-days')->firstOrFail();
+
+        Livewire::test(OrderCreate::class)
+            ->call('selectSubscriptionPlan', $plan->id)
+            ->assertSet('selected_subscription_plan_id', $plan->id)
+            ->assertSee('🔒 Недоступно')
+            ->assertSeeHtml('cursor-not-allowed')
+            ->assertSeeHtml('wire:click="selectBags(1)"')
+            ->assertSeeHtml('disabled');
+    }
+
+    public function test_subscription_card_has_active_yellow_state_when_subscription_selected(): void
+    {
+        $user = User::factory()->create();
+        $this->actingAs($user);
+
+        $plan = SubscriptionPlan::query()->where('slug', 'every-3-days')->firstOrFail();
+
+        Livewire::test(OrderCreate::class)
+            ->call('selectSubscriptionPlan', $plan->id)
+            ->assertSeeHtml('border-yellow-400 bg-gradient-to-b from-yellow-300 to-yellow-400 text-black shadow-lg');
+    }
+
+    public function test_switching_back_to_regular_order_reenables_bags_and_recalculates_price(): void
+    {
+        $user = User::factory()->create();
+        $this->actingAs($user);
+
+        $plan = SubscriptionPlan::query()->where('slug', 'every-3-days')->firstOrFail();
+
+        Livewire::test(OrderCreate::class)
+            ->call('selectSubscriptionPlan', $plan->id)
+            ->assertSet('price', 400)
+            ->call('selectBags', 3)
+            ->assertSet('bags_count', 1)
+            ->call('selectTrial', 1)
+            ->call('disableTrial')
+            ->call('selectBags', 3)
+            ->assertSet('bags_count', 3)
+            ->assertSet('selected_subscription_plan_id', null)
+            ->assertSet('price', 209);
     }
 
     public function test_subscription_modal_shows_correct_prices_pickups_approx_and_saving_percent_for_all_default_plans(): void
