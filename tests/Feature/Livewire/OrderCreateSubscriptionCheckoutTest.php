@@ -48,6 +48,19 @@ class OrderCreateSubscriptionCheckoutTest extends TestCase
             ->assertSee('Підписка: фінальна місячна ціна вже врахована у «До оплати».');
     }
 
+    public function test_regular_mode_renders_clickable_bag_button_and_updates_bags_and_price(): void
+    {
+        $user = User::factory()->create();
+        $this->actingAs($user);
+
+        Livewire::test(OrderCreate::class)
+            ->assertSeeHtml('wire:click="selectBags(1)"')
+            ->assertSeeHtml('type="button"')
+            ->call('selectBags', 3)
+            ->assertSet('bags_count', 3)
+            ->assertSet('price', 209);
+    }
+
     public function test_subscription_selected_disables_bag_selection_and_removes_active_bag_highlight(): void
     {
         $user = User::factory()->create();
@@ -60,7 +73,8 @@ class OrderCreateSubscriptionCheckoutTest extends TestCase
             ->assertSet('selected_subscription_plan_id', $plan->id)
             ->assertSee('🔒 Недоступно')
             ->assertSeeHtml('cursor-not-allowed')
-            ->assertSeeHtml('wire:click="selectBags(1)"');
+            ->assertSeeHtml('wire:click="selectBags(1)"')
+            ->assertSeeHtml('disabled');
     }
 
     public function test_subscription_card_has_active_yellow_state_when_subscription_selected(): void

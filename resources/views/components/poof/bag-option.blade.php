@@ -8,7 +8,7 @@
 @use(App\Support\UaPlural)
 
 <button
-    type="button"
+    {{ $attributes->merge(['type' => 'button']) }}
     @disabled($disabled)
     class="
         flex-1 w-full
