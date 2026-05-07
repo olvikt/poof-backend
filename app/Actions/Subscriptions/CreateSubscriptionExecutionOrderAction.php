@@ -61,6 +61,7 @@ class CreateSubscriptionExecutionOrderAction
             'scheduled_date' => $runAt->toDateString(),
             'scheduled_time_from' => $runAt->format('H:i'),
             'scheduled_time_to' => $runAt->addHours(2)->format('H:i'),
+            'dispatch_available_at' => $runAt->subMinutes(max(0, (int) config('dispatch.execution_order_lead_minutes', 0))),
             'handover_type' => Order::HANDOVER_DOOR,
             'completion_policy' => $this->completionPolicyAssignment->assignForCreate(Order::HANDOVER_DOOR),
             'bags_count' => (int) ($subscription->plan?->max_bags ?? 1),

@@ -19,6 +19,14 @@ class DispatchOfferForOrder
         $order = $event->order->fresh();
 
         if (! $order || ! $order->isDispatchableForOfferPipeline()) {
+            if ($order && $order->isDispatchDeferred()) {
+                Log::info('execution_order_dispatch_deferred', [
+                    'order_id' => (int) $order->id,
+                    'subscription_id' => $order->subscription_id !== null ? (int) $order->subscription_id : null,
+                    'dispatch_available_at' => $order->dispatch_available_at?->toIso8601String(),
+                ]);
+            }
+
             return;
         }
 

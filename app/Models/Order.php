@@ -116,6 +116,7 @@ public function markAsPaid(): void
         'window_from_at',
         'window_to_at',
         'valid_until_at',
+        'dispatch_available_at',
         'expired_at',
         'expired_reason',
         'client_wait_preference',
@@ -145,6 +146,7 @@ public function markAsPaid(): void
         'window_from_at',
         'window_to_at',
         'valid_until_at',
+        'dispatch_available_at',
         'expired_at',
         'expired_reason',
         'client_wait_preference',
@@ -200,6 +202,7 @@ public function markAsPaid(): void
         'accepted_at',
         'started_at',
         'completed_at',
+        'dispatch_available_at',
     ];
 
     /* =========================================================
@@ -270,6 +273,7 @@ public function markAsPaid(): void
         'dispatch_attempts' => 'int',
         'last_dispatch_attempt_at' => 'datetime',
         'next_dispatch_at' => 'datetime',
+        'dispatch_available_at' => 'datetime',
         'window_from_at' => 'datetime',
         'window_to_at' => 'datetime',
         'valid_until_at' => 'datetime',
@@ -403,7 +407,13 @@ public function markAsPaid(): void
         return $this->payment_status === self::PAY_PAID
             && $this->status === self::STATUS_SEARCHING
             && $this->courier_id === null
+            && ! $this->isDispatchDeferred()
             && ! $this->isPromiseExpired();
+    }
+
+    public function isDispatchDeferred(): bool
+    {
+        return $this->dispatch_available_at !== null && now()->lt($this->dispatch_available_at);
     }
 
     public function isPromiseExpired(): bool
@@ -496,6 +506,7 @@ public function markAsPaid(): void
         return $this->status === self::STATUS_SEARCHING
             && $this->courier_id === null
             && $this->payment_status === self::PAY_PAID
+            && ! $this->isDispatchDeferred()
             && ! $this->isPromiseExpired();
     }
 

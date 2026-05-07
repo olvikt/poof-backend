@@ -163,7 +163,7 @@ class MarkOrderAsPaidAction
             return;
         }
 
-        $runAt = $this->resolveFirstExecutionRunAt($freshOrder);
+        $runAt = $this->resolveFirstExecutionRunAt($freshOrder, CarbonImmutable::now());
         $createdExecution = $this->createSubscriptionExecutionOrder->handle($subscription, $runAt);
 
         if ($createdExecution) {
@@ -218,7 +218,7 @@ class MarkOrderAsPaidAction
             'checkout_payment_status' => (string) $order->payment_status,
         ]);
 
-        $createdExecution = $this->createSubscriptionExecutionOrder->handle($subscription, $this->resolveFirstExecutionRunAt($order));
+        $createdExecution = $this->createSubscriptionExecutionOrder->handle($subscription, $this->resolveFirstExecutionRunAt($order, CarbonImmutable::now()));
 
         if ($createdExecution) {
             Log::info('execution_order_repair_created', [
@@ -249,20 +249,29 @@ class MarkOrderAsPaidAction
         ]);
     }
 
-    private function resolveFirstExecutionRunAt(Order $checkoutOrder): CarbonImmutable
+    private function resolveFirstExecutionRunAt(Order $checkoutOrder, CarbonImmutable $paidAt): CarbonImmutable
     {
-        if ($checkoutOrder->scheduled_date !== null && $checkoutOrder->scheduled_time_from !== null) {
-            $date = CarbonImmutable::parse((string) $checkoutOrder->scheduled_date)->toDateString();
-            $time = CarbonImmutable::parse((string) $checkoutOrder->scheduled_time_from)->format('H:i:s');
+        $firstRunDate = $paidAt->lt($paidAt->setTime(12, 0)) ? $paidAt->startOfDay() : $paidAt->addDay()->startOfDay();
+        $preferredFrom = $this->resolvePreferredWindowStartTime($checkoutOrder);
 
-            return CarbonImmutable::parse(sprintf('%s %s', $date, $time));
+        return $firstRunDate->setTimeFromTimeString($preferredFrom);
+    }
+
+    private function resolvePreferredWindowStartTime(Order $checkoutOrder): string
+    {
+        if ($checkoutOrder->scheduled_time_from !== null) {
+            return CarbonImmutable::parse((string) $checkoutOrder->scheduled_time_from)->format('H:i:s');
         }
 
-        if ($checkoutOrder->scheduled_date !== null) {
-            return CarbonImmutable::parse((string) $checkoutOrder->scheduled_date)->setTimeFromTimeString(now()->format('H:i:s'));
+        if ($checkoutOrder->subscription_id === null) {
+            return '12:00:00';
         }
 
-        return CarbonImmutable::instance($checkoutOrder->created_at ?? now());
+        $subscription = ClientSubscription::query()->find($checkoutOrder->subscription_id);
+        $preferredWindow = (string) ($subscription?->preferred_time_window ?? '');
+        $slots = ClientSubscription::preferredWindowSlots();
+
+        return $slots[$preferredWindow][0] ?? '12:00:00';
     }
 
     private function resolveNextRunAt(CarbonImmutable $from, string $frequency): CarbonImmutable
@@ -291,7 +300,9 @@ class MarkOrderAsPaidAction
                 return;
             }
 
-            $periodStart = CarbonImmutable::instance($order->created_at ?? now());
+            $periodStart = $order->origin === Order::ORIGIN_CHECKOUT && $order->order_type === Order::TYPE_SUBSCRIPTION
+                ? $this->resolveFirstExecutionRunAt($order, CarbonImmutable::now())
+                : CarbonImmutable::instance($order->created_at ?? now());
 
             $frequency = (string) ($subscription->plan?->frequency_type ?? $subscription->meta['frequency_type'] ?? 'daily');
             $nextRunAt = $this->resolveNextRunAt($periodStart, $frequency);
@@ -301,6 +312,7 @@ class MarkOrderAsPaidAction
                     ? ClientSubscription::STATUS_CANCELLED
                     : ClientSubscription::STATUS_ACTIVE,
                 'paused_at' => null,
+                'starts_at' => $periodStart,
                 'last_run_at' => $periodStart,
                 'next_run_at' => $nextRunAt,
                 'ends_at' => $periodStart->addMonth(),
