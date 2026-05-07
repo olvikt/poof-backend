@@ -23,6 +23,6 @@
         wire:click="disableTrial"
         class="mt-1 text-xs text-gray-400 underline"
     >
-        ❌ Відмовитись від тесту
+        Відмовитись від тесту
     </button>
 @endif
