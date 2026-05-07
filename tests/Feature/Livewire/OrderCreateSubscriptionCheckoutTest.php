@@ -47,4 +47,26 @@ class OrderCreateSubscriptionCheckoutTest extends TestCase
             ->assertSet('price', 400)
             ->assertSee('Підписка: фінальна місячна ціна вже врахована у «До оплати».');
     }
+
+    public function test_subscription_modal_shows_correct_prices_pickups_approx_and_saving_percent_for_all_default_plans(): void
+    {
+        $user = User::factory()->create();
+        $this->actingAs($user);
+
+        Livewire::test(OrderCreate::class)
+            ->call('openSubscriptionModal')
+            ->assertSee('400 грн / міс')
+            ->assertSee('10 виносів на місяць')
+            ->assertSee('≈ 40 грн за винос')
+            ->assertSee('Економія 43% від разових (до 3 пак.)')
+            ->assertSee('585 грн / міс')
+            ->assertSee('15 виносів на місяць')
+            ->assertSee('≈ 39 грн за винос')
+            ->assertSee('Економія 44% від разових (до 3 пак.)')
+            ->assertSee('1140 грн / міс')
+            ->assertSee('30 виносів на місяць')
+            ->assertSee('≈ 38 грн за винос')
+            ->assertSee('Економія 46% від разових (до 3 пак.)');
+    }
+
 }
