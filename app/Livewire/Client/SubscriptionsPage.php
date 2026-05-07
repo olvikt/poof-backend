@@ -366,20 +366,20 @@ class SubscriptionsPage extends Component
 
     private function formatNextPlannedLabel(ClientSubscription $subscription, int $remainingRuns, ?Order $nextPlannedOrder): string
     {
-        if (in_array($subscription->display_status, [ClientSubscription::STATUS_CANCELLED, ClientSubscription::STATUS_COMPLETED], true)) {
-            return '—';
-        }
-
-        if ($remainingRuns <= 0) {
-            return '—';
-        }
-
         if ($nextPlannedOrder instanceof Order) {
             return $this->formatPlannedDateWithWindow(
                 $nextPlannedOrder->scheduled_date,
                 $nextPlannedOrder->window_from_at?->format('H:i') ?? $nextPlannedOrder->scheduled_time_from,
                 $nextPlannedOrder->window_to_at?->format('H:i') ?? $nextPlannedOrder->scheduled_time_to,
             );
+        }
+
+        if ($subscription->display_status !== ClientSubscription::STATUS_ACTIVE) {
+            return '—';
+        }
+
+        if ($remainingRuns <= 0) {
+            return '—';
         }
 
         return $this->formatPlannedDateWithWindow(
