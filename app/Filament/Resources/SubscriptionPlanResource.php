@@ -56,6 +56,7 @@ class SubscriptionPlanResource extends Resource
                     $plan = new SubscriptionPlan([
                         'pickups_per_month' => (int) ($get('pickups_per_month') ?? 0),
                         'monthly_price' => (int) ($get('monthly_price') ?? 0),
+                        'max_bags' => (int) ($get('max_bags') ?? 1),
                     ]);
 
                     return sprintf(

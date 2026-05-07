@@ -4,6 +4,7 @@ namespace Tests\Unit\Subscriptions;
 
 use App\Models\BagPricing;
 use App\Models\SubscriptionPlan;
+use Database\Seeders\SubscriptionPlanSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
@@ -36,6 +37,8 @@ class SubscriptionPlanEconomyTest extends TestCase
 
     public function test_seeded_plans_economy_percent_matches_max_bags_baseline(): void
     {
+        $this->seed(SubscriptionPlanSeeder::class);
+
         $plans = SubscriptionPlan::query()->get()->keyBy('slug');
 
         $this->assertSame(43, $plans['every-3-days']->economyPercent());
