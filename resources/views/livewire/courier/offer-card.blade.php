@@ -60,6 +60,11 @@
                                 <div class="mt-3 text-lg font-extrabold text-white">
                                     Замовлення #{{ $offer->order_id }}
                                 </div>
+                                @if($order?->origin === \App\Models\Order::ORIGIN_SUBSCRIPTION)
+                                    <div class="mt-1 inline-flex rounded-full border border-cyan-400/40 bg-cyan-500/10 px-2 py-0.5 text-[11px] font-semibold text-cyan-300">
+                                        Пакетний винос
+                                    </div>
+                                @endif
 
                             </div>
 

@@ -184,8 +184,8 @@ class SubscriptionCheckoutFlowTest extends TestCase
         $this->actingAs($client, 'web')
             ->get('/client/subscriptions')
             ->assertOk()
-            ->assertSee('Замовлення №'.$checkoutOrder->id)
-            ->assertSee('Створено: '.$checkoutOrder->created_at?->format('d.m.Y'))
+            ->assertSee('Пакет №'.$checkoutOrder->id)
+            ->assertSee('Оплачено/Створено: '.$checkoutOrder->created_at?->format('d.m.Y'))
             ->assertSee('Пакет Комфорт')
             ->assertSee('Активна')
             ->assertDontSee('Архів підписок порожній.');

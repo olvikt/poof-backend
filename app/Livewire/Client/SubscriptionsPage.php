@@ -231,7 +231,7 @@ class SubscriptionsPage extends Component
         return ClientSubscription::query()
             ->where('id', $subscriptionId)
             ->where('client_id', auth()->id())
-            ->with(['plan', 'address', 'generatedOrders' => fn ($query) => $query->with('completionRequest.proofs')->orderBy('scheduled_date')])
+            ->with(['plan', 'address', 'generatedOrders' => fn ($query) => $query->with(['completionRequest.proofs', 'courier'])->orderBy('scheduled_date')])
             ->first();
     }
 
@@ -282,20 +282,21 @@ class SubscriptionsPage extends Component
         $planRuns = max(1, (int) ($subscription->plan?->pickups_per_month ?? 0));
         $orders = $subscription->generatedOrders
             ->filter(fn (Order $order): bool => $order->origin === Order::ORIGIN_SUBSCRIPTION)
-            ->sortBy('scheduled_date')
+            ->sortBy(fn (Order $order): string => sprintf('%s-%010d', optional($order->scheduled_date)->format('Y-m-d H:i:s') ?? '9999-12-31 23:59:59', (int) $order->id))
             ->values();
         $completedRuns = $orders->where('status', \App\Models\Order::STATUS_DONE)->count();
         $remainingRuns = max(0, $planRuns - $completedRuns);
         $nextPlanned = $orders
             ->whereIn('status', [\App\Models\Order::STATUS_NEW, \App\Models\Order::STATUS_SEARCHING, \App\Models\Order::STATUS_ACCEPTED, \App\Models\Order::STATUS_IN_PROGRESS])
-            ->sortBy('scheduled_date')
+            ->sortBy(fn (Order $order): string => sprintf('%s-%010d', optional($order->scheduled_date)->format('Y-m-d H:i:s') ?? '9999-12-31 23:59:59', (int) $order->id))
             ->first();
 
-        $timeline = $orders->map(function (\App\Models\Order $order): array {
+        $timeline = $orders->values()->map(function (\App\Models\Order $order, int $index): array {
             return [
                 'date' => $order->scheduled_date?->format('d.m') ?? optional($order->created_at)->format('d.m') ?? '—',
                 'completed' => $order->status === \App\Models\Order::STATUS_DONE,
                 'status' => \App\Models\Order::STATUS_LABELS[$order->status] ?? $order->status,
+                'index' => $index + 1,
             ];
         })->all();
 
@@ -313,13 +314,21 @@ class SubscriptionsPage extends Component
 
         $client = auth()->user();
         $history = $orders
-            ->map(function (Order $order) use ($client): array {
+            ->values()
+            ->map(function (Order $order, int $index) use ($client, $planRuns): array {
                 $completionPayload = app(GetOrderCompletionClientPayloadAction::class)->handle($order, $client, false);
 
                 return [
                     'id' => (int) $order->id,
                     'status' => Order::STATUS_LABELS[$order->status] ?? $order->status,
                     'date' => $order->scheduled_date?->format('d.m.Y') ?? optional($order->created_at)->format('d.m.Y') ?? '—',
+                    'datetime' => $order->window_from_at?->format('d.m.Y H:i')
+                        ?? $order->scheduled_date?->format('d.m.Y')
+                        ?? optional($order->created_at)->format('d.m.Y H:i')
+                        ?? '—',
+                    'courier_name' => $order->courier?->name,
+                    'execution_index' => $index + 1,
+                    'total_runs' => $planRuns,
                     'is_subscription_origin' => $order->origin === Order::ORIGIN_SUBSCRIPTION,
                     'completion_payload' => $completionPayload,
                     'awaiting_client_confirmation' => ($completionPayload['status'] ?? null) === OrderCompletionRequest::STATUS_AWAITING_CLIENT_CONFIRMATION,
@@ -339,6 +348,9 @@ class SubscriptionsPage extends Component
             'auto_renew' => (bool) $subscription->auto_renew,
             'timeline' => $timeline,
             'history' => $history,
+            'package_order_id' => $subscription->latestPaidCheckoutOrder?->id,
+            'package_created_at' => $subscription->latestPaidCheckoutOrder?->created_at?->format('d.m.Y') ?? '—',
+            'frequency_label' => $subscription->frequency_label,
         ];
     }
 

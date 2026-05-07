@@ -65,15 +65,15 @@
                     </span>
                 </div>
                 <div class="mt-2 space-y-1 text-xs text-gray-400">
-                    <p>Замовлення №{{ $subscription->latestPaidCheckoutOrder?->id ?? '—' }}</p>
-                    <p>Створено: {{ $subscription->latestPaidCheckoutOrder?->created_at?->format('d.m.Y') ?? '—' }}</p>
+                    <p>Пакет №{{ $subscription->latestPaidCheckoutOrder?->id ?? '—' }}</p>
+                    <p>Оплачено/Створено: {{ $subscription->latestPaidCheckoutOrder?->created_at?->format('d.m.Y') ?? '—' }}</p>
                 </div>
 
                 <div class="mt-3 grid grid-cols-2 gap-3 text-sm text-gray-300">
-                    <p>Частота: <span class="text-white">{{ $subscription->frequency_label }}</span></p>
-                    <p>Місячна вартість: <span class="text-white">{{ number_format((int) ($subscription->plan?->monthly_price ?? 0), 0, ',', ' ') }} ₴</span></p>
-                    <p>Початок: <span class="text-white">{{ optional($subscription->startsAtForDisplay())->format('d.m.Y') ?? '—' }}</span></p>
-                    <p>Активна до: <span class="text-white">{{ optional($subscription->activeUntilForDisplay())->format('d.m.Y') ?? '—' }}</span></p>
+                    <p>План: <span class="text-white">{{ $subscription->frequency_label }}</span></p>
+                    <p>Всього виносів: <span class="text-white">{{ max(1, (int) ($subscription->plan?->pickups_per_month ?? 1)) }}</span></p>
+                    <p>Виконано: <span class="text-white">{{ $subscription->generatedOrders->where('origin', \App\Models\Order::ORIGIN_SUBSCRIPTION)->where('status', \App\Models\Order::STATUS_DONE)->count() }}</span></p>
+                    <p>Залишилось: <span class="text-white">{{ max(0, max(1, (int) ($subscription->plan?->pickups_per_month ?? 1)) - $subscription->generatedOrders->where('origin', \App\Models\Order::ORIGIN_SUBSCRIPTION)->where('status', \App\Models\Order::STATUS_DONE)->count()) }}</span></p>
                 </div>
 
                 @if($tab === 'active')
@@ -170,9 +170,10 @@
                     @forelse(($details['history'] ?? []) as $executionOrder)
                         <div class="rounded-lg border border-gray-800 bg-gray-900/50 p-2 text-xs text-gray-300">
                             <div class="flex items-center justify-between">
-                                <span>#{{ $executionOrder['id'] }} · {{ $executionOrder['date'] }}</span>
+                                <span>Винос {{ $executionOrder['execution_index'] }} із {{ $executionOrder['total_runs'] }} — замовлення №{{ $executionOrder['id'] }}</span>
                                 <span class="text-gray-400">{{ $executionOrder['status'] }}</span>
                             </div>
+                            <div class="mt-1 text-[11px] text-gray-400">{{ $executionOrder['datetime'] }} · Курʼєр: {{ $executionOrder['courier_name'] ?? '—' }}</div>
 
                             @if($executionOrder['awaiting_client_confirmation'] ?? false)
                                 @php($proofs = $executionOrder['completion_payload']['proofs'] ?? [])
@@ -211,6 +212,13 @@
                     @empty
                         <p class="text-xs text-gray-500">Виноси ще не створені.</p>
                     @endforelse
+                    @php($plannedRuns = $details['total_runs'] ?? 0)
+                    @php($createdRuns = count($details['history'] ?? []))
+                    @for($i = $createdRuns + 1; $i <= $plannedRuns; $i++)
+                        <div class="rounded-lg border border-dashed border-gray-800 bg-gray-900/30 p-2 text-xs text-gray-400">
+                            Винос {{ $i }} із {{ $plannedRuns }} — заплановано, замовлення ще не створено
+                        </div>
+                    @endfor
                 </div>
             </div>
         </div>
