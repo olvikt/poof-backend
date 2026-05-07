@@ -322,7 +322,10 @@ class SubscriptionsPage extends Component
                     'id' => (int) $order->id,
                     'status' => Order::STATUS_LABELS[$order->status] ?? $order->status,
                     'date' => $order->scheduled_date?->format('d.m.Y') ?? optional($order->created_at)->format('d.m.Y') ?? '—',
-                    'datetime' => $order->scheduled_date?->format('d.m.Y H:i') ?? optional($order->created_at)->format('d.m.Y H:i') ?? '—',
+                    'datetime' => $order->window_from_at?->format('d.m.Y H:i')
+                        ?? $order->scheduled_date?->format('d.m.Y')
+                        ?? optional($order->created_at)->format('d.m.Y H:i')
+                        ?? '—',
                     'courier_name' => $order->courier?->name,
                     'execution_index' => $index + 1,
                     'total_runs' => $planRuns,
