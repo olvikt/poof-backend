@@ -10,6 +10,7 @@
 <button
     {{ $attributes->merge(['type' => 'button']) }}
     @disabled($disabled)
+    data-e2e="bag-option-{{ $count }}"
     class="
         flex-1 w-full
         px-3 py-3 rounded-2xl
@@ -22,11 +23,13 @@
         {{ $disabled ? 'bg-neutral-800 text-gray-500 border-neutral-700 opacity-70 cursor-not-allowed' : 'cursor-pointer' }}
     "
 >
-    <div class="text-lg font-extrabold">
-        {{ $count }}
+    <div class="flex items-center justify-center gap-1" data-e2e="bag-icons">
+        @for($i = 0; $i < $count; $i++)
+            <x-poof.icons.bag class="h-6 w-6" />
+        @endfor
     </div>
 
-    <div class="text-xs opacity-80">
+    <div class="mt-2 text-xs opacity-80">
         {{ UaPlural::bags($count) }}
     </div>
 
