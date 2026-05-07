@@ -48,6 +48,39 @@ class SubscriptionsPageCompletionTest extends TestCase
             ->assertDontSee('Відкрити спір');
     }
 
+    public function test_details_modal_renders_close_button(): void
+    {
+        [$client, $subscription] = $this->seedAwaitingExecutionOrder();
+        $this->actingAs($client);
+
+        Livewire::test(SubscriptionsPage::class)
+            ->call('openDetails', $subscription->id)
+            ->assertSeeHtml('aria-label="Закрити"');
+    }
+
+    public function test_awaiting_confirmation_item_shows_confirm_and_dispute_actions(): void
+    {
+        [$client, $subscription] = $this->seedAwaitingExecutionOrder();
+        $this->actingAs($client);
+
+        Livewire::test(SubscriptionsPage::class)
+            ->call('openDetails', $subscription->id)
+            ->assertSee('Очікує підтвердження')
+            ->assertSee('Підтвердити')
+            ->assertSee('Відкрити спір');
+    }
+
+    public function test_completed_history_item_has_vykonano_label(): void
+    {
+        [$client, $subscription, $order] = $this->seedAwaitingExecutionOrder();
+        $this->actingAs($client);
+        app(\App\Actions\Orders\Completion\ConfirmOrderCompletionByClientAction::class)->handle($order->fresh(), $client);
+
+        Livewire::test(SubscriptionsPage::class)
+            ->call('openDetails', $subscription->id)
+            ->assertSee('Виконано');
+    }
+
     public function test_owner_can_open_dispute_and_earning_is_not_created(): void
     {
         [$client, $subscription, $order] = $this->seedAwaitingExecutionOrder();

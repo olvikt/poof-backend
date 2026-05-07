@@ -14,6 +14,30 @@ class PendingConfirmationsTest extends TestCase
 {
     use RefreshDatabase;
 
+    public function test_subscription_execution_awaiting_confirmation_is_counted(): void
+    {
+        $client = User::factory()->create(['role' => User::ROLE_CLIENT, 'is_active' => true]);
+        $courier = User::factory()->create(['role' => User::ROLE_COURIER, 'is_active' => true]);
+        $this->createAwaitingOrder($client->id, $courier->id, 777);
+
+        $this->actingAs($client, 'sanctum');
+        $this->getJson('/api/client/pending-confirmations')
+            ->assertOk()
+            ->assertJsonPath('data.pending_confirmations.count', 1);
+    }
+
+    public function test_one_time_awaiting_confirmation_is_counted(): void
+    {
+        $client = User::factory()->create(['role' => User::ROLE_CLIENT, 'is_active' => true]);
+        $courier = User::factory()->create(['role' => User::ROLE_COURIER, 'is_active' => true]);
+        $this->createAwaitingOrder($client->id, $courier->id, null);
+
+        $this->actingAs($client, 'sanctum');
+        $this->getJson('/api/client/pending-confirmations')
+            ->assertOk()
+            ->assertJsonPath('data.pending_confirmations.count', 1);
+    }
+
     public function test_pending_confirmations_count_decreases_after_confirm_and_ignores_foreign_orders(): void
     {
         $client = User::factory()->create(['role' => User::ROLE_CLIENT, 'is_active' => true]);
