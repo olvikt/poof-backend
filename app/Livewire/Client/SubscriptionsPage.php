@@ -161,6 +161,13 @@ class SubscriptionsPage extends Component
         $this->showDetailsModal = true;
     }
 
+    public function closeDetails(): void
+    {
+        $this->showDetailsModal = false;
+        $this->detailsSubscriptionId = null;
+        $this->details = [];
+    }
+
     public function confirmExecutionCompletion(int $subscriptionId, int $orderId): void
     {
         $order = $this->findOwnSubscriptionOrder($subscriptionId, $orderId);

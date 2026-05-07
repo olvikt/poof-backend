@@ -139,39 +139,62 @@
         @endforelse
     </section>
 
-    <x-poof.modal wire:model="showDetailsModal" maxWidth="max-w-lg">
-        <div class="space-y-3">
-            <h3 class="text-lg font-semibold text-white">Докладніше</h3>
-            <p class="text-sm text-gray-300">{{ $details['plan_name'] ?? 'План' }}</p>
-            <div class="grid grid-cols-2 gap-2 text-sm text-gray-300">
-                <p>Період: <span class="text-white">{{ ($details['period_start'] ?? '—') }} — {{ ($details['period_end'] ?? '—') }}</span></p>
-                <p>Статус: <span class="text-white">{{ $details['status'] ?? '—' }}</span></p>
-                <p>Виконано: <span class="text-white">{{ $details['completed_runs'] ?? 0 }} з {{ $details['total_runs'] ?? 0 }}</span></p>
-                <p>Залишилось: <span class="text-white">{{ $details['remaining_runs'] ?? 0 }}</span></p>
-                <p>Наступний винос: <span class="text-white">{{ $details['next_planned'] ?? '—' }}</span></p>
-                <p>Автопродовження: <span class="text-white">{{ !empty($details['auto_renew']) ? 'Увімкнено' : 'Вимкнено' }}</span></p>
+    <x-poof.modal wire:model="showDetailsModal" maxWidth="max-w-2xl">
+        <div class="space-y-4 rounded-3xl border border-gray-700 bg-gray-900 p-6 shadow-xl">
+            <div class="flex items-center justify-between gap-4">
+                <div>
+                    <h3 class="text-2xl font-bold text-white">Докладніше</h3>
+                    <p class="text-sm text-gray-300">{{ $details['plan_name'] ?? 'План' }}</p>
+                </div>
+                <button wire:click="closeDetails" type="button" class="inline-flex h-9 w-9 items-center justify-center rounded-full border border-gray-600 bg-gray-800 text-xl leading-none text-gray-200 transition hover:border-gray-400 hover:bg-gray-700 hover:text-white" aria-label="Закрити">×</button>
             </div>
 
-            <div class="max-h-56 overflow-y-auto rounded-xl border border-gray-800 bg-gray-950 p-3">
-                <div class="grid grid-cols-5 gap-2">
+            <div class="rounded-2xl border border-gray-700 bg-gradient-to-b from-gray-800 to-gray-900 p-4">
+                <div class="grid grid-cols-1 gap-2 text-sm text-gray-300 md:grid-cols-2">
+                    <p>План / частота: <span class="font-semibold text-white">{{ ($details['plan_name'] ?? 'План') }} · {{ $details['frequency_label'] ?? '—' }}</span></p>
+                    <p>Період: <span class="text-white">{{ ($details['period_start'] ?? '—') }} — {{ ($details['period_end'] ?? '—') }}</span></p>
+                    <p>Статус:
+                        <span class="ml-1 inline-flex rounded-full border border-emerald-500/50 bg-emerald-500/20 px-2 py-0.5 text-xs font-semibold text-emerald-200">
+                            {{ $details['status'] ?? '—' }}
+                        </span>
+                    </p>
+                    <p>Виконано: <span class="text-white">{{ $details['completed_runs'] ?? 0 }} з {{ $details['total_runs'] ?? 0 }}</span></p>
+                    <p>Залишилось: <span class="text-white">{{ $details['remaining_runs'] ?? 0 }}</span></p>
+                    <p>Наступний винос: <span class="text-white">{{ $details['next_planned'] ?? '—' }}</span></p>
+                    <p>Автопродовження: <span class="text-white">{{ !empty($details['auto_renew']) ? 'Увімкнено' : 'Вимкнено' }}</span></p>
+                </div>
+            </div>
+
+            <div class="max-h-64 overflow-y-auto rounded-2xl border border-gray-700 bg-gray-850/40 p-4">
+                <p class="mb-3 text-xs uppercase tracking-wide text-gray-400">Розклад виконання</p>
+                <div class="grid grid-cols-2 gap-2 sm:grid-cols-3 md:grid-cols-5">
                     @foreach(($details['timeline'] ?? []) as $run)
-                        <div class="text-center">
-                            <div class="mx-auto h-4 w-4 rounded-full border {{ $run['completed'] ? 'border-yellow-400 bg-yellow-400' : 'border-gray-600 bg-transparent' }}"></div>
-                            <div class="mt-1 text-[10px] text-gray-400">{{ $run['date'] }}</div>
-                            <div class="mt-0.5 text-[9px] text-gray-500">{{ $run['status'] ?? 'Очікується' }}</div>
+                        <div class="rounded-xl border border-gray-700 bg-gray-900/70 p-2 text-center">
+                            <div class="mx-auto flex h-7 w-7 items-center justify-center rounded-full border {{ $run['completed'] ? 'border-yellow-300 bg-yellow-400 text-black' : 'border-gray-500 bg-transparent text-gray-400' }}">
+                                @if($run['completed'])
+                                    <span class="text-[10px] font-black text-emerald-700">✓</span>
+                                @else
+                                    <span class="text-[10px] font-semibold">{{ $run['index'] ?? '○' }}</span>
+                                @endif
+                            </div>
+                            <div class="mt-1 text-xs font-semibold text-gray-200">{{ $run['date'] }}</div>
+                            <div class="mt-0.5 text-[10px] {{ $run['completed'] ? 'text-emerald-300' : 'text-gray-500' }}">{{ $run['completed'] ? 'Виконано' : 'Очікується' }}</div>
                         </div>
                     @endforeach
                 </div>
             </div>
 
-            <div class="rounded-xl border border-gray-800 bg-gray-950 p-3">
+            <div class="rounded-2xl border border-gray-700 bg-gray-950 p-4">
                 <p class="text-xs uppercase tracking-wide text-gray-500">Історія виносів</p>
                 <div class="mt-2 space-y-2">
                     @forelse(($details['history'] ?? []) as $executionOrder)
-                        <div class="rounded-lg border border-gray-800 bg-gray-900/50 p-2 text-xs text-gray-300">
+                        <div class="rounded-lg p-2 text-xs text-gray-300 {{ ($executionOrder['awaiting_client_confirmation'] ?? false) ? 'border border-amber-400/60 bg-amber-500/10' : (($executionOrder['status'] ?? '') === 'Виконано' ? 'border border-emerald-500/60 bg-emerald-500/10' : 'border border-gray-700 bg-gray-900/50') }}">
                             <div class="flex items-center justify-between">
-                                <span>Винос {{ $executionOrder['execution_index'] }} із {{ $executionOrder['total_runs'] }} — замовлення №{{ $executionOrder['id'] }}</span>
-                                <span class="text-gray-400">{{ $executionOrder['status'] }}</span>
+                                <span class="inline-flex items-center gap-2 font-semibold">
+                                    <span class="inline-flex h-5 w-5 items-center justify-center rounded-full {{ ($executionOrder['status'] ?? '') === 'Виконано' ? 'bg-emerald-500 text-white' : 'bg-gray-800 text-gray-300' }}">{{ ($executionOrder['status'] ?? '') === 'Виконано' ? '✓' : $executionOrder['execution_index'] }}</span>
+                                    Винос {{ $executionOrder['execution_index'] }} із {{ $executionOrder['total_runs'] }} — замовлення №{{ $executionOrder['id'] }}
+                                </span>
+                                <span class="{{ ($executionOrder['awaiting_client_confirmation'] ?? false) ? 'text-amber-300' : (($executionOrder['status'] ?? '') === 'Виконано' ? 'text-emerald-300' : 'text-gray-400') }}">{{ ($executionOrder['awaiting_client_confirmation'] ?? false) ? 'Очікує підтвердження' : $executionOrder['status'] }}</span>
                             </div>
                             <div class="mt-1 text-[11px] text-gray-400">{{ $executionOrder['datetime'] }} · Курʼєр: {{ $executionOrder['courier_name'] ?? '—' }}</div>
 
@@ -215,8 +238,11 @@
                     @php($plannedRuns = $details['total_runs'] ?? 0)
                     @php($createdRuns = count($details['history'] ?? []))
                     @for($i = $createdRuns + 1; $i <= $plannedRuns; $i++)
-                        <div class="rounded-lg border border-dashed border-gray-800 bg-gray-900/30 p-2 text-xs text-gray-400">
-                            Винос {{ $i }} із {{ $plannedRuns }} — заплановано, замовлення ще не створено
+                        <div class="rounded-lg border border-dashed border-gray-700 bg-gray-900/40 p-2 text-xs text-gray-400">
+                            <span class="inline-flex items-center gap-2">
+                                <span class="inline-flex h-5 w-5 items-center justify-center rounded-full border border-gray-600 text-[10px]">{{ $i }}</span>
+                                Винос {{ $i }} із {{ $plannedRuns }} — заплановано, замовлення ще не створено
+                            </span>
                         </div>
                     @endfor
                 </div>
