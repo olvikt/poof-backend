@@ -112,8 +112,8 @@ class SubscriptionsPageCompletionTest extends TestCase
         $this->actingAs($client);
 
         Livewire::test(SubscriptionsPage::class)
-            ->assertSee('Замовлення №')
-            ->assertSee('Оплачено: 06.05.2026');
+            ->assertSee('Пакет №')
+            ->assertSee('Оплачено/Створено: 06.05.2026');
     }
 
     public function test_active_subscription_does_not_show_resume_button(): void
@@ -124,6 +124,51 @@ class SubscriptionsPageCompletionTest extends TestCase
 
         Livewire::test(SubscriptionsPage::class)
             ->assertDontSee('Продовжити');
+    }
+
+    public function test_details_show_execution_order_index_and_exclude_checkout_order_from_runs_history(): void
+    {
+        $client = User::factory()->create();
+        $plan = SubscriptionPlan::query()->firstOrFail();
+
+        $subscription = ClientSubscription::unguarded(fn () => ClientSubscription::query()->create([
+            'client_id' => $client->id,
+            'subscription_plan_id' => $plan->id,
+            'status' => ClientSubscription::STATUS_ACTIVE,
+            'next_run_at' => now()->addDay(),
+            'ends_at' => now()->addMonth(),
+            'auto_renew' => true,
+        ]));
+
+        $checkoutOrder = Order::createForTesting([
+            'client_id' => $client->id,
+            'subscription_id' => $subscription->id,
+            'origin' => Order::ORIGIN_CHECKOUT,
+            'order_type' => Order::TYPE_SUBSCRIPTION,
+            'status' => Order::STATUS_DONE,
+            'payment_status' => Order::PAY_PAID,
+            'address_text' => 'Subscription address',
+            'price' => 500,
+        ]);
+
+        $executionOrder = Order::createForTesting([
+            'client_id' => $client->id,
+            'subscription_id' => $subscription->id,
+            'origin' => Order::ORIGIN_SUBSCRIPTION,
+            'order_type' => Order::TYPE_SUBSCRIPTION,
+            'status' => Order::STATUS_SEARCHING,
+            'payment_status' => Order::PAY_PAID,
+            'address_text' => 'Subscription address',
+            'price' => 50,
+        ]);
+
+        $this->actingAs($client);
+
+        Livewire::test(SubscriptionsPage::class)
+            ->call('openDetails', $subscription->id)
+            ->assertSee('Винос 1 із')
+            ->assertSee('замовлення №'.$executionOrder->id)
+            ->assertDontSee('замовлення №'.$checkoutOrder->id);
     }
 
     public function test_paused_or_expired_subscription_shows_resume_button(): void
@@ -220,4 +265,3 @@ class SubscriptionsPageCompletionTest extends TestCase
         return [$client, $subscription];
     }
 }
-
