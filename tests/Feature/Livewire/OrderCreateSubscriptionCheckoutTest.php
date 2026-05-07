@@ -75,6 +75,20 @@ class OrderCreateSubscriptionCheckoutTest extends TestCase
             ->assertSee('Регулярні виноси вигідніше');
     }
 
+
+    public function test_order_type_badges_and_icon_markers_are_visible(): void
+    {
+        $user = User::factory()->create();
+        $this->actingAs($user);
+
+        Livewire::test(OrderCreate::class)
+            ->assertSee('Разово')
+            ->assertSee('До 20% вигоди')
+            ->assertSeeHtml('data-e2e="order-type-subscription"')
+            ->assertSeeHtml('data-e2e="trial-promo-card"')
+            ->assertSeeHtml('data-e2e="bag-icons"');
+    }
+
     public function test_subscription_selected_disables_bag_selection_and_removes_active_bag_highlight(): void
     {
         $user = User::factory()->create();

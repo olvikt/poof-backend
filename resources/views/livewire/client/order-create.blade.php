@@ -292,44 +292,18 @@
 		</div>
 	</div>
 
-	{{-- ================= HANDOVER ================= --}}
-	
-		<x-poof.section title="Передача">
-			<div class="flex gap-3">
-
-				<x-poof.choice-card
-					wire:model="handover_type"
-					model="handover_type"
-					value="door"
-					:current="$handover_type"
-					title="За дверима"
-					subtitle="Без контакту"
-					icon="🚪"
-				/>
-
-				<x-poof.choice-card
-					wire:model="handover_type"
-					model="handover_type"
-					value="hand"
-					:current="$handover_type"
-					title="В руки"
-					subtitle="Особисто"
-					icon="🤝"
-				/>
-
-			</div>
-		</x-poof.section>
-
-	
-
 	{{-- ================= ORDER TYPE ================= --}}
 	<div class="mb-5">
 		<x-poof.section title="Тип замовлення">
 			<div class="grid grid-cols-2 gap-4 w-full">
 				<div wire:click="selectRegularOrder">
 					<x-poof.trial-option
+						marker="order-type-regular"
 						title="Разовий винос"
 						subtitle="Оплата лише за цей винос"
+						badge="Разово"
+						badge-class="bg-yellow-300 text-yellow-900"
+						:icon="view('components.poof.icons.one-time', ['attributes' => new \\Illuminate\\View\\ComponentAttributeBag(['class' => 'h-6 w-6'])])"
 						:active="$selected_subscription_plan_id === null"
 						active-class="border-yellow-400 bg-gradient-to-b from-yellow-300 to-yellow-400 text-black shadow-lg"
 					/>
@@ -337,8 +311,12 @@
 
 				<div wire:click="openSubscriptionModal">
 					<x-poof.trial-option
+						marker="order-type-subscription"
 						title="Підписка"
 						subtitle="Регулярні виноси вигідніше"
+						badge="До 20% вигоди"
+						badge-class="bg-emerald-300 text-emerald-900"
+						:icon="view('components.poof.icons.calendar', ['attributes' => new \\Illuminate\\View\\ComponentAttributeBag(['class' => 'h-6 w-6'])])"
 						:active="$selected_subscription_plan_id !== null"
 						active-class="border-yellow-400 bg-gradient-to-b from-yellow-300 to-yellow-400 text-black shadow-lg"
 					/>
@@ -347,43 +325,35 @@
 		</x-poof.section>
 	</div>
 
+	{{-- ================= HANDOVER ================= --}}
+	<div class="mb-5">
+		<x-poof.section title="Передача">
+			<div class="flex gap-3">
+				<x-poof.choice-card wire:model="handover_type" model="handover_type" value="door" :current="$handover_type" title="За дверима" subtitle="Без контакту" icon="🚪" />
+				<x-poof.choice-card wire:model="handover_type" model="handover_type" value="hand" :current="$handover_type" title="В руки" subtitle="Особисто" icon="🤝" />
+			</div>
+		</x-poof.section>
+	</div>
+
+	{{-- ================= TRIAL ================= --}}
+	<x-poof.trial-block :is-trial="$is_trial" :trial-days="$trial_days" :trial-used="$trial_used" />
+
 	{{-- ================= BAGS ================= --}}
 	<div class="mb-5">
 		<x-poof.section title="Кількість мішків">
 			<div class="flex gap-3">
-
 				@foreach($pricing as $count => $bagPrice)
 					<div class="flex-1">
-						<x-poof.bag-option
-							wire:click="selectBags({{ $count }})"
-							:count="$count"
-							:price="$bagPrice"
-							:active="$selected_subscription_plan_id ? false : $bags_count === $count"
-							:disabled="$selected_subscription_plan_id"
-						/>
+						<x-poof.bag-option wire:click="selectBags({{ $count }})" :count="$count" :price="$bagPrice" :active="$selected_subscription_plan_id ? false : $bags_count === $count" :disabled="$selected_subscription_plan_id" />
 					</div>
 				@endforeach
 			</div>
-
-			<p class="text-xs text-gray-400 mt-2">
-				До 6 кг у мішку
-			</p>
-
+			<p class="text-xs text-gray-400 mt-2">До 6 кг у мішку</p>
 			@if($selected_subscription_plan_id)
-				<p class="text-xs text-yellow-300 mt-2">
-					У підписку включено до 3 пакетів (18 кг) за один винос
-				</p>
+				<p class="text-xs text-yellow-300 mt-2">У підписку включено до 3 пакетів (18 кг) за один винос</p>
 			@endif
 		</x-poof.section>
-
 	</div>
-
-	{{-- ================= TRIAL ================= --}}	
-		<x-poof.trial-block
-			:is-trial="$is_trial"
-			:trial-days="$trial_days"
-			:trial-used="$trial_used"
-		/>	
 
 	{{-- ================= DIVIDER ================= --}}
 	<div class="my-8">
