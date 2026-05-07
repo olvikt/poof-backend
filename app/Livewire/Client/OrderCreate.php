@@ -68,7 +68,7 @@ class OrderCreate extends Component
 
     public ?string $promo_code = null;
     public bool $is_trial = false;
-    public int $trial_days = 1;
+    public ?int $trial_days = 1;
     public bool $trial_used = false;
     public bool $showSubscriptionModal = false;
     public ?string $subscription_frequency = null;
