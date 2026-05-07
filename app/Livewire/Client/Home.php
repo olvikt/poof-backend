@@ -17,7 +17,7 @@ class Home extends Component
     {
         $user = auth()->user();
 
-        $this->ordersCount = (int) $user->orders()->count();
+        $this->ordersCount = (int) $user->orders()->regularClientOrders()->count();
         $this->addressesCount = (int) $user->addresses()->count();
         $this->activeSubscriptionsCount = $dashboardKpi->activeSubscriptionsCount((int) $user->id);
         $this->totalPaidAmount = $dashboardKpi->totalPaidAmount((int) $user->id);

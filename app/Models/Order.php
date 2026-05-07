@@ -363,6 +363,20 @@ public function markAsPaid(): void
         ]);
     }
 
+
+    public function scopeRegularClientOrders(Builder $query): Builder
+    {
+        return $query->whereNull('subscription_id')
+            ->where(function (Builder $nested): void {
+                $nested->whereNull('origin')
+                    ->orWhere('origin', '!=', self::ORIGIN_SUBSCRIPTION);
+            })
+            ->where(function (Builder $nested): void {
+                $nested->whereNull('order_type')
+                    ->orWhere('order_type', '!=', self::TYPE_SUBSCRIPTION);
+            });
+    }
+
     /* =========================================================
      |  HELPERS
      | ========================================================= */
