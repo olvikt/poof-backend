@@ -140,6 +140,27 @@ class OrderCreateSubscriptionCheckoutTest extends TestCase
             ->assertSet('price', 159);
     }
 
+    public function test_selecting_subscription_after_trial_clears_trial_state_and_disables_bags(): void
+    {
+        $user = User::factory()->create();
+        $this->actingAs($user);
+
+        $plan = SubscriptionPlan::query()->where('slug', 'every-3-days')->firstOrFail();
+
+        Livewire::test(OrderCreate::class)
+            ->call('selectTrial', 1)
+            ->assertSet('is_trial', true)
+            ->assertSet('price', 0)
+            ->call('selectSubscriptionPlan', $plan->id)
+            ->assertSet('is_trial', false)
+            ->assertSet('trial_days', null)
+            ->assertSet('selected_subscription_plan_id', $plan->id)
+            ->assertSet('price', 400)
+            ->assertSee('🔒 Недоступно')
+            ->assertSeeHtml('disabled')
+            ->assertDontSee('❌ Відмовитись від тесту');
+    }
+
     public function test_subscription_modal_shows_correct_prices_pickups_approx_and_saving_percent_for_all_default_plans(): void
     {
         $user = User::factory()->create();

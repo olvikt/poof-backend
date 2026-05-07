@@ -76,7 +76,7 @@ trait HandlesPricingTrialPolicy
     public function disableTrial(): void
     {
         $this->is_trial = false;
-        $this->trial_days = 1;
+        $this->trial_days = null;
         $this->recalculatePrice();
     }
 
@@ -96,7 +96,7 @@ trait HandlesPricingTrialPolicy
         $this->selected_subscription_plan_id = (int) $plan->id;
         $this->subscription_frequency = $plan->frequency_type;
         $this->is_trial = false;
-        $this->trial_days = 1;
+        $this->trial_days = null;
         $this->price = (int) $plan->monthly_price;
         $this->showSubscriptionModal = false;
     }
