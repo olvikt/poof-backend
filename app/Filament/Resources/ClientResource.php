@@ -87,22 +87,22 @@ class ClientResource extends Resource
                     ->schema([
                         TextEntry::make('stats.total_orders')
                             ->label('Всего заказов')
-                            ->state(fn (User $record): int => $record->orders()->count()),
+                            ->state(fn (User $record): int => $record->orders()->regularClientOrders()->count()),
                         TextEntry::make('stats.paid_orders')
                             ->label('Всего оплаченных заказов')
-                            ->state(fn (User $record): int => $record->orders()->where('payment_status', Order::PAY_PAID)->count()),
+                            ->state(fn (User $record): int => $record->orders()->regularClientOrders()->where('payment_status', Order::PAY_PAID)->count()),
                         TextEntry::make('stats.unpaid_orders')
                             ->label('Всего неоплаченных заказов')
-                            ->state(fn (User $record): int => $record->orders()->where('payment_status', '!=', Order::PAY_PAID)->count()),
+                            ->state(fn (User $record): int => $record->orders()->regularClientOrders()->where('payment_status', '!=', Order::PAY_PAID)->count()),
                         TextEntry::make('stats.paid_sum')
                             ->label('Общая сумма оплаченных заказов')
                             ->money('UAH')
-                            ->state(fn (User $record): int => (int) $record->orders()->where('payment_status', Order::PAY_PAID)->sum('price')),
+                            ->state(fn (User $record): int => (int) $record->orders()->regularClientOrders()->where('payment_status', Order::PAY_PAID)->sum('price')),
                         TextEntry::make('stats.average_check')
                             ->label('Средний чек')
                             ->money('UAH')
                             ->state(function (User $record): int {
-                                $avg = $record->orders()->where('payment_status', Order::PAY_PAID)->avg('price');
+                                $avg = $record->orders()->regularClientOrders()->where('payment_status', Order::PAY_PAID)->avg('price');
 
                                 return (int) round((float) ($avg ?? 0));
                             }),
@@ -110,6 +110,7 @@ class ClientResource extends Resource
                             ->label('Последний оплаченный заказ')
                             ->state(function (User $record): string {
                                 $lastPaid = $record->orders()
+                                    ->regularClientOrders()
                                     ->where('payment_status', Order::PAY_PAID)
                                     ->latest('updated_at')
                                     ->value('updated_at');
@@ -137,7 +138,10 @@ class ClientResource extends Resource
     {
         return parent::getEloquentQuery()
             ->where('role', User::ROLE_CLIENT)
-            ->withCount(['orders', 'addresses']);
+            ->withCount([
+                'orders as orders_count' => fn (Builder $query): Builder => $query->regularClientOrders(),
+                'addresses',
+            ]);
     }
 
     public static function getPages(): array
