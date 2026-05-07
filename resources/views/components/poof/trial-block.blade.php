@@ -13,7 +13,7 @@
         :disabled="$trialUsed"
         :used="$trialUsed"
         :trailing="true"
-        :icon="view('components.poof.icons.gift', ['attributes' => new \Illuminate\View\ComponentAttributeBag(['class' => 'h-6 w-6'])])"
+        icon="gift"
     />
 </div>
 

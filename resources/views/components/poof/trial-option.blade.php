@@ -18,10 +18,7 @@
         relative flex min-h-[112px] flex-col justify-between
         rounded-2xl border px-4 py-4 text-left
         transition-all duration-150 active:scale-95
-        {{ $active && ! $disabled
-            ? $activeClass
-            : 'border-neutral-700 bg-neutral-800 text-gray-100 shadow-sm'
-        }}
+        {{ $active && ! $disabled ? $activeClass : 'border-neutral-700 bg-neutral-800 text-gray-100 shadow-sm' }}
         {{ $disabled ? 'opacity-60' : 'cursor-pointer' }}
     "
 >
@@ -35,7 +32,19 @@
             <div class="mt-1 text-xs opacity-80">{{ $used ? 'Уже використано' : $subtitle }}</div>
         </div>
         @if($icon)
-            <div class="shrink-0 {{ $active ? 'text-yellow-900' : 'text-gray-300' }}">{{ $icon }}</div>
+            <div class="shrink-0 {{ $active ? 'text-yellow-900' : 'text-gray-300' }}" data-e2e="icon-{{ $icon }}">
+                @switch($icon)
+                    @case('calendar')
+                        <x-poof.icons.calendar class="h-6 w-6" />
+                        @break
+                    @case('gift')
+                        <x-poof.icons.gift class="h-6 w-6" />
+                        @break
+                    @case('one-time')
+                        <x-poof.icons.one-time class="h-6 w-6" />
+                        @break
+                @endswitch
+            </div>
         @endif
     </div>
 
