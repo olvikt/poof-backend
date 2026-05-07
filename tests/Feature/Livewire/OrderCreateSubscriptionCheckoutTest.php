@@ -76,6 +76,16 @@ class OrderCreateSubscriptionCheckoutTest extends TestCase
     }
 
 
+
+    public function test_order_type_block_is_rendered_above_handover_block(): void
+    {
+        $user = User::factory()->create();
+        $this->actingAs($user);
+
+        Livewire::test(OrderCreate::class)
+            ->assertSeeInOrder(['Тип замовлення', 'Передача']);
+    }
+
     public function test_order_type_badges_and_icon_markers_are_visible(): void
     {
         $user = User::factory()->create();
@@ -85,8 +95,14 @@ class OrderCreateSubscriptionCheckoutTest extends TestCase
             ->assertSee('Разово')
             ->assertSee('До 20% вигоди')
             ->assertSeeHtml('data-e2e="order-type-subscription"')
+            ->assertSeeHtml('data-e2e="icon-calendar"')
             ->assertSeeHtml('data-e2e="trial-promo-card"')
-            ->assertSeeHtml('data-e2e="bag-icons"');
+            ->assertSeeHtml('data-e2e="icon-gift"')
+            ->assertSeeHtml('data-e2e="bag-icons"')
+            ->assertSeeHtml('data-e2e="icon-door"')
+            ->assertSeeHtml('data-e2e="icon-handshake"')
+            ->assertDontSee('🚪')
+            ->assertDontSee('🤝');
     }
 
     public function test_subscription_selected_disables_bag_selection_and_removes_active_bag_highlight(): void
@@ -99,7 +115,7 @@ class OrderCreateSubscriptionCheckoutTest extends TestCase
         Livewire::test(OrderCreate::class)
             ->call('selectSubscriptionPlan', $plan->id)
             ->assertSet('selected_subscription_plan_id', $plan->id)
-            ->assertSee('🔒 Недоступно')
+            ->assertSee('Недоступно')
             ->assertSeeHtml('cursor-not-allowed')
             ->assertSeeHtml('wire:click="selectBags(1)"')
             ->assertSeeHtml('disabled');
@@ -114,7 +130,7 @@ class OrderCreateSubscriptionCheckoutTest extends TestCase
 
         Livewire::test(OrderCreate::class)
             ->call('selectSubscriptionPlan', $plan->id)
-            ->assertSeeHtml('border-yellow-400 bg-gradient-to-b from-yellow-300 to-yellow-400 text-black shadow-lg');
+            ->assertSeeHtml('border-yellow-400 bg-gradient-to-br from-yellow-300 to-yellow-500 text-black shadow-lg shadow-yellow-500/10 shadow-inner');
     }
 
     public function test_switching_back_to_regular_order_reenables_bags_and_recalculates_price(): void
@@ -170,9 +186,9 @@ class OrderCreateSubscriptionCheckoutTest extends TestCase
             ->assertSet('trial_days', null)
             ->assertSet('selected_subscription_plan_id', $plan->id)
             ->assertSet('price', 400)
-            ->assertSee('🔒 Недоступно')
+            ->assertSee('Недоступно')
             ->assertSeeHtml('disabled')
-            ->assertDontSee('❌ Відмовитись від тесту');
+            ->assertDontSee('Відмовитись від тесту');
     }
 
     public function test_subscription_modal_shows_correct_prices_pickups_approx_and_saving_percent_for_all_default_plans(): void
