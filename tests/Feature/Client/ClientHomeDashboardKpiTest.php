@@ -111,6 +111,18 @@ class ClientHomeDashboardKpiTest extends TestCase
             'order_type' => Order::TYPE_SUBSCRIPTION,
             'price' => 600,
             'client_charge_amount' => 500,
+            'origin' => Order::ORIGIN_CHECKOUT,
+            'address_text' => 'вул. Клієнтська, 1',
+        ]);
+
+        Order::createForTesting([
+            'client_id' => $client->id,
+            'subscription_id' => $activeSubscription->id,
+            'payment_status' => Order::PAY_PAID,
+            'status' => Order::STATUS_DONE,
+            'order_type' => Order::TYPE_SUBSCRIPTION,
+            'price' => 0,
+            'client_charge_amount' => 0,
             'origin' => Order::ORIGIN_SUBSCRIPTION,
             'address_text' => 'вул. Клієнтська, 1',
         ]);
@@ -167,6 +179,7 @@ class ClientHomeDashboardKpiTest extends TestCase
             ->assertDontSee('href="'.route('client.addresses', ['open_more' => 1, 'more_screen' => 'addresses']).'"', false)
             ->assertSee('Мої<br>Адреси', false)
             ->assertSee('Мої<br>Замовлення', false)
+            ->assertSeeInOrder(['Мої<br>Замовлення', '<p class="text-3xl font-extrabold leading-none text-gray-200">1</p>', 'Замовлень'], false)
             ->assertSee('Тех<br>Підтримка', false)
             ->assertSee('Про<br>Сервіс', false)
             ->assertDontSee('2 000 ₴');

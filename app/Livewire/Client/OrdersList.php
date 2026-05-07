@@ -52,21 +52,9 @@ class OrdersList extends Component
         $userId = auth()->id();
         $client = auth()->user();
 
-        $excludeSubscriptionExecutions = function ($query): void {
-            $query->whereNull('subscription_id')
-                ->where(function ($q): void {
-                    $q->whereNull('origin')
-                        ->orWhere('origin', '!=', Order::ORIGIN_SUBSCRIPTION);
-                })
-                ->where(function ($q): void {
-                    $q->whereNull('order_type')
-                        ->orWhere('order_type', '!=', Order::TYPE_SUBSCRIPTION);
-                });
-        };
-
         $this->activeOrders = Order::query()
             ->where('client_id', $userId)
-            ->where($excludeSubscriptionExecutions)
+            ->regularClientOrders()
             ->with(['completionRequest.proofs'])
             ->whereNotIn('status', [
                 Order::STATUS_DONE,
@@ -83,7 +71,7 @@ class OrdersList extends Component
 
         $this->historyOrders = Order::query()
             ->where('client_id', $userId)
-            ->where($excludeSubscriptionExecutions)
+            ->regularClientOrders()
             ->with(['completionRequest.proofs'])
             ->whereIn('status', [
                 Order::STATUS_DONE,
