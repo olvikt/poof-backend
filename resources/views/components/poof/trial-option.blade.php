@@ -4,6 +4,7 @@
     'active' => false,
     'disabled' => false,
     'used' => false,
+    'activeClass' => 'border-green-300 bg-gradient-to-b from-green-300 to-green-400 text-black shadow-lg',
 ])
 
 <div
@@ -12,7 +13,7 @@
         rounded-2xl border px-4 py-4 text-left
         transition-all duration-150 active:scale-95
         {{ $active && ! $disabled
-            ? 'border-green-300 bg-gradient-to-b from-green-300 to-green-400 text-black shadow-lg'
+            ? $activeClass
             : 'border-neutral-700 bg-neutral-800 text-gray-100 shadow-sm'
         }}
         {{ $disabled ? 'opacity-60' : 'cursor-pointer' }}

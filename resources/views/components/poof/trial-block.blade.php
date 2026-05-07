@@ -2,6 +2,7 @@
     'isTrial',
     'trialDays',
     'trialUsed',
+    'selectedSubscriptionPlanId' => null,
 ])
 
 <x-poof.section title="Спецпропозиції">
@@ -20,6 +21,8 @@
             <x-poof.trial-option
                 title="Підписка"
                 subtitle="Регулярний винос без зайвих дій"
+                :active="$selectedSubscriptionPlanId !== null"
+                active-class="border-yellow-400 bg-gradient-to-b from-yellow-300 to-yellow-400 text-black shadow-lg"
             />
         </div>
     </div>

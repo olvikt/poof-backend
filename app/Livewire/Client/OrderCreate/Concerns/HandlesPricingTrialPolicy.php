@@ -12,6 +12,10 @@ trait HandlesPricingTrialPolicy
 {
     public function selectBags(int $count): void
     {
+        if ($this->selected_subscription_plan_id) {
+            return;
+        }
+
         $availableCounts = array_keys($this->bagPricingOptions);
         $count = (int) $count;
 
