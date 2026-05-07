@@ -7,6 +7,7 @@ namespace App\Actions\Orders\Lifecycle;
 use App\Models\Order;
 use App\Models\User;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 
 class StartOrderByCourierAction
 {
@@ -26,6 +27,12 @@ class StartOrderByCourierAction
             }
 
             if ($lockedOrder->isDispatchDeferred()) {
+                Log::info('order_start_blocked_dispatch_deferred', [
+                    'order_id' => (int) $lockedOrder->id,
+                    'courier_id' => (int) $courier->id,
+                    'dispatch_available_at' => $lockedOrder->dispatch_available_at?->toIso8601String(),
+                    'now' => now()->toIso8601String(),
+                ]);
                 return false;
             }
 

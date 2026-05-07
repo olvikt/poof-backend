@@ -13,7 +13,7 @@ return new class extends Migration
         Schema::table('orders', function (Blueprint $table): void {
             if (! Schema::hasColumn('orders', 'dispatch_available_at')) {
                 $table->dateTime('dispatch_available_at')->nullable()->after('next_dispatch_at');
-                $table->index('dispatch_available_at');
+                $table->index('dispatch_available_at', 'orders_dispatch_available_at_index');
             }
         });
 
@@ -31,7 +31,7 @@ return new class extends Migration
     {
         Schema::table('orders', function (Blueprint $table): void {
             if (Schema::hasColumn('orders', 'dispatch_available_at')) {
-                $table->dropIndex(['dispatch_available_at']);
+                $table->dropIndex('orders_dispatch_available_at_index');
                 $table->dropColumn('dispatch_available_at');
             }
         });

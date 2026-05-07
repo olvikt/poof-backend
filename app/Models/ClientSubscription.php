@@ -28,6 +28,7 @@ class ClientSubscription extends Model
     public const PREFERRED_WINDOW_NOON = 'noon';
     public const PREFERRED_WINDOW_AFTERNOON = 'afternoon';
     public const PREFERRED_WINDOW_EVENING = 'evening';
+    public const PREFERRED_WINDOW_LATE_EVENING = 'late_evening';
 
     public const STATUS_LABELS = [
         self::STATUS_DRAFT => 'Чернетка',
@@ -59,6 +60,7 @@ class ClientSubscription extends Model
             self::PREFERRED_WINDOW_NOON => ['12:00:00', '14:00:00'],
             self::PREFERRED_WINDOW_AFTERNOON => ['14:00:00', '16:00:00'],
             self::PREFERRED_WINDOW_EVENING => ['16:00:00', '18:00:00'],
+            self::PREFERRED_WINDOW_LATE_EVENING => ['18:00:00', '20:00:00'],
         ];
     }
 

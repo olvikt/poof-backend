@@ -253,16 +253,26 @@ class MarkOrderAsPaidAction
     {
         $baseNow = CarbonImmutable::instance($checkoutOrder->created_at ?? now());
         $firstRunDate = $baseNow->lt($baseNow->setTime(12, 0)) ? $baseNow->startOfDay() : $baseNow->addDay()->startOfDay();
-
-        if ($checkoutOrder->scheduled_date !== null) {
-            $firstRunDate = CarbonImmutable::parse((string) $checkoutOrder->scheduled_date)->startOfDay();
-        }
-
-        $preferredFrom = $checkoutOrder->scheduled_time_from
-            ? CarbonImmutable::parse((string) $checkoutOrder->scheduled_time_from)->format('H:i:s')
-            : '12:00:00';
+        $preferredFrom = $this->resolvePreferredWindowStartTime($checkoutOrder);
 
         return $firstRunDate->setTimeFromTimeString($preferredFrom);
+    }
+
+    private function resolvePreferredWindowStartTime(Order $checkoutOrder): string
+    {
+        if ($checkoutOrder->scheduled_time_from !== null) {
+            return CarbonImmutable::parse((string) $checkoutOrder->scheduled_time_from)->format('H:i:s');
+        }
+
+        if ($checkoutOrder->subscription_id === null) {
+            return '12:00:00';
+        }
+
+        $subscription = ClientSubscription::query()->find($checkoutOrder->subscription_id);
+        $preferredWindow = (string) ($subscription?->preferred_time_window ?? '');
+        $slots = ClientSubscription::preferredWindowSlots();
+
+        return $slots[$preferredWindow][0] ?? '12:00:00';
     }
 
     private function resolveNextRunAt(CarbonImmutable $from, string $frequency): CarbonImmutable
