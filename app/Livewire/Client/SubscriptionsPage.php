@@ -298,6 +298,8 @@ class SubscriptionsPage extends Component
             ->sortBy(fn (Order $order): string => sprintf('%s-%010d', optional($order->scheduled_date)->format('Y-m-d H:i:s') ?? '9999-12-31 23:59:59', (int) $order->id))
             ->first();
 
+        $nextPlannedLabel = $this->formatNextPlannedLabel($subscription, $remainingRuns, $nextPlanned);
+
         $timeline = $orders->values()->map(function (\App\Models\Order $order, int $index): array {
             return [
                 'date' => $order->scheduled_date?->format('d.m') ?? optional($order->created_at)->format('d.m') ?? '—',
@@ -350,7 +352,7 @@ class SubscriptionsPage extends Component
             'completed_runs' => $completedRuns,
             'total_runs' => $planRuns,
             'remaining_runs' => $remainingRuns,
-            'next_planned' => $nextPlanned?->scheduled_date?->format('d.m.Y') ?? '—',
+            'next_planned' => $nextPlannedLabel,
             'status' => $subscription->status_label,
             'auto_renew' => (bool) $subscription->auto_renew,
             'timeline' => $timeline,
@@ -359,6 +361,47 @@ class SubscriptionsPage extends Component
             'package_created_at' => $subscription->latestPaidCheckoutOrder?->created_at?->format('d.m.Y') ?? '—',
             'frequency_label' => $subscription->frequency_label,
         ];
+    }
+
+
+    private function formatNextPlannedLabel(ClientSubscription $subscription, int $remainingRuns, ?Order $nextPlannedOrder): string
+    {
+        if (in_array($subscription->display_status, [ClientSubscription::STATUS_CANCELLED, ClientSubscription::STATUS_COMPLETED], true)) {
+            return '—';
+        }
+
+        if ($remainingRuns <= 0) {
+            return '—';
+        }
+
+        if ($nextPlannedOrder instanceof Order) {
+            return $this->formatPlannedDateWithWindow(
+                $nextPlannedOrder->scheduled_date,
+                $nextPlannedOrder->window_from_at?->format('H:i') ?? $nextPlannedOrder->scheduled_time_from,
+                $nextPlannedOrder->window_to_at?->format('H:i') ?? $nextPlannedOrder->scheduled_time_to,
+            );
+        }
+
+        return $this->formatPlannedDateWithWindow(
+            $subscription->next_run_at,
+            $subscription->next_run_at?->format('H:i'),
+            $subscription->next_run_at?->addHours(2)->format('H:i'),
+        );
+    }
+
+    private function formatPlannedDateWithWindow(?\DateTimeInterface $date, ?string $timeFrom = null, ?string $timeTo = null): string
+    {
+        if ($date === null) {
+            return '—';
+        }
+
+        $dateLabel = CarbonImmutable::instance($date)->format('d.m');
+
+        if ($timeFrom !== null && $timeTo !== null) {
+            return sprintf('%s %s–%s', $dateLabel, $timeFrom, $timeTo);
+        }
+
+        return $dateLabel;
     }
 
     public function render()

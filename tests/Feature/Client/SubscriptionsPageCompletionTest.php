@@ -204,6 +204,42 @@ class SubscriptionsPageCompletionTest extends TestCase
             ->assertDontSee('замовлення №'.$checkoutOrder->id);
     }
 
+
+    public function test_details_show_next_run_at_when_future_execution_order_not_created_yet(): void
+    {
+        $client = User::factory()->create();
+        $plan = SubscriptionPlan::query()->firstOrFail();
+
+        $subscription = ClientSubscription::unguarded(fn () => ClientSubscription::query()->create([
+            'client_id' => $client->id,
+            'subscription_plan_id' => $plan->id,
+            'status' => ClientSubscription::STATUS_ACTIVE,
+            'next_run_at' => CarbonImmutable::create(2026, 5, 9, 18, 0, 0),
+            'ends_at' => now()->addMonth(),
+            'auto_renew' => true,
+        ]));
+
+        Order::createForTesting([
+            'client_id' => $client->id,
+            'subscription_id' => $subscription->id,
+            'origin' => Order::ORIGIN_SUBSCRIPTION,
+            'order_type' => Order::TYPE_SUBSCRIPTION,
+            'status' => Order::STATUS_DONE,
+            'payment_status' => Order::PAY_PAID,
+            'scheduled_date' => CarbonImmutable::create(2026, 5, 2, 18, 0, 0),
+            'address_text' => 'Subscription address',
+            'price' => 50,
+        ]);
+
+        $this->actingAs($client);
+
+        Livewire::test(SubscriptionsPage::class)
+            ->call('openDetails', $subscription->id)
+            ->assertSee('Наступний винос:')
+            ->assertSee('09.05 18:00–20:00')
+            ->assertDontSee('Наступний винос: —');
+    }
+
     public function test_paused_or_expired_subscription_shows_resume_button(): void
     {
         [$pausedClient] = $this->seedSubscriptionWithStatus(ClientSubscription::STATUS_PAUSED, now()->addMonth());
