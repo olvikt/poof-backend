@@ -163,7 +163,7 @@ class MarkOrderAsPaidAction
             return;
         }
 
-        $runAt = $this->resolveFirstExecutionRunAt($freshOrder);
+        $runAt = $this->resolveFirstExecutionRunAt($freshOrder, CarbonImmutable::now());
         $createdExecution = $this->createSubscriptionExecutionOrder->handle($subscription, $runAt);
 
         if ($createdExecution) {
@@ -218,7 +218,7 @@ class MarkOrderAsPaidAction
             'checkout_payment_status' => (string) $order->payment_status,
         ]);
 
-        $createdExecution = $this->createSubscriptionExecutionOrder->handle($subscription, $this->resolveFirstExecutionRunAt($order));
+        $createdExecution = $this->createSubscriptionExecutionOrder->handle($subscription, $this->resolveFirstExecutionRunAt($order, CarbonImmutable::now()));
 
         if ($createdExecution) {
             Log::info('execution_order_repair_created', [
@@ -249,10 +249,9 @@ class MarkOrderAsPaidAction
         ]);
     }
 
-    private function resolveFirstExecutionRunAt(Order $checkoutOrder): CarbonImmutable
+    private function resolveFirstExecutionRunAt(Order $checkoutOrder, CarbonImmutable $paidAt): CarbonImmutable
     {
-        $baseNow = CarbonImmutable::instance($checkoutOrder->created_at ?? now());
-        $firstRunDate = $baseNow->lt($baseNow->setTime(12, 0)) ? $baseNow->startOfDay() : $baseNow->addDay()->startOfDay();
+        $firstRunDate = $paidAt->lt($paidAt->setTime(12, 0)) ? $paidAt->startOfDay() : $paidAt->addDay()->startOfDay();
         $preferredFrom = $this->resolvePreferredWindowStartTime($checkoutOrder);
 
         return $firstRunDate->setTimeFromTimeString($preferredFrom);
@@ -302,7 +301,7 @@ class MarkOrderAsPaidAction
             }
 
             $periodStart = $order->origin === Order::ORIGIN_CHECKOUT && $order->order_type === Order::TYPE_SUBSCRIPTION
-                ? $this->resolveFirstExecutionRunAt($order)
+                ? $this->resolveFirstExecutionRunAt($order, CarbonImmutable::now())
                 : CarbonImmutable::instance($order->created_at ?? now());
 
             $frequency = (string) ($subscription->plan?->frequency_type ?? $subscription->meta['frequency_type'] ?? 'daily');

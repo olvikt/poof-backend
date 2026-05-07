@@ -62,6 +62,30 @@ class SubscriptionDispatchAvailabilityTest extends TestCase
         $this->assertSame('2026-05-08 16:00:00', $subscription->starts_at?->format('Y-m-d H:i:s'));
     }
 
+    public function test_cutoff_uses_payment_time_not_order_created_at(): void
+    {
+        Carbon::setTestNow(Carbon::parse('2026-05-07 11:00:00'));
+
+        $plan = SubscriptionPlan::factory()->create();
+        $subscription = ClientSubscription::factory()->create(['subscription_plan_id' => $plan->id]);
+        $checkout = Order::createForTesting([
+            'client_id' => $subscription->client_id,
+            'order_type' => Order::TYPE_SUBSCRIPTION,
+            'status' => Order::STATUS_NEW,
+            'payment_status' => Order::PAY_PENDING,
+            'origin' => Order::ORIGIN_CHECKOUT,
+            'subscription_id' => $subscription->id,
+            'scheduled_time_from' => '16:00',
+            'scheduled_time_to' => '18:00',
+        ]);
+
+        Carbon::setTestNow(Carbon::parse('2026-05-07 13:00:00'));
+        app(MarkOrderAsPaidAction::class)->handle($checkout->fresh());
+
+        $subscription->refresh();
+        $this->assertSame('2026-05-08 16:00:00', $subscription->starts_at?->format('Y-m-d H:i:s'));
+    }
+
     public function test_dispatch_gating_blocks_offers_until_available_at(): void
     {
         Carbon::setTestNow(Carbon::parse('2026-05-07 10:00:00'));
