@@ -52,14 +52,16 @@ class SubscriptionPlan extends Model
         return $this->hasMany(ClientSubscription::class, 'subscription_plan_id');
     }
 
-    public function referenceSinglePickupPrice(): int
+    public function referenceSinglePickupPriceForPlan(): int
     {
-        return (int) (BagPricing::activeOptionsMap()[1] ?? 0);
+        $bagsCount = max(1, (int) $this->max_bags);
+
+        return (int) (BagPricing::activeOptionsMap()[$bagsCount] ?? 0);
     }
 
     public function referenceMonthlyTotal(): int
     {
-        return $this->referenceSinglePickupPrice() * max(0, (int) $this->pickups_per_month);
+        return $this->referenceSinglePickupPriceForPlan() * max(0, (int) $this->pickups_per_month);
     }
 
     public function economyAmount(): int

@@ -485,7 +485,7 @@
 							</div>
 							<div class="text-right">
 								<div class="text-sm font-bold text-yellow-300">{{ $option['monthly_price'] }} грн / міс</div>
-								<div class="text-[11px] text-green-400">Економія {{ $option['saving_percent'] }}%</div>
+								<div class="text-[11px] text-green-400">Економія {{ $option['saving_percent'] }}% від разових (до {{ $option['max_bags'] }} пак.)</div>
 							</div>
 						</div>
 						<div class="mt-2 grid grid-cols-2 gap-2 text-[11px] text-gray-300">
