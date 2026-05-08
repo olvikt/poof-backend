@@ -28,8 +28,8 @@ class CourierBusyUxFlowTest extends TestCase
             ->assertSet('online', true)
             ->assertSee('Активне замовлення')
             ->assertSee('#' . $activeOrder->id)
-            ->assertSee('Завершіть його, щоб отримати нове')
-            ->assertSee('Перейти →', false)
+            ->assertSee('Завершіть активні замовлення, щоб знову отримувати нові.')
+            ->assertSee('Відкрити', false)
             ->assertDontSee('Пошук замовлень...');
 
         Livewire::test(MyOrders::class)
@@ -50,8 +50,8 @@ class CourierBusyUxFlowTest extends TestCase
             ->assertSet('online', true)
             ->assertSee('Активне замовлення')
             ->assertSee('#' . $activeOrder->id)
-            ->assertSee('Завершіть його, щоб отримати нове')
-            ->assertSee('Перейти →', false)
+            ->assertSee('Завершіть активні замовлення, щоб знову отримувати нові.')
+            ->assertSee('Відкрити', false)
             ->assertDontSee('Пошук замовлень...');
 
         Livewire::test(MyOrders::class)
@@ -86,7 +86,7 @@ class CourierBusyUxFlowTest extends TestCase
 
         Livewire::test(AvailableOrders::class)
             ->assertSet('online', false)
-            ->assertSee('Ви не на лінії');
+            ->assertSee('Ви зараз офлайн');
 
         Livewire::test(OnlineToggle::class)
             ->assertSet('online', false)
@@ -97,8 +97,23 @@ class CourierBusyUxFlowTest extends TestCase
 
         Livewire::test(AvailableOrders::class)
             ->assertSet('online', true)
-            ->assertSee('Пошук замовлень...')
+            ->assertSee('Очікуємо вашу геолокацію')
             ->assertDontSee('Активне замовлення');
+    }
+
+    public function test_online_courier_with_no_orders_sees_empty_state_message(): void
+    {
+        $courier = $this->createCourier();
+        $courier->forceFill(['last_lat' => 50.45, 'last_lng' => 30.52])->save();
+        $courier->goOnline();
+        $courier->courierProfile()->update(['last_location_at' => now()]);
+
+        $this->actingAs($courier, 'web');
+
+        Livewire::test(AvailableOrders::class)
+            ->assertSet('online', true)
+            ->assertSee('Зараз доступних замовлень немає')
+            ->assertSee('Залишайтесь онлайн і не закривайте застосунок.');
     }
 
     private function createPendingOfferForCourier(User $courier): void
