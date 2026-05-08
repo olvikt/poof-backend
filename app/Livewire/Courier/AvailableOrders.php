@@ -8,6 +8,8 @@ use App\Models\User;
 use App\Services\Courier\CourierPresenceService;
 use App\Support\Courier\CourierNavigationRuntime;
 use App\Support\Courier\Observability\CourierRuntimeRequestCollector;
+use Illuminate\Support\Carbon;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Log;
 use Livewire\Component;
 
@@ -112,9 +114,90 @@ class AvailableOrders extends Component
             'geoRequired' => false,
             'online' => $this->online,
             'activeOrder' => $this->activeOrder,
+            'emptyState' => $this->resolveEmptyState($courier, $runtime, $orders),
             'mapBootstrap' => $this->navigationRuntime()->resolveMapBootstrap($courier, $this->activeOrder),
             'pollIntervalSeconds' => $this->availableOrdersPollIntervalSeconds(),
         ])->layout('layouts.courier');
+    }
+
+    private function resolveEmptyState(User $courier, array $runtime, Collection $orders): array
+    {
+        $locationStale = $this->isLocationStale($courier);
+        $nearbySoon = $this->nearbySoonJobs($courier);
+        $nearbySearchingNow = $this->nearbySearchingCount($courier);
+
+        return [
+            'is_offline' => ! $this->online,
+            'location_stale' => $locationStale,
+            'has_pending_offer' => $orders->isNotEmpty(),
+            'nearby_soon_count' => $nearbySoon['count'],
+            'nearby_soon_nearest_at' => $nearbySoon['nearest_at'],
+            'nearby_searching_now_count' => $nearbySearchingNow,
+            'show_neutral_searching_hint' => $this->online && $orders->isEmpty() && $nearbySearchingNow > 0,
+        ];
+    }
+
+    private function isLocationStale(User $courier): bool
+    {
+        $lastLocationAt = $courier->courierProfile?->last_location_at;
+        $staleSeconds = max(30, (int) config('courier_runtime.freshness.dispatch_candidate_location_seconds', 60));
+
+        return ! $lastLocationAt instanceof Carbon || $lastLocationAt->lte(now()->subSeconds($staleSeconds));
+    }
+
+    private function nearbySoonJobs(User $courier): array
+    {
+        if (! is_numeric($courier->last_lat) || ! is_numeric($courier->last_lng)) {
+            return ['count' => 0, 'nearest_at' => null];
+        }
+
+        [$latMin, $latMax, $lngMin, $lngMax] = $this->distanceBoundingBox((float) $courier->last_lat, (float) $courier->last_lng, (float) config('dispatch.search_radius_km', 5));
+
+        $rows = Order::query()
+            ->where('status', Order::STATUS_SEARCHING)
+            ->where('payment_status', Order::PAY_PAID)
+            ->whereNull('courier_id')
+            ->whereDate('scheduled_date', now()->toDateString())
+            ->whereNotNull('dispatch_available_at')
+            ->where('dispatch_available_at', '>', now())
+            ->whereBetween('lat', [$latMin, $latMax])
+            ->whereBetween('lng', [$lngMin, $lngMax])
+            ->get(['dispatch_available_at']);
+
+        return [
+            'count' => $rows->count(),
+            'nearest_at' => $rows->min('dispatch_available_at'),
+        ];
+    }
+
+    private function nearbySearchingCount(User $courier): int
+    {
+        if (! is_numeric($courier->last_lat) || ! is_numeric($courier->last_lng)) {
+            return 0;
+        }
+
+        [$latMin, $latMax, $lngMin, $lngMax] = $this->distanceBoundingBox((float) $courier->last_lat, (float) $courier->last_lng, (float) config('dispatch.search_radius_km', 5));
+
+        return Order::query()
+            ->where('status', Order::STATUS_SEARCHING)
+            ->where('payment_status', Order::PAY_PAID)
+            ->whereNull('courier_id')
+            ->where(function ($q): void {
+                $q->whereNull('dispatch_available_at')
+                    ->orWhere('dispatch_available_at', '<=', now());
+            })
+            ->whereBetween('lat', [$latMin, $latMax])
+            ->whereBetween('lng', [$lngMin, $lngMax])
+            ->count();
+    }
+
+    private function distanceBoundingBox(float $lat, float $lng, float $radiusKm): array
+    {
+        $latDelta = $radiusKm / 111.0;
+        $lngDivisor = max(cos(deg2rad($lat)), 0.01);
+        $lngDelta = $radiusKm / (111.0 * $lngDivisor);
+
+        return [$lat - $latDelta, $lat + $latDelta, $lng - $lngDelta, $lng + $lngDelta];
     }
 
     private function availableOrdersPollIntervalSeconds(): int

@@ -4,6 +4,8 @@ namespace Tests\Feature\Courier;
 
 use App\Livewire\Courier\AvailableOrders;
 use App\Models\Courier;
+use App\Models\Order;
+use App\Models\OrderOffer;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Carbon;
@@ -22,12 +24,12 @@ class AvailableOrdersOnlineSyncTest extends TestCase
 
         Livewire::test(AvailableOrders::class)
             ->assertSet('online', false)
-            ->assertSee('Ви не на лінії')
+            ->assertSee('Ви зараз офлайн')
             ->dispatch('courier-online-toggled', online: true, changed: true)
             ->assertSet('online', true)
             ->call('$refresh')
             ->assertSet('online', true)
-            ->assertDontSee('Ви не на лінії');
+            ->assertDontSee('Ви зараз офлайн');
     }
 
     public function test_sync_online_state_can_refresh_from_canonical_user_state(): void
@@ -66,7 +68,7 @@ class AvailableOrdersOnlineSyncTest extends TestCase
             $component
                 ->call('$refresh')
                 ->assertSet('online', false)
-                ->assertSee('Ви не на лінії');
+                ->assertSee('Ви зараз офлайн');
         } finally {
             Carbon::setTestNow();
         }
@@ -120,7 +122,63 @@ class AvailableOrdersOnlineSyncTest extends TestCase
             ->assertSet('online', false)
             ->dispatch('courier-online-toggled', online: true, changed: false, reason: 'cross_tab_runtime_sync')
             ->assertSet('online', false)
-            ->assertSee('Ви не на лінії');
+            ->assertSee('Ви зараз офлайн');
+    }
+
+    public function test_online_courier_with_future_nearby_orders_sees_soon_hint(): void
+    {
+        $courier = $this->createCourier();
+        $courier->forceFill(['last_lat' => 50.45, 'last_lng' => 30.52])->save();
+        $courier->goOnline();
+        $courier->courierProfile()->update(['last_location_at' => now()]);
+
+        $client = User::factory()->create(['role' => User::ROLE_CLIENT, 'is_active' => true]);
+        Order::createForTesting([
+            'client_id' => $client->id,
+            'status' => Order::STATUS_SEARCHING,
+            'payment_status' => Order::PAY_PAID,
+            'address_text' => 'soon',
+            'lat' => 50.451,
+            'lng' => 30.521,
+            'scheduled_date' => now()->toDateString(),
+            'dispatch_available_at' => now()->addMinutes(20),
+            'price' => 120,
+        ]);
+
+        $this->actingAs($courier, 'web');
+
+        Livewire::test(AvailableOrders::class)
+            ->assertSee('У вашому районі є 1 замовлень, вони скоро стануть доступні')
+            ->assertSee('Найближче:');
+    }
+
+    public function test_active_pending_offer_hides_empty_state(): void
+    {
+        $courier = $this->createCourier();
+        $courier->forceFill(['last_lat' => 50.45, 'last_lng' => 30.52])->save();
+        $courier->goOnline();
+        $courier->courierProfile()->update(['last_location_at' => now()]);
+
+        $client = User::factory()->create(['role' => User::ROLE_CLIENT, 'is_active' => true]);
+        $order = Order::createForTesting([
+            'client_id' => $client->id,
+            'status' => Order::STATUS_SEARCHING,
+            'payment_status' => Order::PAY_PAID,
+            'address_text' => 'offer',
+            'price' => 120,
+        ]);
+        OrderOffer::query()->create([
+            'order_id' => $order->id,
+            'courier_id' => $courier->id,
+            'status' => OrderOffer::STATUS_PENDING,
+            'expires_at' => now()->addMinutes(5),
+        ]);
+
+        $this->actingAs($courier, 'web');
+
+        Livewire::test(AvailableOrders::class)
+            ->assertDontSee('Зараз доступних замовлень немає')
+            ->assertDontSee('Очікуємо вашу геолокацію');
     }
 
     private function createCourier(): User
