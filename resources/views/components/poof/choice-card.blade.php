@@ -28,14 +28,14 @@
     <input type="radio" wire:model="{{ $boundModel }}" value="{{ $value }}" class="hidden pointer-events-none">
 
     <div class="flex items-center gap-3 min-w-0">
-        <span class="h-5 w-5 rounded-full border flex items-center justify-center shrink-0 {{ $isActive ? 'border-yellow-400 ring-2 ring-yellow-400/20' : 'border-gray-500' }}">
+        <span class="h-5 w-5 rounded-full border flex items-center justify-center shrink-0 {{ $isActive ? 'border-yellow-400 ring-2 ring-yellow-400/40' : 'border-neutral-500' }}">
             @if($isActive)
                 <span class="h-2 w-2 rounded-full bg-yellow-400"></span>
             @endif
         </span>
 
         @if($icon)
-            <span class="flex h-7 w-7 items-center justify-center shrink-0 {{ $isActive ? 'text-yellow-400' : 'text-gray-300' }}" data-e2e="icon-{{ $icon }}">
+            <span class="flex h-7 w-7 items-center justify-center shrink-0 {{ $isActive ? 'text-yellow-400 opacity-100' : 'text-gray-300 opacity-80' }}" data-e2e="icon-{{ $icon }}">
                 @switch($icon)
                     @case('door')
                         <x-poof.icons.door class="h-5 w-5" />

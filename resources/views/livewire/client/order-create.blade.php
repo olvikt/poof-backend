@@ -105,7 +105,7 @@
 		</div>
 
 		<div class="mb-6">
-			<label class="text-sm text-gray-400 mb-3 block">Дата</label>
+			<label class="text-sm text-gray-400 mb-2.5 block">Дата</label>
 
 			<div
 				x-data="{
@@ -230,7 +230,7 @@
 				tomorrow: '{{ now()->addDay()->toDateString() }}'
 			})"
 		>
-			<label class="text-sm text-gray-400 mb-3 block">Час</label>
+			<label class="text-sm text-gray-400 mb-2.5 block">Час</label>
 
 			<div class="flex items-center justify-between mb-3">
 				<span class="text-sm text-gray-300">Обраний інтервал</span>
@@ -302,11 +302,11 @@
 						title="Разовий винос"
 						subtitle="Оплата лише за цей винос"
 						badge="Разово"
-						badge-class="bg-yellow-300/90 text-yellow-950"
+							badge-class="bg-yellow-200 text-yellow-950"
 						icon="one-time"
 						:active="$selected_subscription_plan_id === null"
 						container-class="min-h-[148px]"
-						active-class="border-yellow-400 bg-gradient-to-br from-yellow-300 to-yellow-500 text-black shadow-lg shadow-yellow-500/10 shadow-inner"
+							active-class="border-yellow-300/70 bg-gradient-to-br from-yellow-300 to-yellow-400 text-black shadow-lg shadow-yellow-500/10 shadow-inner"
 					/>
 				</div>
 
@@ -316,11 +316,11 @@
 						title="Підписка"
 						subtitle="Регулярні виноси вигідніше"
 						badge="До 20% вигоди"
-						badge-class="bg-emerald-400/20 text-emerald-300 border border-emerald-500/30"
+							badge-class="bg-emerald-400/20 text-emerald-300 border border-emerald-500/30 py-[2px] text-[10px]"
 						icon="calendar"
 						:active="$selected_subscription_plan_id !== null"
 						container-class="min-h-[148px]"
-						active-class="border-yellow-400 bg-gradient-to-br from-yellow-300 to-yellow-500 text-black shadow-lg shadow-yellow-500/10 shadow-inner"
+							active-class="border-yellow-300/70 bg-gradient-to-br from-yellow-300 to-yellow-400 text-black shadow-lg shadow-yellow-500/10 shadow-inner"
 					/>
 				</div>
 			</div>
