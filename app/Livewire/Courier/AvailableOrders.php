@@ -122,6 +122,30 @@ class AvailableOrders extends Component
 
     private function resolveEmptyState(User $courier, array $runtime, Collection $orders): array
     {
+        if ($this->activeOrder !== null) {
+            return [
+                'is_offline' => ! $this->online,
+                'location_stale' => false,
+                'has_pending_offer' => false,
+                'nearby_soon_count' => 0,
+                'nearby_soon_nearest_at' => null,
+                'nearby_searching_now_count' => 0,
+                'show_neutral_searching_hint' => false,
+            ];
+        }
+
+        if ($orders->isNotEmpty()) {
+            return [
+                'is_offline' => ! $this->online,
+                'location_stale' => false,
+                'has_pending_offer' => true,
+                'nearby_soon_count' => 0,
+                'nearby_soon_nearest_at' => null,
+                'nearby_searching_now_count' => 0,
+                'show_neutral_searching_hint' => false,
+            ];
+        }
+
         $locationStale = $this->isLocationStale($courier);
         $nearbySoon = $this->nearbySoonJobs($courier);
         $nearbySearchingNow = $this->nearbySearchingCount($courier);

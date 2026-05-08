@@ -25,11 +25,11 @@ class CourierOnlineNavigationSyncTest extends TestCase
 
         $availableOrders = Livewire::test(AvailableOrders::class)
             ->assertSet('online', false)
-            ->assertSee('Ви не на лінії')
+            ->assertSee('Ви зараз офлайн')
             // Simulate a stale in-memory UI flip that can happen before canonical refresh.
             ->dispatch('courier-online-toggled', online: true, changed: true)
             ->assertSet('online', true)
-            ->assertDontSee('Ви не на лінії');
+            ->assertDontSee('Ви зараз офлайн');
 
         $courier->refresh();
         $this->assertFalse($courier->isCourierOnline());
@@ -58,7 +58,7 @@ class CourierOnlineNavigationSyncTest extends TestCase
 
         Livewire::test(AvailableOrders::class)
             ->assertSet('online', true)
-            ->assertDontSee('Ви не на лінії');
+            ->assertDontSee('Ви зараз офлайн');
 
         Livewire::test(MyOrders::class)
             ->assertSet('online', true);
@@ -70,7 +70,7 @@ class CourierOnlineNavigationSyncTest extends TestCase
         // Simulate real tab switches by mounting both page components repeatedly.
         Livewire::test(AvailableOrders::class)
             ->assertSet('online', true)
-            ->assertDontSee('Ви не на лінії');
+            ->assertDontSee('Ви зараз офлайн');
 
         Livewire::test(MyOrders::class)
             ->assertSet('online', true);
@@ -246,7 +246,7 @@ class CourierOnlineNavigationSyncTest extends TestCase
 
         Livewire::test(AvailableOrders::class)
             ->assertSet('online', false)
-            ->assertSee('Ви не на лінії');
+            ->assertSee('Ви зараз офлайн');
 
         Livewire::test(OnlineToggle::class)
             ->assertSet('online', false)
@@ -269,7 +269,7 @@ class CourierOnlineNavigationSyncTest extends TestCase
 
         Livewire::test(AvailableOrders::class)
             ->assertSet('online', false)
-            ->assertSee('Ви не на лінії');
+            ->assertSee('Ви зараз офлайн');
 
         Livewire::test(OnlineToggle::class)
             ->assertSet('online', false)

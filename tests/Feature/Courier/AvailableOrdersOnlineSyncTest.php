@@ -167,18 +167,15 @@ class AvailableOrdersOnlineSyncTest extends TestCase
             'address_text' => 'offer',
             'price' => 120,
         ]);
-        OrderOffer::query()->create([
-            'order_id' => $order->id,
-            'courier_id' => $courier->id,
-            'status' => OrderOffer::STATUS_PENDING,
-            'expires_at' => now()->addMinutes(5),
-        ]);
+        OrderOffer::createPrimaryPending($order->id, $courier->id, 300);
 
         $this->actingAs($courier, 'web');
 
         Livewire::test(AvailableOrders::class)
+            ->assertSee('wire:navigate', false)
             ->assertDontSee('Зараз доступних замовлень немає')
-            ->assertDontSee('Очікуємо вашу геолокацію');
+            ->assertDontSee('Очікуємо вашу геолокацію')
+            ->assertDontSee('У вашому районі є');
     }
 
     private function createCourier(): User
