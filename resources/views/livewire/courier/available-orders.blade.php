@@ -35,7 +35,9 @@
             </div>
         @elseif($online)
             <div class="rounded-2xl border border-slate-100/12 bg-[#101722]/[0.92] p-3.5 shadow-[0_18px_44px_rgba(0,0,0,0.4)]">
-                @if($emptyState['location_stale'] ?? false)
+                @if($emptyState['has_pending_offer'] ?? false)
+                    {{-- do not render empty-state copy; pending offer UI is rendered elsewhere --}}
+                @elseif($emptyState['location_stale'] ?? false)
                     <div class="text-sm font-semibold text-white">Очікуємо вашу геолокацію</div>
                     <div class="mt-0.5 text-xs text-slate-400">Дозвольте доступ до геолокації або оновіть сторінку.</div>
                 @elseif(($emptyState['has_pending_offer'] ?? false) === false && ($emptyState['show_neutral_searching_hint'] ?? false))

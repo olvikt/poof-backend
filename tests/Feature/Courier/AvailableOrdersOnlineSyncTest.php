@@ -172,7 +172,7 @@ class AvailableOrdersOnlineSyncTest extends TestCase
         $this->actingAs($courier, 'web');
 
         Livewire::test(AvailableOrders::class)
-            ->assertViewHas('orders', fn ($orders) => $orders->count() === 1 && (int) $orders->first()->order_id === (int) $order->id)
+            ->assertViewHas('orders', fn ($orders) => $orders->count() === 1 && (int) $orders->first()->id === (int) $order->id)
             ->assertDontSee('Зараз доступних замовлень немає')
             ->assertDontSee('Очікуємо вашу геолокацію')
             ->assertDontSee('У вашому районі є');

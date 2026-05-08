@@ -177,7 +177,7 @@ class AvailableOrders extends Component
 
         [$latMin, $latMax, $lngMin, $lngMax] = $this->distanceBoundingBox((float) $courier->last_lat, (float) $courier->last_lng, (float) config('dispatch.search_radius_km', 5));
 
-        $rows = Order::query()
+        $aggregate = Order::query()
             ->where('status', Order::STATUS_SEARCHING)
             ->where('payment_status', Order::PAY_PAID)
             ->whereNull('courier_id')
@@ -186,11 +186,12 @@ class AvailableOrders extends Component
             ->where('dispatch_available_at', '>', now())
             ->whereBetween('lat', [$latMin, $latMax])
             ->whereBetween('lng', [$lngMin, $lngMax])
-            ->get(['dispatch_available_at']);
+            ->selectRaw('COUNT(*) as total, MIN(dispatch_available_at) as nearest_at')
+            ->first();
 
         return [
-            'count' => $rows->count(),
-            'nearest_at' => $rows->min('dispatch_available_at'),
+            'count' => (int) ($aggregate?->total ?? 0),
+            'nearest_at' => $aggregate?->nearest_at ? Carbon::parse((string) $aggregate->nearest_at) : null,
         ];
     }
 
