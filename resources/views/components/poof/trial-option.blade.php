@@ -10,52 +10,51 @@
     'icon' => null,
     'marker' => null,
     'trailing' => false,
+    'containerClass' => '',
+    'iconClass' => '',
 ])
 
 <div
     @if($marker) data-e2e="{{ $marker }}" @endif
     class="
-        relative flex min-h-[88px] md:min-h-[96px] flex-col justify-center
-        rounded-2xl border p-5 md:p-6 text-left
+        group relative rounded-2xl border p-4 text-left min-h-[112px] {{ $containerClass }}
         transition-all duration-200 active:scale-[0.98]
         {{ $active && ! $disabled ? $activeClass : 'border-neutral-700 bg-neutral-900/80 text-gray-100 hover:border-neutral-600' }}
         {{ $disabled ? 'opacity-60 cursor-not-allowed' : 'cursor-pointer' }}
     "
 >
     @if($badge)
-        <span class="absolute right-3 top-3 rounded-full px-2.5 py-0.5 text-[11px] font-bold {{ $badgeClass }}">{{ $badge }}</span>
+        <span class="absolute right-3 top-3 rounded-full px-2 py-0.5 text-[10px] font-bold leading-none {{ $badgeClass }} max-w-fit">{{ $badge }}</span>
     @endif
 
-    <div class="relative flex items-start gap-3 pr-20">
+    <div class="flex items-start gap-3">
         @if($icon)
             <div class="shrink-0 {{ $active ? 'text-black' : ($icon === 'calendar' ? 'text-emerald-400' : 'text-yellow-400') }}" data-e2e="icon-{{ $icon }}">
                 @switch($icon)
                     @case('calendar')
-                        <x-poof.icons.calendar class="h-8 w-8" />
+                        <x-poof.icons.calendar class="h-7 w-7 {{ $iconClass }}" />
                         @break
                     @case('gift')
-                        <x-poof.icons.gift class="h-8 w-8" />
+                        <x-poof.icons.gift class="h-7 w-7 {{ $iconClass }}" />
                         @break
                     @case('one-time')
-                        <x-poof.icons.one-time class="h-8 w-8" />
+                        <x-poof.icons.one-time class="h-7 w-7 {{ $iconClass }}" />
                         @break
                 @endswitch
             </div>
         @endif
 
-        <div class="max-w-[16rem]">
-            <div class="text-base font-semibold leading-tight">{{ $title }}</div>
-            <div class="mt-1.5 text-sm text-gray-400 {{ $active ? 'text-black/80' : '' }}">{{ $used ? 'Уже використано' : $subtitle }}</div>
-        </div>
-
-        @if($icon === 'one-time')
-            <div class="pointer-events-none absolute bottom-0 right-3 opacity-20 {{ $active ? 'text-black' : 'text-yellow-400' }}">
-                <x-poof.icons.one-time class="h-10 w-10" />
+        <div class="flex-1 min-w-0 pr-2">
+            <div class="text-base font-semibold leading-tight {{ $badge ? ($icon === 'calendar' ? 'pr-24' : 'pr-16') : '' }} {{ $active ? 'text-black' : 'text-white' }}">
+                {{ $title }}
             </div>
-        @endif
+            <div class="mt-2 text-xs sm:text-sm leading-snug line-clamp-2 {{ $active ? 'text-black/70' : 'text-gray-400' }}">
+                {{ $used ? 'Уже використано' : $subtitle }}
+            </div>
+        </div>
     </div>
 
     @if($trailing)
-        <div class="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 transition-colors duration-200 group-hover:text-yellow-400">→</div>
+        <div class="absolute right-4 top-1/2 -translate-y-1/2 text-lg leading-none text-gray-400 transition-colors duration-200 group-hover:text-yellow-400">→</div>
     @endif
 </div>

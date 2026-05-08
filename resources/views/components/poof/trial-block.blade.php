@@ -14,6 +14,7 @@
         :used="$trialUsed"
         :trailing="true"
         icon="gift"
+        container-class="min-h-[96px] px-5 py-5"
     />
 </div>
 

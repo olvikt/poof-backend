@@ -295,7 +295,7 @@
 	{{-- ================= ORDER TYPE ================= --}}
 	<div class="mb-6 md:mb-6">
 		<x-poof.section title="Тип замовлення">
-			<div class="grid grid-cols-2 gap-4 w-full">
+			<div class="grid grid-cols-2 gap-3 w-full">
 				<div wire:click="selectRegularOrder">
 					<x-poof.trial-option
 						marker="order-type-regular"
@@ -305,6 +305,7 @@
 						badge-class="bg-yellow-300/90 text-yellow-950"
 						icon="one-time"
 						:active="$selected_subscription_plan_id === null"
+						container-class="min-h-[148px]"
 						active-class="border-yellow-400 bg-gradient-to-br from-yellow-300 to-yellow-500 text-black shadow-lg shadow-yellow-500/10 shadow-inner"
 					/>
 				</div>
@@ -318,6 +319,7 @@
 						badge-class="bg-emerald-400/20 text-emerald-300 border border-emerald-500/30"
 						icon="calendar"
 						:active="$selected_subscription_plan_id !== null"
+						container-class="min-h-[148px]"
 						active-class="border-yellow-400 bg-gradient-to-br from-yellow-300 to-yellow-500 text-black shadow-lg shadow-yellow-500/10 shadow-inner"
 					/>
 				</div>
