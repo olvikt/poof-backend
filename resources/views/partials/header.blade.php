@@ -1,17 +1,6 @@
 @php
-    /** @var \App\Models\User|null $authUser */
-    $authUser = auth()->user();
     $pendingConfirmationsCount = (int) ($pendingConfirmationsCount ?? 0);
     $pendingConfirmationItems = collect($pendingConfirmationItems ?? []);
-
-    logger()->info('HEADER_PENDING_DEBUG', [
-        'auth_id' => $authUser?->id,
-        'auth_role' => $authUser?->role,
-        'auth_is_active' => $authUser?->is_active,
-        'auth_is_client' => $authUser?->isClient(),
-        'count' => $pendingConfirmationsCount,
-        'items_count' => $pendingConfirmationItems->count(),
-    ]);
 @endphp
 
 <header class="sticky top-0 z-20 border-b border-gray-700/60 bg-gray-900/95 backdrop-blur">
