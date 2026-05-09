@@ -15,9 +15,9 @@
 <div
     wire:click="$set('{{ $boundModel }}', '{{ $value }}')"
     class="
-        flex-1 cursor-pointer min-h-[88px]
+        flex-1 cursor-pointer min-h-[60px]
         flex items-center justify-between
-        rounded-2xl border bg-neutral-900/80 px-4 py-4
+        rounded-2xl border bg-neutral-900/80 px-4 py-3
         transition-all duration-200 active:scale-[0.98]
         {{ $isActive
             ? 'border-yellow-400 ring-1 ring-yellow-400/30'
