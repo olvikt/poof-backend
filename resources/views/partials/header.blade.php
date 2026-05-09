@@ -5,11 +5,6 @@
 @endphp
 
 <header class="sticky top-0 z-20 border-b border-gray-700/60 bg-gray-900/95 backdrop-blur">
-    <span class="hidden"
-          data-e2e="client-header-auth-debug"
-          data-auth-id="{{ auth()->id() }}"
-          data-auth-role="{{ auth()->user()?->role }}"
-          data-pending-count="{{ $pendingConfirmationsCount }}"></span>
     <div class="mx-auto flex h-14 max-w-md items-center justify-between px-4" x-data="{ openConfirmationsMenu: false }" @click.outside="openConfirmationsMenu = false">
         <a href="{{ route('client.home') }}" class="text-sm font-semibold text-white">Poof Client</a>
 
@@ -19,11 +14,14 @@
            @click="openConfirmationsMenu = !openConfirmationsMenu"
            :aria-expanded="openConfirmationsMenu"
            aria-controls="client-confirmation-bell-menu"
-           data-e2e="client-confirmation-bell-active" class="relative inline-flex h-10 w-10 items-center justify-center rounded-full text-yellow-300 ring-2 ring-yellow-400/60 ring-offset-2 ring-offset-gray-900 transition hover:bg-gray-800"
+           data-e2e="client-confirmation-bell-active"
+           data-pending-count="{{ $pendingConfirmationsCount }}"
+           class="relative inline-flex h-10 w-10 items-center justify-center rounded-full text-yellow-300 ring-2 ring-yellow-400/60 ring-offset-2 ring-offset-gray-900 transition hover:bg-gray-800"
            aria-label="Є {{ $pendingConfirmationsCount }} замовлень, які потрібно підтвердити"
            title="Є замовлення, яке потрібно підтвердити">
         @else
         <a href="{{ route('client.subscriptions', ['highlight' => 'awaiting-confirmation']) }}"
+           data-e2e="client-confirmation-bell-fallback"
            class="relative inline-flex h-10 w-10 items-center justify-center rounded-full transition hover:bg-gray-800 text-gray-200 hover:text-white"
            aria-label="Непідтверджені виконання"
            title="Непідтверджені виконання">

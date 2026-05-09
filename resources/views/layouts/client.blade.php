@@ -66,13 +66,17 @@
 
     {{-- Header --}}
     @php
-        $pendingConfirmationsPayload = auth()->check() && auth()->user()->isClient()
-            ? app(\App\Actions\Orders\Completion\GetPendingConfirmationsForClientAction::class)->handle(auth()->user())
-            : ['count' => 0, 'items' => []];
+        $pendingConfirmationPayload = ['count' => 0, 'items' => []];
+
+        if (auth()->check() && auth()->user()->role === 'client') {
+            $pendingConfirmationPayload = app(
+                \App\Actions\Orders\Completion\GetPendingConfirmationsForClientAction::class
+            )->handle(auth()->user());
+        }
     @endphp
     @include('partials.header', [
-        'pendingConfirmationsCount' => $pendingConfirmationsPayload['count'],
-        'pendingConfirmationItems' => $pendingConfirmationsPayload['items'],
+        'pendingConfirmationsCount' => (int) ($pendingConfirmationPayload['count'] ?? 0),
+        'pendingConfirmationItems' => $pendingConfirmationPayload['items'] ?? [],
     ])
 
     {{-- Page content --}}
