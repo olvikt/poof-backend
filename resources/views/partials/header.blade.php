@@ -1,10 +1,17 @@
 @php
     /** @var \App\Models\User|null $authUser */
     $authUser = auth()->user();
-    $pendingConfirmations = $authUser && $authUser->isClient()
-        ? app(\App\Actions\Orders\Completion\GetPendingConfirmationsForClientAction::class)->handle($authUser)
-        : ['count' => 0, 'items' => []];
-    $pendingConfirmationsCount = (int) ($pendingConfirmations['count'] ?? 0);
+    $pendingConfirmationsCount = (int) ($pendingConfirmationsCount ?? 0);
+    $pendingConfirmationItems = collect($pendingConfirmationItems ?? []);
+
+    logger()->info('HEADER_PENDING_DEBUG', [
+        'auth_id' => $authUser?->id,
+        'auth_role' => $authUser?->role,
+        'auth_is_active' => $authUser?->is_active,
+        'auth_is_client' => $authUser?->isClient(),
+        'count' => $pendingConfirmationsCount,
+        'items_count' => $pendingConfirmationItems->count(),
+    ]);
 @endphp
 
 <header class="sticky top-0 z-20 border-b border-gray-700/60 bg-gray-900/95 backdrop-blur">
@@ -55,7 +62,7 @@
             <p class="mt-1 text-xs text-gray-300">Кур’єр позначив виконання. Підтвердіть замовлення.</p>
 
             <div class="mt-3 space-y-2">
-                @foreach(collect($pendingConfirmations['items'] ?? [])->take(5) as $item)
+                @foreach($pendingConfirmationItems->take(5) as $item)
                     <div data-e2e="client-confirmation-bell-item" class="rounded-lg border border-gray-700 bg-gray-800/70 p-2">
                         <div class="text-sm font-medium text-white">{{ $item['title'] ?? '' }}</div>
                         @if(!empty($item['subtitle']))
