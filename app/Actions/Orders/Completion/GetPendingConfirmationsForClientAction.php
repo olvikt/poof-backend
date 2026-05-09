@@ -15,6 +15,7 @@ class GetPendingConfirmationsForClientAction
         $orders = Order::query()
             ->select(['id', 'subscription_id'])
             ->where('client_id', $client->id)
+            ->whereNotIn('status', [Order::STATUS_CANCELLED, Order::STATUS_EXPIRED])
             ->whereHas('completionRequest', function ($query): void {
                 $query->where('status', OrderCompletionRequest::STATUS_AWAITING_CLIENT_CONFIRMATION);
             })

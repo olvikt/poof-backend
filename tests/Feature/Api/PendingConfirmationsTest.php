@@ -90,6 +90,28 @@ class PendingConfirmationsTest extends TestCase
             ->assertJsonCount(1, 'data.pending_confirmations.items');
     }
 
+
+    public function test_cancelled_or_expired_orders_are_not_included_even_if_completion_request_is_awaiting(): void
+    {
+        $client = User::factory()->create(['role' => User::ROLE_CLIENT, 'is_active' => true]);
+        $courier = User::factory()->create(['role' => User::ROLE_COURIER, 'is_active' => true]);
+
+        $activeOrder = $this->createAwaitingOrder($client->id, $courier->id, null);
+        $cancelledOrder = $this->createAwaitingOrder($client->id, $courier->id, null);
+        $expiredOrder = $this->createAwaitingOrder($client->id, $courier->id, null);
+
+        $cancelledOrder->forceFill(['status' => Order::STATUS_CANCELLED])->save();
+        $expiredOrder->forceFill(['status' => Order::STATUS_EXPIRED])->save();
+
+        $this->actingAs($client, 'sanctum');
+
+        $this->getJson('/api/client/pending-confirmations')
+            ->assertOk()
+            ->assertJsonPath('data.pending_confirmations.count', 1)
+            ->assertJsonCount(1, 'data.pending_confirmations.items')
+            ->assertJsonPath('data.pending_confirmations.items.0.order_id', $activeOrder->id);
+    }
+
     private function createAwaitingOrder(int $clientId, int $courierId, ?int $subscriptionId): Order
     {
         $order = Order::createForTesting([
