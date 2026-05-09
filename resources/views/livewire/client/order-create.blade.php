@@ -316,7 +316,7 @@
 						marker="order-type-subscription"
 						title="Підписка на місяць"
 						badge="До 20% вигоди"
-						badge-class="bg-emerald-400/20 text-emerald-300 border border-emerald-500/30 text-[10px] px-2 py-[2px]"
+						badge-class="bg-emerald-500 text-emerald-950 border border-emerald-300 shadow-sm shadow-emerald-500/20 text-[10px] px-2 py-[2px]"
 						icon="calendar"
 						:active="$selected_subscription_plan_id !== null"
 						:compact="true"
@@ -463,9 +463,14 @@
 	<x-poof.modal
 		wire:model="showSubscriptionModal"
 		maxWidth="max-w-md"
+		panelClass="w-full max-w-none rounded-none sm:max-w-md sm:rounded-2xl max-h-[100dvh] overflow-y-auto pb-[max(env(safe-area-inset-bottom),1rem)]"
+		overlayClass="items-end sm:items-center px-0 sm:px-4"
 	>
 		<div class="space-y-4">
-			<h3 class="text-lg font-semibold text-white">Підписка POOF</h3>
+			<div class="flex items-center justify-between gap-3">
+				<h3 class="text-lg font-semibold text-white">Підписка POOF</h3>
+				<button type="button" wire:click="$set('showSubscriptionModal', false)" class="inline-flex h-9 w-9 items-center justify-center rounded-full border border-neutral-700 text-gray-300 transition hover:border-neutral-500 hover:text-white" aria-label="Закрити" title="Закрити">×</button>
+			</div>
 			<p class="text-sm text-gray-300">Фіксована ціна на місяць. До 3 пакетів (18 кг) за один винос.</p>
 
 			<div class="space-y-3">

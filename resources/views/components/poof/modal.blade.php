@@ -1,5 +1,7 @@
 @props([
     'maxWidth' => 'max-w-sm',
+    'overlayClass' => '',
+    'panelClass' => '',
 ])
 
 @php
@@ -11,11 +13,11 @@
     x-show="$wire.{{ $model }}"
     x-transition.opacity
     x-cloak
-    class="fixed inset-0 z-50 flex items-center justify-center bg-black/60 px-4"
+    class="fixed inset-0 z-50 flex items-center justify-center bg-black/60 px-4 {{ $overlayClass }}"
 >
     <div
         @click.outside="$wire.set('{{ $model }}', false)"
-        class="w-full {{ $maxWidth }} rounded-2xl bg-neutral-900 border border-neutral-700 shadow-xl p-6"
+        class="w-full {{ $maxWidth }} rounded-2xl bg-neutral-900 border border-neutral-700 shadow-xl p-6 {{ $panelClass }}"
     >
         {{ $slot }}
     </div>

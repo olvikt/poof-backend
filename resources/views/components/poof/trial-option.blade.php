@@ -50,7 +50,7 @@
         @endif
 
         <div class="flex-1 min-w-0 {{ $compact ? '' : 'pr-2' }}">
-            <div class="{{ $compact ? 'text-sm sm:text-base font-semibold leading-tight' : 'text-base font-semibold leading-snug' }} {{ $badge ? ($compact ? 'pr-24' : ($icon === 'calendar' ? 'pr-24' : 'pr-16')) : '' }} text-white">
+            <div class="{{ $compact ? 'text-sm sm:text-base font-semibold leading-tight' : 'text-base font-semibold leading-snug' }} {{ $badge ? ($compact ? 'pr-4' : ($icon === 'calendar' ? 'pr-24' : 'pr-16')) : '' }} text-white">
                 {{ $title }}
             </div>
             @if(! $hideSubtitle && ($used || $subtitle))
