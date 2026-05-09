@@ -1,5 +1,6 @@
 @php
     $pendingConfirmationsCount = (int) ($pendingConfirmationsCount ?? 0);
+    $hasPendingConfirmations = $pendingConfirmationsCount > 0;
     $pendingConfirmationItems = collect($pendingConfirmationItems ?? []);
 @endphp
 
@@ -8,16 +9,19 @@
         <a href="{{ route('client.home') }}" class="text-sm font-semibold text-white">Poof Client</a>
 
         <div class="relative">
-        @if($pendingConfirmationsCount > 0)
+        @if($hasPendingConfirmations)
         <button type="button"
            @click="openConfirmationsMenu = !openConfirmationsMenu"
            :aria-expanded="openConfirmationsMenu"
            aria-controls="client-confirmation-bell-menu"
-           data-e2e="client-confirmation-bell-active" class="relative inline-flex h-10 w-10 items-center justify-center rounded-full text-yellow-300 ring-2 ring-yellow-400/60 ring-offset-2 ring-offset-gray-900 transition hover:bg-gray-800"
+           data-e2e="client-confirmation-bell-active"
+           data-pending-count="{{ $pendingConfirmationsCount }}"
+           class="relative inline-flex h-10 w-10 items-center justify-center rounded-full text-yellow-300 ring-2 ring-yellow-400/60 ring-offset-2 ring-offset-gray-900 transition hover:bg-gray-800"
            aria-label="Є {{ $pendingConfirmationsCount }} замовлень, які потрібно підтвердити"
            title="Є замовлення, яке потрібно підтвердити">
         @else
         <a href="{{ route('client.subscriptions', ['highlight' => 'awaiting-confirmation']) }}"
+           data-e2e="client-confirmation-bell-fallback"
            class="relative inline-flex h-10 w-10 items-center justify-center rounded-full transition hover:bg-gray-800 text-gray-200 hover:text-white"
            aria-label="Непідтверджені виконання"
            title="Непідтверджені виконання">
@@ -27,17 +31,17 @@
                 <path d="M9 17a3 3 0 0 0 6 0"/>
             </svg>
 
-            @if($pendingConfirmationsCount > 0)
+            @if($hasPendingConfirmations)
                 <span class="absolute -right-1 -top-1 inline-flex min-h-5 min-w-5 items-center justify-center rounded-full bg-yellow-400 px-1.5 text-[11px] font-bold text-black shadow-md shadow-yellow-400/40">
                     {{ $pendingConfirmationsCount }}
                 </span>
                 <span class="hidden" data-e2e="debug-pending-count">{{ $pendingConfirmationsCount }}</span>
             @endif
 
-            @if($pendingConfirmationsCount > 0)
+            @if($hasPendingConfirmations)
                 <span class="absolute right-1 top-1 h-2.5 w-2.5 rounded-full bg-yellow-300 ring-2 ring-gray-900" aria-hidden="true"></span>
             @endif
-        @if($pendingConfirmationsCount > 0)
+        @if($hasPendingConfirmations)
         </button>
 
         <div

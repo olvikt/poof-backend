@@ -65,7 +65,19 @@
 >
 
     {{-- Header --}}
-    @include('partials.header')
+    @php
+        $pendingConfirmationPayload = ['count' => 0, 'items' => []];
+
+        if (auth()->check() && auth()->user()->role === 'client') {
+            $pendingConfirmationPayload = app(
+                \App\Actions\Orders\Completion\GetPendingConfirmationsForClientAction::class
+            )->handle(auth()->user());
+        }
+    @endphp
+    @include('partials.header', [
+        'pendingConfirmationsCount' => (int) ($pendingConfirmationPayload['count'] ?? 0),
+        'pendingConfirmationItems' => $pendingConfirmationPayload['items'] ?? [],
+    ])
 
     {{-- Page content --}}
     <main class="max-w-md mx-auto py-4 pb-32">

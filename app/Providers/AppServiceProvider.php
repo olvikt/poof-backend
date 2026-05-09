@@ -2,10 +2,8 @@
 
 namespace App\Providers;
 
-use App\Actions\Orders\Completion\GetPendingConfirmationsForClientAction;
 use App\Support\Courier\Observability\CourierRuntimeRequestCollector;
 use Illuminate\Support\Facades\URL;
-use Illuminate\Support\Facades\View;
 use Illuminate\Support\ServiceProvider;
 use App\Services\Geocoding\Contracts\GeocoderInterface;
 use App\Services\Geocoding\Providers\GooglePlacesProvider;
@@ -45,24 +43,5 @@ class AppServiceProvider extends ServiceProvider
             }
         });
 
-        View::composer('partials.header', function ($view): void {
-            $user = auth()->user();
-
-            if (! $user || ! $user->isClient()) {
-                $view->with([
-                    'pendingConfirmationsCount' => 0,
-                    'pendingConfirmationItems' => [],
-                ]);
-
-                return;
-            }
-
-            $payload = app(GetPendingConfirmationsForClientAction::class)->handle($user);
-
-            $view->with([
-                'pendingConfirmationsCount' => (int) ($payload['count'] ?? 0),
-                'pendingConfirmationItems' => $payload['items'] ?? [],
-            ]);
-        });
     }
 }
