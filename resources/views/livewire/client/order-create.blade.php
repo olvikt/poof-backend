@@ -1,7 +1,7 @@
 <div>
 <div
     id="order-create-root"
-    class="bg-gray-950 rounded-2xl max-w-md mx-auto mt-8 px-4 py-6 text-white">
+    class="bg-gray-950 rounded-2xl max-w-md mx-auto mt-8 px-4 py-6 pb-[calc(12rem+env(safe-area-inset-bottom))] text-white">
     {{-- TITLE --}}
     <h1 class="text-xl font-extrabold mb-4">
         🧹 Оформити замовлення
@@ -372,7 +372,7 @@
 		</div>
 	</div>
 	{{-- ================= TOTAL + SUBMIT (STICKY) ================= --}}
-	<div class="sticky bottom-4 z-40 space-y-3">
+	<div class="sticky bottom-[calc(5rem+env(safe-area-inset-bottom))] z-40 space-y-3 rounded-2xl bg-gray-950/95 backdrop-blur-sm">
 		<x-poof.order-summary
 			:price="$price"
 			:is-trial="$is_trial"
