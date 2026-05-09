@@ -48,8 +48,11 @@ class SubscriptionsPage extends Component
         $this->highlightOrderId = is_numeric($order) ? (int) $order : null;
         $this->reload();
 
-        if ($this->highlightMode === 'awaiting-confirmation' && $this->highlightSubscriptionId) {
-            $this->openDetails($this->highlightSubscriptionId);
+        if ($this->highlightMode === 'awaiting-confirmation' && $this->highlightSubscriptionId && $this->highlightOrderId) {
+            $subscription = $this->findOwnSubscription($this->highlightSubscriptionId);
+            if ($subscription && $subscription->generatedOrders->contains(fn (Order $order): bool => (int) $order->id === (int) $this->highlightOrderId)) {
+                $this->openDetails($this->highlightSubscriptionId);
+            }
         }
     }
 

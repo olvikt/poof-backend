@@ -360,6 +360,20 @@ class SubscriptionsPageCompletionTest extends TestCase
             ->assertSeeHtml('data-e2e="highlighted-pending-confirmation-subscription-order"');
     }
 
+    public function test_subscriptions_page_invalid_highlight_order_falls_back_to_subscription_card_without_modal_crash(): void
+    {
+        [$client, $subscription] = $this->seedSubscriptionWithStatus(ClientSubscription::STATUS_ACTIVE, now()->addMonth());
+        $this->actingAs($client);
+
+        Livewire::withQueryParams([
+            'highlight' => 'awaiting-confirmation',
+            'subscription' => $subscription->id,
+            'order' => 999999,
+        ])->test(SubscriptionsPage::class)
+            ->assertSet('showDetailsModal', false)
+            ->assertSee('Докладніше');
+    }
+
     private function seedSubscriptionWithStatus(string $status, $endsAt): array
     {
         $client = User::factory()->create();
