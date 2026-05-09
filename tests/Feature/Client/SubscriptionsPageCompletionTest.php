@@ -347,6 +347,19 @@ class SubscriptionsPageCompletionTest extends TestCase
     }
 
 
+    public function test_subscriptions_page_query_highlight_marks_execution_order(): void
+    {
+        [$client, $subscription, $order] = $this->seedAwaitingExecutionOrder();
+        $this->actingAs($client);
+
+        Livewire::withQueryParams([
+            'highlight' => 'awaiting-confirmation',
+            'subscription' => $subscription->id,
+            'order' => $order->id,
+        ])->test(SubscriptionsPage::class)
+            ->assertSeeHtml('data-e2e="highlighted-pending-confirmation-subscription-order"');
+    }
+
     private function seedSubscriptionWithStatus(string $status, $endsAt): array
     {
         $client = User::factory()->create();

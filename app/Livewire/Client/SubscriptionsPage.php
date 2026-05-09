@@ -34,11 +34,23 @@ class SubscriptionsPage extends Component
     public bool $showDetailsModal = false;
     public ?int $detailsSubscriptionId = null;
     public array $details = [];
+    public ?int $highlightSubscriptionId = null;
+    public ?int $highlightOrderId = null;
+    public ?string $highlightMode = null;
 
     public function mount(bool $embedded = false): void
     {
         $this->embedded = $embedded;
+        $this->highlightMode = request()->query('highlight');
+        $subscription = request()->query('subscription');
+        $order = request()->query('order');
+        $this->highlightSubscriptionId = is_numeric($subscription) ? (int) $subscription : null;
+        $this->highlightOrderId = is_numeric($order) ? (int) $order : null;
         $this->reload();
+
+        if ($this->highlightMode === 'awaiting-confirmation' && $this->highlightSubscriptionId) {
+            $this->openDetails($this->highlightSubscriptionId);
+        }
     }
 
     public function switchTab(string $tab): void

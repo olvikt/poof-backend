@@ -25,6 +25,7 @@ class OrdersList extends Component
     public bool $showPaymentSuccessModal = false;
     public ?string $cancelFeedback = null;
     public string $cancelFeedbackType = 'info';
+    public ?int $highlightOrderId = null;
 
     protected $listeners = [
         'order-updated' => 'refreshOrders',
@@ -38,6 +39,8 @@ class OrdersList extends Component
         $orderId = request()->query('order');
         $this->paymentOrderId = is_numeric($orderId) ? (int) $orderId : null;
         $this->showPaymentSuccessModal = $this->paymentStatus === 'success';
+        $highlight = request()->query('highlight');
+        $this->highlightOrderId = is_numeric($highlight) ? (int) $highlight : null;
 
         $this->loadOrders();
     }

@@ -54,7 +54,8 @@
 
     <section class="mt-4 space-y-4">
         @forelse($visibleSubscriptions as $subscription)
-            <article class="rounded-2xl border border-gray-800 bg-gray-900 p-4">
+            @php($isHighlightedSubscription = (int) ($highlightSubscriptionId ?? 0) === (int) $subscription->id)
+            <article class="rounded-2xl border border-gray-800 bg-gray-900 p-4 {{ $isHighlightedSubscription ? 'ring-2 ring-yellow-400/80 border-yellow-400/70' : '' }}">
                 <div class="flex items-start justify-between gap-3">
                     <div>
                         <p class="text-base font-semibold">{{ $subscription->plan?->name ?? 'План підписки' }}</p>
@@ -191,7 +192,8 @@
                 <p class="text-xs uppercase tracking-wide text-gray-500">ІСТОРІЯ ВИНОСІВ</p>
                 <div class="mt-2 space-y-1.5">
                     @forelse(($details['history'] ?? []) as $executionOrder)
-                        <div class="min-w-0 rounded-lg p-2 text-xs text-gray-300 {{ ($executionOrder['awaiting_client_confirmation'] ?? false) ? 'border border-amber-400/60 bg-amber-500/10' : (($executionOrder['status'] ?? '') === 'Виконано' ? 'border border-emerald-500/60 bg-emerald-500/10' : 'border border-gray-700/80 bg-gray-900/30') }}">
+                        @php($isHighlightedExecutionOrder = (int) ($highlightOrderId ?? 0) === (int) ($executionOrder['id'] ?? 0))
+                        <div class="min-w-0 rounded-lg p-2 text-xs text-gray-300 {{ ($executionOrder['awaiting_client_confirmation'] ?? false) ? 'border border-amber-400/60 bg-amber-500/10' : (($executionOrder['status'] ?? '') === 'Виконано' ? 'border border-emerald-500/60 bg-emerald-500/10' : 'border border-gray-700/80 bg-gray-900/30') }} {{ $isHighlightedExecutionOrder ? 'ring-2 ring-yellow-400/80' : '' }}" @if($isHighlightedExecutionOrder) data-e2e="highlighted-pending-confirmation-subscription-order" @endif>
                             <div class="flex min-w-0 items-start justify-between gap-2">
                                 <span class="inline-flex min-w-0 items-start gap-2 break-words font-semibold">
                                     <span class="inline-flex h-5 w-5 items-center justify-center rounded-full border {{ ($executionOrder['status'] ?? '') === 'Виконано' ? 'border-emerald-400 bg-emerald-500/90 text-white' : 'border-gray-600 bg-gray-850 text-gray-300' }}">{{ ($executionOrder['status'] ?? '') === 'Виконано' ? '✓' : $executionOrder['execution_index'] }}</span>

@@ -92,13 +92,16 @@
                     ], true) && $order->canBeCancelled();
                     $completionPayload = $order->completionProofPayload ?? null;
                     $awaitingClientConfirmation = ($completionPayload['status'] ?? null) === \App\Models\OrderCompletionRequest::STATUS_AWAITING_CLIENT_CONFIRMATION;
+                    $isHighlightedPendingOrder = (int) ($highlightOrderId ?? 0) === (int) $order->id;
                 @endphp
 
                 <div
                     class="rounded-xl px-4 py-4 border transition
                     {{ $isInProgress
                         ? 'bg-gray-700/70 border-green-400/30 shadow-[0_0_0_1px_rgba(74,222,128,0.25)]'
-                        : 'bg-gray-800 border-gray-700' }}">
+                        : 'bg-gray-800 border-gray-700' }}
+                    {{ $isHighlightedPendingOrder ? 'ring-2 ring-yellow-400/80 border-yellow-400/70' : '' }}"
+                    @if($isHighlightedPendingOrder) data-e2e="highlighted-pending-confirmation-order" @endif>
 
                     {{-- STATUS + PRICE --}}
                     <div class="flex items-center justify-between mb-3">
