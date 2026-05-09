@@ -300,14 +300,14 @@
 					<x-poof.trial-option
 						marker="order-type-regular"
 						title="Разовий винос"
-												badge="Разово"
-							badge-class="bg-yellow-200 text-yellow-950 text-[10px] px-2 py-[2px]"
+						badge="Разово"
+						badge-class="bg-yellow-200 text-yellow-950 text-[10px] px-2 py-[2px]"
 						icon="one-time"
-						 :active="$selected_subscription_plan_id === null"
-                        :compact="true"
-                        :hide-subtitle="true"
+						:active="$selected_subscription_plan_id === null"
+						:compact="true"
+						:hide-subtitle="true"
 						container-class="h-[74px]"
-							active-class="border-yellow-400 ring-1 ring-yellow-400/30 bg-neutral-900/90 text-white"
+						active-class="border-yellow-400 ring-1 ring-yellow-400/30 bg-neutral-900/90 text-white"
 					/>
 				</div>
 
@@ -315,14 +315,14 @@
 					<x-poof.trial-option
 						marker="order-type-subscription"
 						title="Підписка на місяць"
-												badge="До 20% вигоди"
-							badge-class="bg-emerald-400/20 text-emerald-300 border border-emerald-500/30 text-[10px] px-2 py-[2px]"
+						badge="До 20% вигоди"
+						badge-class="bg-emerald-400/20 text-emerald-300 border border-emerald-500/30 text-[10px] px-2 py-[2px]"
 						icon="calendar"
 						:active="$selected_subscription_plan_id !== null"
-                        :compact="true"
-                        :hide-subtitle="true"
+						:compact="true"
+						:hide-subtitle="true"
 						container-class="h-[74px]"
-							active-class="border-yellow-400 ring-1 ring-yellow-400/30 bg-neutral-900/90 text-white"
+						active-class="border-yellow-400 ring-1 ring-yellow-400/30 bg-neutral-900/90 text-white"
 					/>
 				</div>
 			</div>
@@ -345,7 +345,7 @@
 	{{-- ================= BAGS ================= --}}
 	<div class="mb-5">
 		<x-poof.section title="Кількість мішків">
-			<div class="grid grid-cols-2 gap-3">
+			<div class="flex gap-3">
 				@foreach($pricing as $count => $bagPrice)
 					<div class="flex-1">
 						<x-poof.bag-option wire:click="selectBags({{ $count }})" :count="$count" :price="$bagPrice" :active="$selected_subscription_plan_id ? false : $bags_count === $count" :disabled="$selected_subscription_plan_id" />
