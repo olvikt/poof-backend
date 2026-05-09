@@ -2,6 +2,7 @@
     'maxWidth' => 'max-w-sm',
     'overlayClass' => '',
     'panelClass' => '',
+    'overlayPaddingClass' => 'px-4',
 ])
 
 @php
@@ -13,7 +14,7 @@
     x-show="$wire.{{ $model }}"
     x-transition.opacity
     x-cloak
-    class="fixed inset-0 z-50 flex items-center justify-center bg-black/60 px-4 {{ $overlayClass }}"
+    class="fixed inset-0 z-50 flex items-center justify-center bg-black/60 {{ $overlayPaddingClass }} {{ $overlayClass }}"
 >
     <div
         @click.outside="$wire.set('{{ $model }}', false)"
