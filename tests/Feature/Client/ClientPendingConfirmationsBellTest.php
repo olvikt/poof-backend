@@ -55,10 +55,12 @@ class ClientPendingConfirmationsBellTest extends TestCase
         $this->actingAs($client)
             ->get(route('client.home'))
             ->assertSee('Потрібно підтвердити')
+            ->assertSeeHtml('data-e2e="client-confirmation-bell-active"')
             ->assertSee('data-e2e="client-confirmation-bell-menu"', false)
             ->assertSee('data-e2e="client-confirmation-bell-item"', false)
             ->assertSee(route('client.orders', ['highlight' => $order->id]), false)
-            ->assertSee('line-clamp-2', false);
+            ->assertSee('line-clamp-2', false)
+            ->assertSee('data-e2e="client-pending-confirmation-alert"', false);
     }
 
     public function test_no_pending_confirmations_does_not_render_active_menu(): void

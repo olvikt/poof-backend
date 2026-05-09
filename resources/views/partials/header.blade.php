@@ -9,6 +9,9 @@
 
 <header class="sticky top-0 z-20 border-b border-gray-700/60 bg-gray-900/95 backdrop-blur">
     <div class="mx-auto flex h-14 max-w-md items-center justify-between px-4" x-data="{ openConfirmationsMenu: false }" @click.outside="openConfirmationsMenu = false">
+        @if($pendingConfirmationsCount > 0)
+            <div data-e2e="debug-pending-count" class="sr-only">{{ $pendingConfirmationsCount }}</div>
+        @endif
         <a href="{{ route('client.home') }}" class="text-sm font-semibold text-white">Poof Client</a>
 
         <div class="relative">
@@ -17,7 +20,7 @@
            @click="openConfirmationsMenu = !openConfirmationsMenu"
            :aria-expanded="openConfirmationsMenu"
            aria-controls="client-confirmation-bell-menu"
-           class="relative inline-flex h-10 w-10 items-center justify-center rounded-full text-yellow-300 ring-2 ring-yellow-400/60 ring-offset-2 ring-offset-gray-900 transition hover:bg-gray-800"
+           data-e2e="client-confirmation-bell-active" class="relative inline-flex h-10 w-10 items-center justify-center rounded-full text-yellow-300 ring-2 ring-yellow-400/60 ring-offset-2 ring-offset-gray-900 transition hover:bg-gray-800"
            aria-label="Є {{ $pendingConfirmationsCount }} замовлень, які потрібно підтвердити"
            title="Є замовлення, яке потрібно підтвердити">
         @else
@@ -48,7 +51,7 @@
             x-cloak
             id="client-confirmation-bell-menu"
             data-e2e="client-confirmation-bell-menu"
-            class="absolute right-0 top-full z-50 mt-2 w-[min(22rem,calc(100vw-1rem))] origin-top-right overflow-hidden rounded-xl border border-yellow-400/40 bg-gray-900 p-3 shadow-xl"
+            class="absolute right-0 top-full z-50 mt-2 w-[min(22rem,calc(100vw-1rem))] origin-top-right overflow-hidden rounded-xl border border-yellow-400/40 bg-neutral-900 p-3 shadow-2xl"
         >
             <p class="text-sm font-semibold text-yellow-300">Потрібно підтвердити</p>
             <p class="mt-1 text-xs text-gray-300">Кур’єр позначив виконання. Підтвердіть замовлення.</p>

@@ -1,4 +1,22 @@
 <div x-data="{ aboutOpen: false }" class="px-4 pt-5 pb-[calc(7rem+env(safe-area-inset-bottom))]">
+    
+    @php
+        /** @var \App\Models\User|null $authUser */
+        $authUser = auth()->user();
+        $pendingConfirmations = $authUser && $authUser->isClient()
+            ? app(\App\Actions\Orders\Completion\GetPendingConfirmationsForClientAction::class)->handle($authUser)
+            : ['count' => 0, 'items' => []];
+        $firstPendingConfirmation = collect($pendingConfirmations['items'] ?? [])->first();
+    @endphp
+
+    @if(($pendingConfirmations['count'] ?? 0) > 0 && $firstPendingConfirmation)
+        <div data-e2e="client-pending-confirmation-alert" class="mb-4 rounded-2xl border border-yellow-400/40 bg-neutral-900 p-4 shadow-2xl">
+            <p class="text-sm font-semibold text-yellow-300">Потрібно підтвердити виконання</p>
+            <p class="mt-1 text-sm text-gray-200">Кур’єр позначив замовлення {{ $firstPendingConfirmation['title'] ?? '' }} як виконане.</p>
+            <a href="{{ $firstPendingConfirmation['target_url'] ?? '#' }}" class="mt-3 inline-flex rounded-xl bg-yellow-400 px-3 py-2 text-sm font-semibold text-black">Підтвердити</a>
+        </div>
+    @endif
+
     <section class="mb-5">
         <p class="text-sm text-gray-300">Вітаємо,</p>
         <h1 class="mt-1 text-2xl font-black leading-none text-white">
