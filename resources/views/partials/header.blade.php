@@ -1,14 +1,20 @@
 @php
     $pendingConfirmationsCount = (int) ($pendingConfirmationsCount ?? 0);
+    $hasPendingConfirmations = $pendingConfirmationsCount > 0;
     $pendingConfirmationItems = collect($pendingConfirmationItems ?? []);
 @endphp
 
 <header class="sticky top-0 z-20 border-b border-gray-700/60 bg-gray-900/95 backdrop-blur">
+    <span class="hidden"
+          data-e2e="client-header-auth-debug"
+          data-auth-id="{{ auth()->id() }}"
+          data-auth-role="{{ auth()->user()?->role }}"
+          data-pending-count="{{ $pendingConfirmationsCount }}"></span>
     <div class="mx-auto flex h-14 max-w-md items-center justify-between px-4" x-data="{ openConfirmationsMenu: false }" @click.outside="openConfirmationsMenu = false">
         <a href="{{ route('client.home') }}" class="text-sm font-semibold text-white">Poof Client</a>
 
         <div class="relative">
-        @if($pendingConfirmationsCount > 0)
+        @if($hasPendingConfirmations)
         <button type="button"
            @click="openConfirmationsMenu = !openConfirmationsMenu"
            :aria-expanded="openConfirmationsMenu"
@@ -27,17 +33,17 @@
                 <path d="M9 17a3 3 0 0 0 6 0"/>
             </svg>
 
-            @if($pendingConfirmationsCount > 0)
+            @if($hasPendingConfirmations)
                 <span class="absolute -right-1 -top-1 inline-flex min-h-5 min-w-5 items-center justify-center rounded-full bg-yellow-400 px-1.5 text-[11px] font-bold text-black shadow-md shadow-yellow-400/40">
                     {{ $pendingConfirmationsCount }}
                 </span>
                 <span class="hidden" data-e2e="debug-pending-count">{{ $pendingConfirmationsCount }}</span>
             @endif
 
-            @if($pendingConfirmationsCount > 0)
+            @if($hasPendingConfirmations)
                 <span class="absolute right-1 top-1 h-2.5 w-2.5 rounded-full bg-yellow-300 ring-2 ring-gray-900" aria-hidden="true"></span>
             @endif
-        @if($pendingConfirmationsCount > 0)
+        @if($hasPendingConfirmations)
         </button>
 
         <div

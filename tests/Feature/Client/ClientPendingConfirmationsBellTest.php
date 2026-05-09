@@ -56,8 +56,12 @@ class ClientPendingConfirmationsBellTest extends TestCase
             ->get(route('client.home'))
             ->assertSee('Потрібно підтвердити')
             ->assertSeeHtml('data-e2e="client-confirmation-bell-active"')
+            ->assertSeeHtml('data-e2e="client-header-auth-debug"')
+            ->assertSeeHtml('data-auth-id="' . $client->id . '"')
+            ->assertSeeHtml('data-pending-count="1"')
             ->assertSee('data-e2e="client-confirmation-bell-menu"', false)
             ->assertSee('data-e2e="client-confirmation-bell-item"', false)
+            ->assertDontSee('href="' . route('client.subscriptions', ['highlight' => 'awaiting-confirmation']) . '"', false)
             ->assertSee(route('client.orders', ['highlight' => $order->id]), false)
             ->assertSee('line-clamp-2', false)
             ->assertSee('data-e2e="client-pending-confirmation-alert"', false);

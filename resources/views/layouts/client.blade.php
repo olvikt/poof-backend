@@ -65,7 +65,15 @@
 >
 
     {{-- Header --}}
-    @include('partials.header')
+    @php
+        $pendingConfirmationsPayload = auth()->check() && auth()->user()->isClient()
+            ? app(\App\Actions\Orders\Completion\GetPendingConfirmationsForClientAction::class)->handle(auth()->user())
+            : ['count' => 0, 'items' => []];
+    @endphp
+    @include('partials.header', [
+        'pendingConfirmationsCount' => $pendingConfirmationsPayload['count'],
+        'pendingConfirmationItems' => $pendingConfirmationsPayload['items'],
+    ])
 
     {{-- Page content --}}
     <main class="max-w-md mx-auto py-4 pb-32">

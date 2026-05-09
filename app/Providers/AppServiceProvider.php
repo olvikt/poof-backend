@@ -59,6 +59,14 @@ class AppServiceProvider extends ServiceProvider
 
             $payload = app(GetPendingConfirmationsForClientAction::class)->handle($user);
 
+            if (config('app.debug_header_composer', false)) {
+                logger()->info('HEADER_COMPOSER_PENDING', [
+                    'auth_id' => auth()->id(),
+                    'role' => auth()->user()?->role,
+                    'count' => $payload['count'] ?? null,
+                ]);
+            }
+
             $view->with([
                 'pendingConfirmationsCount' => (int) ($payload['count'] ?? 0),
                 'pendingConfirmationItems' => $payload['items'] ?? [],
