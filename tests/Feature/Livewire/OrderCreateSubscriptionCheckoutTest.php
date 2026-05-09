@@ -70,9 +70,9 @@ class OrderCreateSubscriptionCheckoutTest extends TestCase
             ->assertSet('selected_subscription_plan_id', null)
             ->assertSee('Тип замовлення')
             ->assertSee('Разовий винос')
-            ->assertSee('Підписка')
-            ->assertSee('Оплата лише за цей винос')
-            ->assertSee('Регулярні виноси вигідніше');
+            ->assertSee('Підписка на місяць')
+            ->assertDontSee('Оплата лише за цей винос')
+            ->assertDontSee('Регулярні виноси вигідніше');
     }
 
 
@@ -94,13 +94,13 @@ class OrderCreateSubscriptionCheckoutTest extends TestCase
         Livewire::test(OrderCreate::class)
             ->assertSee('Разово')
             ->assertSee('До 20% вигоди')
+            ->assertSee('Без контакту')
+            ->assertSee('Особисто')
             ->assertSeeHtml('data-e2e="order-type-subscription"')
             ->assertSeeHtml('data-e2e="icon-calendar"')
             ->assertSeeHtml('data-e2e="trial-promo-card"')
             ->assertSeeHtml('data-e2e="icon-gift"')
             ->assertSeeHtml('data-e2e="bag-icons"')
-            ->assertSeeHtml('data-e2e="icon-door"')
-            ->assertSeeHtml('data-e2e="icon-handshake"')
             ->assertDontSee('🚪')
             ->assertDontSee('🤝');
     }
@@ -121,7 +121,7 @@ class OrderCreateSubscriptionCheckoutTest extends TestCase
             ->assertSeeHtml('disabled');
     }
 
-    public function test_subscription_card_has_active_yellow_state_when_subscription_selected(): void
+    public function test_subscription_card_has_active_border_state_when_subscription_selected(): void
     {
         $user = User::factory()->create();
         $this->actingAs($user);
@@ -130,7 +130,7 @@ class OrderCreateSubscriptionCheckoutTest extends TestCase
 
         Livewire::test(OrderCreate::class)
             ->call('selectSubscriptionPlan', $plan->id)
-            ->assertSeeHtml('border-yellow-400 bg-gradient-to-br from-yellow-300 to-yellow-500 text-black shadow-lg shadow-yellow-500/10 shadow-inner');
+            ->assertSeeHtml('border-yellow-400 ring-1 ring-yellow-400/30 bg-neutral-900/90 text-white');
     }
 
     public function test_switching_back_to_regular_order_reenables_bags_and_recalculates_price(): void

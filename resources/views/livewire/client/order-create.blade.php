@@ -300,27 +300,29 @@
 					<x-poof.trial-option
 						marker="order-type-regular"
 						title="Разовий винос"
-						subtitle="Оплата лише за цей винос"
 						badge="Разово"
-							badge-class="bg-yellow-200 text-yellow-950"
+						badge-class="bg-yellow-200 text-yellow-950 text-[10px] px-2 py-[2px]"
 						icon="one-time"
 						:active="$selected_subscription_plan_id === null"
-						container-class="min-h-[148px]"
-							active-class="border-yellow-300/70 bg-gradient-to-br from-yellow-300 to-yellow-400 text-black shadow-lg shadow-yellow-500/10 shadow-inner"
+						:compact="true"
+						:hide-subtitle="true"
+						container-class="h-[74px]"
+						active-class="border-yellow-400 ring-1 ring-yellow-400/30 bg-neutral-900/90 text-white"
 					/>
 				</div>
 
 				<div wire:click="openSubscriptionModal">
 					<x-poof.trial-option
 						marker="order-type-subscription"
-						title="Підписка"
-						subtitle="Регулярні виноси вигідніше"
+						title="Підписка на місяць"
 						badge="До 20% вигоди"
-							badge-class="bg-emerald-400/20 text-emerald-300 border border-emerald-500/30 py-[2px] text-[10px]"
+						badge-class="bg-emerald-400/20 text-emerald-300 border border-emerald-500/30 text-[10px] px-2 py-[2px]"
 						icon="calendar"
 						:active="$selected_subscription_plan_id !== null"
-						container-class="min-h-[148px]"
-							active-class="border-yellow-300/70 bg-gradient-to-br from-yellow-300 to-yellow-400 text-black shadow-lg shadow-yellow-500/10 shadow-inner"
+						:compact="true"
+						:hide-subtitle="true"
+						container-class="h-[74px]"
+						active-class="border-yellow-400 ring-1 ring-yellow-400/30 bg-neutral-900/90 text-white"
 					/>
 				</div>
 			</div>
@@ -330,9 +332,9 @@
 	{{-- ================= HANDOVER ================= --}}
 	<div class="mb-6 md:mb-6">
 		<x-poof.section title="Передача">
-			<div class="flex gap-3">
-				<x-poof.choice-card wire:model="handover_type" model="handover_type" value="door" :current="$handover_type" title="За дверима" subtitle="Без контакту" icon="door" />
-				<x-poof.choice-card wire:model="handover_type" model="handover_type" value="hand" :current="$handover_type" title="В руки" subtitle="Особисто" icon="handshake" />
+			<div class="grid grid-cols-2 gap-3">
+				<x-poof.choice-card wire:model="handover_type" model="handover_type" value="door" :current="$handover_type" title="За дверима" subtitle="Без контакту" />
+				<x-poof.choice-card wire:model="handover_type" model="handover_type" value="hand" :current="$handover_type" title="В руки" subtitle="Особисто" />
 			</div>
 		</x-poof.section>
 	</div>
