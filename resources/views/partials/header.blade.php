@@ -9,9 +9,6 @@
 
 <header class="sticky top-0 z-20 border-b border-gray-700/60 bg-gray-900/95 backdrop-blur">
     <div class="mx-auto flex h-14 max-w-md items-center justify-between px-4" x-data="{ openConfirmationsMenu: false }" @click.outside="openConfirmationsMenu = false">
-        @if($pendingConfirmationsCount > 0)
-            <div data-e2e="debug-pending-count" class="sr-only">{{ $pendingConfirmationsCount }}</div>
-        @endif
         <a href="{{ route('client.home') }}" class="text-sm font-semibold text-white">Poof Client</a>
 
         <div class="relative">
@@ -38,6 +35,7 @@
                 <span class="absolute -right-1 -top-1 inline-flex min-h-5 min-w-5 items-center justify-center rounded-full bg-yellow-400 px-1.5 text-[11px] font-bold text-black shadow-md shadow-yellow-400/40">
                     {{ $pendingConfirmationsCount }}
                 </span>
+                <span class="hidden" data-e2e="debug-pending-count">{{ $pendingConfirmationsCount }}</span>
             @endif
 
             @if($pendingConfirmationsCount > 0)
