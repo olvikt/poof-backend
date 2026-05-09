@@ -40,7 +40,7 @@
                         <x-poof.icons.calendar class="{{ $compact ? 'h-7 w-7' : 'h-7 w-7' }} {{ $iconClass }}" />
                         @break
                     @case('gift')
-                        <x-poof.icons.gift class="h-7 w-7 {{ $iconClass }}" />
+                        <x-poof.icons.gift class="{{ $compact ? 'h-7 w-7' : 'h-12 w-12' }} {{ $iconClass }}" />
                         @break
                     @case('one-time')
                         <x-poof.icons.one-time class="h-7 w-7 {{ $iconClass }}" />

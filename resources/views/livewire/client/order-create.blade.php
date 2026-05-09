@@ -464,7 +464,8 @@
 		wire:model="showSubscriptionModal"
 		maxWidth="max-w-md"
 		panelClass="w-full max-w-none rounded-none sm:max-w-md sm:rounded-2xl max-h-[100dvh] overflow-y-auto pb-[max(env(safe-area-inset-bottom),1rem)]"
-		overlayClass="items-end sm:items-center px-0 sm:px-4"
+		overlayPaddingClass="px-0 sm:px-4"
+		overlayClass="items-end sm:items-center"
 	>
 		<div class="space-y-4">
 			<div class="flex items-center justify-between gap-3">
