@@ -118,6 +118,33 @@ sudo systemctl restart php8.3-fpm
 bash scripts/check-server.sh
 ```
 
+
+### Upload-size contract for courier verification
+
+To avoid `413 Request Entity Too Large` on `/courier/profile/verification`, production must keep the web tier and PHP tier aligned:
+
+- nginx server block: `client_max_body_size 20M;`
+- PHP-FPM/runtime: `upload_max_filesize = 20M` and `post_max_size = 20M`
+- Laravel app validation (this repo): `COURIER_VERIFICATION_MAX_FILE_SIZE_BYTES=20971520` (20 MiB)
+
+After any nginx/php.ini change, run:
+
+```bash
+sudo nginx -t
+sudo systemctl reload nginx
+sudo systemctl reload php8.3-fpm
+```
+
+Manual verification commands:
+
+```bash
+# nginx effective value (all loaded vhosts)
+sudo nginx -T 2>/dev/null | grep -n "client_max_body_size"
+
+# PHP-FPM active limits
+php -i | grep -E "upload_max_filesize|post_max_size"
+```
+
 ## 2) PHP-FPM
 
 ```bash
