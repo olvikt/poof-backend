@@ -64,7 +64,7 @@
 		</div>
 
 		{{-- DETAILS --}}
-		<div class="mb-4" data-e2e="order-address-details" x-data x-on:order-address-details-invalid.window="$el.scrollIntoView({ behavior: 'smooth', block: 'center' })">
+		<div class="mb-4" data-e2e="order-address-details" x-data x-on:order-address-details-invalid.window="$el.scrollIntoView({ behavior: 'smooth', block: 'start' }); const field = $event.detail?.field; const target = field ? $el.querySelector(`[data-address-detail-field=\"${field}\"] input`) : null; (target ?? $el.querySelector('[data-address-detail-field] input'))?.focus();">
 			<div class="building-type-panel flex items-center justify-between gap-3 rounded-[1.15rem] px-1 py-1.5 mb-3">
 				<div class="min-w-0 flex-1">
 					<p class="text-sm font-semibold leading-5 text-white">Приватний будинок</p>
@@ -74,17 +74,17 @@
 			</div>
 
 			@if ($errors->has('entrance') || $errors->has('floor') || $errors->has('apartment'))
-				<div class="text-red-400 text-xs mb-2" data-e2e="order-address-details-error">Перевірте обов'язкові поля деталізації адреси.</div>
+				<div class="sticky top-2 z-10 rounded-lg border border-red-500/40 bg-red-500/10 px-3 py-2 text-red-300 text-xs mb-2" data-e2e="order-address-details-error">Перевірте обов'язкові поля деталізації адреси.</div>
 			@endif
 
 			@if($is_private_house)
 				<p class="text-xs text-neutral-400">Для приватного будинку підʼїзд, поверх, квартира та домофон не потрібні.</p>
 			@else
 				<div class="flex gap-2">
-					<div><x-poof.input-floating label="Підʼїзд *" model="entrance" center />@error('entrance')<div class="text-red-400 text-xs mt-1">{{ $message }}</div>@enderror</div>
-					<div><x-poof.input-floating label="Поверх *" model="floor" center />@error('floor')<div class="text-red-400 text-xs mt-1">{{ $message }}</div>@enderror</div>
-					<div><x-poof.input-floating label="Квартира *" model="apartment" center />@error('apartment')<div class="text-red-400 text-xs mt-1">{{ $message }}</div>@enderror</div>
-					<div><x-poof.input-floating label="Домофон" model="intercom" center />@error('intercom')<div class="text-red-400 text-xs mt-1">{{ $message }}</div>@enderror</div>
+					<div data-address-detail-field="entrance"><x-poof.input-floating label="Підʼїзд *" model="entrance" center />@error('entrance')<div class="text-red-400 text-xs mt-1">{{ $message }}</div>@enderror</div>
+					<div data-address-detail-field="floor"><x-poof.input-floating label="Поверх *" model="floor" center />@error('floor')<div class="text-red-400 text-xs mt-1">{{ $message }}</div>@enderror</div>
+					<div data-address-detail-field="apartment"><x-poof.input-floating label="Квартира *" model="apartment" center />@error('apartment')<div class="text-red-400 text-xs mt-1">{{ $message }}</div>@enderror</div>
+					<div data-address-detail-field="intercom"><x-poof.input-floating label="Домофон" model="intercom" center />@error('intercom')<div class="text-red-400 text-xs mt-1">{{ $message }}</div>@enderror</div>
 				</div>
 			@endif
 		</div>

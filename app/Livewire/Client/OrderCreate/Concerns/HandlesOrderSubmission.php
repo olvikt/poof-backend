@@ -30,7 +30,8 @@ trait HandlesOrderSubmission
         try {
             $this->validateAddressDetails();
         } catch (\Illuminate\Validation\ValidationException $e) {
-            $this->dispatch('order-address-details-invalid');
+            $firstInvalidField = array_key_first($e->errors());
+            $this->dispatch('order-address-details-invalid', field: $firstInvalidField);
             throw $e;
         }
 

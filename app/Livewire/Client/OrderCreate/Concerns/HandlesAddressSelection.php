@@ -30,10 +30,10 @@ trait HandlesAddressSelection
         $this->lat = $address->lat;
         $this->lng = $address->lng;
         $this->is_private_house = ($address->building_type ?? 'apartment') === 'house';
-        $this->entrance = $this->is_private_house ? null : $address->entrance;
-        $this->floor = $this->is_private_house ? null : $address->floor;
-        $this->apartment = $this->is_private_house ? null : $address->apartment;
-        $this->intercom = $this->is_private_house ? null : $address->intercom;
+        $this->entrance = $address->entrance;
+        $this->floor = $address->floor;
+        $this->apartment = $address->apartment;
+        $this->intercom = $address->intercom;
 
         $this->suppressAddressHooks = false;
 
@@ -59,10 +59,10 @@ trait HandlesAddressSelection
             $this->house = null;
             $this->city = null;
             $this->is_private_house = ($order->building_type ?? 'apartment') === 'house';
-            $this->entrance = $this->is_private_house ? null : $order->entrance;
-            $this->floor = $this->is_private_house ? null : $order->floor;
-            $this->apartment = $this->is_private_house ? null : $order->apartment;
-            $this->intercom = $this->is_private_house ? null : $order->intercom;
+            $this->entrance = $order->entrance;
+            $this->floor = $order->floor;
+            $this->apartment = $order->apartment;
+            $this->intercom = $order->intercom;
             $this->lat = $order->lat;
             $this->lng = $order->lng;
             $this->coordsFromAddressBook = true;
@@ -112,10 +112,10 @@ trait HandlesAddressSelection
             $this->city = $address->city;
             $this->syncAddressText();
             $this->is_private_house = ($address->building_type ?? 'apartment') === 'house';
-            $this->entrance = $this->is_private_house ? null : $address->entrance;
-            $this->floor = $this->is_private_house ? null : $address->floor;
-            $this->apartment = $this->is_private_house ? null : $address->apartment;
-            $this->intercom = $this->is_private_house ? null : $address->intercom;
+            $this->entrance = $address->entrance;
+            $this->floor = $address->floor;
+            $this->apartment = $address->apartment;
+            $this->intercom = $address->intercom;
             $this->lat = $address->lat;
             $this->lng = $address->lng;
             $this->coordsFromAddressBook = true;
@@ -132,15 +132,6 @@ trait HandlesAddressSelection
         $this->dispatch('sheet:close', name: 'addressPicker');
     }
 
-    public function updatedIsPrivateHouse(bool $value): void
-    {
-        if ($value) {
-            $this->entrance = null;
-            $this->floor = null;
-            $this->apartment = null;
-            $this->intercom = null;
-        }
-    }
 
     protected function syncAddressText(): void
     {
