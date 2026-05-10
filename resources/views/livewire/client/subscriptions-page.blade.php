@@ -255,7 +255,7 @@
                                 @endif
 
                                 <div class="mt-2 flex flex-wrap gap-1.5">
-                                    @if(!empty($proofUrls))
+                                    @if($proofUrls->isNotEmpty())
                                         <span class="rounded-lg border border-gray-700 px-2 py-1 text-[11px] text-gray-200">Натисніть на фото для перегляду</span>
                                     @else
                                         <span class="rounded-lg border border-gray-800 px-2 py-1 text-[11px] text-gray-500">Фотозвіт відсутній</span>
