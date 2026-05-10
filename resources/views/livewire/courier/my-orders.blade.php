@@ -352,8 +352,10 @@
                                 </div>
                             </div>
                             @if($completionRequest?->status === \App\Models\OrderCompletionRequest::STATUS_AWAITING_CLIENT_CONFIRMATION)
-                                @php($deadlineAt = $completionRequest->completion_confirmation_deadline_at ?? $completionRequest->auto_confirmation_due_at)
-                                @php($remainingSeconds = $deadlineAt ? max(0, now()->diffInSeconds($deadlineAt, false)) : null)
+                                @php
+                                    $deadlineAt = $completionRequest->completion_confirmation_deadline_at ?? $completionRequest->auto_confirmation_due_at;
+                                    $remainingSeconds = $deadlineAt ? max(0, now()->diffInSeconds($deadlineAt, false)) : null;
+                                @endphp
                                 <div class="mt-2 text-xs text-emerald-300">Очікує підтвердження клієнта</div>
                                 <div class="mt-1 text-[11px] text-emerald-200">Замовлення виконано та очікує підтвердження клієнта.</div>
                                 <div class="text-[11px] text-emerald-200">Якщо клієнт не відповість, замовлення буде підтверджено автоматично.</div>
