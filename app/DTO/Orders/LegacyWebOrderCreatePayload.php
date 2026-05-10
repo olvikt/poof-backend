@@ -32,6 +32,7 @@ class LegacyWebOrderCreatePayload
             'floor' => $this->attributes['floor'],
             'apartment' => $this->attributes['apartment'],
             'intercom' => $this->attributes['intercom'],
+            'building_type' => $this->attributes['building_type'] ?? 'apartment',
             'comment' => $this->attributes['comment'],
 
             'scheduled_date' => $this->attributes['scheduled_date'],

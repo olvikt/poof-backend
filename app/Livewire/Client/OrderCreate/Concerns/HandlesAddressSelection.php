@@ -29,6 +29,7 @@ trait HandlesAddressSelection
         $this->city = $address->city;
         $this->lat = $address->lat;
         $this->lng = $address->lng;
+        $this->is_private_house = ($address->building_type ?? 'apartment') === 'house';
         $this->entrance = $address->entrance;
         $this->floor = $address->floor;
         $this->apartment = $address->apartment;
@@ -57,6 +58,7 @@ trait HandlesAddressSelection
             $this->street = null;
             $this->house = null;
             $this->city = null;
+            $this->is_private_house = ($order->building_type ?? 'apartment') === 'house';
             $this->entrance = $order->entrance;
             $this->floor = $order->floor;
             $this->apartment = $order->apartment;
@@ -109,6 +111,7 @@ trait HandlesAddressSelection
             $this->house = $address->house;
             $this->city = $address->city;
             $this->syncAddressText();
+            $this->is_private_house = ($address->building_type ?? 'apartment') === 'house';
             $this->entrance = $address->entrance;
             $this->floor = $address->floor;
             $this->apartment = $address->apartment;
@@ -128,6 +131,7 @@ trait HandlesAddressSelection
 
         $this->dispatch('sheet:close', name: 'addressPicker');
     }
+
 
     protected function syncAddressText(): void
     {

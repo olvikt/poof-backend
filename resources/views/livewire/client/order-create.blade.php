@@ -64,11 +64,29 @@
 		</div>
 
 		{{-- DETAILS --}}
-		<div class="flex gap-2 mb-4">
-			<x-poof.input-floating label="Підʼїзд" model="entrance" center />
-			<x-poof.input-floating label="Поверх" model="floor" center />
-			<x-poof.input-floating label="Кв./офіс" model="apartment" center />
-			<x-poof.input-floating label="Домофон" model="intercom" center />
+		<div class="mb-4" data-e2e="order-address-details" x-data x-on:order-address-details-invalid.window="$el.scrollIntoView({ behavior: 'smooth', block: 'start' }); var detail = $event.detail || {}; var field = detail.field || null; var target = field ? $el.querySelector('[data-address-detail-field=' + field + '] input') : null; if (!target) { target = $el.querySelector('[data-address-detail-field] input'); } if (target) { target.focus(); }">
+			<div class="building-type-panel flex items-center justify-between gap-3 rounded-[1.15rem] px-1 py-1.5 mb-3">
+				<div class="min-w-0 flex-1">
+					<p class="text-sm font-semibold leading-5 text-white">Приватний будинок</p>
+					<p class="mt-0.5 text-xs leading-4 text-neutral-400">Увімкніть якщо будинок приватний.</p>
+				</div>
+				<input type="checkbox" wire:model.live="is_private_house" class="h-5 w-5 accent-yellow-400" aria-label="Приватний будинок">
+			</div>
+
+			@if ($errors->has('entrance') || $errors->has('floor') || $errors->has('apartment'))
+				<div class="sticky top-2 z-10 rounded-lg border border-red-500/40 bg-red-500/10 px-3 py-2 text-red-300 text-xs mb-2" data-e2e="order-address-details-error">Перевірте обов'язкові поля деталізації адреси.</div>
+			@endif
+
+			@if($is_private_house)
+				<p class="text-xs text-neutral-400">Для приватного будинку підʼїзд, поверх, квартира та домофон не потрібні.</p>
+			@else
+				<div class="flex gap-2">
+					<div data-address-detail-field="entrance"><x-poof.input-floating label="Підʼїзд *" model="entrance" center />@error('entrance')<div class="text-red-400 text-xs mt-1">{{ $message }}</div>@enderror</div>
+					<div data-address-detail-field="floor"><x-poof.input-floating label="Поверх *" model="floor" center />@error('floor')<div class="text-red-400 text-xs mt-1">{{ $message }}</div>@enderror</div>
+					<div data-address-detail-field="apartment"><x-poof.input-floating label="Квартира *" model="apartment" center />@error('apartment')<div class="text-red-400 text-xs mt-1">{{ $message }}</div>@enderror</div>
+					<div data-address-detail-field="intercom"><x-poof.input-floating label="Домофон" model="intercom" center />@error('intercom')<div class="text-red-400 text-xs mt-1">{{ $message }}</div>@enderror</div>
+				</div>
+			@endif
 		</div>
 
 		{{-- COMMENT --}}

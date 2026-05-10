@@ -27,6 +27,14 @@ trait HandlesOrderSubmission
         $this->validate();
         $this->validateCoordinatesOrFail();
 
+        try {
+            $this->validateAddressDetails();
+        } catch (\Illuminate\Validation\ValidationException $e) {
+            $firstInvalidField = array_key_first($e->errors());
+            $this->dispatch('order-address-details-invalid', field: $firstInvalidField);
+            throw $e;
+        }
+
         if ($this->getErrorBag()->has('address_text')) {
             return;
         }
@@ -69,6 +77,44 @@ trait HandlesOrderSubmission
         $this->submit();
     }
 
+
+    protected function validateAddressDetails(): void
+    {
+        $rules = $this->is_private_house
+            ? [
+                'entrance' => ['nullable', 'string', 'max:10'],
+                'floor' => ['nullable', 'string', 'max:10'],
+                'apartment' => ['nullable', 'string', 'max:10'],
+                'intercom' => ['nullable', 'string', 'max:10'],
+            ]
+            : [
+                'entrance' => ['required', 'string', 'max:10'],
+                'floor' => ['required', 'string', 'max:10'],
+                'apartment' => ['required', 'string', 'max:10'],
+                'intercom' => ['nullable', 'string', 'max:10'],
+            ];
+
+        $messages = [
+            'entrance.required' => 'Поле підʼїзд обовʼязкове для заповнення.',
+            'floor.required' => 'Поле поверх обовʼязкове для заповнення.',
+            'apartment.required' => 'Поле квартира обовʼязкове для заповнення.',
+        ];
+
+        $validated = $this->validate($rules, $messages);
+
+        if ($this->is_private_house) {
+            $this->entrance = null;
+            $this->floor = null;
+            $this->apartment = null;
+            $this->intercom = null;
+        } else {
+            $this->entrance = $validated['entrance'];
+            $this->floor = $validated['floor'];
+            $this->apartment = $validated['apartment'];
+            $this->intercom = $validated['intercom'];
+        }
+    }
+
     protected function submitOrderAndOpenPayment(): void
     {
         $this->recalculatePrice();
@@ -91,6 +137,7 @@ trait HandlesOrderSubmission
                 'floor' => $this->floor,
                 'apartment' => $this->apartment,
                 'intercom' => $this->intercom,
+                'building_type' => $this->is_private_house ? 'house' : 'apartment',
                 'comment' => $this->comment,
                 'scheduled_date' => $this->scheduled_date,
                 'scheduled_time_from' => $this->service_mode === Order::SERVICE_MODE_PREFERRED_WINDOW ? $this->scheduled_time_from : null,
@@ -201,7 +248,7 @@ trait HandlesOrderSubmission
         ClientAddress::createForUser($userId, [
             'label' => 'home',
             'title' => 'Дім',
-            'building_type' => 'apartment',
+            'building_type' => $this->is_private_house ? 'house' : 'apartment',
             'address_text' => $this->address_text,
             'city' => $this->city,
             'street' => $this->street,
