@@ -138,6 +138,7 @@ public function markAsPaid(): void
         'floor',
         'apartment',
         'intercom',
+        'building_type',
         'comment',
         'scheduled_date',
         'scheduled_time_from',

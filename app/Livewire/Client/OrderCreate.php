@@ -40,6 +40,7 @@ class OrderCreate extends Component
     public ?string $floor = null;
     public ?string $apartment = null;
     public ?string $intercom = null;
+    public bool $is_private_house = false;
     public ?string $comment = null;
     public bool $suppressAddressHooks = false;
 
