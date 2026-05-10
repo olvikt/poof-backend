@@ -330,6 +330,35 @@ class ClientOrdersPaymentUxTest extends TestCase
             ->assertSee('Протерміновано');
     }
 
+
+    public function test_client_orders_page_renders_awaiting_confirmation_without_blade_parse_errors(): void
+    {
+        $client = User::factory()->create(['role' => User::ROLE_CLIENT, 'is_active' => true]);
+        $courier = User::factory()->create(['role' => User::ROLE_COURIER, 'is_active' => true]);
+
+        $order = Order::createForTesting([
+            'client_id' => $client->id,
+            'courier_id' => $courier->id,
+            'status' => Order::STATUS_IN_PROGRESS,
+            'payment_status' => Order::PAY_PAID,
+            'completion_policy' => Order::COMPLETION_POLICY_DOOR_TWO_PHOTO_CLIENT_CONFIRM,
+        ]);
+
+        app(StartOrderCompletionProofAction::class)->handle($order->fresh());
+        app(UploadOrderCompletionProofAction::class)->handle($order->fresh(), $courier, OrderCompletionProof::TYPE_DOOR_PHOTO, 'proofs/door.jpg');
+        app(UploadOrderCompletionProofAction::class)->handle($order->fresh(), $courier, OrderCompletionProof::TYPE_CONTAINER_PHOTO, 'proofs/container.jpg');
+        app(SubmitOrderCompletionByCourierAction::class)->handle($order->fresh(), $courier);
+
+        $response = $this->actingAs($client, 'web')->get('/client/orders');
+
+        $response->assertOk()
+            ->assertSee('Очікує підтвердження', false)
+            ->assertSee('Фото-звіт курʼєра', false)
+            ->assertSee('Фото 1 з 2', false)
+            ->assertSee('Закрити ×', false)
+            ->assertDontSee('target="_blank"', false);
+    }
+
     public function test_awaiting_confirmation_photo_section_has_lightbox_markup_without_navigation_links(): void
     {
         $client = User::factory()->create(['role' => User::ROLE_CLIENT, 'is_active' => true]);
