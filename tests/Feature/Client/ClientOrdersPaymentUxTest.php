@@ -387,4 +387,30 @@ class ClientOrdersPaymentUxTest extends TestCase
             ->assertSeeHtml('openAt(1)')
             ->assertDontSee('target="_blank"');
     }
+
+    public function test_client_orders_page_renders_with_highlight_query_for_awaiting_confirmation_order(): void
+    {
+        $client = User::factory()->create(['role' => User::ROLE_CLIENT, 'is_active' => true]);
+        $courier = User::factory()->create(['role' => User::ROLE_COURIER, 'is_active' => true]);
+
+        $order = Order::createForTesting([
+            'client_id' => $client->id,
+            'courier_id' => $courier->id,
+            'status' => Order::STATUS_IN_PROGRESS,
+            'payment_status' => Order::PAY_PAID,
+            'completion_policy' => Order::COMPLETION_POLICY_DOOR_TWO_PHOTO_CLIENT_CONFIRM,
+        ]);
+
+        app(StartOrderCompletionProofAction::class)->handle($order->fresh());
+        app(UploadOrderCompletionProofAction::class)->handle($order->fresh(), $courier, OrderCompletionProof::TYPE_DOOR_PHOTO, 'proofs/door.jpg');
+        app(UploadOrderCompletionProofAction::class)->handle($order->fresh(), $courier, OrderCompletionProof::TYPE_CONTAINER_PHOTO, 'proofs/container.jpg');
+        app(SubmitOrderCompletionByCourierAction::class)->handle($order->fresh(), $courier);
+
+        $response = $this->actingAs($client, 'web')->get('/client/orders?highlight='.$order->id);
+
+        $response->assertOk()
+            ->assertSee('Очікує підтвердження', false)
+            ->assertSee('data-e2e="highlighted-pending-confirmation-order"', false);
+    }
+
 }
