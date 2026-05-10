@@ -447,6 +447,7 @@ class CourierDispatchReadSemanticsTest extends TestCase
             'user_id' => $offlineCourier->id,
             'status' => Courier::STATUS_OFFLINE,
             'last_location_at' => now(),
+            'is_verified' => true,
         ]);
 
         $staleCourier = User::factory()->create([
@@ -625,6 +626,7 @@ class CourierDispatchReadSemanticsTest extends TestCase
             'is_online' => true,
             'is_busy' => false,
             'session_state' => User::SESSION_READY,
+            'is_verified' => true,
             'last_lat' => $lat,
             'last_lng' => $lng,
             'last_completed_at' => $lastCompletedAt,
@@ -635,6 +637,7 @@ class CourierDispatchReadSemanticsTest extends TestCase
             'user_id' => $courier->id,
             'status' => Courier::STATUS_ONLINE,
             'last_location_at' => now(),
+            'is_verified' => true,
         ]);
 
         return $courier;

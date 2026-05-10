@@ -113,7 +113,11 @@ class OrderOffer extends Model
 
         return $query
             ->join('orders', 'orders.id', '=', 'order_offers.order_id')
+            ->join('users', 'users.id', '=', 'order_offers.courier_id')
+            ->join('couriers', 'couriers.user_id', '=', 'users.id')
             ->where('order_offers.courier_id', $courierId)
+            ->where('users.is_verified', true)
+            ->where('couriers.is_verified', true)
             ->where('order_offers.status', self::STATUS_PENDING)
             ->whereNotNull('order_offers.expires_at')
             ->where('order_offers.expires_at', '>', $now)
