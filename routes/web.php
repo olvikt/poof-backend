@@ -17,6 +17,7 @@ use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\Pwa\ManifestController;
 use App\Livewire\Client\Home;
 use App\Livewire\Client\OrderCreate;
+use App\Livewire\Client\OrderProofsPage;
 use App\Livewire\Client\OrdersList;
 use App\Livewire\Client\Profile;
 use App\Livewire\Client\SubscriptionsPage;
@@ -169,6 +170,7 @@ Route::middleware('auth:web')
         Route::get('/', Home::class)->name('home');
         Route::get('/order/create', OrderCreate::class)->name('order.create');
         Route::get('/orders', OrdersList::class)->name('orders');
+        Route::get('/orders/{order}/proofs', OrderProofsPage::class)->name('orders.proofs');
         Route::get('/profile', Profile::class)->name('profile');
         Route::get('/subscriptions', SubscriptionsPage::class)->name('subscriptions');
         Route::get('/addresses', AddressesPage::class)->name('addresses');

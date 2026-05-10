@@ -331,7 +331,7 @@ class ClientOrdersPaymentUxTest extends TestCase
     }
 
 
-    public function test_client_orders_page_renders_awaiting_confirmation_without_blade_parse_errors(): void
+    public function test_client_order_owner_can_open_in_app_proof_page(): void
     {
         $client = User::factory()->create(['role' => User::ROLE_CLIENT, 'is_active' => true]);
         $courier = User::factory()->create(['role' => User::ROLE_COURIER, 'is_active' => true]);
@@ -349,17 +349,74 @@ class ClientOrdersPaymentUxTest extends TestCase
         app(UploadOrderCompletionProofAction::class)->handle($order->fresh(), $courier, OrderCompletionProof::TYPE_CONTAINER_PHOTO, 'proofs/container.jpg');
         app(SubmitOrderCompletionByCourierAction::class)->handle($order->fresh(), $courier);
 
-        $response = $this->actingAs($client, 'web')->get('/client/orders');
+        $response = $this->actingAs($client, 'web')->get('/client/orders/'.$order->id.'/proofs');
 
         $response->assertOk()
-            ->assertSee('Очікує підтвердження', false)
             ->assertSee('Фото-звіт курʼєра', false)
             ->assertSee('Фото 1 з 2', false)
-            ->assertSee('Закрити ×', false)
-            ->assertDontSee('target="_blank"', false);
+            ->assertSee('Фото 2 з 2', false)
+            ->assertSee('Повернутися до замовлення', false);
     }
 
-    public function test_awaiting_confirmation_photo_section_has_lightbox_markup_without_navigation_links(): void
+    public function test_non_owner_client_cannot_open_proof_page(): void
+    {
+        $client = User::factory()->create(['role' => User::ROLE_CLIENT, 'is_active' => true]);
+        $otherClient = User::factory()->create(['role' => User::ROLE_CLIENT, 'is_active' => true]);
+        $courier = User::factory()->create(['role' => User::ROLE_COURIER, 'is_active' => true]);
+
+        $order = Order::createForTesting([
+            'client_id' => $client->id,
+            'courier_id' => $courier->id,
+            'status' => Order::STATUS_IN_PROGRESS,
+            'payment_status' => Order::PAY_PAID,
+            'completion_policy' => Order::COMPLETION_POLICY_DOOR_TWO_PHOTO_CLIENT_CONFIRM,
+        ]);
+
+        app(StartOrderCompletionProofAction::class)->handle($order->fresh());
+        app(UploadOrderCompletionProofAction::class)->handle($order->fresh(), $courier, OrderCompletionProof::TYPE_DOOR_PHOTO, 'proofs/door.jpg');
+        app(UploadOrderCompletionProofAction::class)->handle($order->fresh(), $courier, OrderCompletionProof::TYPE_CONTAINER_PHOTO, 'proofs/container.jpg');
+        app(SubmitOrderCompletionByCourierAction::class)->handle($order->fresh(), $courier);
+
+        $this->actingAs($otherClient, 'web')
+            ->get('/client/orders/'.$order->id.'/proofs')
+            ->assertForbidden();
+    }
+
+
+    public function test_guest_is_redirected_to_login_for_proof_page(): void
+    {
+        $client = User::factory()->create(['role' => User::ROLE_CLIENT, 'is_active' => true]);
+        $order = Order::createForTesting([
+            'client_id' => $client->id,
+        ]);
+
+        $this->get('/client/orders/'.$order->id.'/proofs')
+            ->assertRedirect('/login?next=%2Fclient%2Forders%2F'.$order->id.'%2Fproofs');
+    }
+
+    public function test_proof_page_without_usable_proof_urls_shows_empty_state_message(): void
+    {
+        $client = User::factory()->create(['role' => User::ROLE_CLIENT, 'is_active' => true]);
+        $courier = User::factory()->create(['role' => User::ROLE_COURIER, 'is_active' => true]);
+
+        $order = Order::createForTesting([
+            'client_id' => $client->id,
+            'courier_id' => $courier->id,
+            'status' => Order::STATUS_IN_PROGRESS,
+            'payment_status' => Order::PAY_PAID,
+            'completion_policy' => Order::COMPLETION_POLICY_DOOR_TWO_PHOTO_CLIENT_CONFIRM,
+        ]);
+
+        app(StartOrderCompletionProofAction::class)->handle($order->fresh());
+        app(SubmitOrderCompletionByCourierAction::class)->handle($order->fresh(), $courier);
+
+        $response = $this->actingAs($client, 'web')->get('/client/orders/'.$order->id.'/proofs');
+
+        $response->assertOk()
+            ->assertSee('Фотозвіт відсутній', false);
+    }
+
+    public function test_awaiting_confirmation_card_renders_internal_proof_report_link_without_blank_target(): void
     {
         $client = User::factory()->create(['role' => User::ROLE_CLIENT, 'is_active' => true]);
         $courier = User::factory()->create(['role' => User::ROLE_COURIER, 'is_active' => true]);
@@ -377,39 +434,12 @@ class ClientOrdersPaymentUxTest extends TestCase
         app(UploadOrderCompletionProofAction::class)->handle($order->fresh(), $courier, OrderCompletionProof::TYPE_CONTAINER_PHOTO, 'proofs/container.jpg');
         app(SubmitOrderCompletionByCourierAction::class)->handle($order->fresh(), $courier);
 
-        $this->actingAs($client, 'web');
-
-        Livewire::test(OrdersList::class)
-            ->assertSee('Фото-звіт курʼєра')
-            ->assertSee('Фото 1 з 2')
-            ->assertSeeHtml('aria-label="Закрити"')
-            ->assertSeeHtml('openAt(0)')
-            ->assertSeeHtml('openAt(1)')
-            ->assertDontSee('target="_blank"');
-    }
-
-
-    public function test_awaiting_confirmation_without_proof_urls_renders_empty_state_message(): void
-    {
-        $client = User::factory()->create(['role' => User::ROLE_CLIENT, 'is_active' => true]);
-        $courier = User::factory()->create(['role' => User::ROLE_COURIER, 'is_active' => true]);
-
-        $order = Order::createForTesting([
-            'client_id' => $client->id,
-            'courier_id' => $courier->id,
-            'status' => Order::STATUS_IN_PROGRESS,
-            'payment_status' => Order::PAY_PAID,
-            'completion_policy' => Order::COMPLETION_POLICY_DOOR_TWO_PHOTO_CLIENT_CONFIRM,
-        ]);
-
-        app(StartOrderCompletionProofAction::class)->handle($order->fresh());
-        app(SubmitOrderCompletionByCourierAction::class)->handle($order->fresh(), $courier);
-
         $response = $this->actingAs($client, 'web')->get('/client/orders');
 
         $response->assertOk()
-            ->assertSee('Очікує підтвердження', false)
-            ->assertSee('Фотозвіт відсутній', false);
+            ->assertSee('Переглянути фотозвіт', false)
+            ->assertSee('/client/orders/'.$order->id.'/proofs', false)
+            ->assertDontSee('target="_blank"', false);
     }
 
     public function test_client_orders_page_renders_with_highlight_query_for_awaiting_confirmation_order(): void

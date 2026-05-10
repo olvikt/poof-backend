@@ -211,8 +211,12 @@
                                     @endif
                                 </div>
                             @endif
-                            @php($proofUrls = collect($completionPayload['proofs'] ?? [])->pluck('url'))
-                            <x-proof-photo-lightbox :proof-urls="$proofUrls" />
+                            <a
+                                href="{{ route('client.orders.proofs', $order) }}"
+                                class="mt-3 inline-flex rounded-lg border border-sky-300/40 bg-sky-500/15 px-3 py-2 text-xs font-semibold text-sky-100 hover:bg-sky-500/25"
+                            >
+                                Переглянути фотозвіт
+                            </a>
                             <div class="mt-3 flex gap-2">
                                 <button
                                     type="button"
