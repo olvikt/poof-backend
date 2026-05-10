@@ -591,6 +591,8 @@ class OfferDispatcher
             ->join('couriers', 'couriers.user_id', '=', 'users.id')
             ->where('users.role', 'courier')
             ->where('users.is_active', true)
+            ->where('users.is_verified', true)
+            ->where('couriers.is_verified', true)
             ->whereNotNull('users.last_lat')
             ->whereNotNull('users.last_lng')
             ->where('couriers.status', Courier::STATUS_ONLINE)
@@ -697,6 +699,8 @@ class OfferDispatcher
                 'users.is_active',
                 'users.last_lat',
                 'users.last_lng',
+                'users.is_verified as user_is_verified',
+                'couriers.is_verified as courier_is_verified',
                 'couriers.status as courier_status',
                 'couriers.last_location_at',
             ])
@@ -707,6 +711,7 @@ class OfferDispatcher
         $reasons = [
             'inactive_user' => 0,
             'wrong_role' => 0,
+            'verification_blocked' => 0,
             'courier_offline' => 0,
             'stale_location' => 0,
             'busy_active_order' => 0,
@@ -730,6 +735,11 @@ class OfferDispatcher
 
             if ($row->role !== User::ROLE_COURIER) {
                 $reasons['wrong_role']++;
+                continue;
+            }
+
+            if (! (bool) $row->user_is_verified || ! (bool) $row->courier_is_verified) {
+                $reasons['verification_blocked']++;
                 continue;
             }
 

@@ -185,12 +185,14 @@ class AvailableOrdersOnlineSyncTest extends TestCase
             'is_active' => true,
             'is_busy' => false,
             'is_online' => false,
+            'is_verified' => true,
         ]);
 
         Courier::query()->create([
             'user_id' => $courier->id,
             'status' => Courier::STATUS_OFFLINE,
             'last_location_at' => null,
+            'is_verified' => true,
         ]);
 
         return $courier;

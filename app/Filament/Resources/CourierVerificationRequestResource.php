@@ -31,6 +31,21 @@ class CourierVerificationRequestResource extends Resource
 
     protected static ?string $navigationGroup = 'Courier';
 
+
+    public static function getNavigationBadge(): ?string
+    {
+        $pending = CourierVerificationRequest::query()
+            ->where('status', CourierVerificationRequest::STATUS_PENDING_REVIEW)
+            ->count();
+
+        return $pending > 0 ? (string) $pending : null;
+    }
+
+    public static function getNavigationBadgeColor(): ?string
+    {
+        return 'warning';
+    }
+
     public static function table(Table $table): Table
     {
         return $table

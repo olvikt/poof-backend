@@ -387,9 +387,7 @@ class CourierRuntimeStateSyncTest extends TestCase
         ?float $lng = null,
         $lastLocationAt = null,
     ): User {
-        $courier = User::factory()->create([
-            'role' => User::ROLE_COURIER,
-            'is_active' => true,
+        $courier = User::factory()->verifiedCourier()->create([
             'is_busy' => $isBusy,
             'is_online' => $isOnline,
             'session_state' => User::SESSION_OFFLINE,
@@ -401,6 +399,7 @@ class CourierRuntimeStateSyncTest extends TestCase
             'user_id' => $courier->id,
             'status' => $status,
             'last_location_at' => $lastLocationAt,
+            'is_verified' => true,
         ]);
 
         return $courier;

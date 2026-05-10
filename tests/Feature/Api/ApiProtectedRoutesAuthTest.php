@@ -240,15 +240,14 @@ class ApiProtectedRoutesAuthTest extends TestCase
 
     private function createCourier(array $attributes = []): User
     {
-        $courier = User::factory()->create(array_merge([
-            'role' => User::ROLE_COURIER,
-            'is_active' => true,
+        $courier = User::factory()->verifiedCourier()->create(array_merge([
             'is_busy' => false,
         ], $attributes));
 
         Courier::query()->create([
             'user_id' => $courier->id,
             'status' => Courier::STATUS_ONLINE,
+            'is_verified' => true,
         ]);
 
         return $courier;

@@ -303,4 +303,22 @@ class CourierVerificationPhase1Test extends TestCase
 
         return $courier;
     }
+
+    public function test_admin_navigation_badge_counts_pending_review_requests(): void
+    {
+        $courier = $this->createCourier();
+
+        CourierVerificationRequest::factory()->create([
+            'courier_id' => $courier->id,
+            'status' => CourierVerificationRequest::STATUS_PENDING_REVIEW,
+        ]);
+
+        CourierVerificationRequest::factory()->create([
+            'courier_id' => $courier->id,
+            'status' => CourierVerificationRequest::STATUS_VERIFIED,
+        ]);
+
+        $this->assertSame('1', \App\Filament\Resources\CourierVerificationRequestResource::getNavigationBadge());
+    }
+
 }

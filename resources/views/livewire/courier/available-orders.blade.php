@@ -33,6 +33,12 @@
                     </a>
                 </div>
             </div>
+        @elseif(!($isVerified ?? false))
+            <div class="rounded-2xl border border-amber-200/35 bg-[#171003]/[0.94] p-3.5 shadow-[0_18px_44px_rgba(0,0,0,0.42)]">
+                <div class="text-sm font-semibold text-amber-50">Перед тим, як отримувати замовлення, потрібно пройти верифікацію.</div>
+                <div class="mt-1 text-xs text-amber-100/85">Ваш профіль очікує верифікації. Після підтвердження адміністратором ви зможете приймати замовлення.</div>
+                <a href="{{ route('courier.profile') }}" wire:navigate class="courier-btn courier-btn-warning mt-3 inline-flex h-10 items-center px-3 text-xs">Перейти до профілю</a>
+            </div>
         @elseif($online)
             <div class="rounded-2xl border border-slate-100/12 bg-[#101722]/[0.92] p-3.5 shadow-[0_18px_44px_rgba(0,0,0,0.4)]">
                 @if($emptyState['has_pending_offer'] ?? false)

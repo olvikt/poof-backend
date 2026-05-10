@@ -91,9 +91,11 @@ class AvailableOrders extends Component
         $this->repairOnlineStateFromCanonicalSource($courier, $runtime);
         $this->activeOrder = $this->resolveActiveOrderIfPresent($courier, $runtime);
 
-        $orders = OrderOffer::query()
-            ->alivePendingForCourierOrders((int) $courier->id)
-            ->get();
+        $isVerified = $this->isCourierVerified($courier);
+
+        $orders = $isVerified
+            ? OrderOffer::query()->alivePendingForCourierOrders((int) $courier->id)->get()
+            : collect();
 
         Log::debug('available_orders_render', [
             'flow' => 'courier_cabinet',
@@ -114,10 +116,17 @@ class AvailableOrders extends Component
             'geoRequired' => false,
             'online' => $this->online,
             'activeOrder' => $this->activeOrder,
+            'isVerified' => $isVerified,
             'emptyState' => $this->resolveEmptyState($courier, $runtime, $orders),
             'mapBootstrap' => $this->navigationRuntime()->resolveMapBootstrap($courier, $this->activeOrder),
             'pollIntervalSeconds' => $this->availableOrdersPollIntervalSeconds(),
         ])->layout('layouts.courier');
+    }
+
+
+    private function isCourierVerified(User $courier): bool
+    {
+        return (bool) $courier->is_verified && (bool) optional($courier->courierProfile)->is_verified;
     }
 
     private function resolveEmptyState(User $courier, array $runtime, Collection $orders): array
