@@ -211,14 +211,37 @@
                                     @endif
                                 </div>
                             @endif
-                            <div class="mt-2 grid grid-cols-2 gap-2">
-                                @foreach(($completionPayload['proofs'] ?? []) as $proof)
-                                    @if(!empty($proof['url']))
-                                        <a href="{{ $proof['url'] }}" target="_blank" class="block overflow-hidden rounded-lg border border-white/10 bg-black/20">
-                                            <img src="{{ $proof['url'] }}" alt="proof {{ $proof['type'] ?? 'photo' }}" class="h-24 w-full object-cover" />
-                                        </a>
-                                    @endif
-                                @endforeach
+                            @php($proofUrls = collect($completionPayload['proofs'] ?? [])->pluck('url')->filter()->values())
+                            <div x-data="{ open: false, index: 0, proofs: @js($proofUrls), openAt(i){ this.index = i; this.open = true; }, prev(){ this.index = (this.index - 1 + this.proofs.length) % this.proofs.length; }, next(){ this.index = (this.index + 1) % this.proofs.length; } }" @keydown.escape.window="open = false" @keydown.arrow-left.window="if(open && proofs.length > 1) prev()" @keydown.arrow-right.window="if(open && proofs.length > 1) next()">
+                                <div class="mt-2 grid grid-cols-2 gap-2">
+                                    @foreach($proofUrls as $proofIndex => $proofUrl)
+                                        <button type="button" @click="openAt({{ $proofIndex }})" class="block overflow-hidden rounded-lg border border-white/10 bg-black/20 text-left">
+                                            <img src="{{ $proofUrl }}" alt="Фото-звіт курʼєра, фото {{ $proofIndex + 1 }}" class="h-24 w-full object-cover" />
+                                        </button>
+                                    @endforeach
+                                </div>
+                                <template x-if="open && proofs.length">
+                                    <div class="fixed inset-0 z-[100] bg-black/85" @click.self="open = false" role="dialog" aria-modal="true" aria-label="Фото-звіт курʼєра">
+                                        <div class="flex h-full w-full flex-col p-4 sm:p-6">
+                                            <div class="mb-3 flex items-center justify-between text-white">
+                                                <div>
+                                                    <p class="text-sm font-semibold">Фото-звіт курʼєра</p>
+                                                    <p class="text-xs text-gray-300" x-text="`Фото ${index + 1} з ${proofs.length}`"></p>
+                                                </div>
+                                                <button type="button" class="rounded border border-white/30 px-3 py-1 text-sm" aria-label="Закрити" @click="open = false">Закрити ×</button>
+                                            </div>
+                                            <div class="relative flex flex-1 items-center justify-center">
+                                                <img :src="proofs[index]" :alt="`Фото-звіт курʼєра, фото ${index + 1}`" class="max-h-[85vh] w-auto max-w-full rounded-lg object-contain" />
+                                                <template x-if="proofs.length > 1">
+                                                    <div>
+                                                        <button type="button" class="absolute left-1 top-1/2 -translate-y-1/2 rounded-full bg-black/60 px-3 py-2 text-white" @click="prev()">‹</button>
+                                                        <button type="button" class="absolute right-1 top-1/2 -translate-y-1/2 rounded-full bg-black/60 px-3 py-2 text-white" @click="next()">›</button>
+                                                    </div>
+                                                </template>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </template>
                             </div>
                             <div class="mt-3 flex gap-2">
                                 <button

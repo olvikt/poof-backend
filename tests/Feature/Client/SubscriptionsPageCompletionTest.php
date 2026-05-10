@@ -36,6 +36,12 @@ class SubscriptionsPageCompletionTest extends TestCase
             ->call('openDetails', $subscription->id)
             ->assertSee((string) $order->id)
             ->assertSee('Фотозвіт')
+            ->assertSee('Фото-звіт курʼєра')
+            ->assertSee('Фото 1 з 2')
+            ->assertSeeHtml('aria-label="Закрити"')
+            ->assertSeeHtml('openAt(0)')
+            ->assertSeeHtml('openAt(1)')
+            ->assertDontSee('target="_blank"')
             ->call('confirmExecutionCompletion', $subscription->id, $order->id);
 
         $request = OrderCompletionRequest::query()->where('order_id', $order->id)->firstOrFail();

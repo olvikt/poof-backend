@@ -3,7 +3,11 @@
 namespace Tests\Feature\Client;
 
 use App\Livewire\Client\OrdersList;
+use App\Actions\Orders\Completion\StartOrderCompletionProofAction;
+use App\Actions\Orders\Completion\SubmitOrderCompletionByCourierAction;
+use App\Actions\Orders\Completion\UploadOrderCompletionProofAction;
 use App\Models\Order;
+use App\Models\OrderCompletionProof;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Livewire\Livewire;
@@ -324,5 +328,34 @@ class ClientOrdersPaymentUxTest extends TestCase
             ->call('switchTab', 'history')
             ->assertSee('вул. Прострочена, 9')
             ->assertSee('Протерміновано');
+    }
+
+    public function test_awaiting_confirmation_photo_section_has_lightbox_markup_without_navigation_links(): void
+    {
+        $client = User::factory()->create(['role' => User::ROLE_CLIENT, 'is_active' => true]);
+        $courier = User::factory()->create(['role' => User::ROLE_COURIER, 'is_active' => true]);
+
+        $order = Order::createForTesting([
+            'client_id' => $client->id,
+            'courier_id' => $courier->id,
+            'status' => Order::STATUS_IN_PROGRESS,
+            'payment_status' => Order::PAY_PAID,
+            'completion_policy' => Order::COMPLETION_POLICY_DOOR_TWO_PHOTO_CLIENT_CONFIRM,
+        ]);
+
+        app(StartOrderCompletionProofAction::class)->handle($order->fresh());
+        app(UploadOrderCompletionProofAction::class)->handle($order->fresh(), $courier, OrderCompletionProof::TYPE_DOOR_PHOTO, 'proofs/door.jpg');
+        app(UploadOrderCompletionProofAction::class)->handle($order->fresh(), $courier, OrderCompletionProof::TYPE_CONTAINER_PHOTO, 'proofs/container.jpg');
+        app(SubmitOrderCompletionByCourierAction::class)->handle($order->fresh(), $courier);
+
+        $this->actingAs($client, 'web');
+
+        Livewire::test(OrdersList::class)
+            ->assertSee('Фото-звіт курʼєра')
+            ->assertSee('Фото 1 з 2')
+            ->assertSeeHtml('aria-label="Закрити"')
+            ->assertSeeHtml('openAt(0)')
+            ->assertSeeHtml('openAt(1)')
+            ->assertDontSee('target="_blank"');
     }
 }

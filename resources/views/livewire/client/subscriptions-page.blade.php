@@ -205,6 +205,7 @@
 
                             @if($executionOrder['awaiting_client_confirmation'] ?? false)
                                 @php($proofs = $executionOrder['completion_payload']['proofs'] ?? [])
+                                @php($proofUrls = collect($proofs)->pluck('url')->filter()->values())
                                 @php($deadlineAt = \Illuminate\Support\Carbon::parse($executionOrder['completion_payload']['completion_confirmation_deadline_at'] ?? $executionOrder['completion_payload']['auto_confirmation_due_at'] ?? null))
                                 @php($serverNow = \Illuminate\Support\Carbon::parse($executionOrder['completion_payload']['server_now'] ?? now()))
                                 @php($remainingSeconds = $deadlineAt ? max(0, $serverNow->diffInSeconds($deadlineAt, false)) : null)
@@ -219,25 +220,43 @@
                                     </div>
                                 @endif
                                 @if(!empty($proofs))
-                                    <div class="mt-2">
+                                    <div class="mt-2" x-data="{ open: false, index: 0, proofs: @js($proofUrls), openAt(i){ this.index = i; this.open = true; }, prev(){ this.index = (this.index - 1 + this.proofs.length) % this.proofs.length; }, next(){ this.index = (this.index + 1) % this.proofs.length; } }" @keydown.escape.window="open = false" @keydown.arrow-left.window="if(open && proofs.length > 1) prev()" @keydown.arrow-right.window="if(open && proofs.length > 1) next()">
                                         <p class="text-[11px] text-gray-500">Фотозвіт</p>
                                         <div class="mt-1 grid grid-cols-4 gap-1">
-                                            @foreach($proofs as $proof)
-                                                @if(!empty($proof['url']))
-                                                    <a href="{{ $proof['url'] }}" target="_blank" rel="noopener noreferrer">
-                                                        <img src="{{ $proof['url'] }}" alt="proof {{ $proof['type'] ?? 'photo' }}" class="h-14 w-full rounded object-cover" />
-                                                    </a>
-                                                @endif
+                                            @foreach($proofUrls as $proofIndex => $proofUrl)
+                                                <button type="button" @click="openAt({{ $proofIndex }})">
+                                                    <img src="{{ $proofUrl }}" alt="Фото-звіт курʼєра, фото {{ $proofIndex + 1 }}" class="h-14 w-full rounded object-cover" />
+                                                </button>
                                             @endforeach
                                         </div>
+                                        <template x-if="open && proofs.length">
+                                            <div class="fixed inset-0 z-[120] bg-black/85" @click.self="open = false" role="dialog" aria-modal="true" aria-label="Фото-звіт курʼєра">
+                                                <div class="flex h-full w-full flex-col p-4 sm:p-6">
+                                                    <div class="mb-3 flex items-center justify-between text-white">
+                                                        <div>
+                                                            <p class="text-sm font-semibold">Фото-звіт курʼєра</p>
+                                                            <p class="text-xs text-gray-300" x-text="`Фото ${index + 1} з ${proofs.length}`"></p>
+                                                        </div>
+                                                        <button type="button" class="rounded border border-white/30 px-3 py-1 text-sm" aria-label="Закрити" @click="open = false">Закрити ×</button>
+                                                    </div>
+                                                    <div class="relative flex flex-1 items-center justify-center">
+                                                        <img :src="proofs[index]" :alt="`Фото-звіт курʼєра, фото ${index + 1}`" class="max-h-[85vh] w-auto max-w-full rounded-lg object-contain" />
+                                                        <template x-if="proofs.length > 1">
+                                                            <div>
+                                                                <button type="button" class="absolute left-1 top-1/2 -translate-y-1/2 rounded-full bg-black/60 px-3 py-2 text-white" @click="prev()">‹</button>
+                                                                <button type="button" class="absolute right-1 top-1/2 -translate-y-1/2 rounded-full bg-black/60 px-3 py-2 text-white" @click="next()">›</button>
+                                                            </div>
+                                                        </template>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </template>
                                     </div>
                                 @endif
 
                                 <div class="mt-2 flex flex-wrap gap-1.5">
-                                    @if(!empty($proofs) && !empty($proofs[0]['url']))
-                                        <a href="{{ $proofs[0]['url'] }}" target="_blank" rel="noopener noreferrer" class="rounded-lg border border-gray-700 px-2 py-1 text-[11px] text-gray-200">
-                                            Переглянути фотозвіт
-                                        </a>
+                                    @if(!empty($proofUrls))
+                                        <span class="rounded-lg border border-gray-700 px-2 py-1 text-[11px] text-gray-200">Натисніть на фото для перегляду</span>
                                     @else
                                         <span class="rounded-lg border border-gray-800 px-2 py-1 text-[11px] text-gray-500">Фотозвіт відсутній</span>
                                     @endif
