@@ -224,8 +224,7 @@
                                 @else
                                     <div class="mt-2 text-xs text-sky-100/80">Фотозвіт відсутній</div>
                                 @endif
-                                <template x-if="open && proofs.length">
-                                    <div class="fixed inset-0 z-[100] bg-black/85" @click.self="open = false" role="dialog" aria-modal="true" aria-label="Фото-звіт курʼєра">
+                                <div x-show="open && proofs.length" x-cloak class="fixed inset-0 z-[100] bg-black/85" @click.self="open = false" role="dialog" aria-modal="true" aria-label="Фото-звіт курʼєра">
                                         <div class="flex h-full w-full flex-col p-4 sm:p-6">
                                             <div class="mb-3 flex items-center justify-between text-white">
                                                 <div>
@@ -236,16 +235,14 @@
                                             </div>
                                             <div class="relative flex flex-1 items-center justify-center">
                                                 <img :src="proofs[index]" :alt="`Фото-звіт курʼєра, фото ${index + 1}`" class="max-h-[85vh] w-auto max-w-full rounded-lg object-contain" />
-                                                <template x-if="proofs.length > 1">
-                                                    <div>
+                                                <div x-show="proofs.length > 1">
                                                         <button type="button" class="absolute left-1 top-1/2 -translate-y-1/2 rounded-full bg-black/60 px-3 py-2 text-white" @click="prev()">‹</button>
                                                         <button type="button" class="absolute right-1 top-1/2 -translate-y-1/2 rounded-full bg-black/60 px-3 py-2 text-white" @click="next()">›</button>
                                                     </div>
-                                                </template>
                                             </div>
                                         </div>
                                     </div>
-                                </template>
+                                </div>
                             </div>
                             <div class="mt-3 flex gap-2">
                                 <button
