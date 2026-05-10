@@ -96,7 +96,7 @@ Schedule::call(function (): void {
 ->everyMinute();
 
 
-Schedule::command('orders:completion-proof:auto-confirm --limit=100')
+Schedule::command('orders:auto-complete-awaiting-confirmation --limit=100')
     ->name('poof-completion-proof-auto-confirm')
     ->description('Auto-confirm due proof completion requests')
     ->everyMinute();

@@ -58,6 +58,9 @@ class AutoConfirmOrderCompletionRequestAction
             $request->forceFill([
                 'status' => OrderCompletionRequest::STATUS_AUTO_CONFIRMED,
                 'client_confirmed_at' => now(),
+                'auto_completed_at' => now(),
+                'completion_resolution' => 'auto_completed',
+                'completion_resolution_actor' => 'system',
             ])->save();
 
             $this->finalizeAction->finalizeLocked($order, $courier, 'order_completion_proof');

@@ -26,8 +26,12 @@ class OrderCompletionRequest extends Model
 
     protected $casts = [
         'submitted_at' => 'datetime',
+        'proof_submitted_at' => 'datetime',
         'client_confirmed_at' => 'datetime',
+        'auto_completed_at' => 'datetime',
+        'disputed_at' => 'datetime',
         'auto_confirmation_due_at' => 'datetime',
+        'completion_confirmation_deadline_at' => 'datetime',
     ];
 
     public function order(): BelongsTo
@@ -50,4 +54,3 @@ class OrderCompletionRequest extends Model
         return $this->hasOne(OrderCompletionDispute::class, 'completion_request_id');
     }
 }
-

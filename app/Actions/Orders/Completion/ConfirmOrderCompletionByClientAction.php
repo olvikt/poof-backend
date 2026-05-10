@@ -68,6 +68,8 @@ class ConfirmOrderCompletionByClientAction
             $request->forceFill([
                 'status' => OrderCompletionRequest::STATUS_CLIENT_CONFIRMED,
                 'client_confirmed_at' => now(),
+                'completion_resolution' => 'client_confirmed',
+                'completion_resolution_actor' => 'client',
             ])->save();
 
             $courier = User::query()->whereKey($request->courier_id)->first();

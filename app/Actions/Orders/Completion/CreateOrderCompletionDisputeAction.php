@@ -54,7 +54,12 @@ class CreateOrderCompletionDisputeAction
             }
 
             $statusBefore = $request->status;
-            $request->forceFill(['status' => OrderCompletionRequest::STATUS_DISPUTED])->save();
+            $request->forceFill([
+                'status' => OrderCompletionRequest::STATUS_DISPUTED,
+                'disputed_at' => now(),
+                'completion_resolution' => 'disputed',
+                'completion_resolution_actor' => 'client',
+            ])->save();
 
             $dispute = OrderCompletionDispute::unguarded(fn () => OrderCompletionDispute::query()->create([
                 'completion_request_id' => $request->id,

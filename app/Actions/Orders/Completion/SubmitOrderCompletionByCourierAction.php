@@ -78,10 +78,13 @@ class SubmitOrderCompletionByCourierAction
             }
 
             $statusBefore = $request->status;
+            $timeoutMinutes = max(1, (int) config('order_completion_proof.confirmation_timeout_minutes', 120));
             $request->forceFill([
                 'status' => OrderCompletionRequest::STATUS_AWAITING_CLIENT_CONFIRMATION,
                 'submitted_at' => now(),
-                'auto_confirmation_due_at' => now()->addHours(max(1, (int) config('order_completion_proof.auto_confirm_hours', 24))),
+                'proof_submitted_at' => now(),
+                'auto_confirmation_due_at' => now()->addMinutes($timeoutMinutes),
+                'completion_confirmation_deadline_at' => now()->addMinutes($timeoutMinutes),
             ])->save();
 
             $courier->markFree();
