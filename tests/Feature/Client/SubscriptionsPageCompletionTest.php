@@ -36,6 +36,12 @@ class SubscriptionsPageCompletionTest extends TestCase
             ->call('openDetails', $subscription->id)
             ->assertSee((string) $order->id)
             ->assertSee('Фотозвіт')
+            ->assertSee('Фото-звіт курʼєра')
+            ->assertSee('Фото 1 з 2')
+            ->assertSeeHtml('aria-label="Закрити"')
+            ->assertSeeHtml('openAt(0)')
+            ->assertSeeHtml('openAt(1)')
+            ->assertDontSee('target="_blank"')
             ->call('confirmExecutionCompletion', $subscription->id, $order->id);
 
         $request = OrderCompletionRequest::query()->where('order_id', $order->id)->firstOrFail();
@@ -68,6 +74,20 @@ class SubscriptionsPageCompletionTest extends TestCase
             ->assertSee('Очікує підтвердження')
             ->assertSee('Підтвердити')
             ->assertSee('Відкрити спір');
+    }
+
+    public function test_awaiting_confirmation_without_usable_proof_urls_shows_empty_state_hint(): void
+    {
+        [$client, $subscription, $order] = $this->seedAwaitingExecutionOrder();
+        $request = OrderCompletionRequest::query()->where('order_id', $order->id)->firstOrFail();
+        OrderCompletionProof::query()->where('completion_request_id', $request->id)->delete();
+
+        $this->actingAs($client);
+
+        Livewire::test(SubscriptionsPage::class)
+            ->call('openDetails', $subscription->id)
+            ->assertSee('Фотозвіт відсутній')
+            ->assertDontSee('Натисніть на фото для перегляду');
     }
 
     public function test_completed_history_item_has_vykonano_label(): void
