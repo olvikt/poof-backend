@@ -35,6 +35,28 @@ class UserFactory extends Factory
     /**
      * Indicate that the model's email address should be unverified.
      */
+    public function courier(): static
+    {
+        return $this->state(fn (array $attributes) => [
+            'role' => 'courier',
+            'is_active' => true,
+            'is_busy' => false,
+            'is_online' => false,
+        ]);
+    }
+
+    public function verified(): static
+    {
+        return $this->state(fn (array $attributes) => [
+            'is_verified' => true,
+        ]);
+    }
+
+    public function verifiedCourier(): static
+    {
+        return $this->courier()->verified();
+    }
+
     public function unverified(): static
     {
         return $this->state(fn (array $attributes) => [
