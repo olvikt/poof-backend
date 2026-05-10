@@ -17,6 +17,9 @@ server {
     access_log /var/log/nginx/poof-app-access.log;
     error_log  /var/log/nginx/poof-app-error.log;
 
+    # Prevent courier verification uploads from failing at nginx layer (HTTP 413).
+    client_max_body_size 20M;
+
     location / {
         try_files $uri $uri/ /index.php?$query_string;
     }

@@ -441,6 +441,26 @@ run_contract_with_degraded_fallback \
   "raw supervisorctl status + worker log evidence" \
   "'$SUPERVISORCTL_BIN' status && cd '$APP_DIR' && tail -n 50 storage/logs/worker.log"
 run "Redis ping" "$REDIS_CLI_BIN" ping
+
+run "Nginx upload limit contract (20M)" bash -lc 'nginx -T 2>/dev/null | grep -Eq "client_max_body_size[[:space:]]+20M;"'
+run "PHP upload_max_filesize contract (>=20M)" "$PHP_BIN" -r '
+  $v = (string) ini_get("upload_max_filesize");
+  preg_match("/([0-9]+)([KMG]?)/i", trim($v), $m);
+  $n = (int) ($m[1] ?? 0);
+  $u = strtoupper((string) ($m[2] ?? ""));
+  $mult = ["" => 1, "K" => 1024, "M" => 1024 * 1024, "G" => 1024 * 1024 * 1024];
+  $bytes = $n * ($mult[$u] ?? 1);
+  exit($bytes >= 20 * 1024 * 1024 ? 0 : 1);
+'
+run "PHP post_max_size contract (>=20M)" "$PHP_BIN" -r '
+  $v = (string) ini_get("post_max_size");
+  preg_match("/([0-9]+)([KMG]?)/i", trim($v), $m);
+  $n = (int) ($m[1] ?? 0);
+  $u = strtoupper((string) ($m[2] ?? ""));
+  $mult = ["" => 1, "K" => 1024, "M" => 1024 * 1024, "G" => 1024 * 1024 * 1024];
+  $bytes = $n * ($mult[$u] ?? 1);
+  exit($bytes >= 20 * 1024 * 1024 ? 0 : 1);
+'
 run_deploy_runtime_evidence "Deploy/runtime evidence contract"
 run "Nginx service" systemctl is-active nginx
 run "PHP-FPM service" systemctl is-active php8.3-fpm
