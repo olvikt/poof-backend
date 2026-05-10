@@ -92,6 +92,9 @@
                     ], true) && $order->canBeCancelled();
                     $completionPayload = $order->completionProofPayload ?? null;
                     $awaitingClientConfirmation = ($completionPayload['status'] ?? null) === \App\Models\OrderCompletionRequest::STATUS_AWAITING_CLIENT_CONFIRMATION;
+                    $deadlineAt = \Illuminate\Support\Carbon::parse($completionPayload['completion_confirmation_deadline_at'] ?? $completionPayload['auto_confirmation_due_at'] ?? null);
+                    $serverNow = \Illuminate\Support\Carbon::parse($completionPayload['server_now'] ?? now());
+                    $remainingSeconds = $deadlineAt ? max(0, $serverNow->diffInSeconds($deadlineAt, false)) : null;
                     $isHighlightedPendingOrder = (int) ($highlightOrderId ?? 0) === (int) $order->id;
                 @endphp
 
@@ -123,7 +126,7 @@
                                 bg-gray-700 text-gray-300
                             @endif
                         ">
-                            {{ $order->promiseStatusLabelForClient() }}
+                            {{ $awaitingClientConfirmation ? 'Очікує підтвердження' : $order->promiseStatusLabelForClient() }}
                         </span>
 
                         {{-- PRICE --}}
@@ -197,7 +200,17 @@
 
                     @if($awaitingClientConfirmation)
                         <div class="mt-4 rounded-lg border border-sky-400/30 bg-sky-500/10 p-3">
-                            <div class="text-xs font-semibold text-sky-200">Курʼєр надіслав фото-підтвердження виконання</div>
+                            <div class="text-xs font-semibold text-sky-200">Курʼєр завершив замовлення</div>
+                            <div class="text-xs text-sky-100 mt-1">Перевірте фото-звіт і підтвердьте виконання.</div>
+                            @if(!is_null($remainingSeconds))
+                                <div class="mt-2 text-[11px] text-sky-200">
+                                    @if($remainingSeconds > 0)
+                                        Автопідтвердження через: {{ intdiv($remainingSeconds, 3600) }} год {{ intdiv($remainingSeconds % 3600, 60) }} хв
+                                    @else
+                                        Очікується автоматичне підтвердження
+                                    @endif
+                                </div>
+                            @endif
                             <div class="mt-2 grid grid-cols-2 gap-2">
                                 @foreach(($completionPayload['proofs'] ?? []) as $proof)
                                     @if(!empty($proof['url']))

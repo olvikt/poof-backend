@@ -9,12 +9,16 @@ use App\Models\Order;
 use App\Models\OrderCompletionDispute;
 use App\Models\OrderCompletionRequest;
 use App\Models\User;
+use App\Services\Orders\Completion\OrderCompletionEventLogger;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 
 class ResolveOrderCompletionDisputeAction
 {
-    public function __construct(private readonly FinalizeCompletedOrderAction $finalizeAction)
+    public function __construct(
+        private readonly FinalizeCompletedOrderAction $finalizeAction,
+        private readonly OrderCompletionEventLogger $eventLogger,
+    )
     {
     }
 
@@ -71,6 +75,10 @@ class ResolveOrderCompletionDisputeAction
                 'dispute_id' => $lockedDispute->id,
                 'resolver_user_id' => $resolver->id,
                 'resolution' => $resolution,
+            ]);
+            $this->eventLogger->log('admin_resolved', (int) $order->id, (int) $request->id, 'admin', (int) $resolver->id, OrderCompletionRequest::STATUS_DISPUTED, (string) $request->status, [
+                'resolution' => $resolution,
+                'resolution_note' => $resolutionNote,
             ]);
 
             return true;

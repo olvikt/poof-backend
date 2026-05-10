@@ -205,6 +205,19 @@
 
                             @if($executionOrder['awaiting_client_confirmation'] ?? false)
                                 @php($proofs = $executionOrder['completion_payload']['proofs'] ?? [])
+                                @php($deadlineAt = \Illuminate\Support\Carbon::parse($executionOrder['completion_payload']['completion_confirmation_deadline_at'] ?? $executionOrder['completion_payload']['auto_confirmation_due_at'] ?? null))
+                                @php($serverNow = \Illuminate\Support\Carbon::parse($executionOrder['completion_payload']['server_now'] ?? now()))
+                                @php($remainingSeconds = $deadlineAt ? max(0, $serverNow->diffInSeconds($deadlineAt, false)) : null)
+                                <div class="mt-2 text-[11px] text-amber-200">Курʼєр завершив замовлення. Перевірте фото-звіт і підтвердьте виконання.</div>
+                                @if(!is_null($remainingSeconds))
+                                    <div class="mt-1 text-[11px] text-amber-300">
+                                        @if($remainingSeconds > 0)
+                                            Автопідтвердження через: {{ intdiv($remainingSeconds, 3600) }} год {{ intdiv($remainingSeconds % 3600, 60) }} хв
+                                        @else
+                                            Очікується автоматичне підтвердження
+                                        @endif
+                                    </div>
+                                @endif
                                 @if(!empty($proofs))
                                     <div class="mt-2">
                                         <p class="text-[11px] text-gray-500">Фотозвіт</p>

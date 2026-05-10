@@ -45,6 +45,9 @@ class GetOrderCompletionClientPayloadAction
             'server_now' => now()->toIso8601String(),
             'submitted_at' => optional($request->submitted_at)?->toIso8601String(),
             'auto_confirmation_due_at' => optional($request->auto_confirmation_due_at)?->toIso8601String(),
+            'completion_confirmation_deadline_at' => optional($request->completion_confirmation_deadline_at)?->toIso8601String(),
+            'completion_resolution' => $request->completion_resolution,
+            'completion_resolution_actor' => $request->completion_resolution_actor,
             'courier' => $request->courier ? [
                 'id' => $request->courier->id,
                 'name' => $request->courier->name,

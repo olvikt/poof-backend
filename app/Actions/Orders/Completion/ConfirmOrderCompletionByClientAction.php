@@ -8,12 +8,17 @@ use App\Actions\Orders\Lifecycle\FinalizeCompletedOrderAction;
 use App\Models\Order;
 use App\Models\OrderCompletionRequest;
 use App\Models\User;
+use App\Notifications\OrderLifecyclePushNotification;
+use App\Services\Orders\Completion\OrderCompletionEventLogger;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 
 class ConfirmOrderCompletionByClientAction
 {
-    public function __construct(private readonly FinalizeCompletedOrderAction $finalizeAction)
+    public function __construct(
+        private readonly FinalizeCompletedOrderAction $finalizeAction,
+        private readonly OrderCompletionEventLogger $eventLogger,
+    )
     {
     }
 
@@ -86,6 +91,15 @@ class ConfirmOrderCompletionByClientAction
                 'status_before' => $statusBefore,
                 'status_after' => $request->status,
             ]);
+            $this->eventLogger->log('client_confirmed', (int) $lockedOrder->id, (int) $request->id, 'client', (int) ($client?->id), (string) $statusBefore, (string) $request->status, [
+                'client_confirmed_at' => optional($request->client_confirmed_at)?->toIso8601String(),
+                'completion_resolution' => $request->completion_resolution,
+            ]);
+            try {
+                $courier->notify(new OrderLifecyclePushNotification('Замовлення підтверджено', 'Оплату зараховано.', ['order_id' => $lockedOrder->id, 'completion_request_id' => $request->id, 'type' => 'client_confirmed']));
+            } catch (\Throwable $e) {
+                Log::warning('completion_notification_failed', ['order_id' => $lockedOrder->id, 'type' => 'client_confirmed', 'error' => $e->getMessage()]);
+            }
 
             return $this->finalizeAction->finalizeLocked($lockedOrder, $courier, 'order_completion_proof');
         });
