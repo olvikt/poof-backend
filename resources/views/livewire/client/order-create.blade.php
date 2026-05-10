@@ -64,7 +64,7 @@
 		</div>
 
 		{{-- DETAILS --}}
-		<div class="mb-4" data-e2e="order-address-details" x-data x-on:order-address-details-invalid.window="$el.scrollIntoView({ behavior: 'smooth', block: 'start' }); const field = $event.detail?.field; const target = field ? $el.querySelector(`[data-address-detail-field=\"${field}\"] input`) : null; (target ?? $el.querySelector('[data-address-detail-field] input'))?.focus();">
+		<div class="mb-4" data-e2e="order-address-details" x-data x-on:order-address-details-invalid.window="$el.scrollIntoView({ behavior: 'smooth', block: 'start' }); var detail = $event.detail || {}; var field = detail.field || null; var target = field ? $el.querySelector('[data-address-detail-field=' + field + '] input') : null; if (!target) { target = $el.querySelector('[data-address-detail-field] input'); } if (target) { target.focus(); }">
 			<div class="building-type-panel flex items-center justify-between gap-3 rounded-[1.15rem] px-1 py-1.5 mb-3">
 				<div class="min-w-0 flex-1">
 					<p class="text-sm font-semibold leading-5 text-white">Приватний будинок</p>
