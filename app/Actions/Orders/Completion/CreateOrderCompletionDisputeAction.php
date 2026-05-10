@@ -8,11 +8,17 @@ use App\Models\Order;
 use App\Models\OrderCompletionDispute;
 use App\Models\OrderCompletionRequest;
 use App\Models\User;
+use App\Notifications\OrderLifecyclePushNotification;
+use App\Services\Orders\Completion\OrderCompletionEventLogger;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 
 class CreateOrderCompletionDisputeAction
 {
+    public function __construct(private readonly OrderCompletionEventLogger $eventLogger)
+    {
+    }
+
     public function handle(Order $order, User $client, string $reasonCode, ?string $comment = null): bool
     {
         return (bool) DB::transaction(function () use ($order, $client, $reasonCode, $comment) {
@@ -54,7 +60,12 @@ class CreateOrderCompletionDisputeAction
             }
 
             $statusBefore = $request->status;
-            $request->forceFill(['status' => OrderCompletionRequest::STATUS_DISPUTED])->save();
+            $request->forceFill([
+                'status' => OrderCompletionRequest::STATUS_DISPUTED,
+                'disputed_at' => now(),
+                'completion_resolution' => 'disputed',
+                'completion_resolution_actor' => 'client',
+            ])->save();
 
             $dispute = OrderCompletionDispute::unguarded(fn () => OrderCompletionDispute::query()->create([
                 'completion_request_id' => $request->id,
@@ -78,6 +89,16 @@ class CreateOrderCompletionDisputeAction
                 'status_after' => $request->status,
                 'reason_code' => $reasonCode,
             ]);
+            $this->eventLogger->log('dispute_opened', (int) $lockedOrder->id, (int) $request->id, 'client', (int) $client->id, (string) $statusBefore, (string) $request->status, [
+                'disputed_at' => optional($request->disputed_at)?->toIso8601String(),
+                'reason_code' => $reasonCode,
+            ]);
+            try {
+                $courier = User::query()->find($request->courier_id);
+                $courier?->notify(new OrderLifecyclePushNotification('Відкрито спір по замовленню', 'Клієнт відкрив спір після фото-звіту.', ['order_id' => $lockedOrder->id, 'completion_request_id' => $request->id, 'type' => 'dispute_opened']));
+            } catch (\Throwable $e) {
+                Log::warning('completion_notification_failed', ['order_id' => $lockedOrder->id, 'type' => 'dispute_opened', 'error' => $e->getMessage()]);
+            }
 
             return true;
         });

@@ -11,7 +11,7 @@ use Illuminate\Support\Facades\Log;
 
 class AutoConfirmOrderCompletionRequestsCommand extends Command
 {
-    protected $signature = 'orders:completion-proof:auto-confirm {--limit=100}';
+    protected $signature = 'orders:auto-complete-awaiting-confirmation {--limit=100}';
 
     protected $description = 'Auto-confirm due order completion requests in bounded batches';
 

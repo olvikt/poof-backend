@@ -1,7 +1,7 @@
 <?php
 
 return [
-    'auto_confirm_hours' => 24,
+    'confirmation_timeout_minutes' => (int) env('ORDER_COMPLETION_CONFIRMATION_TIMEOUT_MINUTES', 120),
     'auto_confirm_batch_size' => 100,
     'signed_url_ttl_minutes' => 10,
     'allowed_mime_types' => [
