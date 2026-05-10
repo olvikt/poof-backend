@@ -213,13 +213,17 @@
                             @endif
                             @php($proofUrls = collect($completionPayload['proofs'] ?? [])->pluck('url')->filter()->values())
                             <div x-data="{ open: false, index: 0, proofs: @js($proofUrls), openAt(i){ this.index = i; this.open = true; }, prev(){ this.index = (this.index - 1 + this.proofs.length) % this.proofs.length; }, next(){ this.index = (this.index + 1) % this.proofs.length; } }" @keydown.escape.window="open = false" @keydown.arrow-left.window="if(open && proofs.length > 1) prev()" @keydown.arrow-right.window="if(open && proofs.length > 1) next()">
-                                <div class="mt-2 grid grid-cols-2 gap-2">
-                                    @foreach($proofUrls as $proofIndex => $proofUrl)
-                                        <button type="button" @click="openAt({{ $proofIndex }})" class="block overflow-hidden rounded-lg border border-white/10 bg-black/20 text-left">
-                                            <img src="{{ $proofUrl }}" alt="Фото-звіт курʼєра, фото {{ $proofIndex + 1 }}" class="h-24 w-full object-cover" />
-                                        </button>
-                                    @endforeach
-                                </div>
+                                @if($proofUrls->isNotEmpty())
+                                    <div class="mt-2 grid grid-cols-2 gap-2">
+                                        @foreach($proofUrls as $proofIndex => $proofUrl)
+                                            <button type="button" @click="openAt({{ $proofIndex }})" class="block overflow-hidden rounded-lg border border-white/10 bg-black/20 text-left">
+                                                <img src="{{ $proofUrl }}" alt="Фото-звіт курʼєра, фото {{ $proofIndex + 1 }}" class="h-24 w-full object-cover" />
+                                            </button>
+                                        @endforeach
+                                    </div>
+                                @else
+                                    <div class="mt-2 text-xs text-sky-100/80">Фотозвіт відсутній</div>
+                                @endif
                                 <template x-if="open && proofs.length">
                                     <div class="fixed inset-0 z-[100] bg-black/85" @click.self="open = false" role="dialog" aria-modal="true" aria-label="Фото-звіт курʼєра">
                                         <div class="flex h-full w-full flex-col p-4 sm:p-6">
