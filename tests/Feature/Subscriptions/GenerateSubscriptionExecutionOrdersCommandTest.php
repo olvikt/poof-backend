@@ -407,6 +407,52 @@ class GenerateSubscriptionExecutionOrdersCommandTest extends TestCase
         $this->assertTrue($subscription->next_run_at !== null && $subscription->next_run_at->greaterThan(Carbon::parse('2026-05-01 12:00:00')));
     }
 
+
+    public function test_it_skips_stale_preloaded_subscription_when_next_run_was_moved_to_future_under_lock(): void
+    {
+        Carbon::setTestNow(Carbon::parse('2026-04-10 12:00:00'));
+
+        $subscription = $this->createPaidSubscription([
+            'next_run_at' => Carbon::parse('2026-04-10 12:00:00'),
+        ]);
+
+        // Simulate worker A that already moved schedule forward before stale worker B obtains lock.
+        $subscription->forceFill(['next_run_at' => Carbon::parse('2026-04-13 12:00:00')])->save();
+
+        Artisan::call('subscriptions:generate-execution-orders --limit=100');
+
+        $this->assertSame(0, Order::query()->where('subscription_id', $subscription->id)->whereDate('scheduled_date', '2026-04-13')->count());
+        $this->assertSame('2026-04-13 12:00:00', $subscription->fresh()->next_run_at?->format('Y-m-d H:i:s'));
+    }
+
+    public function test_legacy_null_slot_row_blocks_duplicate_creation_for_same_minute(): void
+    {
+        Carbon::setTestNow(Carbon::parse('2026-04-10 12:00:00'));
+
+        $subscription = $this->createPaidSubscription([
+            'next_run_at' => Carbon::parse('2026-04-10 12:00:00'),
+        ]);
+
+        Order::createForTesting([
+            'client_id' => $subscription->client_id,
+            'subscription_id' => $subscription->id,
+            'status' => Order::STATUS_NEW,
+            'payment_status' => Order::PAY_PAID,
+            'order_type' => Order::TYPE_SUBSCRIPTION,
+            'origin' => Order::ORIGIN_SUBSCRIPTION,
+            'address_text' => 'legacy',
+            'scheduled_date' => '2026-04-10',
+            'scheduled_time_from' => '12:00:30',
+            'scheduled_time_to' => '14:00',
+            'price' => 100,
+            'client_charge_amount' => 100,
+            'subscription_run_slot' => null,
+        ]);
+
+        Artisan::call('subscriptions:generate-execution-orders --limit=100');
+
+        $this->assertSame(1, Order::query()->where('subscription_id', $subscription->id)->whereDate('scheduled_date', '2026-04-10')->count());
+    }
     private function createPaidSubscription(array $overrides = [], array $planOverrides = []): ClientSubscription
     {
         $client = User::factory()->create(['role' => User::ROLE_CLIENT, 'is_active' => true]);
