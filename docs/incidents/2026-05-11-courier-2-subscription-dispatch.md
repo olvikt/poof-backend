@@ -63,3 +63,7 @@ After infra unblocks bootstrap, rerun:
 - `php artisan poof:diagnose-courier-dispatch --date=2026-05-11 --courier-id=2`
 
 Do **not** mark incident closed until command returns diagnostics on real data.
+
+## Runtime recovery runbook
+- See: `docs/runtime-bootstrap-recovery.md`
+- Next required action: restore runtime using one supported path, then re-run diagnose.
