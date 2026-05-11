@@ -25,7 +25,9 @@ class CourierOrderController extends Controller
 
         $defaultLimit = 20;
         $maxLimit = 50;
-        $limit = max(1, min((int) request()->integer('limit', $defaultLimit), $maxLimit));
+        $rawLimit = request()->query('limit');
+        $parsedLimit = is_numeric($rawLimit) ? (int) $rawLimit : $defaultLimit;
+        $limit = max(1, min($parsedLimit, $maxLimit));
 
         $offers = $hasActiveOrder
             ? collect()

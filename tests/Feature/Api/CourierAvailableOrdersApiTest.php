@@ -35,6 +35,7 @@ class CourierAvailableOrdersApiTest extends TestCase
         $this->getJson('/api/orders/available')
             ->assertOk()
             ->assertJsonCount(1, 'orders')
+            ->assertJsonPath('orders.0.order_id', $visibleOrder->id)
             ->assertJsonPath('orders.0.order_public_id', $visibleOrder->public_id);
     }
 
@@ -173,6 +174,7 @@ class CourierAvailableOrdersApiTest extends TestCase
 
         $this->assertSame([
             'offer_id',
+            'order_id',
             'order_public_id',
             'pickup',
             'delivery',
@@ -181,6 +183,7 @@ class CourierAvailableOrdersApiTest extends TestCase
             'offer_expires_at',
             'service',
         ], array_keys($payload));
+        $this->assertSame($order->id, $payload['order_id']);
         $this->assertArrayNotHasKey('client_id', $payload);
         $this->assertArrayNotHasKey('lat', $payload);
         $this->assertArrayNotHasKey('lng', $payload);
@@ -225,6 +228,30 @@ class CourierAvailableOrdersApiTest extends TestCase
             ->assertJsonCount(50, 'orders')
             ->assertJsonPath('pagination.limit', 50)
             ->assertJsonPath('pagination.max_limit', 50);
+    }
+
+
+    public function test_api_invalid_or_empty_limit_falls_back_to_default_limit(): void
+    {
+        $client = User::factory()->create(['role' => User::ROLE_CLIENT, 'is_active' => true]);
+        $courier = $this->createOnlineCourier();
+
+        foreach (range(1, 25) as $index) {
+            $order = $this->createSearchingOrder($client, 'Fallback limit '.$index);
+            OrderOffer::createPrimaryPending($order->id, $courier->id, 180 + $index);
+        }
+
+        Sanctum::actingAs($courier);
+
+        $this->getJson('/api/orders/available?limit=abc')
+            ->assertOk()
+            ->assertJsonCount(20, 'orders')
+            ->assertJsonPath('pagination.limit', 20);
+
+        $this->getJson('/api/orders/available?limit=')
+            ->assertOk()
+            ->assertJsonCount(20, 'orders')
+            ->assertJsonPath('pagination.limit', 20);
     }
 
     private function createSearchingOrder(User $client, string $addressText): Order

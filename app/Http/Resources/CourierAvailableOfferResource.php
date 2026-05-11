@@ -20,6 +20,7 @@ class CourierAvailableOfferResource extends JsonResource
 
         return [
             'offer_id' => (int) $this->id,
+            'order_id' => $order?->id,
             'order_public_id' => $order?->public_id,
             'pickup' => [
                 'address_text' => $order?->address_text,

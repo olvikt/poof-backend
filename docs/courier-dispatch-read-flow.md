@@ -150,7 +150,8 @@ Response contract:
 - `orders[]` items are projected via `CourierAvailableOfferResource` (no raw `Order` / `OrderOffer` payload leakage).
 - Allowlisted fields per item:
   - `offer_id`
-  - `order_public_id`
+  - `order_id` (temporary accept-compatible identifier for current `POST /api/orders/{order}/accept` route)
+  - `order_public_id` (public display / future-safe identifier)
   - `pickup.address_text`
   - `delivery` (reserved, nullable)
   - `price.courier_payout_amount`
