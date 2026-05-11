@@ -94,4 +94,27 @@ class CourierDispatchByDateDiagnosticCommandTest extends TestCase
         $this->assertArrayHasKey('timezone', $payload);
         $this->assertArrayHasKey('queue', $payload);
     }
+    public function test_it_is_sqlite_compatible_when_fetching_db_now(): void
+    {
+        $client = User::factory()->create(['role' => User::ROLE_CLIENT]);
+
+        Order::createForTesting([
+            'client_id' => $client->id,
+            'scheduled_date' => '2026-05-11',
+            'status' => Order::STATUS_SEARCHING,
+            'payment_status' => Order::PAY_PAID,
+            'dispatch_available_at' => now()->subMinute(),
+        ]);
+
+        $exitCode = Artisan::call('poof:diagnose-courier-dispatch', ['--date' => '2026-05-11', '--courier-id' => 2]);
+        $payload = json_decode(Artisan::output(), true, 512, JSON_THROW_ON_ERROR);
+
+        $this->assertSame(0, $exitCode);
+        $this->assertArrayHasKey('timezone', $payload);
+        $this->assertArrayHasKey('app_timezone', $payload['timezone']);
+        $this->assertArrayHasKey('php_timezone', $payload['timezone']);
+        $this->assertArrayHasKey('db_now', $payload['timezone']);
+        $this->assertArrayHasKey('carbon_now', $payload['timezone']);
+    }
+
 }

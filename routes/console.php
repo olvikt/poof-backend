@@ -304,6 +304,21 @@ Artisan::command('poof:diagnose-courier-dispatch {--date=} {--courier-id=}', fun
     $delayedJobsCount = DB::table('jobs')->where('available_at', '>', now()->timestamp)->count();
     $dispatcherJobsCount = DB::table('jobs')->where('payload', 'like', '%DispatchOfferForOrder%')->count();
 
+    $driver = DB::connection()->getDriverName();
+    $dbNowQuery = match ($driver) {
+        'sqlite' => "select datetime('now') as now",
+        'pgsql' => 'select now() as now',
+        default => 'select now() as now',
+    };
+
+    $dbNow = null;
+
+    try {
+        $dbNow = DB::selectOne($dbNowQuery)?->now;
+    } catch (\Throwable) {
+        $dbNow = null;
+    }
+
     $this->line(json_encode([
         'date' => $date,
         'courier_id' => $courierId > 0 ? $courierId : null,
@@ -313,7 +328,7 @@ Artisan::command('poof:diagnose-courier-dispatch {--date=} {--courier-id=}', fun
         'timezone' => [
             'app_timezone' => config('app.timezone'),
             'php_timezone' => date_default_timezone_get(),
-            'db_now' => DB::selectOne('select now() as now')?->now,
+            'db_now' => $dbNow,
             'carbon_now' => now()->toIso8601String(),
         ],
         'queue' => [
