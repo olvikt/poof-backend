@@ -8,6 +8,8 @@
   - existing unresolved pending order (`origin=subscription`, `payment_status=pending`)
   - existing order in the same slot (`subscription_id + subscription_run_slot`).
 - Added DB-level uniqueness for slot idempotency via `UNIQUE (subscription_id, subscription_run_slot)`.
+- Legacy `orders.subscription_id` standalone unique constraint is removed; `subscription_id` is indexed (non-unique) for lookup performance.
+- Canonical DB idempotency invariant is `UNIQUE (subscription_id, subscription_run_slot)` (plus pending partial unique where supported).
 - Added DB-level unresolved pending uniqueness where partial indexes are supported (PostgreSQL/SQLite):
   - unique index on `subscription_id` filtered by `origin=subscription AND payment_status=pending`.
 - Duplicate slot branch is now explicit short-circuit (`skipped_duplicate_slot`) and does not create a new order.

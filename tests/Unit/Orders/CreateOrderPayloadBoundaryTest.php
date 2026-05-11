@@ -298,4 +298,24 @@ class CreateOrderPayloadBoundaryTest extends TestCase
         $this->assertNotNull($order->accepted_at);
         $this->assertNotNull($order->started_at);
     }
+
+    public function test_create_for_testing_auto_generates_public_id(): void
+    {
+        $client = User::factory()->create([
+            'role' => User::ROLE_CLIENT,
+            'is_active' => true,
+        ]);
+
+        $order = Order::createForTesting([
+            'client_id' => $client->id,
+            'status' => Order::STATUS_NEW,
+            'payment_status' => Order::PAY_PENDING,
+            'address_text' => 'вул. Валідна, 11',
+            'price' => 100,
+        ]);
+
+        $this->assertNotNull($order->public_id);
+        $this->assertMatchesRegularExpression('/^[0-9a-f-]{36}$/i', (string) $order->public_id);
+    }
+
 }
