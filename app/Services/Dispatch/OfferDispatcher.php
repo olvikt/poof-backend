@@ -12,6 +12,7 @@ use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use stdClass;
+use App\Services\Dispatch\DispatchDiagnosticReason;
 
 class OfferDispatcher
 {
@@ -79,7 +80,7 @@ class OfferDispatcher
                     'order_id' => $order->id,
                     'subscription_id' => $order->subscription_id !== null ? (int) $order->subscription_id : null,
                     'status' => (string) ($locked?->status ?? 'missing'),
-                    'reason' => $locked === null ? 'order_not_found_under_lock' : 'order_not_dispatchable_state',
+                    'reason' => $locked === null ? 'order_not_found_under_lock' : DispatchDiagnosticReason::INVALID_STATUS,
                     'trigger_source' => $triggerSource,
                     'order_age_seconds' => null,
                     'elapsed_ms' => $this->elapsedMs($startedAt),
@@ -93,7 +94,7 @@ class OfferDispatcher
                     'order_id' => $locked->id,
                     'subscription_id' => $locked->subscription_id !== null ? (int) $locked->subscription_id : null,
                     'status' => (string) $locked->status,
-                    'reason' => 'order_promise_expired',
+                    'reason' => DispatchDiagnosticReason::ORDER_PROMISE_EXPIRED,
                     'trigger_source' => $triggerSource,
                     'order_age_seconds' => $locked->created_at ? $locked->created_at->diffInSeconds($now) : null,
                     'elapsed_ms' => $this->elapsedMs($startedAt),
@@ -109,7 +110,7 @@ class OfferDispatcher
                     'order_id' => $locked->id,
                     'subscription_id' => $locked->subscription_id !== null ? (int) $locked->subscription_id : null,
                     'status' => (string) $locked->status,
-                    'reason' => 'next_dispatch_at_in_future',
+                    'reason' => DispatchDiagnosticReason::DISPATCH_DEFERRED_UNTIL,
                     'trigger_source' => $triggerSource,
                     'dispatch_backoff_until' => $locked->next_dispatch_at->toIso8601String(),
                     'order_age_seconds' => $orderAgeSeconds,
@@ -124,7 +125,7 @@ class OfferDispatcher
                     'order_id' => $locked->id,
                     'subscription_id' => $locked->subscription_id !== null ? (int) $locked->subscription_id : null,
                     'status' => (string) $locked->status,
-                    'reason' => 'dispatch_available_at_in_future',
+                    'reason' => DispatchDiagnosticReason::DISPATCH_DEFERRED_UNTIL,
                     'trigger_source' => $triggerSource,
                     'dispatch_available_at' => $locked->dispatch_available_at?->toIso8601String(),
                     'order_age_seconds' => $orderAgeSeconds,
@@ -153,7 +154,7 @@ class OfferDispatcher
                     'order_id' => $locked->id,
                     'subscription_id' => $locked->subscription_id !== null ? (int) $locked->subscription_id : null,
                     'status' => (string) $locked->status,
-                    'reason' => 'waiting_live_offer',
+                    'reason' => DispatchDiagnosticReason::WAITING_LIVE_OFFER,
                     'trigger_source' => $triggerSource,
                     'order_age_seconds' => $orderAgeSeconds,
                     'elapsed_ms' => $this->elapsedMs($startedAt),
@@ -212,7 +213,7 @@ class OfferDispatcher
                     orderId: (int) $locked->id,
                     attemptCount: $attemptCount,
                     now: $now,
-                    reason: 'no_candidates',
+                    reason: DispatchDiagnosticReason::NO_CANDIDATES,
                     orderAgeSeconds: $orderAgeSeconds,
                     startedAt: $startedAt,
                     triggerSource: $triggerSource,
@@ -222,7 +223,7 @@ class OfferDispatcher
                     'order_id' => $locked->id,
                     'subscription_id' => $locked->subscription_id !== null ? (int) $locked->subscription_id : null,
                     'status' => (string) $locked->status,
-                    'reason' => 'no_candidates',
+                    'reason' => DispatchDiagnosticReason::NO_CANDIDATES,
                     'attempt_count' => $attemptCount,
                     'reason_breakdown' => $reasonBreakdown['reason_breakdown'],
                     'search_radius_km' => $this->dispatchRadiusKmForOrder($locked),
@@ -255,7 +256,7 @@ class OfferDispatcher
                     orderId: (int) $locked->id,
                     attemptCount: $attemptCount,
                     now: $now,
-                    reason: 'no_pick',
+                    reason: DispatchDiagnosticReason::NO_PICK,
                     orderAgeSeconds: $orderAgeSeconds,
                     startedAt: $startedAt,
                     triggerSource: $triggerSource,
@@ -265,7 +266,7 @@ class OfferDispatcher
                     'order_id' => $locked->id,
                     'subscription_id' => $locked->subscription_id !== null ? (int) $locked->subscription_id : null,
                     'status' => (string) $locked->status,
-                    'reason' => 'no_pick',
+                    'reason' => DispatchDiagnosticReason::NO_PICK,
                     'attempt_count' => $attemptCount,
                     'trigger_source' => $triggerSource,
                     'search_radius_km' => $this->dispatchRadiusKmForOrder($locked),

@@ -12,6 +12,7 @@ use Illuminate\Database\Eloquent\Collection as EloquentCollection;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
+use App\Services\Dispatch\DispatchDiagnosticReason;
 
 class DispatchDiagnosticsService
 {
@@ -107,6 +108,7 @@ class DispatchDiagnosticsService
             'order_id' => $order->id,
             'dispatch_eligibility' => $eligible ? 'eligible' : 'not_eligible',
             'eligibility_reasons' => $this->orderEligibilityReasons($order, $now),
+            'dispatch_available_at' => $order->dispatch_available_at?->toIso8601String(),
             'status' => $order->status,
             'payment_status' => $order->payment_status,
             'courier_id' => $order->courier_id,
@@ -121,6 +123,7 @@ class DispatchDiagnosticsService
             'has_live_pending_offer' => $livePending > 0,
             'recent_exclusion_breakdown' => $scan['reason_breakdown'],
             'candidate_scan_summary' => $scan,
+            'latest_offer' => $this->latestOfferSummary($order),
         ];
     }
 
@@ -276,10 +279,10 @@ class DispatchDiagnosticsService
         $reasons = [];
 
         if ($order->status !== Order::STATUS_SEARCHING) {
-            $reasons[] = 'status_not_searching';
+            $reasons[] = DispatchDiagnosticReason::INVALID_STATUS;
         }
         if ($order->payment_status !== Order::PAY_PAID) {
-            $reasons[] = 'payment_not_paid';
+            $reasons[] = DispatchDiagnosticReason::PAYMENT_NOT_PAID;
         }
         if ($order->courier_id !== null) {
             $reasons[] = 'already_assigned';
@@ -288,10 +291,30 @@ class DispatchDiagnosticsService
             $reasons[] = 'expired_at_set';
         }
         if ($order->valid_until_at && $order->valid_until_at->lte($now)) {
-            $reasons[] = 'validity_expired';
+            $reasons[] = DispatchDiagnosticReason::ORDER_PROMISE_EXPIRED;
         }
 
         return $reasons;
+    }
+
+    private function latestOfferSummary(Order $order): ?array
+    {
+        $offer = OrderOffer::query()
+            ->where('order_id', $order->id)
+            ->latest('id')
+            ->first();
+
+        if (! $offer) {
+            return null;
+        }
+
+        return [
+            'offer_id' => (int) $offer->id,
+            'courier_id' => (int) $offer->courier_id,
+            'status' => (string) $offer->status,
+            'expires_at' => $offer->expires_at?->toIso8601String(),
+            'created_at' => $offer->created_at?->toIso8601String(),
+        ];
     }
 
     private function orderBoundingBox(Order $order): array

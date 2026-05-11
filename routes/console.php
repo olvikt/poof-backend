@@ -152,6 +152,24 @@ Artisan::command('courier:why-order-not-dispatched {orderId}', function (int $or
     return self::SUCCESS;
 })->purpose('Operator diagnostic: explain why order is not dispatched');
 
+
+Artisan::command('poof:diagnose-dispatch {order_id}', function (int $order_id) {
+    /** @var Order|null $order */
+    $order = Order::query()->find($order_id);
+    if (! $order) {
+        $this->error("Order {$order_id} not found.");
+        return self::FAILURE;
+    }
+
+    /** @var DispatchDiagnosticsService $service */
+    $service = app(DispatchDiagnosticsService::class);
+    $diagnostics = $service->diagnoseOrder($order);
+
+    $this->line(json_encode($diagnostics, JSON_UNESCAPED_SLASHES));
+
+    return self::SUCCESS;
+})->purpose('Operator diagnostic: dispatch gating and candidate breakdown by order_id');
+
 Artisan::command('courier:why-courier-not-candidate {orderId} {courierId}', function (int $orderId, int $courierId) {
     /** @var Order|null $order */
     $order = Order::query()->find($orderId);
