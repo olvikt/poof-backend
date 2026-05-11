@@ -180,6 +180,7 @@ public function markAsPaid(): void
         'order_type',
         'bags_count',
         'price',
+        'currency',
         'client_charge_amount',
         'courier_payout_amount',
         'system_subsidy_amount',
