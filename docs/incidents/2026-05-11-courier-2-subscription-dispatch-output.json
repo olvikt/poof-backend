@@ -2,8 +2,8 @@
   "date": "2026-05-11",
   "courier_id": 2,
   "command": "php artisan poof:diagnose-courier-dispatch --date=2026-05-11 --courier-id=2",
-  "executed_at_utc": "2026-05-11T16:46:00Z",
-  "status": "blocked_by_missing_runtime_artifact",
+  "executed_at_utc": "2026-05-11T17:22:48Z",
+  "status": "blocked_by_artifact_access_gap",
   "runtime_check": {
     "script": "bash scripts/check-backend-runtime.sh",
     "runtime_ready": false,
@@ -13,34 +13,20 @@
   },
   "artifact_recovery": {
     "requested_artifact": "runtime-vendor-2df0cf66dfd31be3a5d11b7e6ab22fae4753c563",
-    "attempted_steps": [
-      "Locate CI artifact download tooling (gh CLI)",
-      "Locate runtime vendor archive in local workspace",
-      "Run runtime readiness check"
-    ],
-    "result": "artifact_not_retrievable_in_current_container",
+    "workflow_definition_verified": true,
+    "workflow_file": ".github/workflows/tests.yml",
+    "latest_successful_run_lookup": "blocked_missing_repo_remote_and_credentials",
+    "download_result": "not_possible_in_current_container",
     "details": {
       "gh_cli": "not_installed",
       "github_token": "not_present",
-      "local_vendor_archive": "not_found",
-      "restore_script": "not_executed_without_archive"
+      "git_remote_origin": "not_configured",
+      "local_vendor_archive": "not_found"
     }
   },
   "error": {
-    "type": "runtime_artifact_unavailable",
-    "message": "Laravel bootstrap is blocked because vendor/autoload.php is missing and runtime-vendor artifact cannot be downloaded from this container."
+    "type": "runtime_artifact_access_gap",
+    "message": "GitHub Actions artifact upload is defined, but debug container has no usable path/credentials to fetch runtime-vendor artifact."
   },
-  "verdict": "other",
-  "verdict_note": "Business dispatch verdict on real data remains undetermined until runtime artifact is restored.",
-  "follow_up": {
-    "required_inputs": [
-      "A downloadable URL or local path for runtime-vendor-2df0cf66dfd31be3a5d11b7e6ab22fae4753c563",
-      "or prebuilt runtime image/container with vendor/ installed"
-    ],
-    "next_commands": [
-      "bash scripts/restore-runtime-from-artifact.sh /path/to/vendor.tar.gz",
-      "bash scripts/check-backend-runtime.sh",
-      "php artisan poof:diagnose-courier-dispatch --date=2026-05-11 --courier-id=2"
-    ]
-  }
+  "follow_up_doc": "docs/infra/runtime-artifact-access-gap.md"
 }
