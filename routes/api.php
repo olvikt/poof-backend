@@ -74,7 +74,10 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/orders/available', [CourierOrderController::class, 'available'])
         ->middleware('observe.courier.runtime.endpoint:orders_available_api');
 
-    // courier accepts order
+    // courier accepts order by canonical offer identifier
+    Route::post('/orders/offers/{offer}/accept', [CourierOrderController::class, 'acceptOffer']);
+
+    // @deprecated transitional endpoint, keep only for backward compatibility
     Route::post('/orders/{order}/accept', [CourierOrderController::class, 'accept']);
 
     // canonical courier runtime snapshot

@@ -94,16 +94,18 @@ class ApiProtectedRoutesAuthTest extends TestCase
 
         Sanctum::actingAs($courier);
 
-        $this->getJson('/api/orders/available')
+        $availableResponse = $this->getJson('/api/orders/available')
             ->assertOk()
             ->assertJsonCount(1, 'orders')
-            ->assertJsonPath('orders.0.order_id', $searchingOrder->id)
             ->assertJsonPath('orders.0.order_public_id', $searchingOrder->public_id)
             ->assertJsonPath('orders.0.offer_id', fn (mixed $value): bool => is_int($value) && $value > 0)
             ->assertJsonPath('orders.0.offer_status', OrderOffer::STATUS_PENDING)
-            ->assertJsonPath('orders.0.offer_expires_at', fn (mixed $value): bool => is_string($value) && $value !== '');
+            ->assertJsonPath('orders.0.offer_expires_at', fn (mixed $value): bool => is_string($value) && $value !== '')
+            ->assertJsonMissingPath('orders.0.order_id');
 
-        $this->postJson("/api/orders/{$searchingOrder->id}/accept")
+        $offerId = (int) $availableResponse->json('orders.0.offer_id');
+
+        $this->postJson("/api/orders/offers/{$offerId}/accept")
             ->assertOk()
             ->assertJsonPath('success', true)
             ->assertJsonPath('order.id', $searchingOrder->id)
@@ -160,9 +162,12 @@ class ApiProtectedRoutesAuthTest extends TestCase
             'price' => 222,
         ]);
 
+        $firstOffer = OrderOffer::createPrimaryPending($firstOrder->id, $courier->id, 120);
+        $secondOffer = OrderOffer::createPrimaryPending($secondOrder->id, $courier->id, 120);
+
         Sanctum::actingAs($courier);
 
-        $this->postJson("/api/orders/{$firstOrder->id}/accept")
+        $this->postJson("/api/orders/offers/{$firstOffer->id}/accept")
             ->assertOk()
             ->assertJsonPath('success', true);
 
@@ -173,7 +178,7 @@ class ApiProtectedRoutesAuthTest extends TestCase
             'session_state' => User::SESSION_OFFLINE,
         ])->save();
 
-        $this->postJson("/api/orders/{$secondOrder->id}/accept")
+        $this->postJson("/api/orders/offers/{$secondOffer->id}/accept")
             ->assertStatus(409)
             ->assertJsonPath('success', false)
             ->assertJsonPath('message', 'Неможливо прийняти замовлення');
@@ -232,6 +237,24 @@ class ApiProtectedRoutesAuthTest extends TestCase
             ...$this->orderPayload(),
             'address_id' => 1,
         ])->assertForbidden();
+    }
+
+
+    public function test_legacy_order_id_accept_endpoint_remains_available_for_backward_compatibility(): void
+    {
+        $client = $this->createClient();
+        $courier = $this->createCourier();
+        $order = $this->createDispatchableSearchingPaidOrder($client, [
+            'address_text' => 'вул. Legacy API, 99',
+            'price' => 166,
+        ]);
+
+        Sanctum::actingAs($courier);
+
+        $this->postJson("/api/orders/{$order->id}/accept")
+            ->assertOk()
+            ->assertJsonPath('success', true)
+            ->assertJsonPath('order.id', $order->id);
     }
 
     private function createClient(array $attributes = []): User
