@@ -34,7 +34,7 @@ class WayForPayReturnFlowTest extends TestCase
         $response->assertStatus(302);
 
         $location = (string) $response->headers->get('Location');
-        $this->assertStringStartsWith('/payments/wayforpay/return/finalize?', $location);
+        $this->assertStringContainsString('/payments/wayforpay/return/finalize?', parse_url($location, PHP_URL_PATH).'?'.parse_url($location, PHP_URL_QUERY));
         $this->assertStringContainsString('next=%2Fclient%2Forders%3Fpayment%3Dsuccess%26source%3Dwayforpay_return%26order%3D42', $location);
         $this->assertFalse($this->responseSetsCookie($response, config('session.cookie')));
     }
@@ -82,7 +82,7 @@ class WayForPayReturnFlowTest extends TestCase
         $response->assertStatus(302);
 
         $location = (string) $response->headers->get('Location');
-        $this->assertStringStartsWith('/payments/wayforpay/return/finalize?', $location);
+        $this->assertStringContainsString('/payments/wayforpay/return/finalize?', parse_url($location, PHP_URL_PATH).'?'.parse_url($location, PHP_URL_QUERY));
         $this->assertStringContainsString('next=%2Fclient%2Forders%3Fpayment%3Dfailed%26source%3Dwayforpay_return', $location);
     }
 
@@ -120,7 +120,7 @@ class WayForPayReturnFlowTest extends TestCase
         $response->assertStatus(302);
 
         $location = (string) $response->headers->get('Location');
-        $this->assertStringStartsWith('/payments/wayforpay/return/finalize?', $location);
+        $this->assertStringContainsString('/payments/wayforpay/return/finalize?', parse_url($location, PHP_URL_PATH).'?'.parse_url($location, PHP_URL_QUERY));
         $this->assertStringNotStartsWith('/login', $location);
     }
 
@@ -199,7 +199,7 @@ class WayForPayReturnFlowTest extends TestCase
             'status' => Order::STATUS_NEW,
             'payment_status' => Order::PAY_PAID,
             'order_type' => Order::TYPE_ONE_TIME,
-            'origin' => Order::ORIGIN_WEB,
+            'origin' => Order::ORIGIN_CHECKOUT,
             'address_text' => 'вул. One Time Return, 1',
             'price' => 100,
         ]);
@@ -826,6 +826,7 @@ class WayForPayReturnFlowTest extends TestCase
 
         $address = ClientAddress::query()->create([
             'client_id' => $client->id,
+            'user_id' => $client->id,
             'label' => 'Дім',
             'address_text' => 'вул. Відновлення, 10',
             'lat' => 50.4501,

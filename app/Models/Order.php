@@ -108,6 +108,7 @@ public function markAsPaid(): void
         'total_weight_kg',
         'price',
         'currency',
+        'currency',
         'address_id',
         'address_text',
         'lat',
