@@ -275,27 +275,36 @@
 				</template>
 			</div>
 
-			<div class="mb-5">
-				<x-poof.section title="Як діяти, якщо курʼєра не знайдено">
-					<div class="space-y-2">
-						<label class="flex items-center gap-2 text-sm text-gray-200">
-							<input type="radio" class="accent-yellow-400" wire:model.live="client_wait_preference" value="{{ \App\Models\Order::WAIT_ALLOW_LATE_FULFILLMENT }}">
-							<span>Чекати довше, якщо курʼєра не знайдено в бажаний час</span>
-						</label>
-						<label class="flex items-center gap-2 text-sm text-gray-200">
-							<input type="radio" class="accent-yellow-400" wire:model.live="client_wait_preference" value="{{ \App\Models\Order::WAIT_AUTO_CANCEL_IF_NOT_FOUND }}">
-							<span>Скасувати замовлення та повернути кошти, якщо курʼєра не буде знайдено вчасно</span>
-						</label>
-					</div>
-					<label class="mt-3 flex items-start gap-2 text-xs text-gray-400">
-						<input type="checkbox" class="mt-0.5 accent-yellow-400" wire:model="promise_consent">
-						<span>Підтверджую, що ознайомився(лася) з умовами авто-скасування та можливого зсуву часу виконання.</span>
-					</label>
-					@error('promise_consent')
-						<div class="text-red-400 text-xs mt-1">{{ $message }}</div>
-					@enderror
-				</x-poof.section>
-			</div>
+				<div class="mb-5">
+					<x-poof.section title="Як діяти, якщо курʼєра не знайдено">
+						<div
+							data-e2e="courier-not-found-hint"
+							class="rounded-2xl border border-yellow-400/30 bg-yellow-400/5 p-3 sm:p-4"
+						>
+							<div class="mb-3 flex items-center gap-2 text-xs font-medium uppercase tracking-wide text-yellow-200/90">
+								<span aria-hidden="true" class="inline-block h-2 w-2 rounded-full bg-yellow-300"></span>
+								<span>Підказка</span>
+							</div>
+							<div class="space-y-2">
+								<label class="flex items-start gap-2 text-sm text-gray-200">
+								<input type="radio" class="accent-yellow-400" wire:model.live="client_wait_preference" value="{{ \App\Models\Order::WAIT_ALLOW_LATE_FULFILLMENT }}">
+									<span>Чекати довше, якщо курʼєра не знайдено в бажаний час</span>
+								</label>
+								<label class="flex items-start gap-2 text-sm text-gray-200">
+								<input type="radio" class="accent-yellow-400" wire:model.live="client_wait_preference" value="{{ \App\Models\Order::WAIT_AUTO_CANCEL_IF_NOT_FOUND }}">
+									<span>Скасувати замовлення та повернути кошти, якщо курʼєра не буде знайдено вчасно</span>
+								</label>
+							</div>
+							<label class="mt-3 flex items-start gap-2 text-xs text-gray-400">
+								<input type="checkbox" class="mt-0.5 accent-yellow-400" wire:model="promise_consent">
+								<span>Підтверджую, що ознайомився(лася) з умовами авто-скасування та можливого зсуву часу виконання.</span>
+							</label>
+						</div>
+						@error('promise_consent')
+							<div class="text-red-400 text-xs mt-1">{{ $message }}</div>
+						@enderror
+					</x-poof.section>
+				</div>
 
 
 	{{-- ================= DIVIDER ================= --}}
