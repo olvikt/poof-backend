@@ -13,6 +13,7 @@ use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use App\Services\Dispatch\DispatchDiagnosticReason;
+use Throwable;
 
 class DispatchDiagnosticsService
 {
@@ -87,6 +88,83 @@ class DispatchDiagnosticsService
                 'max_searching_age_minutes' => $maxSearchingAgeMinutes,
             ],
         ];
+    }
+
+    public function reportFutureDeferredSearchingOrders(int $limit = 100, ?Carbon $now = null): array
+    {
+        $now ??= now();
+        $toleranceMinutes = max(1, (int) config('courier_runtime.searching_diagnostics.future_deferral_tolerance_minutes', 10));
+        $alertHours = max(1, (int) config('courier_runtime.searching_diagnostics.future_deferral_alert_hours', 2));
+        $futureToleranceThreshold = $now->copy()->addMinutes($toleranceMinutes);
+        $alertThreshold = $now->copy()->addHours($alertHours);
+
+        /** @var EloquentCollection<int,Order> $orders */
+        $orders = Order::query()
+            ->where('status', Order::STATUS_SEARCHING)
+            ->where('payment_status', Order::PAY_PAID)
+            ->whereNull('courier_id')
+            ->whereNotNull('dispatch_available_at')
+            ->where('dispatch_available_at', '>', $futureToleranceThreshold)
+            ->orderBy('dispatch_available_at')
+            ->limit($limit)
+            ->get();
+
+        $rows = [];
+
+        foreach ($orders as $order) {
+            $isSevere = $order->dispatch_available_at?->gt($alertThreshold) ?? false;
+            $row = [
+                'order_id' => $order->id,
+                'status' => $order->status,
+                'payment_status' => $order->payment_status,
+                'courier_id' => $order->courier_id,
+                'created_at' => $order->created_at?->toIso8601String(),
+                'dispatch_available_at' => $order->dispatch_available_at?->toIso8601String(),
+                'deferred_for_minutes' => $order->dispatch_available_at?->diffInMinutes($now),
+                'is_severe' => $isSevere,
+                'diagnostic_event' => 'searching_future_deferred_order_detected',
+            ];
+            $rows[] = $row;
+
+            Log::warning('searching_future_deferred_order_detected', [
+                ...$row,
+                'counter' => 'searching_future_deferred_orders_total',
+                'counter_increment' => 1,
+                'counter_labels' => [
+                    'severity' => $isSevere ? 'high' : 'normal',
+                ],
+            ]);
+
+            $this->captureFutureDeferralBreadcrumb($row);
+        }
+
+        return [
+            'items' => $rows,
+            'total' => count($rows),
+            'thresholds' => [
+                'tolerance_minutes' => $toleranceMinutes,
+                'alert_hours' => $alertHours,
+            ],
+        ];
+    }
+
+    protected function captureFutureDeferralBreadcrumb(array $row): void
+    {
+        if (! class_exists('\Sentry\State\HubInterface') || ! function_exists('\Sentry\addBreadcrumb')) {
+            return;
+        }
+
+        try {
+            \Sentry\addBreadcrumb(new \Sentry\Breadcrumb(
+                \Sentry\Breadcrumb::LEVEL_WARNING,
+                \Sentry\Breadcrumb::TYPE_DEFAULT,
+                'dispatch',
+                'searching_future_deferred_order_detected',
+                $row
+            ));
+        } catch (Throwable) {
+            // no-op: telemetry must never break dispatch diagnostics flow.
+        }
     }
 
     public function diagnoseOrder(Order $order, ?Carbon $now = null): array

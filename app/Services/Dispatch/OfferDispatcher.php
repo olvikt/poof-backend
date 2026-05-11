@@ -336,6 +336,7 @@ class OfferDispatcher
         $startedAt = microtime(true);
         $count = 0;
         $now = now();
+        $this->reportSuspiciousFutureDeferrals($now);
 
         $orders = $this->dispatchQueueSelection($now, $limit);
         $selected = $orders->count();
@@ -375,6 +376,41 @@ class OfferDispatcher
         }
 
         return $count;
+    }
+
+    protected function reportSuspiciousFutureDeferrals(Carbon $now): void
+    {
+        $toleranceMinutes = max(1, (int) config('courier_runtime.searching_diagnostics.future_deferral_tolerance_minutes', 10));
+        $threshold = $now->copy()->addMinutes($toleranceMinutes);
+
+        $query = Order::query()
+            ->where('status', Order::STATUS_SEARCHING)
+            ->whereNull('courier_id')
+            ->where('payment_status', Order::PAY_PAID)
+            ->whereNotNull('dispatch_available_at')
+            ->where('dispatch_available_at', '>', $threshold);
+
+        $count = (clone $query)->count();
+        if ($count === 0) {
+            return;
+        }
+
+        $sampleOrderIds = (clone $query)
+            ->orderBy('dispatch_available_at')
+            ->limit(5)
+            ->pluck('id')
+            ->map(static fn ($id): int => (int) $id)
+            ->all();
+
+        Log::warning('searching_future_deferrals_observed', [
+            'flow' => 'offer_dispatch',
+            'count' => $count,
+            'sample_order_ids' => $sampleOrderIds,
+            'threshold_at' => $threshold->toIso8601String(),
+            'tolerance_minutes' => $toleranceMinutes,
+            'counter' => 'searching_future_deferrals_observed_total',
+            'counter_increment' => $count,
+        ]);
     }
 
     protected function searchingOrdersQuery(Carbon $now)
