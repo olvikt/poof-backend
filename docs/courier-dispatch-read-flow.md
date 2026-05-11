@@ -150,8 +150,7 @@ Response contract:
 - `orders[]` items are projected via `CourierAvailableOfferResource` (no raw `Order` / `OrderOffer` payload leakage).
 - Allowlisted fields per item:
   - `offer_id`
-  - `order_id` (temporary accept-compatible identifier for current `POST /api/orders/{order}/accept` route)
-  - `order_public_id` (public display / future-safe identifier)
+  - `order_public_id` (public display / reference identifier for UI)
   - `pickup.address_text`
   - `delivery` (reserved, nullable)
   - `price.courier_payout_amount`
@@ -167,3 +166,18 @@ Pagination / limits:
 - default `limit=20`
 - max `limit=50`
 - stable sorting priority: `order_offers.expires_at ASC`, then `order_offers.created_at DESC`.
+
+
+## API accept contract: offer-first
+
+Canonical courier accept endpoint is `POST /api/orders/offers/{offer}/accept`.
+
+Validation and ownership checks are evaluated on `OrderOffer` before lifecycle mutation:
+- offer belongs to authenticated courier;
+- offer status is `pending`;
+- offer is alive (`expires_at > now`);
+- related order remains `status=searching` and `payment_status=paid`.
+
+After offer-level gate passes, acceptance delegates to canonical `AcceptOrderByCourierAction` (single lifecycle source of truth).
+
+Legacy `POST /api/orders/{order}/accept` is transitional/backward-compatible and marked deprecated; external courier API read→accept contract must use `offer_id` only and must not require sequential raw order id.

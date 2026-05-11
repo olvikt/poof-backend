@@ -35,7 +35,6 @@ class CourierAvailableOrdersApiTest extends TestCase
         $this->getJson('/api/orders/available')
             ->assertOk()
             ->assertJsonCount(1, 'orders')
-            ->assertJsonPath('orders.0.order_id', $visibleOrder->id)
             ->assertJsonPath('orders.0.order_public_id', $visibleOrder->public_id);
     }
 
@@ -175,7 +174,6 @@ class CourierAvailableOrdersApiTest extends TestCase
 
         $this->assertSame([
             'offer_id',
-            'order_id',
             'order_public_id',
             'pickup',
             'delivery',
@@ -184,7 +182,7 @@ class CourierAvailableOrdersApiTest extends TestCase
             'offer_expires_at',
             'service',
         ], array_keys($payload));
-        $this->assertSame($order->id, $payload['order_id']);
+        $this->assertArrayNotHasKey('order_id', $payload);
         $this->assertArrayNotHasKey('client_id', $payload);
         $this->assertArrayNotHasKey('lat', $payload);
         $this->assertArrayNotHasKey('lng', $payload);

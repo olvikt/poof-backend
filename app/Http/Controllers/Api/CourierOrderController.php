@@ -8,6 +8,7 @@ use App\Http\Resources\CourierAvailableOfferResource;
 use App\Models\Order;
 use App\Models\OrderOffer;
 use App\Services\Courier\CourierPresenceService;
+use Illuminate\Http\JsonResponse;
 
 class CourierOrderController extends Controller
 {
@@ -43,6 +44,45 @@ class CourierOrderController extends Controller
                 'max_limit' => $maxLimit,
                 'count' => $offers->count(),
             ],
+        ]);
+    }
+
+    /**
+     * Курьер принимает заказ по offer_id (canonical public contract).
+     */
+    public function acceptOffer(OrderOffer $offer): JsonResponse
+    {
+        $courier = auth()->user();
+
+        abort_if(! $courier || ! $courier->isCourier(), 403);
+
+        $offer = OrderOffer::query()
+            ->whereKey($offer->getKey())
+            ->where('courier_id', (int) $courier->id)
+            ->where('status', OrderOffer::STATUS_PENDING)
+            ->whereNotNull('expires_at')
+            ->where('expires_at', '>', now())
+            ->whereHas('order', function ($query): void {
+                $query->where('status', Order::STATUS_SEARCHING)
+                    ->where('payment_status', Order::PAY_PAID);
+            })
+            ->first();
+
+        if (! $offer || ! app(AcceptOrderByCourierAction::class)->handle($offer->order, $courier)) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Неможливо прийняти замовлення',
+            ], 409);
+        }
+
+        OrderOffer::query()
+            ->whereKey($offer->getKey())
+            ->where('status', OrderOffer::STATUS_PENDING)
+            ->update(['status' => OrderOffer::STATUS_ACCEPTED]);
+
+        return response()->json([
+            'success' => true,
+            'order' => $offer->order->fresh(),
         ]);
     }
 
