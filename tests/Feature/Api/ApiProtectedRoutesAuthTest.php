@@ -97,7 +97,10 @@ class ApiProtectedRoutesAuthTest extends TestCase
         $this->getJson('/api/orders/available')
             ->assertOk()
             ->assertJsonCount(1, 'orders')
-            ->assertJsonPath('orders.0.id', $searchingOrder->id);
+            ->assertJsonPath('orders.0.order_public_id', $searchingOrder->public_id)
+            ->assertJsonPath('orders.0.offer_id', fn (mixed $value): bool => is_int($value) && $value > 0)
+            ->assertJsonPath('orders.0.offer_status', OrderOffer::STATUS_PENDING)
+            ->assertJsonPath('orders.0.offer_expires_at', fn (mixed $value): bool => is_string($value) && $value !== '');
 
         $this->postJson("/api/orders/{$searchingOrder->id}/accept")
             ->assertOk()
