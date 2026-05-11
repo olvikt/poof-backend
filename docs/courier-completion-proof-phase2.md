@@ -17,11 +17,15 @@ Added `order_completion_disputes` (one dispute per completion request):
 - indexed for queue operations.
 
 ## Client flow
-- `GET /api/client/orders/{order}/completion-proof`
-- `POST /api/client/orders/{order}/completion-proof/confirm`
-- `POST /api/client/orders/{order}/completion-proof/disputes`
+- `GET /api/client/orders/{order:public_id}/completion-proof`
+- `POST /api/client/orders/{order:public_id}/completion-proof/confirm`
+- `POST /api/client/orders/{order:public_id}/completion-proof/disputes`
 
 Client can act only on own order. Courier is forbidden for client confirmation endpoints.
+
+API payload compatibility:
+- `order_id` (numeric) остаётся временно для backward-compatible display/analytics сценариев.
+- `order_public_id` добавлен как canonical identifier для client API calls на `completion-proof*` endpoints.
 
 ## Admin/support flow
 - `GET /api/admin/completion-disputes`

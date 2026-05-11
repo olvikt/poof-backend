@@ -79,15 +79,18 @@ class OrderCompletionProofPhase2Test extends TestCase
         [$client, $courier, $order] = $this->createAwaitingClientConfirmationOrder();
 
         Sanctum::actingAs($client);
-        $response = $this->getJson('/api/client/orders/'.$order->id.'/completion-proof');
-        $response->assertOk()->assertJsonPath('success', true);
+        $response = $this->getJson('/api/client/orders/'.$order->public_id.'/completion-proof');
+        $response->assertOk()
+            ->assertJsonPath('success', true)
+            ->assertJsonPath('data.order_id', $order->id)
+            ->assertJsonPath('data.order_public_id', $order->public_id);
         $proofUrl = (string) $response->json('data.proofs.0.url');
         $this->assertNotSame('proofs/door.jpg', $proofUrl);
         $this->assertNotSame('', $proofUrl);
 
         $courierUser = User::query()->findOrFail($courier->id);
         Sanctum::actingAs($courierUser);
-        $this->postJson('/api/client/orders/'.$order->id.'/completion-proof/confirm')->assertForbidden();
+        $this->postJson('/api/client/orders/'.$order->public_id.'/completion-proof/confirm')->assertForbidden();
     }
 
     private function createAwaitingClientConfirmationOrder(): array

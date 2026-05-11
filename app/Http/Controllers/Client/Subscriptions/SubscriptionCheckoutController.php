@@ -20,7 +20,7 @@ class SubscriptionCheckoutController extends Controller
 
         $order = $this->resolvePendingOrCreate($subscription);
 
-        return redirect()->route('client.payments.show', $order);
+        return redirect()->route('client.payments.show', ['order' => $order->public_id]);
     }
 
     public function renew(ClientSubscription $subscription): RedirectResponse
@@ -31,7 +31,7 @@ class SubscriptionCheckoutController extends Controller
 
         $order = $this->resolvePendingOrCreate($subscription);
 
-        return redirect()->route('client.payments.show', $order);
+        return redirect()->route('client.payments.show', ['order' => $order->public_id]);
     }
 
     private function resolvePendingOrCreate(ClientSubscription $subscription): Order

@@ -36,7 +36,7 @@ class PaymentStartControllerTest extends TestCase
         ]);
 
         $response = $this->actingAs($client, 'web')
-            ->post(route('client.payments.start', $order));
+            ->post(route('client.payments.start', ['order' => $order->public_id]));
 
         $response
             ->assertOk()
@@ -74,7 +74,7 @@ class PaymentStartControllerTest extends TestCase
 
         $this->actingAs($client, 'web');
 
-        $request = Request::create(route('client.payments.start', $order), 'POST');
+        $request = Request::create(route('client.payments.start', ['order' => $order->public_id]), 'POST');
 
         $controller = app(PaymentStartController::class);
         $result = $controller($request, $order, $builder);

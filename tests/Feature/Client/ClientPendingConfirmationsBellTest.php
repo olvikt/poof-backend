@@ -40,9 +40,11 @@ class ClientPendingConfirmationsBellTest extends TestCase
         $payload = app(GetPendingConfirmationsForClientAction::class)->handle($client);
         $this->assertCount(2, $payload['items']);
         $this->assertNotEmpty(collect($payload['items'])->firstWhere('order_id', $oneTime->id)['target_url']);
+        $this->assertSame($oneTime->public_id, collect($payload['items'])->firstWhere('order_id', $oneTime->id)['order_public_id']);
         $this->assertStringContainsString('/client/orders', collect($payload['items'])->firstWhere('order_id', $oneTime->id)['target_url']);
         $this->assertSame('Перейти до замовлення', collect($payload['items'])->firstWhere('order_id', $oneTime->id)['target_label']);
         $this->assertStringContainsString('/client/subscriptions', collect($payload['items'])->firstWhere('order_id', $subOrder->id)['target_url']);
+        $this->assertSame($subOrder->public_id, collect($payload['items'])->firstWhere('order_id', $subOrder->id)['order_public_id']);
         $this->assertSame('Відкрити підписку', collect($payload['items'])->firstWhere('order_id', $subOrder->id)['target_label']);
     }
 

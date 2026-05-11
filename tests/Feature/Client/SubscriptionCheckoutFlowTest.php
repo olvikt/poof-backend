@@ -48,7 +48,7 @@ class SubscriptionCheckoutFlowTest extends TestCase
 
         $order = Order::query()->where('subscription_id', $subscription->id)->firstOrFail();
 
-        $response->assertRedirect(route('client.payments.show', $order));
+        $response->assertRedirect(route('client.payments.show', ['order' => $order->public_id]));
         $this->assertSame(Order::ORIGIN_SUBSCRIPTION, $order->origin);
         $this->assertSame(Order::TYPE_SUBSCRIPTION, $order->order_type);
     }

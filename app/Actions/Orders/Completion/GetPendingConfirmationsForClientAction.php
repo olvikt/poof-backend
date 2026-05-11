@@ -13,7 +13,7 @@ class GetPendingConfirmationsForClientAction
     public function handle(User $client): array
     {
         $orders = Order::query()
-            ->select(['id', 'subscription_id', 'origin', 'service_mode', 'window_from_at', 'window_to_at', 'scheduled_date', 'address_text'])
+            ->select(['id', 'public_id', 'subscription_id', 'origin', 'service_mode', 'window_from_at', 'window_to_at', 'scheduled_date', 'address_text'])
             ->where('client_id', $client->id)
             ->whereNotIn('status', [Order::STATUS_CANCELLED, Order::STATUS_EXPIRED])
             ->whereHas('completionRequest', function ($query): void {
@@ -28,6 +28,7 @@ class GetPendingConfirmationsForClientAction
 
             return [
                 'order_id' => $order->id,
+                'order_public_id' => $order->public_id,
                 'subscription_id' => $order->subscription_id,
                 'order_type' => $order->subscription_id ? 'subscription' : 'one_time',
                 'origin' => $order->origin,

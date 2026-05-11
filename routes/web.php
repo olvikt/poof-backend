@@ -170,16 +170,40 @@ Route::middleware('auth:web')
         Route::get('/', Home::class)->name('home');
         Route::get('/order/create', OrderCreate::class)->name('order.create');
         Route::get('/orders', OrdersList::class)->name('orders');
-        Route::get('/orders/{order}/proofs', OrderProofsPage::class)->name('orders.proofs');
+        Route::get('/orders/{order:public_id}/proofs', OrderProofsPage::class)->name('orders.proofs');
         Route::get('/profile', Profile::class)->name('profile');
         Route::get('/subscriptions', SubscriptionsPage::class)->name('subscriptions');
         Route::get('/addresses', AddressesPage::class)->name('addresses');
         Route::get('/billing', PaymentsPage::class)->name('billing');
         Route::get('/support', fn () => redirect()->away('https://t.me/poofsupport'))->name('support');
         Route::get('/more/{page}', MorePlaceholderPage::class)->whereIn('page', ['promocodes', 'settings'])->name('more.placeholder');
-        Route::get('/payments/{order}', PaymentPageController::class)->name('payments.show');
-        Route::post('/payments/{order}/start', PaymentStartController::class)->name('payments.start');
-        Route::post('/payments/dev-pay/{order}', DevPaymentController::class)->name('payments.dev-pay');
+        Route::get('/payments/{order:public_id}', PaymentPageController::class)
+            ->name('payments.show')
+            ->missing(function (Request $request) {
+                $legacyOrderId = $request->route('order');
+                if (! is_numeric($legacyOrderId)) {
+                    abort(404);
+                }
+
+                $order = \App\Models\Order::query()->find((int) $legacyOrderId);
+                abort_unless($order && $order->client_id === auth()->id(), 404);
+
+                return redirect()->route('client.payments.show', ['order' => $order->public_id]);
+            });
+        Route::post('/payments/{order:public_id}/start', PaymentStartController::class)
+            ->name('payments.start')
+            ->missing(function (Request $request) {
+                $legacyOrderId = $request->route('order');
+                if (! is_numeric($legacyOrderId)) {
+                    abort(404);
+                }
+
+                $order = \App\Models\Order::query()->find((int) $legacyOrderId);
+                abort_unless($order && $order->client_id === auth()->id(), 404);
+
+                return redirect()->route('client.payments.show', ['order' => $order->public_id]);
+            });
+        Route::post('/payments/dev-pay/{order:public_id}', DevPaymentController::class)->name('payments.dev-pay');
         Route::post('/subscriptions/{subscription}/pay', [SubscriptionCheckoutController::class, 'pay'])->name('subscriptions.pay');
         Route::post('/subscriptions/{subscription}/renew', [SubscriptionCheckoutController::class, 'renew'])->name('subscriptions.renew');
     });
