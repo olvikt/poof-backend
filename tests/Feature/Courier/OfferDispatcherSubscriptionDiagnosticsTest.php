@@ -98,13 +98,12 @@ class OfferDispatcherSubscriptionDiagnosticsTest extends TestCase
     {
         $plan = SubscriptionPlan::factory()->create();
 
-        return ClientSubscription::query()->create([
+        return ClientSubscription::unguarded(fn (): ClientSubscription => ClientSubscription::query()->create([
             'client_id' => $clientId,
             'subscription_plan_id' => $plan->id,
             'status' => ClientSubscription::STATUS_ACTIVE,
-            'frequency_type' => 'weekly',
-            'next_run_at' => now()->addDay(),
-        ]);
+                        'next_run_at' => now()->addDay(),
+        ]));
     }
 
 }

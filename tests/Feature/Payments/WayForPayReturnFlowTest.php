@@ -836,17 +836,15 @@ class WayForPayReturnFlowTest extends TestCase
 
         $plan = SubscriptionPlan::factory()->create([
             'is_active' => true,
-            'frequency_type' => 'daily',
-        ]);
+                    ]);
 
-        $subscription = ClientSubscription::query()->create([
+        $subscription = ClientSubscription::unguarded(fn (): ClientSubscription => ClientSubscription::query()->create([
             'client_id' => $client->id,
-            'plan_id' => $plan->id,
+            'subscription_plan_id' => $plan->id,
             'address_id' => $address->id,
             'status' => ClientSubscription::STATUS_ACTIVE,
-            'frequency_type' => 'daily',
-            'next_run_at' => now(),
-        ]);
+                        'next_run_at' => now(),
+        ]));
 
         $checkout = Order::createForTesting([
             'client_id' => $client->id,

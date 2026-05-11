@@ -406,7 +406,8 @@ class GenerateSubscriptionExecutionOrdersCommandTest extends TestCase
             ->whereDate('scheduled_date', '2026-05-01')
             ->where('origin', Order::ORIGIN_SUBSCRIPTION)
             ->count());
-        $this->assertSame('2026-05-04 12:00:00', $subscription->next_run_at?->format('Y-m-d H:i:s'));
+        // next_run_at intentionally remains at blocked execution slot until renewal reactivates schedule
+        $this->assertSame('2026-05-01 12:00:00', $subscription->next_run_at?->format('Y-m-d H:i:s'));
     }
 
 

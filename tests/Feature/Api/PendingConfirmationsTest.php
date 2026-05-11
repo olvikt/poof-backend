@@ -132,6 +132,7 @@ class PendingConfirmationsTest extends TestCase
         OrderCompletionRequest::unguarded(fn () => OrderCompletionRequest::query()->create([
             'order_id' => $order->id,
             'courier_id' => $courierId,
+            'completion_policy' => OrderCompletionRequest::POLICY_DOOR_TWO_PHOTO_CLIENT_CONFIRM,
             'status' => OrderCompletionRequest::STATUS_AWAITING_CLIENT_CONFIRMATION,
             'submitted_at' => now()->subMinutes(30),
             'auto_confirmation_due_at' => now()->addHours(23),
@@ -149,8 +150,7 @@ class PendingConfirmationsTest extends TestCase
             'client_id' => $clientId,
             'subscription_plan_id' => $plan->id,
             'status' => ClientSubscription::STATUS_ACTIVE,
-            'frequency_type' => 'weekly',
-            'next_run_at' => now()->addDay(),
+                        'next_run_at' => now()->addDay(),
         ]));
     }
 
