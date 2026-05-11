@@ -2,48 +2,26 @@
   "date": "2026-05-11",
   "courier_id": 2,
   "command": "php artisan poof:diagnose-courier-dispatch --date=2026-05-11 --courier-id=2",
-  "executed_at_utc": "2026-05-11T14:03:55Z",
+  "executed_at_utc": "2026-05-11T16:24:54Z",
   "status": "failed_before_artisan_bootstrap",
-  "bootstrap": {
-    "artisan_version": {
-      "command": "php artisan --version",
-      "result": "failed",
-      "error": "Failed opening required '/workspace/poof-backend/vendor/autoload.php'"
-    },
-    "composer_cache": {
-      "cache_dir": "/root/.cache/composer",
-      "size": "16K",
-      "result": "insufficient_for_offline_install"
-    },
-    "local_vendor_artifact": {
-      "search_scope": "/workspace",
-      "result": "not_found"
-    },
-    "network_blocker": {
-      "command": "composer diagnose",
-      "proxy_response": "CONNECT tunnel failed, response 403",
-      "blocked_hosts": [
-        "repo.packagist.org",
-        "api.github.com",
-        "getcomposer.org"
-      ]
-    }
+  "runtime_check": {
+    "script": "bash scripts/check-backend-runtime.sh",
+    "runtime_ready": false,
+    "missing_vendor": true,
+    "artisan_bootstrap": false,
+    "composer_network_blocked": true
+  },
+  "recovery_attempt": {
+    "path": "C) approved composer mirror/proxy allowlist (direct composer install attempted)",
+    "command": "composer install --no-interaction --prefer-dist --no-progress",
+    "result": "failed",
+    "failure_pattern": "curl error 56 ... CONNECT tunnel failed, response 403; dist fallback to source also blocked"
   },
   "error": {
     "type": "runtime_bootstrap_blocker",
-    "message": "Dependency restore is blocked by outbound proxy/network policy; Laravel cannot bootstrap without vendor/autoload.php."
+    "message": "Laravel cannot bootstrap because vendor/autoload.php is missing and dependency restore is blocked by outbound proxy/network policy."
   },
-  "verdict": "blocked_by_runtime_bootstrap",
-  "verdict_note": "Incident is not closed. Diagnose command must be re-run on an environment with prebuilt vendor/ or network access to dependency sources.",
-  "infra_actionable_ticket": {
-    "title": "Restore Laravel runtime bootstrap for diagnostics container",
-    "required_actions": [
-      "Provide CI/build artifact that includes vendor/ matching composer.lock",
-      "OR run diagnose in Docker image where composer dependencies are preinstalled",
-      "OR allow proxy egress for repo.packagist.org, api.github.com, and getcomposer.org",
-      "OR configure corporate Composer mirror/Satis and point repositories to mirror",
-      "OR supply COMPOSER_AUTH/GitHub token if policy permits but rate/auth is the blocker"
-    ],
-    "done_definition": "php artisan --version succeeds and php artisan poof:diagnose-courier-dispatch --date=2026-05-11 --courier-id=2 returns diagnostic JSON on real data"
-  }
+  "verdict": "other",
+  "verdict_note": "Final dispatch root cause on real data is not computable in this container. Operational root cause for this run is runtime bootstrap blocked by network/proxy policy.",
+  "recommended_next_step": "Use CI artifact with vendor/ for current commit or run in prebuilt Docker image with dependencies, then rerun diagnose command."
 }

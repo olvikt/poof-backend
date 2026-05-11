@@ -5,65 +5,47 @@
 - Environment date requested: `2026-05-11`
 - Courier: `2`
 
-## Execution result
-The diagnose command is still **not executable** in this container because Laravel bootstrap fails before app start.
+## Recovery path attempted on 2026-05-11
+Documented path used: **C) Composer mirror/proxy allowlist path** (`docs/runtime-bootstrap-recovery.md`).
 
-Observed sequence:
-1. `php artisan --version` fails with missing `vendor/autoload.php`.
-2. Runtime restoration via Composer is blocked by outbound proxy/network policy.
-3. No prebuilt `vendor/` artifact was found in workspace.
+Commands executed:
+1. `bash scripts/check-backend-runtime.sh`
+2. `composer install --no-interaction --prefer-dist --no-progress`
+3. `bash scripts/check-backend-runtime.sh`
 
-Saved raw execution status:
+Observed result:
+- `runtime_ready=false`
+- `missing_vendor=true`
+- `artisan_bootstrap=false`
+- `composer_network_blocked=true`
+
+`composer install` failed repeatedly with proxy/network errors (`CONNECT tunnel failed, response 403`) when downloading package archives from GitHub-backed dist URLs.
+
+## Diagnose command status
+`php artisan poof:diagnose-courier-dispatch --date=2026-05-11 --courier-id=2` is still not executable because bootstrap fails before Laravel starts (`vendor/autoload.php` missing).
+
+Saved output snapshot:
 - `docs/incidents/2026-05-11-courier-2-subscription-dispatch-output.json`
 
-## Runtime bootstrap blocker
-Exact blocker evidence (from this environment):
-- Command: `php artisan --version`
-  - Error: `Failed opening required '/workspace/poof-backend/vendor/autoload.php'`
-- Command: `composer diagnose`
-  - `curl error 56 while downloading https://getcomposer.org/versions: CONNECT tunnel failed, response 403`
-  - `curl error 56 while downloading https://repo.packagist.org/packages.json: CONNECT tunnel failed, response 403`
-  - `curl error 56 while downloading https://api.github.com/rate_limit: CONNECT tunnel failed, response 403`
-- Composer cache check:
-  - cache dir `/root/.cache/composer` exists but size is only `16K`, insufficient for offline install.
-- Local artifact check:
-  - no `vendor` archive found under `/workspace` search scope.
+## FINAL root cause for this run
+- Classification: **другое (operational)**
+- Root cause: **runtime bootstrap blocked by dependency delivery path** (proxy/network policy blocks Composer package retrieval; no CI artifact/prebuilt image with `vendor/` provided in this environment).
 
-Blocking dependency sources / hosts:
-- `repo.packagist.org`
-- `api.github.com`
-- `getcomposer.org`
+## Почему courier 2 не видел заказ
+На этом запуске это **не может быть подтверждено на реальных данных**, потому что бизнес-диагностика не стартовала: artisan не загрузил приложение.
 
-Proxy response observed:
-- `CONNECT tunnel failed, response 403`
+## Какой exact filter/field это вызвал
+Для доменной причины (например, `dispatch_deferred_future_window`, `no_alive_pending_offer`, `no_offer_for_courier`, `not_paid`, queue/timezone) exact field/filter **не определён**, потому что JSON диагностики не был получен.
 
-## Final incident verdict
-- **Root cause code:** `blocked_by_runtime_bootstrap`
-- **Final verdict:** Incident is **not closed**. Business/root-cause diagnosis for courier visibility on `2026-05-11` cannot be computed in this environment until runtime bootstrap is restored.
+## Почему это произошло именно 11.05
+Потому что на 2026-05-11 в этом контейнере runtime остался без `vendor/`, а сетевой путь для Composer в тот же день возвращает `403` на CONNECT через прокси, что заблокировало bootstrap и финальную dispatch-диагностику.
 
-## Required counters (active/today, dispatchable, deferred, stuck_without_offers)
-Unavailable from this run due to bootstrap failure.
+## Как предотвратить повторение
+1. Для incident-окружений хранить и использовать **CI artifact с `vendor/`**, привязанный к commit SHA.
+2. Иметь **prebuilt runtime Docker image** с уже установленными зависимостями.
+3. Либо поддерживать **официальный composer mirror/allowlist** для `repo.packagist.org`, `api.github.com`, `getcomposer.org`.
+4. Добавить preflight gate в CI/job: запуск `bash scripts/check-backend-runtime.sh` до любых incident-команд.
 
-## Why courier_id=2 did not see orders
-Not determinable from this run: domain diagnostic JSON (`orders`, `summary`, `queue`, `timezone`) was not produced because artisan command never reached application runtime.
-
-## Fix vs repair vs operational action
-- Application-code fix for dispatch logic: **not evidenced** by this run.
-- Repair in current environment: **blocked** by dependency/bootstrap constraints.
-- Required operational action (infra):
-  1. Provide CI/build artifact containing `vendor/` matching current `composer.lock`, **or**
-  2. Run diagnose inside Docker/runtime image where dependencies are already installed, **or**
-  3. Allow proxy egress to `repo.packagist.org`, `api.github.com`, `getcomposer.org`, **or**
-  4. Configure/use approved Composer mirror (Satis/Private Packagist), **or**
-  5. Provide `COMPOSER_AUTH` / GitHub token if the policy allows and auth/rate is the limiting factor.
-
-## Next mandatory step to close incident
-After infra unblocks bootstrap, rerun:
-- `php artisan --version`
-- `php artisan poof:diagnose-courier-dispatch --date=2026-05-11 --courier-id=2`
-
-Do **not** mark incident closed until command returns diagnostics on real data.
-
-## Runtime recovery runbook
-- See: `docs/runtime-bootstrap-recovery.md`
-- Next required action: restore runtime using one supported path, then re-run diagnose.
+## Recovery action (operational)
+- Требуемое действие: поднять runtime через один из уже документированных путей A/B/D (предпочтительно A: CI artifact или B: prebuilt image), затем повторно выполнить diagnose на реальных данных.
+- Массовый redispatch **не запускать** до успешного dry-run/diagnose.
