@@ -3,6 +3,8 @@
 ## Purpose
 This runbook defines **supported recovery paths** for backend runtime when Laravel bootstrap is blocked (for example, `vendor/autoload.php` missing) and direct `composer install` is not possible due to proxy/network restrictions.
 
+Official runtime artifact flow is documented in `docs/runtime-artifacts.md`.
+
 Use this document to avoid repeated failed Composer attempts in blocked environments.
 
 ## Symptoms of blocked runtime bootstrap
@@ -28,6 +30,9 @@ Recommended when CI already produced a build artifact for this exact revision.
 Notes:
 - `vendor/` must match `composer.lock` of current commit.
 - If commit mismatch is detected, discard artifact and use another supported path.
+- Artifact source: GitHub Actions artifact `runtime-vendor-<commit-sha>` containing `vendor.tar.gz` (retention: 14 days).
+- Recommended restore command:
+  - `bash scripts/restore-runtime-from-artifact.sh /path/to/vendor.tar.gz`
 
 ### B) Run in prebuilt Docker image with dependencies installed
 Recommended for deterministic incident diagnostics.
@@ -93,3 +98,14 @@ Machine-readable output keys:
 - `composer_network_blocked=true|false`
 
 `composer_network_blocked` is an **optional diagnostic signal** and does not by itself define runtime readiness.
+
+---
+
+## Incident checklist (mandatory)
+1. Restore runtime (prefer artifact flow from `docs/runtime-artifacts.md`).
+2. Run runtime checker:
+   - `bash scripts/check-backend-runtime.sh`
+3. Run diagnose command:
+   - `php artisan poof:diagnose-courier-dispatch --date=2026-05-11 --courier-id=2`
+4. Archive diagnose output:
+   - save output JSON/logs into incident evidence folder in `docs/incidents/`.
