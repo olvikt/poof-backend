@@ -286,36 +286,60 @@
 				</template>
 			</div>
 
-				<div class="mb-5">
-					<x-poof.section title="Як діяти, якщо курʼєра не знайдено">
-						<div
-							data-e2e="courier-not-found-hint"
-							class="rounded-3xl border border-amber-200/70 bg-amber-50 p-4 sm:p-6"
+			<div class="mb-5">
+				<x-poof.section title="Як діяти, якщо курʼєра не знайдено">
+					<div
+						data-e2e="courier-not-found-hint"
+						x-data="{ isHintOpen: false }"
+						class="rounded-3xl border border-amber-200/70 bg-amber-50 p-3 sm:p-4"
+					>
+						<button
+							type="button"
+							class="flex w-full items-center justify-between gap-3 text-left text-xs font-semibold uppercase tracking-wide text-amber-700"
+							@click="isHintOpen = !isHintOpen"
+							:aria-expanded="isHintOpen.toString()"
+							aria-controls="courier-not-found-hint-content"
 						>
-							<div class="mb-4 flex items-center gap-3 text-xs font-semibold uppercase tracking-wide text-amber-700">
-								<span aria-hidden="true" class="inline-flex h-9 w-9 items-center justify-center rounded-full bg-amber-100 text-base leading-none">💡</span>
+							<span class="flex items-center gap-2.5">
+								<span aria-hidden="true" class="inline-flex h-8 w-8 items-center justify-center rounded-full bg-amber-100 text-base leading-none">💡</span>
 								<span>ПІДКАЗКА</span>
-							</div>
-							<div class="space-y-3">
+							</span>
+							<svg
+								class="h-4 w-4 shrink-0 transition-transform duration-200"
+								:class="{ 'rotate-180': isHintOpen }"
+								viewBox="0 0 20 20"
+								fill="none"
+								xmlns="http://www.w3.org/2000/svg"
+								aria-hidden="true"
+							>
+								<path d="M5 7.5L10 12.5L15 7.5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+							</svg>
+						</button>
+
+						<div id="courier-not-found-hint-content" x-show="isHintOpen" class="mt-3 space-y-2.5">
+							<div class="space-y-2.5">
 								<label class="flex items-center gap-3 text-sm text-gray-800">
-								<input type="radio" class="accent-yellow-400" wire:model.live="client_wait_preference" value="{{ \App\Models\Order::WAIT_ALLOW_LATE_FULFILLMENT }}">
+									<input type="radio" class="accent-yellow-400" wire:model.live="client_wait_preference" value="{{ \App\Models\Order::WAIT_ALLOW_LATE_FULFILLMENT }}">
 									<span>Чекати довше, якщо курʼєра не знайдено в бажаний час</span>
 								</label>
 								<label class="flex items-center gap-3 text-sm text-gray-800">
-								<input type="radio" class="accent-yellow-400" wire:model.live="client_wait_preference" value="{{ \App\Models\Order::WAIT_AUTO_CANCEL_IF_NOT_FOUND }}">
+									<input type="radio" class="accent-yellow-400" wire:model.live="client_wait_preference" value="{{ \App\Models\Order::WAIT_AUTO_CANCEL_IF_NOT_FOUND }}">
 									<span>Скасувати замовлення та повернути кошти, якщо курʼєра не буде знайдено вчасно</span>
 								</label>
 							</div>
-							<label class="mt-4 flex items-start gap-3 border-t border-amber-200/70 pt-4 text-xs text-gray-600">
+
+							<label class="mt-3 flex items-start gap-3 border-t border-amber-200/70 pt-3 text-xs text-gray-600">
 								<input type="checkbox" class="mt-0.5 accent-yellow-400" wire:model="promise_consent">
 								<span>Підтверджую, що ознайомився(лася) з умовами авто-скасування та можливого зсуву часу виконання.</span>
 							</label>
 						</div>
-						@error('promise_consent')
-							<div class="text-red-400 text-xs mt-1">{{ $message }}</div>
-						@enderror
-					</x-poof.section>
-				</div>
+					</div>
+
+					@error('promise_consent')
+						<div class="text-red-400 text-xs mt-1">{{ $message }}</div>
+					@enderror
+				</x-poof.section>
+			</div>
 
 
 	{{-- ================= DIVIDER ================= --}}
