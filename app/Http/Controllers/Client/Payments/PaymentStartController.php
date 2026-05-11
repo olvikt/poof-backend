@@ -29,12 +29,12 @@ class PaymentStartController extends Controller
         if ($provider !== 'wayforpay' || ! config('payments.wayforpay.enabled')) {
             if ((bool) config('payments.dev_fallback_enabled')) {
                 return redirect()
-                    ->route('client.payments.show', $order)
+                    ->route('client.payments.show', ['order' => $order->public_id])
                     ->with('warning', 'WayForPay тимчасово недоступний. Використайте dev-оплату.');
             }
 
             return redirect()
-                ->route('client.payments.show', $order)
+                ->route('client.payments.show', ['order' => $order->public_id])
                 ->withErrors(['payment' => 'Платіжний провайдер тимчасово недоступний.']);
         }
 

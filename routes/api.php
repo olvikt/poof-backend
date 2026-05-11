@@ -47,9 +47,9 @@ Route::middleware('auth:sanctum')->group(function () {
 
     // CLIENT ORDERS
     Route::post('/orders', [OrderController::class, 'store']);
-    Route::get('/client/orders/{order}/completion-proof', [OrderCompletionClientController::class, 'show']);
-    Route::post('/client/orders/{order}/completion-proof/confirm', [OrderCompletionClientController::class, 'confirm']);
-    Route::post('/client/orders/{order}/completion-proof/disputes', [OrderCompletionClientController::class, 'openDispute']);
+    Route::get('/client/orders/{order:public_id}/completion-proof', [OrderCompletionClientController::class, 'show']);
+    Route::post('/client/orders/{order:public_id}/completion-proof/confirm', [OrderCompletionClientController::class, 'confirm']);
+    Route::post('/client/orders/{order:public_id}/completion-proof/disputes', [OrderCompletionClientController::class, 'openDispute']);
     Route::get('/client/pending-confirmations', PendingConfirmationsController::class);
 
     Route::prefix('/admin')->middleware('admin')->group(function () {

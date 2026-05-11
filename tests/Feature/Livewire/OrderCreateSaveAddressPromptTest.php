@@ -149,7 +149,8 @@ class OrderCreateSaveAddressPromptTest extends TestCase
             ->call('declineSaveAddressAndContinue')
             ->assertSet('showPaymentModal', true);
 
-        $orderId = (int) \App\Models\Order::query()->value('id');
+        $order = \App\Models\Order::query()->firstOrFail();
+        $orderId = (int) $order->id;
 
         $component
             ->assertSee("Ваше замовлення #{$orderId} прийнято")
@@ -161,7 +162,7 @@ class OrderCreateSaveAddressPromptTest extends TestCase
             ->assertDontSee('Курʼєра зазвичай знаходимо протягом 5–15 хвилин.')
             ->assertSeeHtml('text-xl')
             ->assertDontSeeHtml('rounded-[14px] bg-gray-900/90')
-            ->assertSeeHtml(route('client.payments.show', $orderId))
+            ->assertSeeHtml(route('client.payments.show', ['order' => $order->public_id]))
             ->assertSeeHtml(route('client.orders'));
     }
 

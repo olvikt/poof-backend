@@ -55,14 +55,14 @@ class PendingConfirmationsTest extends TestCase
             ->assertJsonPath('data.pending_confirmations.count', 2)
             ->assertJsonCount(2, 'data.pending_confirmations.items');
 
-        $this->postJson('/api/client/orders/'.$subscriptionOrder->id.'/completion-proof/confirm')->assertOk();
+        $this->postJson('/api/client/orders/'.$subscriptionOrder->public_id.'/completion-proof/confirm')->assertOk();
 
         $this->getJson('/api/client/pending-confirmations')
             ->assertOk()
             ->assertJsonPath('data.pending_confirmations.count', 1)
             ->assertJsonCount(1, 'data.pending_confirmations.items');
 
-        $this->postJson('/api/client/orders/'.$oneTimeOrder->id.'/completion-proof/confirm')->assertOk();
+        $this->postJson('/api/client/orders/'.$oneTimeOrder->public_id.'/completion-proof/confirm')->assertOk();
 
         $this->getJson('/api/client/pending-confirmations')
             ->assertOk()

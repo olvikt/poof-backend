@@ -772,7 +772,7 @@ class WayForPayReturnFlowTest extends TestCase
         ]);
 
         $this->actingAs($client, 'web')
-            ->post(route('client.payments.start', $order))
+            ->post(route('client.payments.start', ['order' => $order->public_id]))
             ->assertOk();
 
         $returnResponse = $this->post('/payments/wayforpay/return', [

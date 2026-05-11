@@ -18,6 +18,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
 
 use Illuminate\Validation\ValidationException;
+use Illuminate\Support\Str;
 
 class Order extends Model
 {
@@ -213,6 +214,15 @@ public function markAsPaid(): void
      |  MASS ASSIGNMENT
      | ========================================================= */
     protected $guarded = ['*'];
+
+    protected static function booted(): void
+    {
+        static::creating(function (self $order): void {
+            if (! $order->public_id) {
+                $order->public_id = (string) Str::uuid();
+            }
+        });
+    }
 
     public static function createFromCanonicalContract(array $attributes): self
     {

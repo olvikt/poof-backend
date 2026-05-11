@@ -177,3 +177,15 @@ Route layer = transport boundary.
 Canonical naming and boundary rules for Form/Manager/Action/Policy/Controller roles are documented in [`docs/naming-responsibility-boundaries.md`](./naming-responsibility-boundaries.md).
 
 Use it as a quick audit checklist when introducing new UI orchestration, write-actions, or controller entry points.
+
+## K. External-facing order identifiers
+
+Для external-facing client routes запрещено использовать sequential DB `orders.id` в URL (IDOR blast-radius hardening).
+
+Обязательные правила:
+
+- client-facing order URLs используют только stable public identifier (`orders.public_id`, UUID);
+- route model binding для client URL фиксируется как `{order:public_id}`;
+- ownership check (`order.client_id === auth()->id()`) остаётся обязательным и после перехода на public id;
+- legacy raw-id links либо безопасно redirect-ятся только для владельца, либо возвращают `404/403` без раскрытия существования чужого заказа;
+- любой change в client order/payment URL должен иметь regression tests на anti-IDOR сценарии (owner OK, foreign denied, raw-id не раскрывает чужой order).
