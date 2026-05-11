@@ -8,6 +8,8 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 
 return new class extends Migration {
+    private const PENDING_GUARD_INDEX = 'orders_one_pending_subscription_execution_idx';
+
     public function up(): void
     {
         Schema::table('orders', function (Blueprint $table): void {
@@ -21,12 +23,10 @@ return new class extends Migration {
         });
 
         $driver = DB::getDriverName();
-        if ($driver === 'pgsql') {
-            DB::statement("CREATE UNIQUE INDEX IF NOT EXISTS orders_one_pending_subscription_execution_idx ON orders (subscription_id) WHERE origin = 'subscription' AND payment_status = 'pending'");
-        }
+        if (in_array($driver, ['pgsql', 'sqlite'], true)) {
+            $this->assertNoDuplicatePendingSubscriptionOrders();
 
-        if ($driver === 'sqlite') {
-            DB::statement("CREATE UNIQUE INDEX IF NOT EXISTS orders_one_pending_subscription_execution_idx ON orders (subscription_id) WHERE origin = 'subscription' AND payment_status = 'pending'");
+            DB::statement("CREATE UNIQUE INDEX IF NOT EXISTS ".self::PENDING_GUARD_INDEX." ON orders (subscription_id) WHERE origin = 'subscription' AND payment_status = 'pending'");
         }
     }
 
@@ -34,7 +34,7 @@ return new class extends Migration {
     {
         $driver = DB::getDriverName();
         if (in_array($driver, ['pgsql', 'sqlite'], true)) {
-            DB::statement('DROP INDEX IF EXISTS orders_one_pending_subscription_execution_idx');
+            DB::statement('DROP INDEX IF EXISTS '.self::PENDING_GUARD_INDEX);
         }
 
         Schema::table('orders', function (Blueprint $table): void {
@@ -44,5 +44,33 @@ return new class extends Migration {
                 $table->dropColumn('subscription_run_slot');
             }
         });
+    }
+
+    private function assertNoDuplicatePendingSubscriptionOrders(): void
+    {
+        $duplicates = DB::table('orders')
+            ->select('subscription_id', DB::raw('COUNT(*) as duplicate_count'))
+            ->where('origin', 'subscription')
+            ->where('payment_status', 'pending')
+            ->whereNotNull('subscription_id')
+            ->groupBy('subscription_id')
+            ->havingRaw('COUNT(*) > 1')
+            ->orderBy('subscription_id')
+            ->limit(25)
+            ->get();
+
+        if ($duplicates->isEmpty()) {
+            return;
+        }
+
+        $summary = $duplicates
+            ->map(fn ($row): string => sprintf('%d(x%d)', (int) $row->subscription_id, (int) $row->duplicate_count))
+            ->implode(', ');
+
+        throw new RuntimeException(
+            'Cannot create pending-subscription unique guard index: duplicate pending subscription execution orders exist. '
+            .'Resolve duplicates for subscription_id(s): '.$summary.'. '
+            .'Run diagnostics from docs/subscription-execution-idempotency.md before retrying migration.'
+        );
     }
 };

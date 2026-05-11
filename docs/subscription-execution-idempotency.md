@@ -20,3 +20,34 @@ This closes race windows for overlapping workers/scheduler runs: application gua
 
 - For MySQL, partial unique index is not created by this migration; slot-level unique index still provides DB-backed idempotency for run slot generation.
 - Pending-order uniqueness remains guarded in application logic for MySQL deployments.
+
+## Production migration preflight (pending guard index)
+
+Before creating partial unique pending index (`orders_one_pending_subscription_execution_idx`) the migration now runs a preflight duplicate scan and fails fast with a clear `RuntimeException` if duplicates exist.
+
+### Diagnostic SQL: find duplicate pending subscription execution orders
+
+```sql
+SELECT
+  subscription_id,
+  COUNT(*) AS pending_count,
+  GROUP_CONCAT(id ORDER BY id) AS order_ids
+FROM orders
+WHERE origin = 'subscription'
+  AND payment_status = 'pending'
+  AND subscription_id IS NOT NULL
+GROUP BY subscription_id
+HAVING COUNT(*) > 1
+ORDER BY subscription_id;
+```
+
+### Safe cleanup policy
+
+1. For each problematic `subscription_id`, keep exactly one canonical unresolved pending order (typically the oldest by `id`/`created_at`).
+2. For extra duplicates, resolve deterministically (never hard-delete blindly):
+   - either move to non-pending terminal state according to your incident policy, or
+   - if confirmed ghost rows, archive/export and then delete via approved runbook.
+3. Re-run the diagnostic query and ensure zero rows returned.
+4. Retry migration.
+
+This prevents opaque DB-level index-creation failures and gives operators concrete IDs to repair before deploy proceeds.
