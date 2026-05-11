@@ -538,6 +538,70 @@ class WayForPayReturnFlowTest extends TestCase
         $this->postJson('/api/payments/wayforpay/callback', $payload)->assertStatus(422);
     }
 
+    public function test_callback_rejects_reused_transaction_id_for_different_order(): void
+    {
+        $secret = 'test-secret';
+        config()->set('payments.wayforpay.merchant_secret', $secret);
+        config()->set('payments.wayforpay.merchant_account', 'poof_merchant');
+
+        $client = User::factory()->create(['role' => User::ROLE_CLIENT, 'is_active' => true]);
+        $orderA = Order::createForTesting([
+            'client_id' => $client->id,
+            'status' => Order::STATUS_NEW,
+            'payment_status' => Order::PAY_PENDING,
+            'address_text' => 'вул. Order A, 1',
+            'price' => 100,
+        ]);
+        $orderB = Order::createForTesting([
+            'client_id' => $client->id,
+            'status' => Order::STATUS_NEW,
+            'payment_status' => Order::PAY_PENDING,
+            'address_text' => 'вул. Order B, 1',
+            'price' => 100,
+        ]);
+
+        $payloadA = $this->buildSignedPayload((string) $orderA->id, $secret, 'Approved');
+        $payloadA['transactionId'] = 'shared-tx-1';
+        $payloadA['merchantSignature'] = $this->signPayload($payloadA, $secret);
+        $this->postJson('/api/payments/wayforpay/callback', $payloadA)->assertOk();
+
+        $payloadB = $this->buildSignedPayload((string) $orderB->id, $secret, 'Approved');
+        $payloadB['transactionId'] = 'shared-tx-1';
+        $payloadB['merchantSignature'] = $this->signPayload($payloadB, $secret);
+
+        $this->postJson('/api/payments/wayforpay/callback', $payloadB)
+            ->assertStatus(422)
+            ->assertJsonPath('message', 'provider_transaction_reused');
+
+        $this->assertSame(Order::PAY_PENDING, $orderB->fresh()->payment_status);
+    }
+
+    public function test_callback_rejects_different_transaction_id_for_already_linked_order(): void
+    {
+        $secret = 'test-secret';
+        config()->set('payments.wayforpay.merchant_secret', $secret);
+        config()->set('payments.wayforpay.merchant_account', 'poof_merchant');
+
+        $client = User::factory()->create(['role' => User::ROLE_CLIENT, 'is_active' => true]);
+        $order = Order::createForTesting([
+            'client_id' => $client->id,
+            'status' => Order::STATUS_NEW,
+            'payment_status' => Order::PAY_PENDING,
+            'address_text' => 'вул. Linked, 1',
+            'price' => 100,
+        ]);
+
+        $first = $this->buildSignedPayload((string) $order->id, $secret, 'Approved');
+        $first['transactionId'] = 'linked-tx-1';
+        $first['merchantSignature'] = $this->signPayload($first, $secret);
+        $this->postJson('/api/payments/wayforpay/callback', $first)->assertOk();
+
+        $second = $this->buildSignedPayload((string) $order->id, $secret, 'Approved');
+        $second['transactionId'] = 'linked-tx-2';
+        $second['merchantSignature'] = $this->signPayload($second, $secret);
+        $this->postJson('/api/payments/wayforpay/callback', $second)->assertStatus(422);
+    }
+
     public function test_wayforpay_return_without_session_is_logged_as_cross_site_reentry_path(): void
     {
         Log::spy();

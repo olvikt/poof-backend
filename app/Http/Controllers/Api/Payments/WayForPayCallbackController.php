@@ -11,6 +11,7 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 
 class WayForPayCallbackController extends Controller
@@ -143,20 +144,61 @@ class WayForPayCallbackController extends Controller
         ]);
 
         $isSuccessStatus = in_array($validated['transactionStatus'], self::SUCCESS_STATUSES, true);
-        $alreadyPaid = $order->isPaid();
+        $alreadyPaid = false;
+        $providerTransactionReused = false;
+        $providerTransactionMismatch = false;
 
-        if ($providerTransactionId !== null && $order->payment_provider_transaction_id === null) {
-            $order->forceFill([
-                'payment_provider_transaction_id' => $providerTransactionId,
-                'payment_provider_reference' => (string) $validated['orderReference'],
-            ])->save();
+        DB::transaction(function () use ($order, $providerTransactionId, $validated, $isSuccessStatus, &$alreadyPaid, &$providerTransactionReused, &$providerTransactionMismatch): void {
+            $lockedOrder = Order::query()->whereKey($order->id)->lockForUpdate()->firstOrFail();
+            $alreadyPaid = $lockedOrder->isPaid();
+
+            if ($providerTransactionId !== null) {
+                $reusedByAnotherOrder = Order::query()
+                    ->where('payment_provider_transaction_id', $providerTransactionId)
+                    ->whereKeyNot($lockedOrder->id)
+                    ->exists();
+
+                if ($reusedByAnotherOrder) {
+                    $providerTransactionReused = true;
+                    return;
+                }
+
+                if (
+                    $lockedOrder->payment_provider_transaction_id !== null
+                    && $lockedOrder->payment_provider_transaction_id !== $providerTransactionId
+                ) {
+                    $providerTransactionMismatch = true;
+                    return;
+                }
+
+                if ($lockedOrder->payment_provider_transaction_id === null) {
+                    $lockedOrder->forceFill([
+                        'payment_provider_transaction_id' => $providerTransactionId,
+                        'payment_provider_reference' => (string) $validated['orderReference'],
+                    ])->save();
+                }
+            }
+
+            if ($isSuccessStatus) {
+                $lockedOrder->markAsPaid();
+            }
+        });
+
+        if ($providerTransactionReused) {
+            Log::warning('WayForPay callback rejected: provider transaction reused by another order.', [
+                'event' => 'wayforpay_callback_provider_tx_reused',
+                'order_id' => $order->id,
+                'order_reference' => $validated['orderReference'],
+                'transaction_status' => $validated['transactionStatus'],
+            ]);
+
+            return response()->json([
+                'status' => 'error',
+                'message' => 'provider_transaction_reused',
+            ], 422);
         }
 
-        if (
-            $providerTransactionId !== null
-            && $order->payment_provider_transaction_id !== null
-            && $order->payment_provider_transaction_id !== $providerTransactionId
-        ) {
+        if ($providerTransactionMismatch) {
             Log::warning('WayForPay callback rejected: provider transaction mismatch for order.', [
                 'event' => 'wayforpay_callback_provider_tx_mismatch',
                 'order_id' => $order->id,
@@ -170,9 +212,7 @@ class WayForPayCallbackController extends Controller
             ], 422);
         }
 
-        if ($isSuccessStatus) {
-            $order->markAsPaid();
-        }
+        $order->refresh();
 
         if ($isSuccessStatus && $alreadyPaid) {
             Log::info('payment_callback_replayed', [

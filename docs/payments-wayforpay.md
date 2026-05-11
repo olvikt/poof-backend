@@ -72,7 +72,7 @@ WAYFORPAY_PAY_URL=https://secure.wayforpay.com/pay
   - Для статуса `Approved` заказ переводится в `paid` через доменное действие `markAsPaid()`.
   - Обработка идемпотентна: повторный `Approved` callback безопасен и не создает дублирующих side effects.
   - Если приходит `transactionId`, он сохраняется в заказе как `payment_provider_transaction_id`; также сохраняется `payment_provider_reference`.
-  - Идемпотентность дополнительно фиксируется по паре `order_id + payment_provider_transaction_id`.
+  - `payment_provider_transaction_id` должен быть глобально уникален среди заказов (для non-null значений); reuse того же transaction id на другом заказе отклоняется.
   - Для неуспешных/ожидающих статусов (`Refunded`, `Declined`, и т.д.) заказ не помечается оплаченным.
   - Коды ответов callback:
     - `200` — callback принят/обработан успешно (`status=accept`).
@@ -96,6 +96,7 @@ WAYFORPAY_PAY_URL=https://secure.wayforpay.com/pay
 - `WayForPay callback rejected: order not found.` — `orderReference` не найден в `orders`.
 - `WayForPay callback rejected: economic mismatch.` — mismatch merchant/currency/amount/order reference.
 - `WayForPay callback rejected: provider transaction mismatch for order.` — для заказа уже сохранён другой provider transaction id.
+- `WayForPay callback rejected: provider transaction reused by another order.` — один и тот же transaction id попытались использовать на другом заказе.
 - `WayForPay transaction status received.` — лог входящего `transactionStatus` с `order_id`/`order_reference`.
 - `WayForPay callback received non-success transaction status.` — диагностический warning для `Refunded`, `Declined` и других non-success статусов.
 - `WayForPay duplicate callback ignored: order already paid.` — повторный `Approved` callback на уже оплаченный заказ.
