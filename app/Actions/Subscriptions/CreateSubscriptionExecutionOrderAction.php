@@ -25,7 +25,15 @@ class CreateSubscriptionExecutionOrderAction
         $existing = $subscription->generatedOrders()
             ->whereIn('payment_status', [Order::PAY_PENDING, Order::PAY_PAID])
             ->where('origin', Order::ORIGIN_SUBSCRIPTION)
-            ->where('subscription_run_slot', $slotKey)
+            ->where(function ($query) use ($slotKey, $runAtMinute): void {
+                $query->where('subscription_run_slot', $slotKey)
+                    ->orWhere(function ($legacy) use ($runAtMinute): void {
+                        $legacy->whereNull('subscription_run_slot')
+                            ->whereDate('scheduled_date', $runAtMinute->toDateString())
+                            ->whereTime('scheduled_time_from', '>=', $runAtMinute->format('H:i:00'))
+                            ->whereTime('scheduled_time_from', '<=', $runAtMinute->format('H:i:59'));
+                    });
+            })
             ->exists();
 
         if ($existing) {

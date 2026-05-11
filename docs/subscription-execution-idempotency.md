@@ -11,6 +11,8 @@
 - Added DB-level unresolved pending uniqueness where partial indexes are supported (PostgreSQL/SQLite):
   - unique index on `subscription_id` filtered by `origin=subscription AND payment_status=pending`.
 - Duplicate slot branch is now explicit short-circuit (`skipped_duplicate_slot`) and does not create a new order.
+- After `lockForUpdate()`, command now re-checks due time (`next_run_at <= now`) and skips stale preloaded subscriptions via `skipped_not_due`.
+- Duplicate detection supports safe rollout for legacy rows: slot-key match OR legacy fallback (`subscription_run_slot IS NULL` + same minute window).
 
 ## Why
 
@@ -24,6 +26,7 @@ This closes race windows for overlapping workers/scheduler runs: application gua
 ## Production migration preflight (pending guard index)
 
 Before creating partial unique pending index (`orders_one_pending_subscription_execution_idx`) the migration now runs a preflight duplicate scan and fails fast with a clear `RuntimeException` if duplicates exist.
+Migration also preflights computed legacy slot collisions and backfills `subscription_run_slot` for existing subscription orders before adding unique slot constraint.
 
 ### Diagnostic SQL: find duplicate pending subscription execution orders
 

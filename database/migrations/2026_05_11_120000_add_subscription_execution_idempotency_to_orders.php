@@ -18,6 +18,9 @@ return new class extends Migration {
             }
         });
 
+        $this->assertNoDuplicateComputedLegacySlots();
+        $this->backfillLegacySubscriptionRunSlots();
+
         Schema::table('orders', function (Blueprint $table): void {
             $table->unique(['subscription_id', 'subscription_run_slot'], 'orders_subscription_slot_unique');
         });
@@ -72,5 +75,47 @@ return new class extends Migration {
             .'Resolve duplicates for subscription_id(s): '.$summary.'. '
             .'Run diagnostics from docs/subscription-execution-idempotency.md before retrying migration.'
         );
+    }
+
+    private function assertNoDuplicateComputedLegacySlots(): void
+    {
+        $expr = $this->slotExpression();
+        $duplicates = DB::table('orders')
+            ->select('subscription_id', DB::raw($expr.' as computed_slot'), DB::raw('COUNT(*) as duplicate_count'))
+            ->whereNotNull('subscription_id')
+            ->where('origin', 'subscription')
+            ->whereNull('subscription_run_slot')
+            ->whereNotNull('scheduled_date')
+            ->whereNotNull('scheduled_time_from')
+            ->groupBy('subscription_id', DB::raw($expr))
+            ->havingRaw('COUNT(*) > 1')
+            ->limit(25)
+            ->get();
+
+        if ($duplicates->isEmpty()) {
+            return;
+        }
+
+        $summary = $duplicates->map(fn ($row): string => sprintf('%d@%s(x%d)', (int) $row->subscription_id, (string) $row->computed_slot, (int) $row->duplicate_count))->implode(', ');
+        throw new RuntimeException('Cannot backfill subscription_run_slot: duplicate legacy rows map to the same computed slot. Resolve: '.$summary);
+    }
+
+    private function backfillLegacySubscriptionRunSlots(): void
+    {
+        DB::table('orders')
+            ->whereNotNull('subscription_id')
+            ->where('origin', 'subscription')
+            ->whereNull('subscription_run_slot')
+            ->whereNotNull('scheduled_date')
+            ->whereNotNull('scheduled_time_from')
+            ->update(['subscription_run_slot' => DB::raw($this->slotExpression())]);
+    }
+
+    private function slotExpression(): string
+    {
+        return match (DB::getDriverName()) {
+            'pgsql' => "date_trunc('minute', (scheduled_date::timestamp + scheduled_time_from::time))",
+            default => "strftime('%Y-%m-%d %H:%M:00', scheduled_date || ' ' || scheduled_time_from)",
+        };
     }
 };

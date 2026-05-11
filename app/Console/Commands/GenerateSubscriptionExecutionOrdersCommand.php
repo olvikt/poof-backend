@@ -42,6 +42,7 @@ class GenerateSubscriptionExecutionOrdersCommand extends Command
             'skipped_unpaid' => 0,
             'skipped_pending_exists' => 0,
             'skipped_duplicate_slot' => 0,
+            'skipped_not_due' => 0,
             'skipped_planned_exhausted' => 0,
             'skipped_period_expired' => 0,
         ];
@@ -56,6 +57,10 @@ class GenerateSubscriptionExecutionOrdersCommand extends Command
 
                 if (! $lockedSubscription instanceof ClientSubscription) {
                     return ['state' => 'missing'];
+                }
+
+                if ($lockedSubscription->next_run_at !== null && CarbonImmutable::instance($lockedSubscription->next_run_at)->greaterThan($now)) {
+                    return ['state' => 'skipped_not_due', 'subscription' => $lockedSubscription];
                 }
 
                 if (! $lockedSubscription->canGenerateNextOrderAutomatically()) {
@@ -82,7 +87,15 @@ class GenerateSubscriptionExecutionOrdersCommand extends Command
                 $existingPendingForSlot = $lockedSubscription->generatedOrders()
                     ->whereIn('payment_status', [Order::PAY_PENDING, Order::PAY_PAID])
                     ->where('origin', Order::ORIGIN_SUBSCRIPTION)
-                    ->where('subscription_run_slot', $slotKey)
+                    ->where(function ($query) use ($slotKey, $runAtMinute): void {
+                        $query->where('subscription_run_slot', $slotKey)
+                            ->orWhere(function ($legacy) use ($runAtMinute): void {
+                                $legacy->whereNull('subscription_run_slot')
+                                    ->whereDate('scheduled_date', $runAtMinute->toDateString())
+                                    ->whereTime('scheduled_time_from', '>=', $runAtMinute->format('H:i:00'))
+                                    ->whereTime('scheduled_time_from', '<=', $runAtMinute->format('H:i:59'));
+                            });
+                    })
                     ->exists();
 
                 if ($existingPendingForSlot) {
@@ -132,6 +145,19 @@ class GenerateSubscriptionExecutionOrdersCommand extends Command
                     'order_id' => null,
                     'status' => (string) $subscription->status,
                     'reason' => 'subscription_not_eligible_for_auto_generation',
+                    'counter' => 'subscription_execution_skipped_total',
+                    'counter_increment' => 1,
+                ]);
+
+                continue;
+            }
+            if (($result['state'] ?? null) === 'skipped_not_due') {
+                $summary['skipped_not_due']++;
+                logger()->info('subscription_execution_skipped_reason', [
+                    'subscription_id' => (int) $subscription->id,
+                    'order_id' => null,
+                    'status' => (string) $subscription->status,
+                    'reason' => 'subscription_run_not_due_after_lock',
                     'counter' => 'subscription_execution_skipped_total',
                     'counter_increment' => 1,
                 ]);

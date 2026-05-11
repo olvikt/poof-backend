@@ -35,7 +35,6 @@ class SubscriptionExecutionIdempotencyMigrationTest extends TestCase
     protected function tearDown(): void
     {
         Schema::dropIfExists('orders');
-
         parent::tearDown();
     }
 
@@ -51,7 +50,6 @@ class SubscriptionExecutionIdempotencyMigrationTest extends TestCase
 
         $indexes = DB::select("PRAGMA index_list('orders')");
         $names = array_map(static fn ($row): string => (string) $row->name, $indexes);
-
         $this->assertContains('orders_one_pending_subscription_execution_idx', $names);
 
         $migration->down();
@@ -69,6 +67,37 @@ class SubscriptionExecutionIdempotencyMigrationTest extends TestCase
         $this->expectException(RuntimeException::class);
         $this->expectExceptionMessage('duplicate pending subscription execution orders exist');
         $this->expectExceptionMessage('42(x2)');
+
+        $migration->up();
+    }
+
+    public function test_migration_backfills_legacy_subscription_run_slot_for_non_duplicate_rows(): void
+    {
+        DB::table('orders')->insert([
+            ['subscription_id' => 77, 'origin' => 'subscription', 'payment_status' => 'paid', 'scheduled_date' => '2026-05-01 00:00:00', 'scheduled_time_from' => '12:00:30'],
+        ]);
+
+        $migration = require base_path('database/migrations/2026_05_11_120000_add_subscription_execution_idempotency_to_orders.php');
+        $migration->up();
+
+        $slot = DB::table('orders')->where('subscription_id', 77)->value('subscription_run_slot');
+        $this->assertNotNull($slot);
+
+        $migration->down();
+    }
+
+    public function test_migration_fails_when_legacy_rows_compute_to_duplicate_slot(): void
+    {
+        DB::table('orders')->insert([
+            ['subscription_id' => 99, 'origin' => 'subscription', 'payment_status' => 'paid', 'scheduled_date' => '2026-05-01 00:00:00', 'scheduled_time_from' => '12:00:01'],
+            ['subscription_id' => 99, 'origin' => 'subscription', 'payment_status' => 'pending', 'scheduled_date' => '2026-05-01 00:00:00', 'scheduled_time_from' => '12:00:59'],
+        ]);
+
+        $migration = require base_path('database/migrations/2026_05_11_120000_add_subscription_execution_idempotency_to_orders.php');
+
+        $this->expectException(RuntimeException::class);
+        $this->expectExceptionMessage('duplicate legacy rows map to the same computed slot');
+        $this->expectExceptionMessage('99@');
 
         $migration->up();
     }
