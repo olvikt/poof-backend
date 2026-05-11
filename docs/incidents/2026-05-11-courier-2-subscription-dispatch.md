@@ -2,36 +2,52 @@
 
 ## Scope
 - Target command: `php artisan poof:diagnose-courier-dispatch --date=2026-05-11 --courier-id=2`
-- Commit SHA for runtime artifact: `2df0cf66dfd31be3a5d11b7e6ab22fae4753c563`
-- Expected artifact name: `runtime-vendor-2df0cf66dfd31be3a5d11b7e6ab22fae4753c563`
+- Runtime artifact SHA: `2df0cf66dfd31be3a5d11b7e6ab22fae4753c563`
+- Expected artifact: `runtime-vendor-2df0cf66dfd31be3a5d11b7e6ab22fae4753c563.tar.gz`
+- Artifact mount contract: `/mnt/runtime-artifacts`
 
-## Task status
-Artifact delivery to this Codex/debug environment is still blocked by infrastructure access gap.
+## Diagnose flow execution (2026-05-11)
+1. Prepared mount point:
+   - `mkdir -p /mnt/runtime-artifacts`
+2. Tried artifact fetch:
+   - `scripts/fetch-runtime-artifact.sh 2df0cf66dfd31be3a5d11b7e6ab22fae4753c563 vendor.tar.gz`
+   - Result:
+     - `result=error`
+     - `reason=artifact_not_found_in_shared_dir`
+     - `expected_artifact=runtime-vendor-2df0cf66dfd31be3a5d11b7e6ab22fae4753c563.tar.gz`
+3. Follow-up checks mandated by flow:
+   - `ls -lh vendor.tar.gz` → file not found
+   - `sha256sum vendor.tar.gz` → file not found
+4. Runtime restore attempt:
+   - `bash scripts/restore-runtime-from-artifact.sh vendor.tar.gz`
+   - Result: `reason=artifact_not_found`
+5. Runtime health check:
+   - `bash scripts/check-backend-runtime.sh`
+   - Output:
+     - `runtime_ready=false`
+     - `missing_vendor=true`
+     - `artisan_bootstrap=false`
+6. Diagnose command run attempt:
+   - `php artisan poof:diagnose-courier-dispatch --date=2026-05-11 --courier-id=2`
+   - Failed before command logic: `vendor/autoload.php` missing
 
-## What was verified
-1. Workflow definition confirms artifact creation in CI after composer install:
-   - `composer install --no-interaction --prefer-dist --no-progress`
-   - `tar -czf vendor.tar.gz vendor`
-   - upload `runtime-vendor-${{ github.sha }}` (`retention-days: 14`)
-2. Local environment checks:
-   - `gh` CLI not installed.
-   - `.git/config` has no `origin` remote, so owner/repo cannot be derived for API calls.
-   - GitHub credentials/token not present in environment.
-   - `vendor.tar.gz` absent in workspace.
-3. Runtime remains not ready:
-   - `runtime_ready=false`
-   - `missing_vendor=true`
-   - `artisan_bootstrap=false`
+## Final business root cause
+`другое` → **runtime_artifact_unavailable_in_mount_dir**.
 
-## Consequence
-Because artifact cannot be retrieved in-container, the following steps are blocked:
-- `ls -lh vendor.tar.gz`
-- `sha256sum vendor.tar.gz`
-- `bash scripts/restore-runtime-from-artifact.sh vendor.tar.gz`
-- successful `php artisan poof:diagnose-courier-dispatch --date=2026-05-11 --courier-id=2`
+Interpretation:
+- This is not yet a business-layer root cause among (`dispatch_deferred_future_window`, `no_alive_pending_offer`, `no_offer_for_courier`, `queue issue`, `timezone issue`, `not_paid`).
+- The incident remains blocked on infrastructure precondition: real CI runtime artifact is not mounted/provided in `/mnt/runtime-artifacts`.
 
-## Follow-up
-See dedicated infrastructure gap doc with required access path options:
-- `docs/infra/runtime-artifact-access-gap.md`
+## Backend bug / fix PR assessment
+- No backend logic bug identified at this stage because diagnose command could not execute past bootstrap.
+- Therefore, no separate backend fix PR or regression test is created yet.
 
-Incident remains open until artifact access path is provided and diagnose can be re-run on restored runtime.
+## Stuck dispatch / repair assessment
+- No stuck-dispatch evidence could be produced without successful diagnose output.
+- Dry-run repair command is deferred until runtime artifact is available and diagnose command returns structured domain result.
+
+## Current status
+**Incident is not closed**. It can be closed only after:
+1. Real CI artifact appears in `/mnt/runtime-artifacts/runtime-vendor-2df0cf66dfd31be3a5d11b7e6ab22fae4753c563.tar.gz`.
+2. Runtime restore succeeds.
+3. Diagnose command completes and yields factual dispatch root cause from business domain.
