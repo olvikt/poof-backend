@@ -10,6 +10,7 @@ class OrderLifecycleTransitionPolicy
 {
     public const FLOW_DEFAULT = 'default';
     public const FLOW_ADMIN_OVERRIDE = 'admin_override';
+    public const FLOW_SUBSCRIPTION_CHECKOUT = 'subscription_checkout';
 
     /** @var array<string, array<int, string>> */
     private const BASE = [
@@ -28,7 +29,11 @@ class OrderLifecycleTransitionPolicy
             return true;
         }
 
-        if ($flow === self::FLOW_ADMIN_OVERRIDE && in_array($from, [Order::STATUS_ACCEPTED, Order::STATUS_IN_PROGRESS], true) && $to === Order::STATUS_CANCELLED) {
+        if ($flow === self::FLOW_ADMIN_OVERRIDE && $from === Order::STATUS_ACCEPTED && $to === Order::STATUS_CANCELLED) {
+            return true;
+        }
+
+        if ($flow === self::FLOW_SUBSCRIPTION_CHECKOUT && $from === Order::STATUS_NEW && $to === Order::STATUS_DONE) {
             return true;
         }
 

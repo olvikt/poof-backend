@@ -131,7 +131,11 @@ class MarkOrderAsPaidAction
 
     private function handleSubscriptionCheckoutPaymentOrder(Order $order): void
     {
-        $this->lifecyclePolicy->assertTransition($order->status, Order::STATUS_DONE);
+        $this->lifecyclePolicy->assertTransition(
+            $order->status,
+            Order::STATUS_DONE,
+            OrderLifecycleTransitionPolicy::FLOW_SUBSCRIPTION_CHECKOUT,
+        );
 
         $order->forceFill([
             'payment_status' => Order::PAY_PAID,

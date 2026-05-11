@@ -22,7 +22,7 @@ class LifecycleActionContractsTest extends TestCase
 
         $courier->markBusy();
 
-        $result = app(CancelOrderAction::class)->handle($order->fresh());
+        $result = app(CancelOrderAction::class)->handleAdminOverride($order->fresh());
 
         $this->assertTrue($result);
 
@@ -57,6 +57,38 @@ class LifecycleActionContractsTest extends TestCase
         $this->assertSame(Courier::STATUS_DELIVERING, $courier->courierProfile->status);
         $this->assertTrue((bool) $courier->is_busy);
         $this->assertSame(User::SESSION_IN_PROGRESS, $courier->session_state);
+    }
+
+    public function test_cancel_action_default_flow_rejects_accepted_order(): void
+    {
+        [$courier, $order] = $this->createAcceptedOrderWithCourier();
+        $courier->markBusy();
+
+        $result = app(CancelOrderAction::class)->handle($order->fresh());
+
+        $this->assertFalse($result);
+        $this->assertSame(Order::STATUS_ACCEPTED, $order->fresh()->status);
+    }
+
+    public function test_mark_as_paid_action_handles_subscription_checkout_new_to_done_in_explicit_flow(): void
+    {
+        $client = User::factory()->create(['role' => User::ROLE_CLIENT, 'is_active' => true]);
+
+        $order = Order::createForTesting([
+            'client_id' => $client->id,
+            'status' => Order::STATUS_NEW,
+            'payment_status' => Order::PAY_PENDING,
+            'order_type' => Order::TYPE_SUBSCRIPTION,
+            'origin' => Order::ORIGIN_CHECKOUT,
+            'address_text' => 'вул. Підписки, 5',
+            'price' => 100,
+        ]);
+
+        app(MarkOrderAsPaidAction::class)->handle($order->fresh());
+
+        $order->refresh();
+        $this->assertSame(Order::PAY_PAID, $order->payment_status);
+        $this->assertSame(Order::STATUS_DONE, $order->status);
     }
 
     public function test_mark_as_paid_action_sets_dispatchable_state_and_emits_order_created_event(): void

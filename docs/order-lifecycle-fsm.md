@@ -12,7 +12,8 @@ Canonical transitions (`default` flow):
 
 Restricted transition:
 
-- `accepted|in_progress -> cancelled` is forbidden in default flow and allowed only via explicit `admin_override` flow.
+- `accepted -> cancelled` is forbidden in default flow and allowed only via explicit `admin_override` flow.
+- `new -> done` is forbidden in default flow and allowed only via explicit `subscription_checkout` flow.
 
 Forbidden transitions:
 
@@ -26,4 +27,7 @@ Implementation:
 - Central policy: `App\Support\Orders\OrderLifecycleTransitionPolicy`.
 - All lifecycle write entrypoints must call `assertTransition()` before writing `orders.status`.
 - Generic cancel flow (`CancelOrderAction`) allows only `new/searching -> cancelled`.
+- Admin override cancel flow (`CancelOrderAction::handleAdminOverride`) is for admin/system entrypoints and supports `accepted -> cancelled`.
+- In-progress cancellation is not allowed by policy at this stage.
+- Subscription checkout payment flow uses explicit `subscription_checkout` policy flow for `new -> done`.
 - Auto-expire flow writes `searching -> expired`.

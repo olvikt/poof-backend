@@ -219,10 +219,10 @@ class OrderResource extends Resource
                     ->icon('heroicon-o-x-mark')
                     ->color('danger')
                     ->visible(fn (Order $record) =>
-                        $record->canBeCancelled()
+                        $record->canBeCancelledByAdminOverride()
                     )
                     ->action(fn (Order $record) =>
-                        $record->cancel()
+                        $record->cancelByAdminOverride()
                     )
                     ->requiresConfirmation(),
             ])

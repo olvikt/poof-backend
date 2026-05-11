@@ -33,6 +33,7 @@ class OrderLifecycleTransitionPolicyTest extends TestCase
         $this->assertFalse($policy->canTransition(Order::STATUS_SEARCHING, Order::STATUS_DONE));
         $this->assertFalse($policy->canTransition(Order::STATUS_ACCEPTED, Order::STATUS_CANCELLED));
         $this->assertFalse($policy->canTransition(Order::STATUS_IN_PROGRESS, Order::STATUS_CANCELLED));
+        $this->assertFalse($policy->canTransition(Order::STATUS_NEW, Order::STATUS_DONE));
     }
 
     public function test_admin_override_allows_accepted_or_in_progress_cancellation(): void
@@ -40,6 +41,14 @@ class OrderLifecycleTransitionPolicyTest extends TestCase
         $policy = app(OrderLifecycleTransitionPolicy::class);
 
         $this->assertTrue($policy->canTransition(Order::STATUS_ACCEPTED, Order::STATUS_CANCELLED, OrderLifecycleTransitionPolicy::FLOW_ADMIN_OVERRIDE));
-        $this->assertTrue($policy->canTransition(Order::STATUS_IN_PROGRESS, Order::STATUS_CANCELLED, OrderLifecycleTransitionPolicy::FLOW_ADMIN_OVERRIDE));
+        $this->assertFalse($policy->canTransition(Order::STATUS_IN_PROGRESS, Order::STATUS_CANCELLED, OrderLifecycleTransitionPolicy::FLOW_ADMIN_OVERRIDE));
+    }
+
+    public function test_subscription_checkout_flow_allows_new_to_done_only_in_explicit_flow(): void
+    {
+        $policy = app(OrderLifecycleTransitionPolicy::class);
+
+        $this->assertTrue($policy->canTransition(Order::STATUS_NEW, Order::STATUS_DONE, OrderLifecycleTransitionPolicy::FLOW_SUBSCRIPTION_CHECKOUT));
+        $this->assertFalse($policy->canTransition(Order::STATUS_NEW, Order::STATUS_DONE));
     }
 }

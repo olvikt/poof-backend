@@ -9,6 +9,7 @@ use App\Actions\Orders\Lifecycle\CancelOrderAction;
 use App\Actions\Orders\Lifecycle\CompleteOrderByCourierAction;
 use App\Actions\Orders\Lifecycle\MarkOrderAsPaidAction;
 use App\Actions\Orders\Lifecycle\StartOrderByCourierAction;
+use App\Support\Orders\OrderLifecycleTransitionPolicy;
 use Illuminate\Database\Eloquent\MassAssignmentException;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
@@ -546,6 +547,15 @@ public function markAsPaid(): void
         ], true);
     }
 
+    public function canBeCancelledByAdminOverride(): bool
+    {
+        return in_array($this->status, [
+            self::STATUS_NEW,
+            self::STATUS_SEARCHING,
+            self::STATUS_ACCEPTED,
+        ], true);
+    }
+
     /**
      * Прийняти замовлення курʼєром (атомарно)
      */
@@ -599,6 +609,11 @@ public function markAsPaid(): void
     public function cancel(): bool
     {
         return app(CancelOrderAction::class)->handle($this);
+    }
+
+    public function cancelByAdminOverride(): bool
+    {
+        return app(CancelOrderAction::class)->handle($this, OrderLifecycleTransitionPolicy::FLOW_ADMIN_OVERRIDE);
     }
 
     /* =========================================================
