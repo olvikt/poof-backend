@@ -242,6 +242,7 @@ class WayForPayReturnFlowTest extends TestCase
     {
         $secret = 'test-secret';
         config()->set('payments.wayforpay.merchant_secret', $secret);
+        config()->set('payments.wayforpay.merchant_account', 'poof_merchant');
 
         $client = User::factory()->create([
             'role' => User::ROLE_CLIENT,
@@ -443,6 +444,7 @@ class WayForPayReturnFlowTest extends TestCase
     {
         $secret = 'test-secret';
         config()->set('payments.wayforpay.merchant_secret', $secret);
+        config()->set('payments.wayforpay.merchant_account', 'poof_merchant');
 
         $client = User::factory()->create([
             'role' => User::ROLE_CLIENT,
@@ -458,11 +460,82 @@ class WayForPayReturnFlowTest extends TestCase
         ]);
 
         $payload = $this->buildSignedPayload((string) $order->id, $secret, 'Approved');
+        $payload['transactionId'] = 'wfp-tx-1';
+        $payload['merchantSignature'] = $this->signPayload($payload, $secret);
 
         $this->postJson('/api/payments/wayforpay/callback', $payload)->assertOk();
         $this->postJson('/api/payments/wayforpay/callback', $payload)->assertOk();
 
         $this->assertSame(Order::PAY_PAID, $order->fresh()->payment_status);
+        $this->assertSame('wfp-tx-1', $order->fresh()->payment_provider_transaction_id);
+    }
+
+    public function test_callback_with_valid_signature_but_wrong_amount_is_rejected_and_order_stays_pending(): void
+    {
+        $secret = 'test-secret';
+        config()->set('payments.wayforpay.merchant_secret', $secret);
+        config()->set('payments.wayforpay.merchant_account', 'poof_merchant');
+
+        $client = User::factory()->create(['role' => User::ROLE_CLIENT, 'is_active' => true]);
+        $order = Order::createForTesting([
+            'client_id' => $client->id,
+            'status' => Order::STATUS_NEW,
+            'payment_status' => Order::PAY_PENDING,
+            'address_text' => 'вул. Amount, 1',
+            'price' => 100,
+        ]);
+
+        $payload = $this->buildSignedPayload((string) $order->id, $secret, 'Approved');
+        $payload['amount'] = '101';
+        $payload['merchantSignature'] = $this->signPayload($payload, $secret);
+
+        $this->postJson('/api/payments/wayforpay/callback', $payload)->assertStatus(422);
+        $this->assertSame(Order::PAY_PENDING, $order->fresh()->payment_status);
+    }
+
+    public function test_callback_with_valid_signature_but_wrong_currency_is_rejected(): void
+    {
+        $secret = 'test-secret';
+        config()->set('payments.wayforpay.merchant_secret', $secret);
+        config()->set('payments.wayforpay.merchant_account', 'poof_merchant');
+
+        $client = User::factory()->create(['role' => User::ROLE_CLIENT, 'is_active' => true]);
+        $order = Order::createForTesting([
+            'client_id' => $client->id,
+            'status' => Order::STATUS_NEW,
+            'payment_status' => Order::PAY_PENDING,
+            'address_text' => 'вул. Currency, 1',
+            'price' => 100,
+            'currency' => 'UAH',
+        ]);
+
+        $payload = $this->buildSignedPayload((string) $order->id, $secret, 'Approved');
+        $payload['currency'] = 'USD';
+        $payload['merchantSignature'] = $this->signPayload($payload, $secret);
+
+        $this->postJson('/api/payments/wayforpay/callback', $payload)->assertStatus(422);
+    }
+
+    public function test_callback_with_valid_signature_but_wrong_merchant_account_is_rejected(): void
+    {
+        $secret = 'test-secret';
+        config()->set('payments.wayforpay.merchant_secret', $secret);
+        config()->set('payments.wayforpay.merchant_account', 'poof_merchant');
+
+        $client = User::factory()->create(['role' => User::ROLE_CLIENT, 'is_active' => true]);
+        $order = Order::createForTesting([
+            'client_id' => $client->id,
+            'status' => Order::STATUS_NEW,
+            'payment_status' => Order::PAY_PENDING,
+            'address_text' => 'вул. Merchant, 1',
+            'price' => 100,
+        ]);
+
+        $payload = $this->buildSignedPayload((string) $order->id, $secret, 'Approved');
+        $payload['merchantAccount'] = 'other_merchant';
+        $payload['merchantSignature'] = $this->signPayload($payload, $secret);
+
+        $this->postJson('/api/payments/wayforpay/callback', $payload)->assertStatus(422);
     }
 
     public function test_wayforpay_return_without_session_is_logged_as_cross_site_reentry_path(): void
@@ -691,7 +764,7 @@ class WayForPayReturnFlowTest extends TestCase
     private function buildSignedPayload(string $orderReference, string $secret, string $transactionStatus): array
     {
         $payload = [
-            'merchantAccount' => 'poof_merchant',
+            'merchantAccount' => (string) config('payments.wayforpay.merchant_account', 'poof_merchant'),
             'orderReference' => $orderReference,
             'amount' => '100',
             'currency' => 'UAH',
@@ -701,18 +774,23 @@ class WayForPayReturnFlowTest extends TestCase
             'reasonCode' => '1100',
         ];
 
-        $payload['merchantSignature'] = app(WayForPaySignature::class)->sign([
-            $payload['merchantAccount'],
-            $payload['orderReference'],
-            (string) $payload['amount'],
-            $payload['currency'],
-            (string) $payload['authCode'],
-            (string) $payload['cardPan'],
-            $payload['transactionStatus'],
-            (string) $payload['reasonCode'],
-        ], $secret);
+        $payload['merchantSignature'] = $this->signPayload($payload, $secret);
 
         return $payload;
+    }
+
+    private function signPayload(array $payload, string $secret): string
+    {
+        return app(WayForPaySignature::class)->sign([
+            (string) $payload['merchantAccount'],
+            (string) $payload['orderReference'],
+            (string) $payload['amount'],
+            (string) $payload['currency'],
+            (string) ($payload['authCode'] ?? ''),
+            (string) ($payload['cardPan'] ?? ''),
+            (string) $payload['transactionStatus'],
+            (string) ($payload['reasonCode'] ?? ''),
+        ], $secret);
     }
 
     private function responseSetsCookie(\Illuminate\Testing\TestResponse $response, string $cookieName): bool

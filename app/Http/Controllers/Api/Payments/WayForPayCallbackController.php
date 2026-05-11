@@ -40,6 +40,7 @@ class WayForPayCallbackController extends Controller
             'cardPan' => ['nullable', 'string'],
             'transactionStatus' => ['required', 'string'],
             'reasonCode' => ['nullable'],
+            'transactionId' => ['nullable', 'string'],
             'merchantSignature' => ['required', 'string'],
         ]);
 
@@ -116,6 +117,24 @@ class WayForPayCallbackController extends Controller
             ], 404);
         }
 
+        $providerTransactionId = $this->extractProviderTransactionId($validated);
+        $economicsValidationError = $this->validateEconomics($order, $validated);
+
+        if ($economicsValidationError !== null) {
+            Log::warning('WayForPay callback rejected: economic mismatch.', [
+                'event' => 'wayforpay_callback_economic_mismatch',
+                'order_id' => $order->id,
+                'order_reference' => $validated['orderReference'],
+                'transaction_status' => $validated['transactionStatus'],
+                'reason' => $economicsValidationError,
+            ]);
+
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Economic validation failed.',
+            ], 422);
+        }
+
         Log::info('WayForPay transaction status received.', [
             'event' => 'wayforpay_callback_transaction_status_received',
             'order_id' => $order->id,
@@ -125,6 +144,31 @@ class WayForPayCallbackController extends Controller
 
         $isSuccessStatus = in_array($validated['transactionStatus'], self::SUCCESS_STATUSES, true);
         $alreadyPaid = $order->isPaid();
+
+        if ($providerTransactionId !== null && $order->payment_provider_transaction_id === null) {
+            $order->forceFill([
+                'payment_provider_transaction_id' => $providerTransactionId,
+                'payment_provider_reference' => (string) $validated['orderReference'],
+            ])->save();
+        }
+
+        if (
+            $providerTransactionId !== null
+            && $order->payment_provider_transaction_id !== null
+            && $order->payment_provider_transaction_id !== $providerTransactionId
+        ) {
+            Log::warning('WayForPay callback rejected: provider transaction mismatch for order.', [
+                'event' => 'wayforpay_callback_provider_tx_mismatch',
+                'order_id' => $order->id,
+                'order_reference' => $validated['orderReference'],
+                'transaction_status' => $validated['transactionStatus'],
+            ]);
+
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Provider transaction mismatch.',
+            ], 422);
+        }
 
         if ($isSuccessStatus) {
             $order->markAsPaid();
@@ -254,5 +298,52 @@ class WayForPayCallbackController extends Controller
         }
 
         return $payload;
+    }
+
+    /**
+     * @param array<string, mixed> $validated
+     */
+    private function extractProviderTransactionId(array $validated): ?string
+    {
+        $transactionId = $validated['transactionId'] ?? null;
+
+        if (! is_string($transactionId) || trim($transactionId) === '') {
+            return null;
+        }
+
+        return trim($transactionId);
+    }
+
+    /**
+     * @param array<string, mixed> $validated
+     */
+    private function validateEconomics(Order $order, array $validated): ?string
+    {
+        $configuredMerchantAccount = (string) config('payments.wayforpay.merchant_account');
+        if ($validated['merchantAccount'] !== $configuredMerchantAccount) {
+            return 'merchant_account_mismatch';
+        }
+
+        if ((string) $validated['orderReference'] !== (string) $order->id) {
+            return 'order_reference_mismatch';
+        }
+
+        if ((string) $validated['currency'] !== (string) $order->currency) {
+            return 'currency_mismatch';
+        }
+
+        $expectedAmount = $this->normalizeAmount($order->client_charge_amount ?? $order->price);
+        $receivedAmount = $this->normalizeAmount($validated['amount']);
+
+        if ($expectedAmount !== $receivedAmount) {
+            return 'amount_mismatch';
+        }
+
+        return null;
+    }
+
+    private function normalizeAmount(mixed $amount): string
+    {
+        return number_format((float) $amount, 2, '.', '');
     }
 }
