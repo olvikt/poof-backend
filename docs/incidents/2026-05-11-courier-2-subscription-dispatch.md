@@ -35,3 +35,10 @@ See dedicated infrastructure gap doc with required access path options:
 - `docs/infra/runtime-artifact-access-gap.md`
 
 Incident remains open until artifact access path is provided and diagnose can be re-run on restored runtime.
+
+## 2026-05-11 root-cause update (dispatch date mismatch)
+- Confirmed code-level cause in `GenerateSubscriptionExecutionOrdersCommand::resolveGenerationSlot()`:
+  scheduler compared `next_run_at < now` with second precision.
+- When cron/job ran at `14:00:01` for subscription slot `14:00:00` and frequency `every_3_days`, slot was treated as missed and advanced to `2026-05-14 14:00:00`.
+- Result: execution orders were generated on `2026-05-11` (order `created_at`), but with `scheduled_date/dispatch_available_at` on `2026-05-14`, therefore courier dispatch remained correctly deferred until 14.05.
+- Fix: comparison is now minute-granular (`setSecond(0)`), so second-level drift no longer skips to next frequency slot.

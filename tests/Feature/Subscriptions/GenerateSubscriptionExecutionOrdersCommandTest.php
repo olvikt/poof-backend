@@ -428,6 +428,30 @@ class GenerateSubscriptionExecutionOrdersCommandTest extends TestCase
         $this->assertSame('2026-04-13 12:00:00', $subscription->fresh()->next_run_at?->format('Y-m-d H:i:s'));
     }
 
+    public function test_it_does_not_shift_every_3_days_slot_when_job_runs_seconds_after_planned_time(): void
+    {
+        Carbon::setTestNow(Carbon::parse('2026-05-11 14:00:01'));
+
+        $subscription = $this->createPaidSubscription([
+            'next_run_at' => Carbon::parse('2026-05-11 14:00:00'),
+        ], [
+            'frequency_type' => 'every_3_days',
+        ]);
+
+        Artisan::call('subscriptions:generate-execution-orders --limit=100');
+
+        $order = Order::query()
+            ->where('subscription_id', $subscription->id)
+            ->where('origin', Order::ORIGIN_SUBSCRIPTION)
+            ->latest('id')
+            ->first();
+
+        $this->assertNotNull($order);
+        $this->assertSame('2026-05-11', $order?->scheduled_date?->toDateString());
+        $this->assertSame('14:00:00', $order?->dispatch_available_at?->format('H:i:s'));
+        $this->assertSame('2026-05-14 14:00:00', $subscription->fresh()->next_run_at?->format('Y-m-d H:i:s'));
+    }
+
     public function test_legacy_null_slot_row_blocks_duplicate_creation_for_same_minute(): void
     {
         Carbon::setTestNow(Carbon::parse('2026-04-10 12:00:00'));

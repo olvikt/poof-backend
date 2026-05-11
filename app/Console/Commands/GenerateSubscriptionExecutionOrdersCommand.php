@@ -273,8 +273,9 @@ class GenerateSubscriptionExecutionOrdersCommand extends Command
     private function resolveGenerationSlot(CarbonImmutable $nextRunAt, string $frequency, CarbonImmutable $now): CarbonImmutable
     {
         $slot = $nextRunAt;
+        $nowMinute = $now->setSecond(0);
 
-        while ($slot->lessThan($now)) {
+        while ($slot->setSecond(0)->lessThan($nowMinute)) {
             $slot = $this->resolveNextRunAt($slot, $frequency);
         }
 

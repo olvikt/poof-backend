@@ -35,6 +35,13 @@ class AdminMapController extends Controller
 
         $orders = Order::query()
             ->whereIn('status', ['new', 'searching', 'accepted', 'in_progress'])
+            ->where(function ($query): void {
+                $query->where('status', '!=', Order::STATUS_SEARCHING)
+                    ->orWhere(function ($searching): void {
+                        $searching->whereNull('dispatch_available_at')
+                            ->orWhere('dispatch_available_at', '<=', now());
+                    });
+            })
             ->whereNotNull('lat')
             ->whereNotNull('lng')
             ->get([
@@ -44,6 +51,7 @@ class AdminMapController extends Controller
                 'status',
                 'price',
                 'created_at',
+                'dispatch_available_at',
             ])
             ->map(fn (Order $order) => [
                 'id' => $order->id,
@@ -52,6 +60,8 @@ class AdminMapController extends Controller
                 'status' => $order->status,
                 'price' => $order->price,
                 'created_at' => optional($order->created_at)->toISOString(),
+                'dispatch_available_at' => optional($order->dispatch_available_at)?->toISOString(),
+                'dispatch_deferred' => $order->isDispatchDeferred(),
             ])
             ->values();
 

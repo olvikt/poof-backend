@@ -70,6 +70,46 @@ class CourierBusinessStateTest extends TestCase
         $this->assertTrue((bool) $busyCourier->is_busy);
     }
 
+    public function test_map_excludes_future_deferred_searching_order_from_active_searchable_payload(): void
+    {
+        $admin = User::factory()->create([
+            'role' => User::ROLE_ADMIN,
+            'is_active' => true,
+        ]);
+        $client = User::factory()->create(['role' => User::ROLE_CLIENT, 'is_active' => true]);
+
+        $futureDeferred = Order::createForTesting([
+            'client_id' => $client->id,
+            'status' => Order::STATUS_SEARCHING,
+            'payment_status' => Order::PAY_PAID,
+            'address_text' => 'deferred',
+            'price' => 100,
+            'lat' => 50.45,
+            'lng' => 30.52,
+            'dispatch_available_at' => now()->addDays(3),
+        ]);
+
+        $dueNow = Order::createForTesting([
+            'client_id' => $client->id,
+            'status' => Order::STATUS_SEARCHING,
+            'payment_status' => Order::PAY_PAID,
+            'address_text' => 'due now',
+            'price' => 100,
+            'lat' => 50.46,
+            'lng' => 30.53,
+            'dispatch_available_at' => now()->subMinute(),
+        ]);
+
+        $response = $this->actingAs($admin, 'web')->getJson('/api/admin/map-data');
+
+        $response->assertOk();
+        $response->assertJsonMissing(['id' => $futureDeferred->id]);
+        $response->assertJsonFragment([
+            'id' => $dueNow->id,
+            'dispatch_deferred' => false,
+        ]);
+    }
+
     private function seedBusyAndFreeCouriers(): array
     {
         $client = User::factory()->create([
