@@ -106,6 +106,11 @@ Schedule::command('subscriptions:generate-execution-orders --limit=100')
     ->name('poof-subscriptions-generate-execution-orders')
     ->description('Generate due recurring subscription execution orders')
     ->everyMinute();
+
+Schedule::command('courier:monitor-future-deferred-searching-orders')
+    ->name('poof-monitor-future-deferred-searching-orders')
+    ->description('Detect searching+paid orders silently deferred into future dispatch window')
+    ->everyMinute();
 Artisan::command('orders:auto-expire {--limit=200}', function () {
     $limit = max(1, (int) $this->option('limit'));
     /** @var OrderAutoExpireService $service */
@@ -135,6 +140,17 @@ Artisan::command('courier:diagnose-searching-orders {--limit=100}', function () 
 
     $this->line(json_encode($result, JSON_UNESCAPED_SLASHES));
 })->purpose('Detect anomalous searching orders for operator diagnostics');
+
+Artisan::command('courier:monitor-future-deferred-searching-orders {--limit=}', function () {
+    $limit = (int) ($this->option('limit') ?: config('courier_runtime.searching_diagnostics.future_deferral_scan_limit', 100));
+    $limit = max(1, $limit);
+
+    /** @var DispatchDiagnosticsService $service */
+    $service = app(DispatchDiagnosticsService::class);
+    $result = $service->reportFutureDeferredSearchingOrders($limit);
+
+    $this->line(json_encode($result, JSON_UNESCAPED_SLASHES));
+})->purpose('Monitor suspicious future-deferred searching orders and emit operational alerts');
 
 Artisan::command('courier:why-order-not-dispatched {orderId}', function (int $orderId) {
     /** @var Order|null $order */

@@ -47,6 +47,9 @@ return [
 
     'searching_diagnostics' => [
         'future_grace_minutes' => (int) env('COURIER_SEARCHING_FUTURE_GRACE_MINUTES', 10),
+        'future_deferral_tolerance_minutes' => (int) env('COURIER_SEARCHING_FUTURE_DEFERRAL_TOLERANCE_MINUTES', 10),
+        'future_deferral_alert_hours' => (int) env('COURIER_SEARCHING_FUTURE_DEFERRAL_ALERT_HOURS', 2),
+        'future_deferral_scan_limit' => (int) env('COURIER_SEARCHING_FUTURE_DEFERRAL_SCAN_LIMIT', 100),
         'max_searching_age_minutes' => (int) env('COURIER_SEARCHING_MAX_AGE_MINUTES', 20),
         'candidate_scan_limit' => (int) env('COURIER_SEARCHING_CANDIDATE_SCAN_LIMIT', 160),
     ],
