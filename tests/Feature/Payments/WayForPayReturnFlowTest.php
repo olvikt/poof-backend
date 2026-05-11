@@ -121,7 +121,7 @@ class WayForPayReturnFlowTest extends TestCase
 
         $location = (string) $response->headers->get('Location');
         $this->assertStringContainsString('/payments/wayforpay/return/finalize?', parse_url($location, PHP_URL_PATH).'?'.parse_url($location, PHP_URL_QUERY));
-        $this->assertStringNotStartsWith('/login', $location);
+        $this->assertFalse(str_starts_with($location, '/login'));
     }
 
     public function test_authenticated_client_success_return_stays_in_session_and_sees_payment_success_context(): void
@@ -149,7 +149,7 @@ class WayForPayReturnFlowTest extends TestCase
         $returnResponse->assertStatus(302);
         $finalizeUrl = (string) $returnResponse->headers->get('Location');
 
-        $this->assertStringStartsWith('/payments/wayforpay/return/finalize?', $finalizeUrl);
+        $this->assertFinalizeRedirectUrl($finalizeUrl);
 
         $this->actingAs($client)->get($finalizeUrl)
             ->assertRedirect('/client/orders?payment=success&source=wayforpay_return&order='.$order->id);
@@ -708,7 +708,7 @@ class WayForPayReturnFlowTest extends TestCase
         ])->assertStatus(302);
 
         $finalizeUrl = (string) $returnResponse->headers->get('Location');
-        $this->assertStringStartsWith('/payments/wayforpay/return/finalize?', $finalizeUrl);
+        $this->assertFinalizeRedirectUrl($finalizeUrl);
 
         $this->get($finalizeUrl)
             ->assertRedirect('/login?next='.urlencode($next).'&source=wayforpay_return')
@@ -744,7 +744,7 @@ class WayForPayReturnFlowTest extends TestCase
         ])->assertStatus(302);
 
         $finalizeUrl = (string) $returnResponse->headers->get('Location');
-        $this->assertStringStartsWith('/payments/wayforpay/return/finalize?', $finalizeUrl);
+        $this->assertFinalizeRedirectUrl($finalizeUrl);
 
         $this->actingAs($client, 'web')
             ->get($finalizeUrl)
@@ -880,6 +880,16 @@ class WayForPayReturnFlowTest extends TestCase
         $this->assertSame(Order::STATUS_SEARCHING, $execution->status);
 
         Event::assertDispatched(OrderCreated::class, fn (OrderCreated $event): bool => $event->order->id === $execution->id);
+    }
+
+
+    private function assertFinalizeRedirectUrl(string $url): void
+    {
+        $path = (string) parse_url($url, PHP_URL_PATH);
+        $query = (string) parse_url($url, PHP_URL_QUERY);
+
+        $this->assertSame('/payments/wayforpay/return/finalize', $path);
+        $this->assertNotSame('', $query);
     }
 
     private function buildSignedPayload(string $orderReference, string $secret, string $transactionStatus, string $amount = '100'): array

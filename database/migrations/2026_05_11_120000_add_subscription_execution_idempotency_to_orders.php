@@ -115,7 +115,7 @@ return new class extends Migration {
     {
         return match (DB::getDriverName()) {
             'pgsql' => "date_trunc('minute', (scheduled_date::timestamp + scheduled_time_from::time))",
-            default => "strftime('%Y-%m-%d %H:%M:00', scheduled_date || ' ' || scheduled_time_from)",
+            default => "strftime('%Y-%m-%d %H:%M:00', date(scheduled_date) || ' ' || time(scheduled_time_from))",
         };
     }
 };

@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Tests\Feature\Admin;
 
+use App\Models\Order;
 use App\Models\OrderCompletionDispute;
 use App\Models\OrderCompletionRequest;
 use App\Models\User;
@@ -61,9 +62,24 @@ class AdminApiRouteMiddlewareContractTest extends TestCase
             return $uri;
         }
 
+        $client = User::factory()->create(['role' => User::ROLE_CLIENT, 'is_active' => true]);
+        $courier = User::factory()->create(['role' => User::ROLE_COURIER, 'is_active' => true]);
+
+        $order = Order::createForTesting([
+            'client_id' => $client->id,
+            'courier_id' => $courier->id,
+            'status' => Order::STATUS_IN_PROGRESS,
+            'payment_status' => Order::PAY_PAID,
+            'order_type' => Order::TYPE_ONE_TIME,
+            'address_text' => 'admin dispute route fixture',
+            'price' => 100,
+            'completion_policy' => Order::COMPLETION_POLICY_DOOR_TWO_PHOTO_CLIENT_CONFIRM,
+        ]);
+
         $request = OrderCompletionRequest::unguarded(fn () => OrderCompletionRequest::query()->create([
-            'order_id' => null,
-            'courier_id' => null,
+            'order_id' => $order->id,
+            'courier_id' => $courier->id,
+            'completion_policy' => OrderCompletionRequest::POLICY_DOOR_TWO_PHOTO_CLIENT_CONFIRM,
             'status' => OrderCompletionRequest::STATUS_DISPUTED,
         ]));
 
