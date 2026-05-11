@@ -1,0 +1,14 @@
+{
+  "date": "2026-05-11",
+  "courier_id": 2,
+  "command": "php artisan poof:diagnose-courier-dispatch --date=2026-05-11 --courier-id=2",
+  "executed_at_utc": "2026-05-11T00:00:00Z",
+  "status": "failed_before_artisan_bootstrap",
+  "error": {
+    "type": "vendor_missing",
+    "message": "Failed opening required '/workspace/poof-backend/vendor/autoload.php'",
+    "composer_install_error": "CONNECT tunnel failed, response 403 while fetching dependencies from github.com"
+  },
+  "verdict": "other",
+  "verdict_note": "Runtime diagnostics for production data were blocked by environment dependency/network constraints; dispatch root cause for courier_id=2 on 2026-05-11 could not be computed from this environment."
+}
