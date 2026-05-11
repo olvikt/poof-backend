@@ -2,8 +2,8 @@
   "date": "2026-05-11",
   "courier_id": 2,
   "command": "php artisan poof:diagnose-courier-dispatch --date=2026-05-11 --courier-id=2",
-  "executed_at_utc": "2026-05-11T17:22:48Z",
-  "status": "blocked_by_artifact_access_gap",
+  "executed_at_utc": "2026-05-11T18:05:00Z",
+  "status": "blocked_by_missing_runtime_artifact",
   "runtime_check": {
     "script": "bash scripts/check-backend-runtime.sh",
     "runtime_ready": false,
@@ -12,21 +12,24 @@
     "composer_network_blocked": true
   },
   "artifact_recovery": {
-    "requested_artifact": "runtime-vendor-2df0cf66dfd31be3a5d11b7e6ab22fae4753c563",
-    "workflow_definition_verified": true,
-    "workflow_file": ".github/workflows/tests.yml",
-    "latest_successful_run_lookup": "blocked_missing_repo_remote_and_credentials",
-    "download_result": "not_possible_in_current_container",
-    "details": {
-      "gh_cli": "not_installed",
-      "github_token": "not_present",
-      "git_remote_origin": "not_configured",
-      "local_vendor_archive": "not_found"
+    "requested_artifact": "runtime-vendor-2df0cf66dfd31be3a5d11b7e6ab22fae4753c563.tar.gz",
+    "delivery_contract": {
+      "mount_dir": "/mnt/runtime-artifacts",
+      "fetch_command": "scripts/fetch-runtime-artifact.sh 2df0cf66dfd31be3a5d11b7e6ab22fae4753c563 vendor.tar.gz"
+    },
+    "mount_dir_present": true,
+    "artifact_present": false,
+    "fetch_result": {
+      "result": "error",
+      "reason": "artifact_not_found_in_shared_dir",
+      "artifact_delivered": false
     }
   },
-  "error": {
-    "type": "runtime_artifact_access_gap",
-    "message": "GitHub Actions artifact upload is defined, but debug container has no usable path/credentials to fetch runtime-vendor artifact."
+  "diagnose_execution": {
+    "attempted": true,
+    "result": "failed_before_command_logic",
+    "error": "vendor/autoload.php missing"
   },
-  "follow_up_doc": "docs/infra/runtime-artifact-access-gap.md"
+  "final_business_root_cause": "other: runtime_artifact_unavailable_in_mount_dir",
+  "incident_closure": "blocked_until_real_ci_artifact_is_mounted"
 }
