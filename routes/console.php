@@ -8,6 +8,7 @@ use App\Services\Dispatch\OfferDispatcher;
 use App\Services\Dispatch\PendingOfferSweeper;
 use App\Services\Dispatch\DispatchDiagnosticsService;
 use App\Models\Order;
+use App\Models\OrderOffer;
 use App\Models\User;
 use App\Services\Orders\OrderAutoExpireService;
 use App\Jobs\MarkInactiveCouriers;
@@ -189,6 +190,106 @@ Artisan::command('courier:why-courier-not-candidate {orderId} {courierId}', func
 
     return self::SUCCESS;
 })->purpose('Operator diagnostic: explain why courier is not a dispatch candidate');
+
+Artisan::command('poof:diagnose-courier-dispatch {--date=} {--courier-id=}', function () {
+    $date = (string) ($this->option('date') ?: now()->toDateString());
+    $courierId = (int) ($this->option('courier-id') ?: 0);
+    $now = now();
+
+    $orders = Order::query()
+        ->whereDate('scheduled_date', $date)
+        ->orderBy('id')
+        ->get();
+
+    $rows = $orders->map(function (Order $order) use ($courierId, $now): array {
+        $alivePendingOffersCount = OrderOffer::query()
+            ->where('order_id', $order->id)
+            ->where('status', OrderOffer::STATUS_PENDING)
+            ->whereNotNull('expires_at')
+            ->where('expires_at', '>', $now)
+            ->count();
+
+        $hasOfferForCourier = $courierId > 0
+            ? OrderOffer::query()
+                ->where('order_id', $order->id)
+                ->where('courier_id', $courierId)
+                ->exists()
+            : false;
+
+        $hasAlivePendingOfferForCourier = $courierId > 0
+            ? OrderOffer::query()
+                ->where('order_id', $order->id)
+                ->where('courier_id', $courierId)
+                ->where('status', OrderOffer::STATUS_PENDING)
+                ->whereNotNull('expires_at')
+                ->where('expires_at', '>', $now)
+                ->exists()
+            : false;
+
+        $isDispatchDeferred = $order->isDispatchDeferred();
+        $isPromiseExpired = $order->isPromiseExpired();
+        $isDispatchable = $order->isDispatchableForOfferPipeline();
+
+        $reasons = [];
+
+        if ($order->status !== Order::STATUS_SEARCHING) {
+            $reasons[] = 'status_not_searching';
+        }
+        if ($order->payment_status !== Order::PAY_PAID) {
+            $reasons[] = 'payment_not_paid';
+        }
+        if ($order->courier_id !== null) {
+            $reasons[] = 'courier_already_assigned';
+        }
+        if ($order->next_dispatch_at !== null && $order->next_dispatch_at->isFuture()) {
+            $reasons[] = 'next_dispatch_backoff_until_future';
+        }
+        if ($isDispatchDeferred) {
+            $reasons[] = 'dispatch_available_at_in_future';
+        }
+        if ($isPromiseExpired || $order->expired_at !== null) {
+            $reasons[] = 'order_promise_expired';
+        }
+        if ($alivePendingOffersCount > 0) {
+            $reasons[] = 'waiting_alive_pending_offer';
+        }
+        if ($isDispatchable && $alivePendingOffersCount === 0) {
+            $reasons[] = 'bug_needs_dispatch_no_alive_offer';
+        }
+
+        return [
+            'id' => $order->id,
+            'order_type' => $order->order_type,
+            'origin' => $order->origin,
+            'subscription_id' => $order->subscription_id,
+            'status' => $order->status,
+            'payment_status' => $order->payment_status,
+            'courier_id' => $order->courier_id,
+            'dispatch_available_at' => $order->dispatch_available_at?->toIso8601String(),
+            'next_dispatch_at' => $order->next_dispatch_at?->toIso8601String(),
+            'valid_until_at' => $order->valid_until_at?->toIso8601String(),
+            'expired_at' => $order->expired_at?->toIso8601String(),
+            'is_dispatch_deferred' => $isDispatchDeferred,
+            'is_promise_expired' => $isPromiseExpired,
+            'is_dispatchable_for_offer_pipeline' => $isDispatchable,
+            'alive_pending_offers_count' => $alivePendingOffersCount,
+            'has_offer_for_courier_id' => $hasOfferForCourier,
+            'has_alive_pending_offer_for_courier_id' => $hasAlivePendingOfferForCourier,
+            'dispatch_window_opens_at' => $isDispatchDeferred ? $order->dispatch_available_at?->toIso8601String() : null,
+            'reasons' => $reasons,
+        ];
+    })->values()->all();
+
+    $this->line(json_encode([
+        'date' => $date,
+        'courier_id' => $courierId > 0 ? $courierId : null,
+        'now' => $now->toIso8601String(),
+        'orders_count' => count($rows),
+        'orders' => $rows,
+    ], JSON_UNESCAPED_SLASHES));
+
+    return self::SUCCESS;
+})->purpose('Diagnose why orders are not visible to courier by date');
 
 Artisan::command('ops:contract:scheduler {--max-age-seconds=120}', function () {
     $key = config('ops.scheduler_heartbeat_cache_key', 'ops:scheduler:last-tick-at');
