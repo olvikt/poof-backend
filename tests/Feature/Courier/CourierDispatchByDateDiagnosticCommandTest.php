@@ -36,8 +36,9 @@ class CourierDispatchByDateDiagnosticCommandTest extends TestCase
         $row = collect($payload['orders'])->firstWhere('id', $order->id);
         $this->assertNotNull($row);
         $this->assertTrue($row['is_dispatch_deferred']);
-        $this->assertContains('dispatch_available_at_in_future', $row['reasons']);
+        $this->assertContains('dispatch_deferred_future_window', $row['reasons']);
         $this->assertSame($row['dispatch_available_at'], $row['dispatch_window_opens_at']);
+        $this->assertSame(1, $payload['summary']['deferred']);
     }
 
     public function test_it_reports_bug_needs_dispatch_when_dispatchable_without_alive_offer(): void
@@ -62,7 +63,9 @@ class CourierDispatchByDateDiagnosticCommandTest extends TestCase
         $this->assertNotNull($row);
         $this->assertTrue($row['is_dispatchable_for_offer_pipeline']);
         $this->assertSame(0, $row['alive_pending_offers_count']);
-        $this->assertContains('bug_needs_dispatch_no_alive_offer', $row['reasons']);
+        $this->assertContains('no_alive_pending_offer', $row['reasons']);
+        $this->assertSame(1, $payload['summary']['dispatchable']);
+        $this->assertSame(1, $payload['summary']['stuck_without_offers']);
     }
 
     public function test_it_reports_alive_offer_presence_and_courier_offer_flag(): void
@@ -87,6 +90,8 @@ class CourierDispatchByDateDiagnosticCommandTest extends TestCase
         $this->assertSame(1, $row['alive_pending_offers_count']);
         $this->assertTrue($row['has_offer_for_courier_id']);
         $this->assertTrue($row['has_alive_pending_offer_for_courier_id']);
-        $this->assertContains('waiting_alive_pending_offer', $row['reasons']);
+        $this->assertContains('no_offer_for_courier', $row['reasons']);
+        $this->assertArrayHasKey('timezone', $payload);
+        $this->assertArrayHasKey('queue', $payload);
     }
 }

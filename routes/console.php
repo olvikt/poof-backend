@@ -233,10 +233,10 @@ Artisan::command('poof:diagnose-courier-dispatch {--date=} {--courier-id=}', fun
         $reasons = [];
 
         if ($order->status !== Order::STATUS_SEARCHING) {
-            $reasons[] = 'status_not_searching';
+            $reasons[] = 'not_dispatchable_status';
         }
         if ($order->payment_status !== Order::PAY_PAID) {
-            $reasons[] = 'payment_not_paid';
+            $reasons[] = 'not_paid';
         }
         if ($order->courier_id !== null) {
             $reasons[] = 'courier_already_assigned';
@@ -245,16 +245,19 @@ Artisan::command('poof:diagnose-courier-dispatch {--date=} {--courier-id=}', fun
             $reasons[] = 'next_dispatch_backoff_until_future';
         }
         if ($isDispatchDeferred) {
-            $reasons[] = 'dispatch_available_at_in_future';
+            $reasons[] = 'dispatch_deferred_future_window';
         }
         if ($isPromiseExpired || $order->expired_at !== null) {
             $reasons[] = 'order_promise_expired';
         }
         if ($alivePendingOffersCount > 0) {
-            $reasons[] = 'waiting_alive_pending_offer';
+            $reasons[] = 'no_offer_for_courier';
         }
         if ($isDispatchable && $alivePendingOffersCount === 0) {
-            $reasons[] = 'bug_needs_dispatch_no_alive_offer';
+            $reasons[] = 'no_alive_pending_offer';
+        }
+        if ($reasons === []) {
+            $reasons[] = 'other';
         }
 
         return [
@@ -280,11 +283,44 @@ Artisan::command('poof:diagnose-courier-dispatch {--date=} {--courier-id=}', fun
         ];
     })->values()->all();
 
+    $categorizedCounts = [
+        'dispatchable' => 0,
+        'deferred' => 0,
+        'stuck_without_offers' => 0,
+    ];
+    foreach ($rows as $row) {
+        if (($row['is_dispatchable_for_offer_pipeline'] ?? false) === true) {
+            $categorizedCounts['dispatchable']++;
+        }
+        if (in_array('dispatch_deferred_future_window', (array) ($row['reasons'] ?? []), true)) {
+            $categorizedCounts['deferred']++;
+        }
+        if (in_array('no_alive_pending_offer', (array) ($row['reasons'] ?? []), true)) {
+            $categorizedCounts['stuck_without_offers']++;
+        }
+    }
+
+    $failedJobsCount = DB::table('failed_jobs')->count();
+    $delayedJobsCount = DB::table('jobs')->where('available_at', '>', now()->timestamp)->count();
+    $dispatcherJobsCount = DB::table('jobs')->where('payload', 'like', '%DispatchOfferForOrder%')->count();
+
     $this->line(json_encode([
         'date' => $date,
         'courier_id' => $courierId > 0 ? $courierId : null,
         'now' => $now->toIso8601String(),
         'orders_count' => count($rows),
+        'summary' => $categorizedCounts,
+        'timezone' => [
+            'app_timezone' => config('app.timezone'),
+            'php_timezone' => date_default_timezone_get(),
+            'db_now' => DB::selectOne('select now() as now')?->now,
+            'carbon_now' => now()->toIso8601String(),
+        ],
+        'queue' => [
+            'failed_jobs' => $failedJobsCount,
+            'delayed_jobs' => $delayedJobsCount,
+            'dispatcher_jobs' => $dispatcherJobsCount,
+        ],
         'orders' => $rows,
     ], JSON_UNESCAPED_SLASHES));
 

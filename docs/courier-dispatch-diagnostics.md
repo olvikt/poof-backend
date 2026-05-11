@@ -8,7 +8,7 @@
 php artisan poof:diagnose-courier-dispatch --date=2026-05-11 --courier-id=2
 ```
 
-Команда выводит JSON с массивом `orders` за дату `scheduled_date`.
+Команда выводит JSON с `orders`, агрегированным `summary`, блоком `queue` и `timezone`.
 
 ## Что проверяется по каждому заказу
 
@@ -21,21 +21,22 @@ php artisan poof:diagnose-courier-dispatch --date=2026-05-11 --courier-id=2
 
 ## Расшифровка reasons
 
-- `status_not_searching` — заказ не в `searching`, OfferDispatcher не крутит его.
-- `payment_not_paid` — заказ не `paid`, pipeline офферов блокируется.
+- `not_dispatchable_status` — заказ не в `searching`, OfferDispatcher не крутит его.
+- `not_paid` — заказ не `paid`, pipeline офферов блокируется.
 - `courier_already_assigned` — у заказа уже есть `courier_id`.
 - `next_dispatch_backoff_until_future` — backoff активен, `next_dispatch_at` ещё в будущем.
-- `dispatch_available_at_in_future` — окно dispatch ещё не открылось.
+- `dispatch_deferred_future_window` — окно dispatch ещё не открылось.
 - `order_promise_expired` — promise уже истёк (или заказ auto-expired).
-- `waiting_alive_pending_offer` — есть живой pending offer, новый оффер не создаётся.
-- `bug_needs_dispatch_no_alive_offer` — заказ dispatchable, но живого оффера нет; это сигнал для ручного запуска dispatch loop/инцидентного расследования.
+- `no_offer_for_courier` — есть живой pending offer, но текущему курьеру offer не назначен.
+- `no_alive_pending_offer` — заказ dispatchable, но живого оффера нет; это сигнал для расследования dispatcher path.
+- `other` — явные блокеры не выявлены командой.
 
 ## Как интерпретировать для кейса “курьер 2 не видит подписки”
 
 1. Фильтруем `orders` по `origin=subscription` или `subscription_id != null`.
 2. Проверяем `reasons`:
-   - если есть `dispatch_available_at_in_future`, ждать `dispatch_window_opens_at`;
+   - если есть `dispatch_deferred_future_window`, ждать `dispatch_window_opens_at`;
    - если есть `next_dispatch_backoff_until_future`, ждать `next_dispatch_at`;
-   - если есть `waiting_alive_pending_offer` и `has_alive_pending_offer_for_courier_id=false`, оффер сейчас у другого курьера;
-   - если только `bug_needs_dispatch_no_alive_offer`, это аномалия.
+   - если есть `no_offer_for_courier` и `has_alive_pending_offer_for_courier_id=false`, оффер сейчас у другого курьера;
+   - если только `no_alive_pending_offer`, это аномалия.
 3. Для аномалий запускаем `courier:diagnose-searching-orders` и `courier:why-order-not-dispatched {orderId}`.
