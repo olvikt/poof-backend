@@ -86,6 +86,15 @@ class OrderCreateSubscriptionCheckoutTest extends TestCase
             ->assertSeeInOrder(['Тип замовлення', 'Передача']);
     }
 
+    public function test_date_block_is_rendered_before_time_block(): void
+    {
+        $user = User::factory()->create();
+        $this->actingAs($user);
+
+        Livewire::test(OrderCreate::class)
+            ->assertSeeInOrder(['Дата', 'Час', 'Обраний інтервал']);
+    }
+
     public function test_order_type_badges_and_icon_markers_are_visible(): void
     {
         $user = User::factory()->create();
