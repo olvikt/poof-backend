@@ -35,7 +35,8 @@ class CourierAvailableOrdersApiTest extends TestCase
         $this->getJson('/api/orders/available')
             ->assertOk()
             ->assertJsonCount(1, 'orders')
-            ->assertJsonPath('orders.0.id', $visibleOrder->id);
+            ->assertJsonPath('orders.0.order_id', $visibleOrder->id)
+            ->assertJsonPath('orders.0.order_public_id', $visibleOrder->public_id);
     }
 
     public function test_api_excludes_expired_pending_offer(): void
@@ -94,7 +95,7 @@ class CourierAvailableOrdersApiTest extends TestCase
 
         Sanctum::actingAs($courier);
         $apiOrderIds = collect($this->getJson('/api/orders/available')->assertOk()->json('orders'))
-            ->pluck('id')
+            ->pluck('order_public_id')
             ->sort()
             ->values()
             ->all();
@@ -102,7 +103,7 @@ class CourierAvailableOrdersApiTest extends TestCase
         $this->actingAs($courier, 'web');
         $livewireOrderIds = Livewire::test(AvailableOrders::class)
             ->viewData('orders')
-            ->pluck('id')
+            ->map(fn ($offer) => optional($offer->order)->public_id)
             ->sort()
             ->values()
             ->all();
@@ -156,7 +157,101 @@ class CourierAvailableOrdersApiTest extends TestCase
         $this->getJson('/api/orders/available')
             ->assertOk()
             ->assertJsonCount(1, 'orders')
-            ->assertJsonPath('orders.0.id', $order->id);
+            ->assertJsonPath('orders.0.order_public_id', $order->public_id);
+    }
+
+
+    public function test_api_returns_allowlisted_offer_contract_only(): void
+    {
+        $client = User::factory()->create(['role' => User::ROLE_CLIENT, 'is_active' => true]);
+        $courier = $this->createOnlineCourier();
+        $order = $this->createSearchingOrder($client, 'Allowlist');
+        OrderOffer::createPrimaryPending($order->id, $courier->id, 120);
+
+        Sanctum::actingAs($courier);
+
+        $payload = $this->getJson('/api/orders/available')->assertOk()->json('orders.0');
+
+        $this->assertSame([
+            'offer_id',
+            'order_id',
+            'order_public_id',
+            'pickup',
+            'delivery',
+            'price',
+            'offer_status',
+            'offer_expires_at',
+            'service',
+        ], array_keys($payload));
+        $this->assertSame($order->id, $payload['order_id']);
+        $this->assertArrayNotHasKey('client_id', $payload);
+        $this->assertArrayNotHasKey('lat', $payload);
+        $this->assertArrayNotHasKey('lng', $payload);
+    }
+
+    public function test_unverified_courier_does_not_receive_available_offers(): void
+    {
+        $client = User::factory()->create(['role' => User::ROLE_CLIENT, 'is_active' => true]);
+        $courier = $this->createOnlineCourier();
+        $order = $this->createSearchingOrder($client, 'Unverified hidden');
+        OrderOffer::createPrimaryPending($order->id, $courier->id, 120);
+
+        $courier->forceFill(['is_verified' => false])->save();
+        Courier::query()->where('user_id', $courier->id)->update(['is_verified' => false]);
+
+        Sanctum::actingAs($courier);
+
+        $this->getJson('/api/orders/available')
+            ->assertOk()
+            ->assertJsonPath('orders', []);
+    }
+
+    public function test_api_applies_limit_with_default_and_max_bounds(): void
+    {
+        $client = User::factory()->create(['role' => User::ROLE_CLIENT, 'is_active' => true]);
+        $courier = $this->createOnlineCourier();
+
+        foreach (range(1, 55) as $index) {
+            $order = $this->createSearchingOrder($client, 'Order '.$index);
+            OrderOffer::createPrimaryPending($order->id, $courier->id, 120 + $index);
+        }
+
+        Sanctum::actingAs($courier);
+
+        $this->getJson('/api/orders/available')
+            ->assertOk()
+            ->assertJsonCount(20, 'orders')
+            ->assertJsonPath('pagination.limit', 20);
+
+        $this->getJson('/api/orders/available?limit=500')
+            ->assertOk()
+            ->assertJsonCount(50, 'orders')
+            ->assertJsonPath('pagination.limit', 50)
+            ->assertJsonPath('pagination.max_limit', 50);
+    }
+
+
+    public function test_api_invalid_or_empty_limit_falls_back_to_default_limit(): void
+    {
+        $client = User::factory()->create(['role' => User::ROLE_CLIENT, 'is_active' => true]);
+        $courier = $this->createOnlineCourier();
+
+        foreach (range(1, 25) as $index) {
+            $order = $this->createSearchingOrder($client, 'Fallback limit '.$index);
+            OrderOffer::createPrimaryPending($order->id, $courier->id, 180 + $index);
+        }
+
+        Sanctum::actingAs($courier);
+
+        $this->getJson('/api/orders/available?limit=abc')
+            ->assertOk()
+            ->assertJsonCount(20, 'orders')
+            ->assertJsonPath('pagination.limit', 20);
+
+        $this->getJson('/api/orders/available?limit=')
+            ->assertOk()
+            ->assertJsonCount(20, 'orders')
+            ->assertJsonPath('pagination.limit', 20);
     }
 
     private function createSearchingOrder(User $client, string $addressText): Order
