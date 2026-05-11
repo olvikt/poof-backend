@@ -87,13 +87,13 @@ class CourierRuntimeStateSyncTest extends TestCase
         $this->assertSame(User::SESSION_READY, $courier->session_state);
     }
 
-    public function test_cancel_from_accepted_restores_free_online_runtime_state(): void
+    public function test_cancel_from_accepted_by_admin_override_restores_free_online_runtime_state(): void
     {
         [$courier, $order] = $this->createCourierWithActiveOrder(Order::STATUS_ACCEPTED);
 
         $courier->markBusy();
 
-        $this->assertTrue($order->fresh()->cancel());
+        $this->assertTrue($order->fresh()->cancelByAdminOverride());
 
         $courier->refresh();
         $order->refresh();
@@ -104,6 +104,23 @@ class CourierRuntimeStateSyncTest extends TestCase
         $this->assertFalse((bool) $courier->is_busy);
         $this->assertSame(User::SESSION_READY, $courier->session_state);
         $this->assertFalse($courier->hasActiveCourierOrder());
+    }
+
+    public function test_default_cancel_from_accepted_is_blocked_and_runtime_state_not_mutated(): void
+    {
+        [$courier, $order] = $this->createCourierWithActiveOrder(Order::STATUS_ACCEPTED);
+
+        $this->assertFalse($order->fresh()->cancel());
+
+        $courier->refresh();
+        $order->refresh();
+
+        $this->assertSame(Order::STATUS_ACCEPTED, $order->status);
+        $this->assertSame(Courier::STATUS_ASSIGNED, $courier->courierProfile->status);
+        $this->assertTrue((bool) $courier->is_online);
+        $this->assertTrue((bool) $courier->is_busy);
+        $this->assertSame(User::SESSION_ASSIGNED, $courier->session_state);
+        $this->assertTrue($courier->hasActiveCourierOrder());
     }
 
     public function test_accepted_fixture_builder_keeps_assigned_runtime_contract(): void
