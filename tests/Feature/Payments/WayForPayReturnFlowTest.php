@@ -602,6 +602,62 @@ class WayForPayReturnFlowTest extends TestCase
         $this->postJson('/api/payments/wayforpay/callback', $second)->assertStatus(422);
     }
 
+    public function test_declined_callback_does_not_bind_tx_id_and_later_approved_with_new_tx_is_accepted(): void
+    {
+        $secret = 'test-secret';
+        config()->set('payments.wayforpay.merchant_secret', $secret);
+        config()->set('payments.wayforpay.merchant_account', 'poof_merchant');
+
+        $client = User::factory()->create(['role' => User::ROLE_CLIENT, 'is_active' => true]);
+        $order = Order::createForTesting([
+            'client_id' => $client->id,
+            'status' => Order::STATUS_NEW,
+            'payment_status' => Order::PAY_PENDING,
+            'address_text' => 'вул. Retry, 1',
+            'price' => 100,
+        ]);
+
+        $declined = $this->buildSignedPayload((string) $order->id, $secret, 'Declined');
+        $declined['transactionId'] = 'declined-tx-1';
+        $declined['merchantSignature'] = $this->signPayload($declined, $secret);
+        $this->postJson('/api/payments/wayforpay/callback', $declined)->assertOk();
+
+        $order->refresh();
+        $this->assertSame(Order::PAY_PENDING, $order->payment_status);
+        $this->assertNull($order->payment_provider_transaction_id);
+
+        $approved = $this->buildSignedPayload((string) $order->id, $secret, 'Approved');
+        $approved['transactionId'] = 'approved-tx-2';
+        $approved['merchantSignature'] = $this->signPayload($approved, $secret);
+        $this->postJson('/api/payments/wayforpay/callback', $approved)->assertOk();
+
+        $order->refresh();
+        $this->assertSame(Order::PAY_PAID, $order->payment_status);
+        $this->assertSame('approved-tx-2', $order->payment_provider_transaction_id);
+    }
+
+    public function test_callback_amount_validation_uses_checkout_payload_amount_when_price_differs_from_client_charge_amount(): void
+    {
+        $secret = 'test-secret';
+        config()->set('payments.wayforpay.merchant_secret', $secret);
+        config()->set('payments.wayforpay.merchant_account', 'poof_merchant');
+
+        $client = User::factory()->create(['role' => User::ROLE_CLIENT, 'is_active' => true]);
+        $order = Order::createForTesting([
+            'client_id' => $client->id,
+            'status' => Order::STATUS_NEW,
+            'payment_status' => Order::PAY_PENDING,
+            'address_text' => 'вул. Amount Source, 1',
+            'price' => 100,
+            'client_charge_amount' => 80,
+        ]);
+
+        $payload = $this->buildSignedPayload((string) $order->id, $secret, 'Approved', '100');
+        $this->postJson('/api/payments/wayforpay/callback', $payload)->assertOk();
+
+        $this->assertSame(Order::PAY_PAID, $order->fresh()->payment_status);
+    }
+
     public function test_wayforpay_return_without_session_is_logged_as_cross_site_reentry_path(): void
     {
         Log::spy();
@@ -825,12 +881,12 @@ class WayForPayReturnFlowTest extends TestCase
         Event::assertDispatched(OrderCreated::class, fn (OrderCreated $event): bool => $event->order->id === $execution->id);
     }
 
-    private function buildSignedPayload(string $orderReference, string $secret, string $transactionStatus): array
+    private function buildSignedPayload(string $orderReference, string $secret, string $transactionStatus, string $amount = '100'): array
     {
         $payload = [
             'merchantAccount' => (string) config('payments.wayforpay.merchant_account', 'poof_merchant'),
             'orderReference' => $orderReference,
-            'amount' => '100',
+            'amount' => $amount,
             'currency' => 'UAH',
             'authCode' => '123456',
             'cardPan' => '411111******1111',

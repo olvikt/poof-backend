@@ -152,7 +152,7 @@ class WayForPayCallbackController extends Controller
             $lockedOrder = Order::query()->whereKey($order->id)->lockForUpdate()->firstOrFail();
             $alreadyPaid = $lockedOrder->isPaid();
 
-            if ($providerTransactionId !== null) {
+            if ($providerTransactionId !== null && $isSuccessStatus) {
                 $reusedByAnotherOrder = Order::query()
                     ->where('payment_provider_transaction_id', $providerTransactionId)
                     ->whereKeyNot($lockedOrder->id)
@@ -372,7 +372,7 @@ class WayForPayCallbackController extends Controller
             return 'currency_mismatch';
         }
 
-        $expectedAmount = $this->normalizeAmount($order->client_charge_amount ?? $order->price);
+        $expectedAmount = $this->normalizeAmount($order->price);
         $receivedAmount = $this->normalizeAmount($validated['amount']);
 
         if ($expectedAmount !== $receivedAmount) {

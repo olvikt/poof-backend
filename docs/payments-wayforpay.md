@@ -67,11 +67,12 @@ WAYFORPAY_PAY_URL=https://secure.wayforpay.com/pay
   - После проверки подписи выполняется economic validation:
     - `merchantAccount` должен строго совпадать с `payments.wayforpay.merchant_account`,
     - `currency` должна совпадать с валютой заказа,
-    - `amount` должна совпадать с ожидаемой суммой заказа (с decimal normalisation до `2` знаков),
+    - `amount` должна совпадать с суммой, которая была отправлена в checkout payload (`orders.price`, с decimal normalisation до `2` знаков),
     - callback с mismatch отклоняется (`422`) и заказ остается в текущем состоянии.
   - Для статуса `Approved` заказ переводится в `paid` через доменное действие `markAsPaid()`.
   - Обработка идемпотентна: повторный `Approved` callback безопасен и не создает дублирующих side effects.
   - Если приходит `transactionId`, он сохраняется в заказе как `payment_provider_transaction_id`; также сохраняется `payment_provider_reference`.
+  - `transactionId` сохраняется только для успешного статуса (`Approved`); non-success callbacks не связывают tx id с заказом и не блокируют последующий payment retry.
   - `payment_provider_transaction_id` должен быть глобально уникален среди заказов (для non-null значений); reuse того же transaction id на другом заказе отклоняется.
   - Для неуспешных/ожидающих статусов (`Refunded`, `Declined`, и т.д.) заказ не помечается оплаченным.
   - Коды ответов callback:
