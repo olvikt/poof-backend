@@ -290,23 +290,23 @@
 					<x-poof.section title="Як діяти, якщо курʼєра не знайдено">
 						<div
 							data-e2e="courier-not-found-hint"
-							class="rounded-2xl border border-yellow-400/30 bg-yellow-400/5 p-3 sm:p-4"
+							class="rounded-3xl border border-amber-200/70 bg-amber-50 p-4 sm:p-6"
 						>
-							<div class="mb-3 flex items-center gap-2 text-xs font-medium uppercase tracking-wide text-yellow-200/90">
-								<span aria-hidden="true" class="inline-block h-2 w-2 rounded-full bg-yellow-300"></span>
-								<span>Підказка</span>
+							<div class="mb-4 flex items-center gap-3 text-xs font-semibold uppercase tracking-wide text-amber-700">
+								<span aria-hidden="true" class="inline-flex h-9 w-9 items-center justify-center rounded-full bg-amber-100 text-base leading-none">💡</span>
+								<span>ПІДКАЗКА</span>
 							</div>
-							<div class="space-y-2">
-								<label class="flex items-start gap-2 text-sm text-gray-200">
+							<div class="space-y-3">
+								<label class="flex items-center gap-3 text-sm text-gray-800">
 								<input type="radio" class="accent-yellow-400" wire:model.live="client_wait_preference" value="{{ \App\Models\Order::WAIT_ALLOW_LATE_FULFILLMENT }}">
 									<span>Чекати довше, якщо курʼєра не знайдено в бажаний час</span>
 								</label>
-								<label class="flex items-start gap-2 text-sm text-gray-200">
+								<label class="flex items-center gap-3 text-sm text-gray-800">
 								<input type="radio" class="accent-yellow-400" wire:model.live="client_wait_preference" value="{{ \App\Models\Order::WAIT_AUTO_CANCEL_IF_NOT_FOUND }}">
 									<span>Скасувати замовлення та повернути кошти, якщо курʼєра не буде знайдено вчасно</span>
 								</label>
 							</div>
-							<label class="mt-3 flex items-start gap-2 text-xs text-gray-400">
+							<label class="mt-4 flex items-start gap-3 border-t border-amber-200/70 pt-4 text-xs text-gray-600">
 								<input type="checkbox" class="mt-0.5 accent-yellow-400" wire:model="promise_consent">
 								<span>Підтверджую, що ознайомився(лася) з умовами авто-скасування та можливого зсуву часу виконання.</span>
 							</label>
