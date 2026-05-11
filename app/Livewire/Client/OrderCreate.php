@@ -162,6 +162,10 @@ class OrderCreate extends Component
         $this->refreshBagPricingOptions();
         $this->recalculatePrice();
 
+        if (request()->boolean('open_subscription_plans')) {
+            $this->showSubscriptionModal = true;
+        }
+
         $this->dispatch('map:init');
     }
 

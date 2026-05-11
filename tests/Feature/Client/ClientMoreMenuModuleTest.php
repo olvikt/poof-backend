@@ -633,6 +633,18 @@ class ClientMoreMenuModuleTest extends TestCase
     }
 
 
+
+    public function test_subscriptions_page_renders_subscription_cta_link_to_order_create_with_query_flag(): void
+    {
+        $client = User::factory()->create(['role' => User::ROLE_CLIENT]);
+
+        $this->actingAs($client, 'web')
+            ->get(route('client.subscriptions'))
+            ->assertOk()
+            ->assertSee('Обрати план підписки')
+            ->assertSee(route('client.order.create', ['open_subscription_plans' => 1]), false);
+    }
+
     public function test_profile_and_addresses_pages_share_single_canonical_address_form_host(): void
     {
         $client = User::factory()->create(['role' => User::ROLE_CLIENT]);
