@@ -55,8 +55,12 @@ class ClientPaymentPublicIdSecurityTest extends TestCase
 
         $response->assertRedirect(route('client.payments.show', ['order' => $order->public_id]));
         $location = (string) $response->headers->get('Location');
-        $this->assertStringContainsString('/client/payments/'.$order->public_id, $location);
-        $this->assertStringNotContainsString('/client/payments/'.$order->id, $location);
+        $path = (string) parse_url($location, PHP_URL_PATH);
+        $segments = explode('/', trim($path, '/'));
+        $lastSegment = (string) end($segments);
+
+        $this->assertSame($order->public_id, $lastSegment);
+        $this->assertNotSame((string) $order->id, $lastSegment);
     }
 
     public function test_owner_legacy_raw_id_start_post_redirects_to_public_id_payment_show(): void
