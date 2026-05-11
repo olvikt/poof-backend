@@ -70,7 +70,18 @@
 					<p class="text-sm font-semibold leading-5 text-white">Приватний будинок</p>
 					<p class="mt-0.5 text-xs leading-4 text-neutral-400">Увімкніть якщо будинок приватний.</p>
 				</div>
-				<input type="checkbox" wire:model.live="is_private_house" class="h-5 w-5 accent-yellow-400" aria-label="Приватний будинок">
+
+				<button
+					type="button"
+					role="switch"
+					aria-label="Приватний будинок"
+					aria-checked="{{ $is_private_house ? 'true' : 'false' }}"
+					wire:click.prevent="$toggle('is_private_house')"
+					class="building-type-switch relative inline-flex h-8 w-14 shrink-0 items-center rounded-full border transition focus:outline-none focus:ring-2 focus:ring-yellow-300/60 {{ $is_private_house ? 'border-yellow-300 bg-yellow-400' : 'border-neutral-600 bg-neutral-700' }}"
+				>
+					<span class="sr-only">Приватний будинок</span>
+					<span class="building-type-switch-thumb pointer-events-none inline-block h-6 w-6 rounded-full bg-white shadow-md transition-transform {{ $is_private_house ? 'translate-x-7' : 'translate-x-1' }}"></span>
+				</button>
 			</div>
 
 			@if ($errors->has('entrance') || $errors->has('floor') || $errors->has('apartment'))
