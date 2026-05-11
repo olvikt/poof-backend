@@ -64,8 +64,16 @@ WAYFORPAY_PAY_URL=https://secure.wayforpay.com/pay
     - нестандартный кейс: JSON строкой в одном form-urlencoded key/value.
   - Подпись callback проверяется по `merchantSecret`.
   - `orderReference` сопоставляется с `orders.id`.
+  - После проверки подписи выполняется economic validation:
+    - `merchantAccount` должен строго совпадать с `payments.wayforpay.merchant_account`,
+    - `currency` должна совпадать с валютой заказа,
+    - `amount` должна совпадать с суммой, которая была отправлена в checkout payload (`orders.price`, с decimal normalisation до `2` знаков),
+    - callback с mismatch отклоняется (`422`) и заказ остается в текущем состоянии.
   - Для статуса `Approved` заказ переводится в `paid` через доменное действие `markAsPaid()`.
-  - Обработка идемпотентна: повторный `Approved` callback на уже оплаченный заказ безопасно игнорируется.
+  - Обработка идемпотентна: повторный `Approved` callback безопасен и не создает дублирующих side effects.
+  - Если приходит `transactionId`, он сохраняется в заказе как `payment_provider_transaction_id`; также сохраняется `payment_provider_reference`.
+  - `transactionId` сохраняется только для успешного статуса (`Approved`); non-success callbacks не связывают tx id с заказом и не блокируют последующий payment retry.
+  - `payment_provider_transaction_id` должен быть глобально уникален среди заказов (для non-null значений); reuse того же transaction id на другом заказе отклоняется.
   - Для неуспешных/ожидающих статусов (`Refunded`, `Declined`, и т.д.) заказ не помечается оплаченным.
   - Коды ответов callback:
     - `200` — callback принят/обработан успешно (`status=accept`).
@@ -87,6 +95,9 @@ WAYFORPAY_PAY_URL=https://secure.wayforpay.com/pay
 - `WayForPay callback rejected: invalid payload.` — проблемы структуры payload + список отсутствующих required полей.
 - `WayForPay callback rejected: invalid signature.` — signature verify не прошёл.
 - `WayForPay callback rejected: order not found.` — `orderReference` не найден в `orders`.
+- `WayForPay callback rejected: economic mismatch.` — mismatch merchant/currency/amount/order reference.
+- `WayForPay callback rejected: provider transaction mismatch for order.` — для заказа уже сохранён другой provider transaction id.
+- `WayForPay callback rejected: provider transaction reused by another order.` — один и тот же transaction id попытались использовать на другом заказе.
 - `WayForPay transaction status received.` — лог входящего `transactionStatus` с `order_id`/`order_reference`.
 - `WayForPay callback received non-success transaction status.` — диагностический warning для `Refunded`, `Declined` и других non-success статусов.
 - `WayForPay duplicate callback ignored: order already paid.` — повторный `Approved` callback на уже оплаченный заказ.
