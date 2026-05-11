@@ -286,8 +286,8 @@
 				</template>
 			</div>
 
-				<div class="mb-5">
-					<x-poof.section title="Як діяти, якщо курʼєра не знайдено">
+			<div class="mb-5">
+				<x-poof.section title="Як діяти, якщо курʼєра не знайдено">
 					<div
 						data-e2e="courier-not-found-hint"
 						x-data="{ isHintOpen: false }"
@@ -315,27 +315,31 @@
 								<path d="M5 7.5L10 12.5L15 7.5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
 							</svg>
 						</button>
-						<div id="courier-not-found-hint-content" x-show="isHintOpen" x-collapse class="mt-3 space-y-2.5">
-							<label class="flex items-center gap-3 text-sm text-gray-800">
-								<input type="radio" class="accent-yellow-400" wire:model.live="client_wait_preference" value="{{ \App\Models\Order::WAIT_ALLOW_LATE_FULFILLMENT }}">
-								<span>Чекати довше, якщо курʼєра не знайдено в бажаний час</span>
-							</label>
+
+						<div id="courier-not-found-hint-content" x-show="isHintOpen" class="mt-3 space-y-2.5">
+							<div class="space-y-2.5">
 								<label class="flex items-center gap-3 text-sm text-gray-800">
-								<input type="radio" class="accent-yellow-400" wire:model.live="client_wait_preference" value="{{ \App\Models\Order::WAIT_AUTO_CANCEL_IF_NOT_FOUND }}">
+									<input type="radio" class="accent-yellow-400" wire:model.live="client_wait_preference" value="{{ \App\Models\Order::WAIT_ALLOW_LATE_FULFILLMENT }}">
+									<span>Чекати довше, якщо курʼєра не знайдено в бажаний час</span>
+								</label>
+								<label class="flex items-center gap-3 text-sm text-gray-800">
+									<input type="radio" class="accent-yellow-400" wire:model.live="client_wait_preference" value="{{ \App\Models\Order::WAIT_AUTO_CANCEL_IF_NOT_FOUND }}">
 									<span>Скасувати замовлення та повернути кошти, якщо курʼєра не буде знайдено вчасно</span>
 								</label>
 							</div>
-						<label class="mt-3 flex items-start gap-3 border-t border-amber-200/70 pt-3 text-xs text-gray-600">
-							<input type="checkbox" class="mt-0.5 accent-yellow-400" wire:model="promise_consent">
-							<span>Підтверджую, що ознайомився(лася) з умовами авто-скасування та можливого зсуву часу виконання.</span>
-						</label>
+
+							<label class="mt-3 flex items-start gap-3 border-t border-amber-200/70 pt-3 text-xs text-gray-600">
+								<input type="checkbox" class="mt-0.5 accent-yellow-400" wire:model="promise_consent">
+								<span>Підтверджую, що ознайомився(лася) з умовами авто-скасування та можливого зсуву часу виконання.</span>
+							</label>
 						</div>
 					</div>
-						@error('promise_consent')
-							<div class="text-red-400 text-xs mt-1">{{ $message }}</div>
-						@enderror
-					</x-poof.section>
-				</div>
+
+					@error('promise_consent')
+						<div class="text-red-400 text-xs mt-1">{{ $message }}</div>
+					@enderror
+				</x-poof.section>
+			</div>
 
 
 	{{-- ================= DIVIDER ================= --}}
