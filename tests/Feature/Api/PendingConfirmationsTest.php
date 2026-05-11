@@ -5,7 +5,9 @@ declare(strict_types=1);
 namespace Tests\Feature\Api;
 
 use App\Models\Order;
+use App\Models\ClientSubscription;
 use App\Models\OrderCompletionRequest;
+use App\Models\SubscriptionPlan;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
@@ -18,7 +20,7 @@ class PendingConfirmationsTest extends TestCase
     {
         $client = User::factory()->create(['role' => User::ROLE_CLIENT, 'is_active' => true]);
         $courier = User::factory()->create(['role' => User::ROLE_COURIER, 'is_active' => true]);
-        $this->createAwaitingOrder($client->id, $courier->id, 777);
+        $this->createAwaitingOrder($client->id, $courier->id, $this->createSubscriptionForClient($client->id)->id);
 
         $this->actingAs($client, 'sanctum');
         $this->getJson('/api/client/pending-confirmations')
@@ -44,9 +46,9 @@ class PendingConfirmationsTest extends TestCase
         $otherClient = User::factory()->create(['role' => User::ROLE_CLIENT, 'is_active' => true]);
         $courier = User::factory()->create(['role' => User::ROLE_COURIER, 'is_active' => true]);
 
-        $subscriptionOrder = $this->createAwaitingOrder($client->id, $courier->id, 101);
+        $subscriptionOrder = $this->createAwaitingOrder($client->id, $courier->id, $this->createSubscriptionForClient($client->id)->id);
         $oneTimeOrder = $this->createAwaitingOrder($client->id, $courier->id, null);
-        $this->createAwaitingOrder($otherClient->id, $courier->id, 202);
+        $this->createAwaitingOrder($otherClient->id, $courier->id, $this->createSubscriptionForClient($otherClient->id)->id);
 
         $this->actingAs($client, 'sanctum');
 
@@ -75,8 +77,8 @@ class PendingConfirmationsTest extends TestCase
         $client = User::factory()->create(['role' => User::ROLE_CLIENT, 'is_active' => true]);
         $courier = User::factory()->create(['role' => User::ROLE_COURIER, 'is_active' => true]);
 
-        $this->createAwaitingOrder($client->id, $courier->id, 505);
-        $disputedOrder = $this->createAwaitingOrder($client->id, $courier->id, 606);
+        $this->createAwaitingOrder($client->id, $courier->id, $this->createSubscriptionForClient($client->id)->id);
+        $disputedOrder = $this->createAwaitingOrder($client->id, $courier->id, $this->createSubscriptionForClient($client->id)->id);
 
         OrderCompletionRequest::query()
             ->where('order_id', $disputedOrder->id)
@@ -127,14 +129,29 @@ class PendingConfirmationsTest extends TestCase
             'completion_policy' => Order::COMPLETION_POLICY_DOOR_TWO_PHOTO_CLIENT_CONFIRM,
         ]);
 
-        OrderCompletionRequest::query()->create([
+        OrderCompletionRequest::unguarded(fn () => OrderCompletionRequest::query()->create([
             'order_id' => $order->id,
             'courier_id' => $courierId,
+            'completion_policy' => OrderCompletionRequest::POLICY_DOOR_TWO_PHOTO_CLIENT_CONFIRM,
             'status' => OrderCompletionRequest::STATUS_AWAITING_CLIENT_CONFIRMATION,
             'submitted_at' => now()->subMinutes(30),
             'auto_confirmation_due_at' => now()->addHours(23),
-        ]);
+        ]));
 
         return $order;
     }
+
+
+    private function createSubscriptionForClient(int $clientId): ClientSubscription
+    {
+        $plan = SubscriptionPlan::factory()->create();
+
+        return ClientSubscription::unguarded(fn (): ClientSubscription => ClientSubscription::query()->create([
+            'client_id' => $clientId,
+            'subscription_plan_id' => $plan->id,
+            'status' => ClientSubscription::STATUS_DRAFT,
+                        'next_run_at' => now()->addDay(),
+        ]));
+    }
+
 }

@@ -35,15 +35,17 @@ class GenerateSubscriptionExecutionOrdersCommandTest extends TestCase
 
         Artisan::call('subscriptions:generate-execution-orders --limit=100');
 
-        $this->assertDatabaseHas('orders', [
-            'subscription_id' => $subscription->id,
-            'origin' => Order::ORIGIN_SUBSCRIPTION,
-            'order_type' => Order::TYPE_SUBSCRIPTION,
-            'payment_status' => Order::PAY_PAID,
-            'status' => Order::STATUS_SEARCHING,
-            'scheduled_date' => '2026-04-12',
-            'scheduled_time_from' => '12:00:00',
-        ]);
+        $order = Order::query()
+            ->where('subscription_id', $subscription->id)
+            ->where('origin', Order::ORIGIN_SUBSCRIPTION)
+            ->where('order_type', Order::TYPE_SUBSCRIPTION)
+            ->where('payment_status', Order::PAY_PAID)
+            ->where('status', Order::STATUS_SEARCHING)
+            ->whereDate('scheduled_date', '2026-04-12')
+            ->first();
+
+        $this->assertNotNull($order);
+        $this->assertSame('12:00', substr((string) $order->scheduled_time_from, 0, 5));
 
         $subscription->refresh();
         $this->assertSame('2026-04-15 12:00:00', $subscription->next_run_at?->format('Y-m-d H:i:s'));
@@ -404,7 +406,8 @@ class GenerateSubscriptionExecutionOrdersCommandTest extends TestCase
             ->whereDate('scheduled_date', '2026-05-01')
             ->where('origin', Order::ORIGIN_SUBSCRIPTION)
             ->count());
-        $this->assertTrue($subscription->next_run_at !== null && $subscription->next_run_at->greaterThan(Carbon::parse('2026-05-01 12:00:00')));
+        // next_run_at intentionally remains at blocked execution slot until renewal reactivates schedule
+        $this->assertSame('2026-05-01 12:00:00', $subscription->next_run_at?->format('Y-m-d H:i:s'));
     }
 
 

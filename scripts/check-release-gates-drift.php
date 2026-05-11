@@ -7,6 +7,7 @@ const WORKFLOW_FILE = '.github/workflows/tests.yml';
 const DOCS_FILE = 'docs/release-gates.md';
 const WORKFLOW_STEP_NAME = 'Run minimal blocking release suite';
 const DOCS_SECTION_MARKER = 'Current blocking CI gate:';
+const CRITICAL_SCRIPT_FILE = 'scripts/test-critical.sh';
 
 function fail(string $message): void
 {
@@ -31,6 +32,16 @@ function readFileOrFail(string $path): string
 function normalizeTestPath(string $path): string
 {
     return trim($path, " \t\n\r\0\x0B`';,");
+}
+
+
+function extractTestsFromScript(string $scriptContent): array
+{
+    if (preg_match_all('/\btests\/[A-Za-z0-9_\/.-]+\.php\b/', $scriptContent, $matches) !== false && $matches[0] !== []) {
+        return array_map('normalizeTestPath', $matches[0]);
+    }
+
+    fail('No test file paths were found in critical suite script ' . CRITICAL_SCRIPT_FILE . '.');
 }
 
 function extractWorkflowSuite(string $workflowContent): array
@@ -101,11 +112,19 @@ function extractWorkflowSuite(string $workflowContent): array
         }
     }
 
-    if ($tests === []) {
-        fail('No test file paths were found in workflow step "' . WORKFLOW_STEP_NAME . '".');
+    if ($tests !== []) {
+        return $tests;
     }
 
-    return $tests;
+    for ($i = $runIndex + 1, $count = count($lines); $i < $count; $i++) {
+        $line = trim($lines[$i]);
+
+        if (preg_match('/^(?:bash|sh)\s+' . preg_quote(CRITICAL_SCRIPT_FILE, '/') . '\b/', $line) === 1) {
+            return extractTestsFromScript(readFileOrFail(CRITICAL_SCRIPT_FILE));
+        }
+    }
+
+    fail('No test file paths were found in workflow step "' . WORKFLOW_STEP_NAME . '", and no critical suite script call was detected.');
 }
 
 function extractDocsSuite(string $docsContent): array

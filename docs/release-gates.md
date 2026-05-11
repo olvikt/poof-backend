@@ -115,7 +115,28 @@ Blocking jobs:
    - `tests/Unit/Address/PersistClientAddressActionTest.php`;
    - `tests/Unit/Address/ResolveAddressFromPointTest.php`;
    - `tests/Unit/Address/ResolveAddressPointFromFieldsTest.php`;
-   - `tests/Unit/Orders/LifecycleActionContractsTest.php`.
+   - `tests/Unit/Orders/LifecycleActionContractsTest.php`;
+   - `tests/Unit/Orders/OrderLifecycleTransitionPolicyTest.php`;
+   - `tests/Feature/Subscriptions/GenerateSubscriptionExecutionOrdersCommandTest.php`;
+   - `tests/Feature/Subscriptions/SubscriptionExecutionIdempotencyMigrationTest.php`;
+   - `tests/Feature/Payments/WayForPayReturnFlowTest.php`;
+   - `tests/Feature/Courier/OfferDispatcherSubscriptionDiagnosticsTest.php`;
+   - `tests/Feature/Admin/AdminApiRouteMiddlewareContractTest.php`;
+   - `tests/Feature/Admin/AdminRuntimeDiagnosticsApiTest.php`;
+   - `tests/Feature/Payments/ClientPaymentPublicIdSecurityTest.php`;
+   - `tests/Feature/Api/PendingConfirmationsTest.php`;
+   - `tests/Feature/Api/CourierAvailableOrdersApiTest.php`.
+
+   This suite is merge/release blocking: any failure blocks protected-branch merge and production promotion.
+
+   Critical flow coverage by domain:
+   - **Order lifecycle / FSM**: `OrderStoreTest`, `OrderLifecycleStatusContractTest`, `LifecycleActionContractsTest`, `OrderLifecycleTransitionPolicyTest`.
+   - **Subscription execution**: `GenerateSubscriptionExecutionOrdersCommandTest`, `SubscriptionExecutionIdempotencyMigrationTest`.
+   - **Payments / WayForPay**: `WayForPayReturnFlowTest`.
+   - **Dispatch / courier availability**: `OfferDispatcherSubscriptionDiagnosticsTest`, `CourierRuntimeStateSyncTest`, `AvailableOrdersOnlineSyncTest`, `CourierAvailableOrdersApiTest`.
+   - **Admin API boundary**: `AdminProtectedRoutesAuthTest`, `AdminApiRouteMiddlewareContractTest`, `AdminRuntimeDiagnosticsApiTest`.
+   - **Client public_id / anti-IDOR**: `ClientPaymentPublicIdSecurityTest`, `PendingConfirmationsTest`.
+
 
    Non-blocking follow-up suites:
    - broader Auth / Courier / Livewire suites (including remaining focused courier online/livewire regressions such as `CourierOnlineSessionStabilityTest`, `CourierOnlineAutoResyncTest`, and `CourierBusyUxFlowTest`);
@@ -207,6 +228,7 @@ Canonical smoke runners:
 - PHP syntax/lint;
 - current blocking CI gate (with coverage artifact `php-tests-critical-coverage` for the exact same suite);
 - frontend build verification.
+- local reproduction command: `bash scripts/test-critical.sh` (same source of truth as CI step).
 
 ### What must pass during deploy
 
