@@ -100,27 +100,7 @@ jobs:
       - name: Run minimal blocking release suite
         run: |
           mkdir -p storage/coverage/php-tests-critical
-          php artisan test \
-            tests/Feature/Api/OrderStoreTest.php \
-            tests/Unit/OrderLifecycleStatusContractTest.php \
-            tests/Unit/Support/Address/AddressPrecisionTest.php \
-            tests/Unit/Support/Address/AddressCoordinatePolicyTest.php \
-            tests/Feature/Admin/AdminProtectedRoutesAuthTest.php \
-            tests/Feature/Api/ApiProtectedRoutesAuthTest.php \
-            tests/Feature/Auth/RegisterTest.php \
-            tests/Feature/Auth/PasswordResetTest.php \
-            tests/Feature/Courier/AcceptFlowArchitectureRegressionTest.php \
-            tests/Feature/Courier/CourierRuntimeStateSyncTest.php \
-            tests/Feature/Courier/AvailableOrdersOnlineSyncTest.php \
-            tests/Feature/Courier/CourierOnlineNavigationSyncTest.php \
-            tests/Feature/Api/GeocodeControllerTest.php \
-            tests/Unit/Address/PrepareAddressSavePayloadTest.php \
-            tests/Unit/Address/FilterClientAddressPayloadTest.php \
-            tests/Unit/Address/PersistAddressDataTest.php \
-            tests/Unit/Address/PersistClientAddressActionTest.php \
-            tests/Unit/Address/ResolveAddressFromPointTest.php \
-            tests/Unit/Address/ResolveAddressPointFromFieldsTest.php \
-            tests/Unit/Orders/LifecycleActionContractsTest.php \
+          bash scripts/test-critical.sh \
             --coverage-clover=storage/coverage/php-tests-critical/clover.xml \
             --coverage-html=storage/coverage/php-tests-critical/html \
             --coverage-text=storage/coverage/php-tests-critical/summary.txt
