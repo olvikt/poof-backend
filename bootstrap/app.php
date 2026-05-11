@@ -5,6 +5,7 @@ use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
 use Illuminate\Http\Request;
 use Illuminate\Http\Exceptions\ThrottleRequestsException;
+use App\Http\Middleware\AdminOnly;
 use App\Http\Middleware\ObserveCourierRuntimeEndpoint;
 
 return Application::configure(basePath: dirname(__DIR__))
@@ -19,6 +20,7 @@ return Application::configure(basePath: dirname(__DIR__))
     ])
     ->withMiddleware(function (Middleware $middleware) {
         $middleware->alias([
+            'admin' => AdminOnly::class,
             'observe.courier.runtime.endpoint' => ObserveCourierRuntimeEndpoint::class,
         ]);
 

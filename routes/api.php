@@ -2,7 +2,6 @@
 
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\Auth\RegisterController;
-use App\Http\Middleware\AdminOnly;
 
 // CLIENT
 use App\Http\Controllers\Api\Client\ClientProfileController;
@@ -53,12 +52,17 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('/client/orders/{order}/completion-proof/disputes', [OrderCompletionClientController::class, 'openDispute']);
     Route::get('/client/pending-confirmations', PendingConfirmationsController::class);
 
-    // ADMIN/SUPPORT COMPLETION DISPUTES
-    Route::get('/admin/completion-disputes', [OrderCompletionDisputeAdminController::class, 'index']);
-    Route::get('/admin/completion-disputes/{dispute}', [OrderCompletionDisputeAdminController::class, 'show']);
-    Route::post('/admin/completion-disputes/{dispute}/under-review', [OrderCompletionDisputeAdminController::class, 'markUnderReview']);
-    Route::post('/admin/completion-disputes/{dispute}/resolve-confirmed', [OrderCompletionDisputeAdminController::class, 'resolveConfirmed']);
-    Route::post('/admin/completion-disputes/{dispute}/resolve-rejected', [OrderCompletionDisputeAdminController::class, 'resolveRejected']);
+    Route::prefix('/admin')->middleware('admin')->group(function () {
+        // ADMIN/SUPPORT COMPLETION DISPUTES
+        Route::get('/completion-disputes', [OrderCompletionDisputeAdminController::class, 'index']);
+        Route::get('/completion-disputes/{dispute}', [OrderCompletionDisputeAdminController::class, 'show']);
+        Route::post('/completion-disputes/{dispute}/under-review', [OrderCompletionDisputeAdminController::class, 'markUnderReview']);
+        Route::post('/completion-disputes/{dispute}/resolve-confirmed', [OrderCompletionDisputeAdminController::class, 'resolveConfirmed']);
+        Route::post('/completion-disputes/{dispute}/resolve-rejected', [OrderCompletionDisputeAdminController::class, 'resolveRejected']);
+
+        Route::get('/map-data', [AdminMapController::class, 'index']);
+        Route::get('/runtime-diagnostics', [AdminRuntimeDiagnosticsController::class, 'show']);
+    });
 
     /*
     |--------------------------------------------------------------------------
@@ -79,11 +83,5 @@ Route::middleware('auth:sanctum')->group(function () {
 });
 
 
-Route::middleware(['web', 'auth:web', AdminOnly::class])
-    ->get('/admin/map-data', [AdminMapController::class, 'index']);
-
-Route::middleware(['web', 'auth:web', AdminOnly::class])
+Route::middleware(['web', 'auth:web', 'admin'])
     ->get('/dashboard/map', [AdminMapController::class, 'index']);
-
-Route::middleware(['web', 'auth:web', AdminOnly::class])
-    ->get('/admin/runtime-diagnostics', [AdminRuntimeDiagnosticsController::class, 'show']);
