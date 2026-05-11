@@ -147,7 +147,7 @@ class PendingConfirmationsTest extends TestCase
 
         return ClientSubscription::unguarded(fn (): ClientSubscription => ClientSubscription::query()->create([
             'client_id' => $clientId,
-            'plan_id' => $plan->id,
+            'subscription_plan_id' => $plan->id,
             'status' => ClientSubscription::STATUS_ACTIVE,
             'frequency_type' => 'weekly',
             'next_run_at' => now()->addDay(),

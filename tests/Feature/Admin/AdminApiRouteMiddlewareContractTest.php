@@ -85,8 +85,12 @@ class AdminApiRouteMiddlewareContractTest extends TestCase
 
         $dispute = OrderCompletionDispute::unguarded(fn () => OrderCompletionDispute::query()->create([
             'completion_request_id' => $request->id,
-            'reason' => 'test',
+            'order_id' => $order->id,
+            'client_id' => $client->id,
+            'courier_id' => $courier->id,
             'status' => OrderCompletionDispute::STATUS_OPEN,
+            'reason_code' => 'test_reason',
+            'opened_at' => now(),
         ]));
 
         return str_replace('{dispute}', (string) $dispute->id, $uri);

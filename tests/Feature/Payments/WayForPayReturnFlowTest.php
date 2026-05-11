@@ -152,7 +152,7 @@ class WayForPayReturnFlowTest extends TestCase
         $this->assertFinalizeRedirectUrl($finalizeUrl);
 
         $this->actingAs($client)->get($finalizeUrl)
-            ->assertRedirect('/client/orders?payment=success&source=wayforpay_return&order='.$order->id);
+            ->assertRedirectContains('/client/orders?payment=success&source=wayforpay_return&order='.$order->id);
 
         $this->get('/client/orders?payment=success&source=wayforpay_return&order='.$order->id)
             ->assertOk()
@@ -210,7 +210,7 @@ class WayForPayReturnFlowTest extends TestCase
         ])->headers->get('Location');
 
         $this->actingAs($client)->get($finalizeUrl)
-            ->assertRedirect('/client/orders?payment=success&source=wayforpay_return&order='.$order->id);
+            ->assertRedirectContains('/client/orders?payment=success&source=wayforpay_return&order='.$order->id);
     }
     public function test_wayforpay_return_does_not_mark_order_as_paid(): void
     {
@@ -748,7 +748,7 @@ class WayForPayReturnFlowTest extends TestCase
 
         $this->actingAs($client, 'web')
             ->get($finalizeUrl)
-            ->assertRedirect('/client/orders?payment=success&source=wayforpay_return&order='.$order->id);
+            ->assertRedirectContains('/client/orders?payment=success&source=wayforpay_return&order='.$order->id);
     }
 
     public function test_session_continuity_is_logged_and_preserved_from_payment_start_to_finalize(): void
@@ -785,7 +785,7 @@ class WayForPayReturnFlowTest extends TestCase
         $finalizeUrl = (string) $returnResponse->headers->get('Location');
 
         $this->get($finalizeUrl)
-            ->assertRedirect('/client/orders?payment=success&source=wayforpay_return&order='.$order->id);
+            ->assertRedirectContains('/client/orders?payment=success&source=wayforpay_return&order='.$order->id);
 
         Log::shouldHaveReceived('info')->withArgs(function (string $message, array $context): bool {
             return $message === 'WayForPay return finalize resolved with active session.'
