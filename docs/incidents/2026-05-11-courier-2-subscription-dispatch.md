@@ -33,5 +33,9 @@ Because artifact cannot be retrieved in-container, the following steps are block
 ## Follow-up
 See dedicated infrastructure gap doc with required access path options:
 - `docs/infra/runtime-artifact-access-gap.md`
+- Runtime recovery runbook:
+  - `docs/runtime-bootstrap-recovery.md`
+
+Next required action: restore runtime using one supported path, then re-run diagnose.
 
 Incident remains open until artifact access path is provided and diagnose can be re-run on restored runtime.

@@ -1,7 +1,7 @@
 # Runtime bootstrap recovery (Laravel backend)
 
 ## Purpose
-This runbook defines **supported recovery paths** for backend runtime when Laravel bootstrap is blocked (for example, `vendor/autoload.php` missing) and direct `composer install` is not possible due to proxy/network restrictions.
+This runbook defines **supported recovery paths** for backend runtime when Laravel bootstrap is blocked (for example, `vendor/autoload.php` missing) and direct `composer install` is not possible due to proxy/network restrictions. In incident diagnostics this maps to status `blocked_by_runtime_bootstrap`.
 
 Official runtime artifact flow is documented in `docs/runtime-artifacts.md`.
 
