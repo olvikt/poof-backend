@@ -164,6 +164,7 @@ public function markAsPaid(): void
         'benefit_type',
         'origin',
         'subscription_id',
+        'subscription_run_slot',
         'promo_code',
         'is_trial',
         'trial_days',
@@ -184,6 +185,7 @@ public function markAsPaid(): void
         'benefit_type',
         'origin',
         'subscription_id',
+        'subscription_run_slot',
         'address_id',
         'address_text',
         'lat',
@@ -268,6 +270,7 @@ public function markAsPaid(): void
         'is_trial'       => 'bool',
         'trial_days'     => 'int',
         'subscription_id' => 'int',
+        'subscription_run_slot' => 'datetime',
 
         'accepted_at'  => 'datetime',
         'started_at'   => 'datetime',

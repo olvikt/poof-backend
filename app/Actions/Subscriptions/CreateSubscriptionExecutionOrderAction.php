@@ -20,13 +20,12 @@ class CreateSubscriptionExecutionOrderAction
         $runAt ??= CarbonImmutable::now();
 
         $runAtMinute = $runAt->setSecond(0);
+        $slotKey = $runAtMinute->format('Y-m-d H:i:00');
 
         $existing = $subscription->generatedOrders()
             ->whereIn('payment_status', [Order::PAY_PENDING, Order::PAY_PAID])
             ->where('origin', Order::ORIGIN_SUBSCRIPTION)
-            ->whereDate('scheduled_date', $runAt->toDateString())
-            ->whereTime('scheduled_time_from', '>=', $runAtMinute->format('H:i:00'))
-            ->whereTime('scheduled_time_from', '<=', $runAtMinute->format('H:i:59'))
+            ->where('subscription_run_slot', $slotKey)
             ->exists();
 
         if ($existing) {
@@ -73,6 +72,7 @@ class CreateSubscriptionExecutionOrderAction
             'benefit_type' => null,
             'origin' => Order::ORIGIN_SUBSCRIPTION,
             'subscription_id' => (int) $subscription->id,
+            'subscription_run_slot' => $slotKey,
             'promo_code' => null,
             'is_trial' => false,
             'trial_days' => 0,
