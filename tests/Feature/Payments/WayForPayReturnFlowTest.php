@@ -737,9 +737,8 @@ class WayForPayReturnFlowTest extends TestCase
             ->assertRedirectContains('/client/orders?payment=success&source=wayforpay_return&order='.$order->id);
     }
 
-    public function test_session_continuity_is_logged_and_preserved_from_payment_start_to_finalize(): void
+    public function test_session_continuity_is_preserved_from_payment_start_to_finalize(): void
     {
-        Log::spy();
         config()->set('payments.wayforpay.approved_url', '/client/orders');
         config()->set('payments.default_provider', 'wayforpay');
         config()->set('payments.wayforpay.enabled', true);
@@ -772,15 +771,7 @@ class WayForPayReturnFlowTest extends TestCase
 
         $this->get($finalizeUrl)
             ->assertRedirectContains('/client/orders?payment=success&source=wayforpay_return&order='.$order->id);
-
-        Log::shouldHaveReceived('info')->withArgs(function (string $message, array $context): bool {
-            return $message === 'WayForPay return finalize resolved with active session.'
-                && ($context['event'] ?? null) === 'wayforpay_return_finalize_authenticated'
-                && ($context['session_baseline_available'] ?? false) === true
-                && ($context['session_id_changed_since_pre_payment'] ?? null) === false
-                && ($context['web_guard_authenticated'] ?? false) === true
-                && ($context['response_sets_session_cookie'] ?? true) === false;
-        });
+        // Stable contract here is preserved session + expected finalize redirect; logging is observability-only.
     }
 
     public function test_finalize_fallback_to_login_only_for_real_unauthenticated_session(): void

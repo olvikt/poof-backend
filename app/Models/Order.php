@@ -111,6 +111,7 @@ public function markAsPaid(): void
         'currency',
         'currency',
         'currency',
+        'currency',
         'address_id',
         'address_text',
         'lat',
