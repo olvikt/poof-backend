@@ -188,7 +188,7 @@ Route::middleware('auth:web')
                 $order = \App\Models\Order::query()->find((int) $legacyOrderId);
                 abort_unless($order && $order->client_id === auth()->id(), 404);
 
-                return redirect()->route('client.payments.show', $order);
+                return redirect()->route('client.payments.show', ['order' => $order->public_id]);
             });
         Route::post('/payments/{order:public_id}/start', PaymentStartController::class)
             ->name('payments.start')
@@ -201,7 +201,7 @@ Route::middleware('auth:web')
                 $order = \App\Models\Order::query()->find((int) $legacyOrderId);
                 abort_unless($order && $order->client_id === auth()->id(), 404);
 
-                return redirect()->route('client.payments.show', $order);
+                return redirect()->route('client.payments.show', ['order' => $order->public_id]);
             });
         Route::post('/payments/dev-pay/{order:public_id}', DevPaymentController::class)->name('payments.dev-pay');
         Route::post('/subscriptions/{subscription}/pay', [SubscriptionCheckoutController::class, 'pay'])->name('subscriptions.pay');
