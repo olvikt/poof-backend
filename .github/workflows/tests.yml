@@ -74,6 +74,17 @@ jobs:
       - name: Install dependencies
         run: composer install --no-interaction --prefer-dist --no-progress
 
+      - name: Build runtime vendor artifact
+        run: tar -czf vendor.tar.gz vendor
+
+      - name: Upload runtime vendor artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: runtime-vendor-${{ github.sha }}
+          path: vendor.tar.gz
+          if-no-files-found: error
+          retention-days: 14
+
       - name: Prepare environment
         run: |
           cp .env.example .env
