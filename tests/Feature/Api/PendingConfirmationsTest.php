@@ -109,7 +109,8 @@ class PendingConfirmationsTest extends TestCase
             ->assertOk()
             ->assertJsonPath('data.pending_confirmations.count', 1)
             ->assertJsonCount(1, 'data.pending_confirmations.items')
-            ->assertJsonPath('data.pending_confirmations.items.0.order_id', $activeOrder->id);
+            ->assertJsonPath('data.pending_confirmations.items.0.order_id', $activeOrder->id)
+            ->assertJsonPath('data.pending_confirmations.items.0.order_public_id', $activeOrder->public_id);
     }
 
     private function createAwaitingOrder(int $clientId, int $courierId, ?int $subscriptionId): Order

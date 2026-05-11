@@ -40,6 +40,7 @@ class GetOrderCompletionClientPayloadAction
 
         return [
             'order_id' => $order->id,
+            'order_public_id' => $order->public_id,
             'completion_request_id' => $request->id,
             'status' => $request->status,
             'server_now' => now()->toIso8601String(),
