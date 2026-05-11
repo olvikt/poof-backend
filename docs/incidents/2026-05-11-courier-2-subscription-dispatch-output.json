@@ -2,7 +2,7 @@
   "date": "2026-05-11",
   "courier_id": 2,
   "command": "php artisan poof:diagnose-courier-dispatch --date=2026-05-11 --courier-id=2",
-  "executed_at_utc": "2026-05-11T16:24:54Z",
+  "executed_at_utc": "2026-05-11T16:46:00Z",
   "status": "blocked_by_missing_runtime_artifact",
   "runtime_check": {
     "script": "bash scripts/check-backend-runtime.sh",
@@ -12,23 +12,35 @@
     "composer_network_blocked": true
   },
   "artifact_recovery": {
-    "attempted_paths": [
-      "A) CI vendor artifact",
-      "B) prebuilt Docker image",
-      "D) local vendor archive"
+    "requested_artifact": "runtime-vendor-2df0cf66dfd31be3a5d11b7e6ab22fae4753c563",
+    "attempted_steps": [
+      "Locate CI artifact download tooling (gh CLI)",
+      "Locate runtime vendor archive in local workspace",
+      "Run runtime readiness check"
     ],
-    "result": "not_available_in_current_container",
+    "result": "artifact_not_retrievable_in_current_container",
     "details": {
-      "ci_artifact": "No artifact download tooling or artifact URL provided in this environment",
-      "docker_image": "docker CLI is not installed in this environment",
-      "local_vendor_archive": "No vendor archive found under /workspace"
+      "gh_cli": "not_installed",
+      "github_token": "not_present",
+      "local_vendor_archive": "not_found",
+      "restore_script": "not_executed_without_archive"
     }
   },
   "error": {
     "type": "runtime_artifact_unavailable",
-    "message": "Laravel cannot bootstrap because vendor/autoload.php is missing and no approved runtime artifact/image is available inside this container."
+    "message": "Laravel bootstrap is blocked because vendor/autoload.php is missing and runtime-vendor artifact cannot be downloaded from this container."
   },
   "verdict": "other",
-  "verdict_note": "Dispatch business root cause on real data is still not computable until runtime artifact/image is provided.",
-  "recommended_next_step": "Provide one approved runtime artifact (CI vendor.tar.gz, prebuilt poof-backend image, or trusted local vendor archive), rerun runtime check, then execute diagnose command."
+  "verdict_note": "Business dispatch verdict on real data remains undetermined until runtime artifact is restored.",
+  "follow_up": {
+    "required_inputs": [
+      "A downloadable URL or local path for runtime-vendor-2df0cf66dfd31be3a5d11b7e6ab22fae4753c563",
+      "or prebuilt runtime image/container with vendor/ installed"
+    ],
+    "next_commands": [
+      "bash scripts/restore-runtime-from-artifact.sh /path/to/vendor.tar.gz",
+      "bash scripts/check-backend-runtime.sh",
+      "php artisan poof:diagnose-courier-dispatch --date=2026-05-11 --courier-id=2"
+    ]
+  }
 }
