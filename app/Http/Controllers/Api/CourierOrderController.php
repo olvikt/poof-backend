@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Api;
 
 use App\Actions\Orders\Lifecycle\AcceptOrderByCourierAction;
 use App\Http\Controllers\Controller;
+use App\Http\Resources\CourierAvailableOfferResource;
 use App\Models\Order;
 use App\Models\OrderOffer;
 use App\Services\Courier\CourierPresenceService;
@@ -22,14 +23,24 @@ class CourierOrderController extends Controller
         $runtime = app(CourierPresenceService::class)->snapshot($courier) ?? [];
         $hasActiveOrder = (bool) ($runtime['has_active_order'] ?? false);
 
-        $orders = $hasActiveOrder
+        $defaultLimit = 20;
+        $maxLimit = 50;
+        $limit = max(1, min((int) request()->integer('limit', $defaultLimit), $maxLimit));
+
+        $offers = $hasActiveOrder
             ? collect()
             : OrderOffer::query()
                 ->alivePendingForCourierOrders((int) $courier->id)
+                ->limit($limit)
                 ->get();
 
         return response()->json([
-            'orders' => $orders,
+            'orders' => CourierAvailableOfferResource::collection($offers)->resolve(),
+            'pagination' => [
+                'limit' => $limit,
+                'max_limit' => $maxLimit,
+                'count' => $offers->count(),
+            ],
         ]);
     }
 

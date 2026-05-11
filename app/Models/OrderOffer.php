@@ -126,9 +126,10 @@ class OrderOffer extends Model
                 $query->whereNull('orders.valid_until_at')
                     ->orWhere('orders.valid_until_at', '>', $now);
             })
-            ->select('orders.*')
-            ->orderByDesc('order_offers.created_at')
-            ->distinct();
+            ->select('order_offers.*')
+            ->with('order:id,public_id,address_text,price,courier_payout_amount,service_mode,window_from_at,window_to_at')
+            ->orderBy('order_offers.expires_at')
+            ->orderByDesc('order_offers.created_at');
     }
 
     /**

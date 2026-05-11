@@ -141,3 +141,28 @@ Watch in production:
 - **Deferred (truly undeliverable):** dispatcher performed a real attempt (no live pending offer lock), incremented `dispatch_attempts`, updated `last_dispatch_attempt_at`, and set `next_dispatch_at` using bounded exponential backoff.
 - **Waiting (live pending offer exists):** dispatcher found an alive pending offer for the same order, does **not** increment `dispatch_attempts`, does **not** move `next_dispatch_at`, and only emits low-noise waiting marker (`dispatch_waiting_live_offer`).
 - **Concurrent safety:** even if an order passed batch selection, worker rechecks `next_dispatch_at` after `FOR UPDATE`; if deferred in the meantime, it exits without mutating attempt counters.
+
+## API contract: `GET /api/orders/available`
+
+Source of truth for API read is alive pending `OrderOffer` scoped by courier (`OrderOffer::alivePendingForCourierOrders`) with eager-loaded `order` relation.
+
+Response contract:
+- `orders[]` items are projected via `CourierAvailableOfferResource` (no raw `Order` / `OrderOffer` payload leakage).
+- Allowlisted fields per item:
+  - `offer_id`
+  - `order_public_id`
+  - `pickup.address_text`
+  - `delivery` (reserved, nullable)
+  - `price.courier_payout_amount`
+  - `price.order_price_amount`
+  - `offer_status`
+  - `offer_expires_at`
+  - `service.service_mode`
+  - `service.window_from_at`
+  - `service.window_to_at`
+- Explicitly excluded: `client_id`, payment internals, subscription internals, private coordinates, debug timestamps.
+
+Pagination / limits:
+- default `limit=20`
+- max `limit=50`
+- stable sorting priority: `order_offers.expires_at ASC`, then `order_offers.created_at DESC`.
