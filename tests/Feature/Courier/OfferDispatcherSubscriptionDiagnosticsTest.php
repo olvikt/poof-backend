@@ -5,8 +5,10 @@ declare(strict_types=1);
 namespace Tests\Feature\Courier;
 
 use App\Models\Courier;
+use App\Models\ClientSubscription;
 use App\Models\Order;
 use App\Models\OrderOffer;
+use App\Models\SubscriptionPlan;
 use App\Models\User;
 use App\Services\Dispatch\DispatchDiagnosticReason;
 use App\Services\Dispatch\OfferDispatcher;
@@ -59,6 +61,7 @@ class OfferDispatcherSubscriptionDiagnosticsTest extends TestCase
         Courier::query()->create([
             'user_id' => $courier->id,
             'status' => Courier::STATUS_ONLINE,
+            'is_verified' => true,
             'last_location_at' => now(),
         ]);
 
@@ -74,17 +77,34 @@ class OfferDispatcherSubscriptionDiagnosticsTest extends TestCase
     {
         $client = User::factory()->create(['role' => User::ROLE_CLIENT, 'is_active' => true]);
 
+        $subscription = $this->createSubscription($client->id);
+
         return Order::createForTesting(array_merge([
             'client_id' => $client->id,
             'status' => Order::STATUS_SEARCHING,
             'payment_status' => Order::PAY_PAID,
             'origin' => Order::ORIGIN_SUBSCRIPTION,
             'order_type' => Order::TYPE_SUBSCRIPTION,
-            'subscription_id' => 123,
+            'subscription_id' => $subscription->id,
             'address_text' => 'subscription execution order',
             'lat' => 50.4502,
             'lng' => 30.5235,
             'price' => 200,
         ], $override));
     }
+
+
+    private function createSubscription(int $clientId): ClientSubscription
+    {
+        $plan = SubscriptionPlan::factory()->create();
+
+        return ClientSubscription::query()->create([
+            'client_id' => $clientId,
+            'plan_id' => $plan->id,
+            'status' => ClientSubscription::STATUS_ACTIVE,
+            'frequency_type' => 'weekly',
+            'next_run_at' => now()->addDay(),
+        ]);
+    }
+
 }
