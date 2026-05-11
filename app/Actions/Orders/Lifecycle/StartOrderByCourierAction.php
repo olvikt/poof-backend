@@ -6,11 +6,15 @@ namespace App\Actions\Orders\Lifecycle;
 
 use App\Models\Order;
 use App\Models\User;
+use App\Support\Orders\OrderLifecycleTransitionPolicy;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 
 class StartOrderByCourierAction
 {
+    public function __construct(private readonly OrderLifecycleTransitionPolicy $lifecyclePolicy)
+    {
+    }
     /**
      * Почати виконання (курʼєр-safe)
      */
@@ -35,6 +39,7 @@ class StartOrderByCourierAction
                 ]);
                 return false;
             }
+            $this->lifecyclePolicy->assertTransition($lockedOrder->status, Order::STATUS_IN_PROGRESS);
 
             $lockedOrder->forceFill([
                 'status' => Order::STATUS_IN_PROGRESS,

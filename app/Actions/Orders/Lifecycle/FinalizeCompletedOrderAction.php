@@ -7,12 +7,16 @@ namespace App\Actions\Orders\Lifecycle;
 use App\Models\Order;
 use App\Models\User;
 use App\Services\Courier\Earnings\CourierEarningsSettlementService;
+use App\Support\Orders\OrderLifecycleTransitionPolicy;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 
 class FinalizeCompletedOrderAction
 {
-    public function __construct(private readonly CourierEarningsSettlementService $earningsSettlementService)
+    public function __construct(
+        private readonly CourierEarningsSettlementService $earningsSettlementService,
+        private readonly OrderLifecycleTransitionPolicy $lifecyclePolicy,
+    )
     {
     }
 
@@ -50,6 +54,7 @@ class FinalizeCompletedOrderAction
         }
 
         $statusBefore = $lockedOrder->status;
+        $this->lifecyclePolicy->assertTransition($lockedOrder->status, Order::STATUS_DONE);
 
         $lockedOrder->forceFill([
             'status' => Order::STATUS_DONE,

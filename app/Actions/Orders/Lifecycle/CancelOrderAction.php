@@ -6,21 +6,30 @@ namespace App\Actions\Orders\Lifecycle;
 
 use App\Models\Order;
 use App\Models\User;
+use App\Support\Orders\OrderLifecycleTransitionPolicy;
 use Illuminate\Support\Facades\DB;
 
 class CancelOrderAction
 {
-    public function handle(Order $order): bool
+    public function __construct(private readonly OrderLifecycleTransitionPolicy $lifecyclePolicy)
     {
-        return (bool) DB::transaction(function () use ($order) {
+    }
+
+    public function handle(Order $order, string $flow = OrderLifecycleTransitionPolicy::FLOW_DEFAULT): bool
+    {
+        return (bool) DB::transaction(function () use ($order, $flow) {
             $lockedOrder = Order::query()
                 ->whereKey($order->getKey())
                 ->lockForUpdate()
                 ->first();
 
-            if (! $lockedOrder || ! $lockedOrder->canBeCancelled()) {
+            if (! $lockedOrder) {
                 return false;
             }
+            if ($flow === OrderLifecycleTransitionPolicy::FLOW_DEFAULT && ! $lockedOrder->canBeCancelled()) {
+                return false;
+            }
+            $this->lifecyclePolicy->assertTransition($lockedOrder->status, Order::STATUS_CANCELLED, $flow);
 
             $courier = null;
 
@@ -41,5 +50,10 @@ class CancelOrderAction
 
             return true;
         });
+    }
+
+    public function handleAdminOverride(Order $order): bool
+    {
+        return $this->handle($order, OrderLifecycleTransitionPolicy::FLOW_ADMIN_OVERRIDE);
     }
 }
