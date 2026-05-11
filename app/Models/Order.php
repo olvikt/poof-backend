@@ -543,7 +543,6 @@ public function markAsPaid(): void
         return in_array($this->status, [
             self::STATUS_NEW,
             self::STATUS_SEARCHING,
-            self::STATUS_ACCEPTED,
         ], true);
     }
 

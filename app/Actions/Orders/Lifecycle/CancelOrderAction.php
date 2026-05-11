@@ -6,10 +6,15 @@ namespace App\Actions\Orders\Lifecycle;
 
 use App\Models\Order;
 use App\Models\User;
+use App\Support\Orders\OrderLifecycleTransitionPolicy;
 use Illuminate\Support\Facades\DB;
 
 class CancelOrderAction
 {
+    public function __construct(private readonly OrderLifecycleTransitionPolicy $lifecyclePolicy)
+    {
+    }
+
     public function handle(Order $order): bool
     {
         return (bool) DB::transaction(function () use ($order) {
@@ -21,6 +26,7 @@ class CancelOrderAction
             if (! $lockedOrder || ! $lockedOrder->canBeCancelled()) {
                 return false;
             }
+            $this->lifecyclePolicy->assertTransition($lockedOrder->status, Order::STATUS_CANCELLED);
 
             $courier = null;
 

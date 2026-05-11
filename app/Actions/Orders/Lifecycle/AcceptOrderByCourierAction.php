@@ -7,10 +7,14 @@ namespace App\Actions\Orders\Lifecycle;
 use App\Models\Order;
 use App\Models\OrderOffer;
 use App\Models\User;
+use App\Support\Orders\OrderLifecycleTransitionPolicy;
 use Illuminate\Support\Facades\DB;
 
 class AcceptOrderByCourierAction
 {
+    public function __construct(private readonly OrderLifecycleTransitionPolicy $lifecyclePolicy)
+    {
+    }
     /**
      * Прийняти замовлення курʼєром (атомарно)
      */
@@ -38,6 +42,7 @@ class AcceptOrderByCourierAction
             if ($courier->isBusyForAccept() || ! $courier->canAcceptOrders()) {
                 return false;
             }
+            $this->lifecyclePolicy->assertTransition($lockedOrder->status, Order::STATUS_ACCEPTED);
 
             $lockedOrder->forceFill([
                 'status' => Order::STATUS_ACCEPTED,

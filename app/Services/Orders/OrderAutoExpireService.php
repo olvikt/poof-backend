@@ -6,6 +6,7 @@ namespace App\Services\Orders;
 
 use App\Models\Order;
 use App\Models\OrderOffer;
+use App\Support\Orders\OrderLifecycleTransitionPolicy;
 use App\Support\Orders\OrderPromiseResolver;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
@@ -13,7 +14,10 @@ use Illuminate\Support\Facades\Log;
 
 class OrderAutoExpireService
 {
-    public function __construct(private readonly OrderPromiseResolver $promiseResolver)
+    public function __construct(
+        private readonly OrderPromiseResolver $promiseResolver,
+        private readonly OrderLifecycleTransitionPolicy $lifecyclePolicy,
+    )
     {
     }
 
@@ -88,8 +92,10 @@ class OrderAutoExpireService
 
             $reason = $this->promiseResolver->resolveExpiredReason($order, $now);
 
+            $this->lifecyclePolicy->assertTransition($order->status, Order::STATUS_EXPIRED);
+
             $order->forceFill([
-                'status' => Order::STATUS_CANCELLED,
+                'status' => Order::STATUS_EXPIRED,
                 'expired_at' => $now,
                 'expired_reason' => $reason,
                 'next_dispatch_at' => null,

@@ -9,6 +9,7 @@ use App\Events\OrderCreated;
 use App\Models\ClientSubscription;
 use App\Models\Order;
 use App\Support\Orders\OrderPromiseResolver;
+use App\Support\Orders\OrderLifecycleTransitionPolicy;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\DB;
@@ -19,6 +20,7 @@ class MarkOrderAsPaidAction
     public function __construct(
         private readonly OrderPromiseResolver $promiseResolver,
         private readonly CreateSubscriptionExecutionOrderAction $createSubscriptionExecutionOrder,
+        private readonly OrderLifecycleTransitionPolicy $lifecyclePolicy,
     )
     {
     }
@@ -56,6 +58,8 @@ class MarkOrderAsPaidAction
         }
 
         if ($this->hasActivationConflict($order)) {
+            $this->lifecyclePolicy->assertTransition($order->status, Order::STATUS_CANCELLED);
+
             $order->forceFill([
                 'payment_status' => Order::PAY_PAID,
                 'status' => Order::STATUS_CANCELLED,
@@ -76,6 +80,8 @@ class MarkOrderAsPaidAction
         }
 
         $promiseAttributes = $this->promiseResolver->resolveCreateAttributes($order->toArray());
+
+        $this->lifecyclePolicy->assertTransition($order->status, Order::STATUS_SEARCHING);
 
         $order->forceFill([
             'payment_status' => Order::PAY_PAID,
@@ -125,6 +131,8 @@ class MarkOrderAsPaidAction
 
     private function handleSubscriptionCheckoutPaymentOrder(Order $order): void
     {
+        $this->lifecyclePolicy->assertTransition($order->status, Order::STATUS_DONE);
+
         $order->forceFill([
             'payment_status' => Order::PAY_PAID,
             'status' => Order::STATUS_DONE,
