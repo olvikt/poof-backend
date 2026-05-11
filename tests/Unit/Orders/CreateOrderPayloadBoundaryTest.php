@@ -246,6 +246,26 @@ class CreateOrderPayloadBoundaryTest extends TestCase
         ]);
     }
 
+
+    public function test_testing_create_contract_allows_currency_field_for_payment_regressions(): void
+    {
+        $client = User::factory()->create([
+            'role' => User::ROLE_CLIENT,
+            'is_active' => true,
+        ]);
+
+        $order = Order::createForTesting([
+            'client_id' => $client->id,
+            'status' => Order::STATUS_NEW,
+            'payment_status' => Order::PAY_PENDING,
+            'address_text' => 'вул. Валідна, 9',
+            'price' => 100,
+            'currency' => 'UAH',
+        ]);
+
+        $this->assertSame('UAH', $order->currency);
+    }
+
     public function test_testing_create_contract_allows_valid_lifecycle_fixture_columns(): void
     {
         $client = User::factory()->create([
