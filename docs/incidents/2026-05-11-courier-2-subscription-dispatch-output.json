@@ -2,13 +2,48 @@
   "date": "2026-05-11",
   "courier_id": 2,
   "command": "php artisan poof:diagnose-courier-dispatch --date=2026-05-11 --courier-id=2",
-  "executed_at_utc": "2026-05-11T00:00:00Z",
+  "executed_at_utc": "2026-05-11T14:03:55Z",
   "status": "failed_before_artisan_bootstrap",
-  "error": {
-    "type": "vendor_missing",
-    "message": "Failed opening required '/workspace/poof-backend/vendor/autoload.php'",
-    "composer_install_error": "CONNECT tunnel failed, response 403 while fetching dependencies from github.com"
+  "bootstrap": {
+    "artisan_version": {
+      "command": "php artisan --version",
+      "result": "failed",
+      "error": "Failed opening required '/workspace/poof-backend/vendor/autoload.php'"
+    },
+    "composer_cache": {
+      "cache_dir": "/root/.cache/composer",
+      "size": "16K",
+      "result": "insufficient_for_offline_install"
+    },
+    "local_vendor_artifact": {
+      "search_scope": "/workspace",
+      "result": "not_found"
+    },
+    "network_blocker": {
+      "command": "composer diagnose",
+      "proxy_response": "CONNECT tunnel failed, response 403",
+      "blocked_hosts": [
+        "repo.packagist.org",
+        "api.github.com",
+        "getcomposer.org"
+      ]
+    }
   },
-  "verdict": "other",
-  "verdict_note": "Runtime diagnostics for production data were blocked by environment dependency/network constraints; dispatch root cause for courier_id=2 on 2026-05-11 could not be computed from this environment."
+  "error": {
+    "type": "runtime_bootstrap_blocker",
+    "message": "Dependency restore is blocked by outbound proxy/network policy; Laravel cannot bootstrap without vendor/autoload.php."
+  },
+  "verdict": "blocked_by_runtime_bootstrap",
+  "verdict_note": "Incident is not closed. Diagnose command must be re-run on an environment with prebuilt vendor/ or network access to dependency sources.",
+  "infra_actionable_ticket": {
+    "title": "Restore Laravel runtime bootstrap for diagnostics container",
+    "required_actions": [
+      "Provide CI/build artifact that includes vendor/ matching composer.lock",
+      "OR run diagnose in Docker image where composer dependencies are preinstalled",
+      "OR allow proxy egress for repo.packagist.org, api.github.com, and getcomposer.org",
+      "OR configure corporate Composer mirror/Satis and point repositories to mirror",
+      "OR supply COMPOSER_AUTH/GitHub token if policy permits but rate/auth is the blocker"
+    ],
+    "done_definition": "php artisan --version succeeds and php artisan poof:diagnose-courier-dispatch --date=2026-05-11 --courier-id=2 returns diagnostic JSON on real data"
+  }
 }

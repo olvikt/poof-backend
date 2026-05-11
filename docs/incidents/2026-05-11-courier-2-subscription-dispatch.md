@@ -6,28 +6,60 @@
 - Courier: `2`
 
 ## Execution result
-The diagnose command was **not executable** in this container because Laravel bootstrap failed before app start:
-- missing `vendor/autoload.php`;
-- `composer install` attempted dependency restoration but failed on network/proxy access to GitHub (`CONNECT tunnel failed, response 403`).
+The diagnose command is still **not executable** in this container because Laravel bootstrap fails before app start.
+
+Observed sequence:
+1. `php artisan --version` fails with missing `vendor/autoload.php`.
+2. Runtime restoration via Composer is blocked by outbound proxy/network policy.
+3. No prebuilt `vendor/` artifact was found in workspace.
 
 Saved raw execution status:
 - `docs/incidents/2026-05-11-courier-2-subscription-dispatch-output.json`
 
+## Runtime bootstrap blocker
+Exact blocker evidence (from this environment):
+- Command: `php artisan --version`
+  - Error: `Failed opening required '/workspace/poof-backend/vendor/autoload.php'`
+- Command: `composer diagnose`
+  - `curl error 56 while downloading https://getcomposer.org/versions: CONNECT tunnel failed, response 403`
+  - `curl error 56 while downloading https://repo.packagist.org/packages.json: CONNECT tunnel failed, response 403`
+  - `curl error 56 while downloading https://api.github.com/rate_limit: CONNECT tunnel failed, response 403`
+- Composer cache check:
+  - cache dir `/root/.cache/composer` exists but size is only `16K`, insufficient for offline install.
+- Local artifact check:
+  - no `vendor` archive found under `/workspace` search scope.
+
+Blocking dependency sources / hosts:
+- `repo.packagist.org`
+- `api.github.com`
+- `getcomposer.org`
+
+Proxy response observed:
+- `CONNECT tunnel failed, response 403`
+
 ## Final incident verdict
-- **Root cause code:** `other`
-- **Final verdict:** In this runtime, incident root cause for courier visibility on 2026-05-11 cannot be derived because diagnostic instrumentation could not be executed against real data.
+- **Root cause code:** `blocked_by_runtime_bootstrap`
+- **Final verdict:** Incident is **not closed**. Business/root-cause diagnosis for courier visibility on `2026-05-11` cannot be computed in this environment until runtime bootstrap is restored.
 
 ## Required counters (active/today, dispatchable, deferred, stuck_without_offers)
 Unavailable from this run due to bootstrap failure.
 
 ## Why courier_id=2 did not see orders
-Not determinable from this run: no domain diagnostic JSON (`orders`, `summary`, `queue`, `timezone`) was produced by artisan command.
+Not determinable from this run: domain diagnostic JSON (`orders`, `summary`, `queue`, `timezone`) was not produced because artisan command never reached application runtime.
 
-## Fix vs recovery
+## Fix vs repair vs operational action
 - Application-code fix for dispatch logic: **not evidenced** by this run.
-- Operational recovery required first: restore dependency installation/network path (or run on prebuilt environment with valid `vendor/`) and rerun diagnose command on real 2026-05-11 dataset.
+- Repair in current environment: **blocked** by dependency/bootstrap constraints.
+- Required operational action (infra):
+  1. Provide CI/build artifact containing `vendor/` matching current `composer.lock`, **or**
+  2. Run diagnose inside Docker/runtime image where dependencies are already installed, **or**
+  3. Allow proxy egress to `repo.packagist.org`, `api.github.com`, `getcomposer.org`, **or**
+  4. Configure/use approved Composer mirror (Satis/Private Packagist), **or**
+  5. Provide `COMPOSER_AUTH` / GitHub token if the policy allows and auth/rate is the limiting factor.
 
-## Exact blocking filters/fields
-Domain-level filters (`status`, `payment_status`, dispatch window, offers, queue lag, timezone) were not evaluated because the command did not reach application runtime. Blocking layer was infrastructure/bootstrap:
-- missing file: `vendor/autoload.php`;
-- dependency fetch blocked by outbound/proxy restrictions.
+## Next mandatory step to close incident
+After infra unblocks bootstrap, rerun:
+- `php artisan --version`
+- `php artisan poof:diagnose-courier-dispatch --date=2026-05-11 --courier-id=2`
+
+Do **not** mark incident closed until command returns diagnostics on real data.
