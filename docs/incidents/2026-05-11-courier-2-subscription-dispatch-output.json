@@ -3,7 +3,7 @@
   "courier_id": 2,
   "command": "php artisan poof:diagnose-courier-dispatch --date=2026-05-11 --courier-id=2",
   "executed_at_utc": "2026-05-11T16:24:54Z",
-  "status": "failed_before_artisan_bootstrap",
+  "status": "blocked_by_missing_runtime_artifact",
   "runtime_check": {
     "script": "bash scripts/check-backend-runtime.sh",
     "runtime_ready": false,
@@ -11,17 +11,24 @@
     "artisan_bootstrap": false,
     "composer_network_blocked": true
   },
-  "recovery_attempt": {
-    "path": "C) approved composer mirror/proxy allowlist (direct composer install attempted)",
-    "command": "composer install --no-interaction --prefer-dist --no-progress",
-    "result": "failed",
-    "failure_pattern": "curl error 56 ... CONNECT tunnel failed, response 403; dist fallback to source also blocked"
+  "artifact_recovery": {
+    "attempted_paths": [
+      "A) CI vendor artifact",
+      "B) prebuilt Docker image",
+      "D) local vendor archive"
+    ],
+    "result": "not_available_in_current_container",
+    "details": {
+      "ci_artifact": "No artifact download tooling or artifact URL provided in this environment",
+      "docker_image": "docker CLI is not installed in this environment",
+      "local_vendor_archive": "No vendor archive found under /workspace"
+    }
   },
   "error": {
-    "type": "runtime_bootstrap_blocker",
-    "message": "Laravel cannot bootstrap because vendor/autoload.php is missing and dependency restore is blocked by outbound proxy/network policy."
+    "type": "runtime_artifact_unavailable",
+    "message": "Laravel cannot bootstrap because vendor/autoload.php is missing and no approved runtime artifact/image is available inside this container."
   },
   "verdict": "other",
-  "verdict_note": "Final dispatch root cause on real data is not computable in this container. Operational root cause for this run is runtime bootstrap blocked by network/proxy policy.",
-  "recommended_next_step": "Use CI artifact with vendor/ for current commit or run in prebuilt Docker image with dependencies, then rerun diagnose command."
+  "verdict_note": "Dispatch business root cause on real data is still not computable until runtime artifact/image is provided.",
+  "recommended_next_step": "Provide one approved runtime artifact (CI vendor.tar.gz, prebuilt poof-backend image, or trusted local vendor archive), rerun runtime check, then execute diagnose command."
 }
