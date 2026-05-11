@@ -150,6 +150,8 @@ Browser events считаются публичным UI contract.
 
 Route layer = transport boundary.
 
+Для admin transport boundary (особенно `/api/admin/*`) обязательна явная route-middleware защита: минимум `auth:sanctum` + `admin` middleware на route/group уровне. Controller-level `abort_if` остаётся только как defense-in-depth и не считается достаточной первичной защитой boundary.
+
 Допустимо в route closure только transport glue:
 
 - тривиальный `view(...)` / `redirect(...)`;

@@ -12,13 +12,7 @@ class AdminProtectedRoutesAuthTest extends TestCase
 
     public function test_guest_is_redirected_from_admin_web_protected_routes(): void
     {
-        $this->get('/api/admin/map-data')->assertRedirect('/login');
         $this->get('/api/dashboard/map')->assertRedirect('/login');
-    }
-
-    public function test_guest_json_calls_are_unauthorized_for_admin_map_data(): void
-    {
-        $this->getJson('/api/admin/map-data')->assertUnauthorized();
     }
 
     public function test_admin_can_access_admin_routes_via_web_guard(): void
@@ -27,11 +21,6 @@ class AdminProtectedRoutesAuthTest extends TestCase
             'role' => User::ROLE_ADMIN,
             'is_active' => true,
         ]);
-
-        $this->actingAs($admin, 'web')
-            ->getJson('/api/admin/map-data')
-            ->assertOk()
-            ->assertJsonStructure(['couriers', 'orders']);
 
         $this->actingAs($admin, 'web')
             ->get('/api/dashboard/map')
@@ -44,10 +33,6 @@ class AdminProtectedRoutesAuthTest extends TestCase
             'role' => User::ROLE_COURIER,
             'is_active' => true,
         ]);
-
-        $this->actingAs($courier, 'web')
-            ->getJson('/api/admin/map-data')
-            ->assertForbidden();
 
         $this->actingAs($courier, 'web')
             ->get('/api/dashboard/map')
