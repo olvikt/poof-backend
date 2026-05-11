@@ -28,6 +28,17 @@
         </div>
     </section>
 
+
+
+    <div class="mt-4">
+        <a
+            href="{{ route('client.order.create', ['open_subscription_plans' => 1]) }}"
+            class="inline-flex w-full items-center justify-center rounded-xl bg-yellow-400 px-4 py-3 text-sm font-semibold text-black shadow-md shadow-yellow-400/30 transition hover:bg-yellow-300 sm:w-auto"
+        >
+            Обрати план підписки
+        </a>
+    </div>
+
     <div class="mt-3 rounded-2xl border border-gray-800 bg-gray-900 p-3">
         <p class="text-sm text-gray-400">Оплачено по підписках</p>
         <p class="mt-1 text-2xl font-extrabold text-white">{{ number_format($stats['total_paid'], 0, ',', ' ') }} ₴</p>
@@ -136,6 +147,15 @@
                 {{ $tab === 'archive'
                     ? 'Архів підписок порожній.'
                     : 'Підписок поки немає. Оформіть першу підписку під час створення замовлення.' }}
+
+                @if($tab === 'active')
+                    <a
+                        href="{{ route('client.order.create', ['open_subscription_plans' => 1]) }}"
+                        class="mt-3 inline-flex items-center justify-center rounded-xl bg-yellow-400 px-4 py-2 text-sm font-semibold text-black transition hover:bg-yellow-300"
+                    >
+                        Оформити підписку
+                    </a>
+                @endif
             </div>
         @endforelse
     </section>

@@ -86,6 +86,19 @@ class OrderCreateCriticalFlowsRegressionTest extends TestCase
             ->assertSet('subscription_frequency', 'every_3_days');
     }
 
+    public function test_subscription_popup_bootstraps_from_query_flag_without_breaking_default_state(): void
+    {
+        $user = User::factory()->create();
+        $this->actingAs($user);
+
+        Livewire::withQueryParams(['open_subscription_plans' => 1])
+            ->test(OrderCreate::class)
+            ->assertSet('showSubscriptionModal', true);
+
+        Livewire::test(OrderCreate::class)
+            ->assertSet('showSubscriptionModal', false);
+    }
+
     public function test_trial_flag_is_blocked_when_user_has_previous_trial_order(): void
     {
         $user = User::factory()->create();
