@@ -656,8 +656,6 @@ class WayForPayReturnFlowTest extends TestCase
 
     public function test_wayforpay_return_without_session_is_logged_as_cross_site_reentry_path(): void
     {
-        Log::spy();
-
         config()->set('payments.wayforpay.approved_url', '/client/orders');
         config()->set('payments.wayforpay.declined_url', '/client/orders');
 
@@ -880,8 +878,14 @@ class WayForPayReturnFlowTest extends TestCase
 
     private function buildSignedPayload(string $orderReference, string $secret, string $transactionStatus, string $amount = '100'): array
     {
+        $merchantAccount = (string) config('payments.wayforpay.merchant_account');
+        if ($merchantAccount == '') {
+            $merchantAccount = 'poof_merchant';
+            config()->set('payments.wayforpay.merchant_account', $merchantAccount);
+        }
+
         $payload = [
-            'merchantAccount' => (string) config('payments.wayforpay.merchant_account'),
+            'merchantAccount' => $merchantAccount,
             'orderReference' => $orderReference,
             'amount' => $amount,
             'currency' => 'UAH',

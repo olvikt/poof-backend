@@ -126,6 +126,7 @@ class CourierAvailableOrdersApiTest extends TestCase
             'payment_status' => Order::PAY_PAID,
             'address_text' => 'Active order',
             'price' => 100,
+            'dispatch_available_at' => now()->subMinute(),
             'accepted_at' => now()->subMinute(),
             'lat' => 50.4501,
             'lng' => 30.5234,
@@ -262,6 +263,7 @@ class CourierAvailableOrdersApiTest extends TestCase
             'payment_status' => Order::PAY_PAID,
             'address_text' => $addressText,
             'price' => 100,
+            'dispatch_available_at' => now()->subMinute(),
             'lat' => 50.4501,
             'lng' => 30.5234,
         ]);
@@ -272,6 +274,7 @@ class CourierAvailableOrdersApiTest extends TestCase
         $courier = User::factory()->create([
             'role' => User::ROLE_COURIER,
             'is_active' => true,
+            'is_verified' => true,
             'is_online' => true,
             'is_busy' => false,
             'session_state' => User::SESSION_READY,
@@ -282,6 +285,7 @@ class CourierAvailableOrdersApiTest extends TestCase
         Courier::query()->create([
             'user_id' => $courier->id,
             'status' => Courier::STATUS_ONLINE,
+            'is_verified' => true,
             'last_location_at' => now(),
         ]);
 

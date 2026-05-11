@@ -55,6 +55,7 @@ class OfferDispatcherSubscriptionDiagnosticsTest extends TestCase
         $courier = User::factory()->create([
             'role' => User::ROLE_COURIER,
             'is_active' => true,
+            'is_verified' => true,
             'last_lat' => 50.4501,
             'last_lng' => 30.5234,
         ]);
