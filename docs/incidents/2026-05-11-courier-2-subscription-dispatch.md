@@ -5,47 +5,44 @@
 - Environment date requested: `2026-05-11`
 - Courier: `2`
 
-## Recovery path attempted on 2026-05-11
-Documented path used: **C) Composer mirror/proxy allowlist path** (`docs/runtime-bootstrap-recovery.md`).
+## Runtime recovery path for this run (artifact-first only)
+Composer-based bootstrap was intentionally skipped as a primary path.
 
-Commands executed:
-1. `bash scripts/check-backend-runtime.sh`
-2. `composer install --no-interaction --prefer-dist --no-progress`
-3. `bash scripts/check-backend-runtime.sh`
+Attempted supported artifact paths from `docs/runtime-bootstrap-recovery.md`:
+1. **A) CI vendor artifact** — not executable in this container because no artifact download endpoint/token/tooling was provided.
+2. **B) Prebuilt Docker image** — not executable in this container because `docker` CLI/runtime is absent.
+3. **D) Local vendor archive** — checked local workspace; no `vendor.tar.gz` (or equivalent) archive is present.
 
-Observed result:
+Validation command executed:
+- `bash scripts/check-backend-runtime.sh`
+
+Observed runtime status:
 - `runtime_ready=false`
 - `missing_vendor=true`
 - `artisan_bootstrap=false`
 - `composer_network_blocked=true`
 
-`composer install` failed repeatedly with proxy/network errors (`CONNECT tunnel failed, response 403`) when downloading package archives from GitHub-backed dist URLs.
-
 ## Diagnose command status
-`php artisan poof:diagnose-courier-dispatch --date=2026-05-11 --courier-id=2` is still not executable because bootstrap fails before Laravel starts (`vendor/autoload.php` missing).
+`php artisan poof:diagnose-courier-dispatch --date=2026-05-11 --courier-id=2` was **not executed**, because Laravel bootstrap still fails (`vendor/autoload.php` missing).
 
 Saved output snapshot:
 - `docs/incidents/2026-05-11-courier-2-subscription-dispatch-output.json`
 
-## FINAL root cause for this run
+## Current root cause for this run (operational)
 - Classification: **другое (operational)**
-- Root cause: **runtime bootstrap blocked by dependency delivery path** (proxy/network policy blocks Composer package retrieval; no CI artifact/prebuilt image with `vendor/` provided in this environment).
+- Root cause: **approved runtime artifact/image was not available in the current container**, therefore runtime could not be bootstrapped and business dispatch diagnosis could not start.
 
-## Почему courier 2 не видел заказ
-На этом запуске это **не может быть подтверждено на реальных данных**, потому что бизнес-диагностика не стартовала: artisan не загрузил приложение.
+## Business dispatch root cause
+Not determined yet on real data. This report no longer treats `composer install` as the primary remediation path.
 
-## Какой exact filter/field это вызвал
-Для доменной причины (например, `dispatch_deferred_future_window`, `no_alive_pending_offer`, `no_offer_for_courier`, `not_paid`, queue/timezone) exact field/filter **не определён**, потому что JSON диагностики не был получен.
-
-## Почему это произошло именно 11.05
-Потому что на 2026-05-11 в этом контейнере runtime остался без `vendor/`, а сетевой путь для Composer в тот же день возвращает `403` на CONNECT через прокси, что заблокировало bootstrap и финальную dispatch-диагностику.
-
-## Как предотвратить повторение
-1. Для incident-окружений хранить и использовать **CI artifact с `vendor/`**, привязанный к commit SHA.
-2. Иметь **prebuilt runtime Docker image** с уже установленными зависимостями.
-3. Либо поддерживать **официальный composer mirror/allowlist** для `repo.packagist.org`, `api.github.com`, `getcomposer.org`.
-4. Добавить preflight gate в CI/job: запуск `bash scripts/check-backend-runtime.sh` до любых incident-команд.
-
-## Recovery action (operational)
-- Требуемое действие: поднять runtime через один из уже документированных путей A/B/D (предпочтительно A: CI artifact или B: prebuilt image), затем повторно выполнить diagnose на реальных данных.
-- Массовый redispatch **не запускать** до успешного dry-run/diagnose.
+## Next required action
+1. Provide exactly one approved runtime source:
+   - CI `vendor.tar.gz` from matching commit SHA, or
+   - prebuilt `poof-backend` image with installed `vendor/`, or
+   - trusted local `vendor` archive built from matching lockfile.
+2. Re-run `bash scripts/check-backend-runtime.sh` and require:
+   - `runtime_ready=true`
+   - `missing_vendor=false`
+   - `artisan_bootstrap=true`
+3. Run diagnose command and persist real output JSON.
+4. If `stuck_without_offers > 0`, prepare a separate dry-run repair task/PR; do not execute mass redispatch immediately.
