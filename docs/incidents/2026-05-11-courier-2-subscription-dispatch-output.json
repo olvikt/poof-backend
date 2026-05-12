@@ -2,31 +2,41 @@
   "date": "2026-05-11",
   "courier_id": 2,
   "command": "php artisan poof:diagnose-courier-dispatch --date=2026-05-11 --courier-id=2",
-  "executed_at_utc": "2026-05-11T17:22:48Z",
-  "status": "blocked_by_artifact_access_gap",
+  "executed_at_utc": "2026-05-12T00:00:00Z",
+  "status": "runtime_bootstrap_blocked",
   "runtime_check": {
-    "script": "bash scripts/check-backend-runtime.sh",
-    "runtime_ready": false,
-    "missing_vendor": true,
+    "artisan_command": "php artisan --version",
     "artisan_bootstrap": false,
-    "composer_network_blocked": true
+    "exit_code": 255,
+    "error": "Failed opening required '/workspace/poof-backend/vendor/autoload.php'"
   },
-  "artifact_recovery": {
-    "requested_artifact": "runtime-vendor-2df0cf66dfd31be3a5d11b7e6ab22fae4753c563",
-    "workflow_definition_verified": true,
-    "workflow_file": ".github/workflows/tests.yml",
-    "latest_successful_run_lookup": "blocked_missing_repo_remote_and_credentials",
-    "download_result": "not_possible_in_current_container",
-    "details": {
-      "gh_cli": "not_installed",
-      "github_token": "not_present",
-      "git_remote_origin": "not_configured",
-      "local_vendor_archive": "not_found"
+  "vendor_recovery_attempts": [
+    {
+      "method": "composer_install",
+      "command": "composer install --no-interaction --prefer-dist --no-progress",
+      "result": "failed",
+      "error_excerpt": "curl error 56 ... https://api.github.com/repos/...: CONNECT tunnel failed, response 403",
+      "network_symptom": "proxy blocks CONNECT to api.github.com"
+    },
+    {
+      "method": "shared_runtime_artifact",
+      "command": "bash scripts/fetch-runtime-artifact.sh 2df0cf66dfd31be3a5d11b7e6ab22fae4753c563 vendor.tar.gz",
+      "result": "failed",
+      "reason": "artifact_not_found_in_shared_dir",
+      "details": {
+        "artifacts_dir": "/mnt/runtime-artifacts",
+        "expected_artifact": "runtime-vendor-2df0cf66dfd31be3a5d11b7e6ab22fae4753c563.tar.gz",
+        "mount_exists": false
+      }
     }
+  ],
+  "diagnose": {
+    "executed": false,
+    "blocked_by": "runtime_bootstrap_blocked"
   },
-  "error": {
-    "type": "runtime_artifact_access_gap",
-    "message": "GitHub Actions artifact upload is defined, but debug container has no usable path/credentials to fetch runtime-vendor artifact."
-  },
-  "follow_up_doc": "docs/infra/runtime-artifact-access-gap.md"
+  "infra_action_required": {
+    "ticket_type": "runtime-bootstrap",
+    "required_action": "Provide either (1) mounted CI runtime-vendor artifact, (2) prebuilt docker image with vendor installed, or (3) proxy allowlist/tokenized access to api.github.com for composer downloads.",
+    "command_to_re_run_after_fix": "php artisan poof:diagnose-courier-dispatch --date=2026-05-11 --courier-id=2"
+  }
 }
