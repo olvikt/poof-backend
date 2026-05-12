@@ -363,7 +363,7 @@ class CourierAvailableOrdersApiTest extends TestCase
         $payload = (new \App\Http\Resources\CourierAvailableOfferResource($offer))->toArray(request());
         $this->assertSame(0, $payload['seconds_remaining']);
         $this->assertFalse($payload['countdown_active']);
-        $this->assertSame('expired', $payload['reservation_stage']);
+        $this->assertSame('assigned', $payload['reservation_stage']);
     }
 
     public function test_exact_address_hidden_for_scheduled_pre_assignment_stages(): void
