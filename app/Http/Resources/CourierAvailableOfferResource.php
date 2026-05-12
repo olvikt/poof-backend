@@ -18,7 +18,7 @@ class CourierAvailableOfferResource extends JsonResource
     {
         $order = $this->order;
         $now = now();
-        $secondsRemaining = $this->expires_at ? max(0, $now->diffInSeconds($this->expires_at, false)) : null;
+        $secondsRemaining = $this->expires_at ? (int) max(0, $now->diffInSeconds($this->expires_at, false)) : null;
 
         return [
             'offer_id' => (int) $this->id,
