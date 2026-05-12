@@ -76,6 +76,8 @@ Route::middleware('auth:sanctum')->group(function () {
 
     // courier accepts order by canonical offer identifier
     Route::post('/orders/offers/{offer}/accept', [CourierOrderController::class, 'acceptOffer']);
+    Route::post('/courier/orders/{order}/interest', [CourierOrderController::class, 'expressInterest']);
+    Route::delete('/courier/orders/{order}/interest', [CourierOrderController::class, 'withdrawInterest']);
 
     // @deprecated transitional endpoint, keep only for backward compatibility
     Route::post('/orders/{order}/accept', [CourierOrderController::class, 'accept']);

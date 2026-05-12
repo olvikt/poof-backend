@@ -86,6 +86,9 @@ class User extends Authenticatable implements FilamentUser
         'last_lng',
         'last_seen_at',
         'last_login_at',
+        'telegram_chat_id',
+        'telegram_notifications_orders_enabled',
+        'telegram_notifications_marketing_enabled',
     ];
 
     /* =========================================================

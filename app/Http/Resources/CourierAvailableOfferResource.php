@@ -31,6 +31,7 @@ class CourierAvailableOfferResource extends JsonResource
             ],
             'offer_status' => (string) $this->status,
             'offer_expires_at' => optional($this->expires_at)?->toISOString(),
+            'seconds_remaining' => $this->expires_at ? max(0, now()->diffInSeconds($this->expires_at, false)) : null,
             'service' => [
                 'service_mode' => $order?->service_mode,
                 'window_from_at' => optional($order?->window_from_at)?->toISOString(),

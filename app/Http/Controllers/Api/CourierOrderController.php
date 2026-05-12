@@ -5,10 +5,12 @@ namespace App\Http\Controllers\Api;
 use App\Actions\Orders\Lifecycle\AcceptOrderByCourierAction;
 use App\Http\Controllers\Controller;
 use App\Http\Resources\CourierAvailableOfferResource;
+use App\Models\CourierOrderInterest;
 use App\Models\Order;
 use App\Models\OrderOffer;
 use App\Services\Courier\CourierPresenceService;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Support\Facades\DB;
 
 class CourierOrderController extends Controller
 {
@@ -106,5 +108,51 @@ class CourierOrderController extends Controller
             'success' => true,
             'order' => $order->fresh(),
         ]);
+    }
+
+    public function expressInterest(Order $order): JsonResponse
+    {
+        $courier = auth()->user();
+        abort_if(! $courier || ! $courier->isCourier(), 403);
+
+        if ($order->status !== Order::STATUS_SEARCHING || $order->payment_status !== Order::PAY_PAID || $order->courier_id !== null) {
+            return response()->json(['success' => false, 'message' => 'Order not eligible for interest'], 422);
+        }
+
+        $interest = CourierOrderInterest::query()->firstOrCreate(
+            ['order_id' => $order->id, 'courier_id' => $courier->id],
+            [
+                'status' => CourierOrderInterest::STATUS_INTERESTED,
+                'expressed_at' => now(),
+                'courier_lat' => $courier->last_lat,
+                'courier_lng' => $courier->last_lng,
+            ]
+        );
+
+        if ($interest->status !== CourierOrderInterest::STATUS_INTERESTED) {
+            $interest->forceFill([
+                'status' => CourierOrderInterest::STATUS_INTERESTED,
+                'expressed_at' => now(),
+                'rejected_reason' => null,
+            ])->save();
+        }
+
+        return response()->json(['success' => true, 'interest' => $interest]);
+    }
+
+    public function withdrawInterest(Order $order): JsonResponse
+    {
+        $courier = auth()->user();
+        abort_if(! $courier || ! $courier->isCourier(), 403);
+
+        CourierOrderInterest::query()
+            ->where('order_id', $order->id)
+            ->where('courier_id', $courier->id)
+            ->update([
+                'status' => CourierOrderInterest::STATUS_WITHDRAWN,
+                'rejected_reason' => 'withdrawn_by_courier',
+            ]);
+
+        return response()->json(['success' => true]);
     }
 }
