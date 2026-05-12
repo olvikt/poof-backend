@@ -310,7 +310,7 @@ class CourierAvailableOrdersApiTest extends TestCase
         $order = $this->createSearchingOrder($client, 'Interested');
         OrderOffer::createPrimaryPending($order->id, $courier->id, 120);
         Sanctum::actingAs($courier);
-        $this->postJson('/api/orders/'.$order->id.'/interest');
+        $this->postJson('/api/courier/orders/'.$order->id.'/interest')->assertOk();
         $payload = $this->getJson('/api/orders/available')->assertOk()->json('orders.0');
         $this->assertSame('withdraw_interest', $payload['primary_cta']);
         $this->assertNotEmpty($payload['helper_text']);
@@ -336,20 +336,20 @@ class CourierAvailableOrdersApiTest extends TestCase
         $courier = $this->createOnlineCourier();
         $order = $this->createSearchingOrder($client, 'Expired countdown');
 
-        OrderOffer::query()->create([
+        $offer = OrderOffer::query()->create([
             'order_id' => $order->id,
             'courier_id' => $courier->id,
             'type' => OrderOffer::TYPE_PRIMARY,
             'sequence' => 1,
-            'status' => OrderOffer::STATUS_PENDING,
-            'expires_at' => now()->addSecond(),
+            'status' => OrderOffer::STATUS_EXPIRED,
+            'expires_at' => now()->subSecond(),
         ]);
 
         Sanctum::actingAs($courier);
-        sleep(2);
-        $payload = $this->getJson('/api/orders/available')->assertOk()->json('orders.0');
+        $payload = (new \App\Http\Resources\CourierAvailableOfferResource($offer->fresh('order')))->toArray(request());
+        $this->assertSame(0, $payload['seconds_remaining']);
         $this->assertFalse($payload['countdown_active']);
-        $this->assertGreaterThanOrEqual(0, $payload['seconds_remaining']);
+        $this->assertSame('expired', $payload['reservation_stage']);
     }
 
     public function test_exact_address_hidden_for_scheduled_pre_assignment_stages(): void
