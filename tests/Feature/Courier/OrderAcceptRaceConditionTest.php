@@ -52,8 +52,11 @@ class OrderAcceptRaceConditionTest extends TestCase
         $order = Order::createForTesting(['client_id' => $client->id, 'status' => Order::STATUS_SEARCHING, 'payment_status' => Order::PAY_PAID]);
         $winnerOffer = OrderOffer::query()->create(['order_id' => $order->id, 'courier_id' => $winner->id, 'type' => OrderOffer::TYPE_PRIMARY, 'sequence' => 1, 'status' => OrderOffer::STATUS_PENDING, 'expires_at' => now()->addMinute()]);
         $loserOffer = OrderOffer::query()->create(['order_id' => $order->id, 'courier_id' => $loser->id, 'type' => OrderOffer::TYPE_PRIMARY, 'sequence' => 1, 'status' => OrderOffer::STATUS_PENDING, 'expires_at' => now()->addMinute()]);
+        $otherOrder = Order::createForTesting(['client_id' => $client->id, 'status' => Order::STATUS_SEARCHING, 'payment_status' => Order::PAY_PAID]);
+        $otherOffer = OrderOffer::query()->create(['order_id' => $otherOrder->id, 'courier_id' => $loser->id, 'type' => OrderOffer::TYPE_PRIMARY, 'sequence' => 1, 'status' => OrderOffer::STATUS_PENDING, 'expires_at' => now()->addMinute()]);
         CourierOrderInterest::query()->create(['order_id' => $order->id, 'courier_id' => $winner->id, 'status' => CourierOrderInterest::STATUS_INTERESTED, 'expressed_at' => now()]);
         CourierOrderInterest::query()->create(['order_id' => $order->id, 'courier_id' => $loser->id, 'status' => CourierOrderInterest::STATUS_INTERESTED, 'expressed_at' => now()]);
+        CourierOrderInterest::query()->create(['order_id' => $otherOrder->id, 'courier_id' => $loser->id, 'status' => CourierOrderInterest::STATUS_INTERESTED, 'expressed_at' => now()]);
 
         $this->actingAs($winner, 'sanctum')
             ->postJson('/api/orders/offers/' . $winnerOffer->id . '/accept')
@@ -61,8 +64,10 @@ class OrderAcceptRaceConditionTest extends TestCase
 
         $this->assertDatabaseHas('order_offers', ['id' => $winnerOffer->id, 'status' => OrderOffer::STATUS_ACCEPTED]);
         $this->assertDatabaseHas('order_offers', ['id' => $loserOffer->id, 'status' => OrderOffer::STATUS_EXPIRED]);
+        $this->assertDatabaseHas('order_offers', ['id' => $otherOffer->id, 'status' => OrderOffer::STATUS_PENDING]);
         $this->assertDatabaseHas('courier_order_interests', ['order_id' => $order->id, 'courier_id' => $winner->id, 'status' => CourierOrderInterest::STATUS_SELECTED]);
         $this->assertDatabaseHas('courier_order_interests', ['order_id' => $order->id, 'courier_id' => $loser->id, 'status' => CourierOrderInterest::STATUS_REJECTED, 'rejected_reason' => 'selected_elsewhere']);
+        $this->assertDatabaseHas('courier_order_interests', ['order_id' => $otherOrder->id, 'courier_id' => $loser->id, 'status' => CourierOrderInterest::STATUS_INTERESTED]);
     }
 
     public function test_api_offer_accept_rejects_expired_and_taken_offer_with_controlled_409(): void
@@ -75,9 +80,14 @@ class OrderAcceptRaceConditionTest extends TestCase
 
         $expiredOrder = Order::createForTesting(['client_id' => $client->id, 'status' => Order::STATUS_SEARCHING, 'payment_status' => Order::PAY_PAID]);
         $expiredOffer = OrderOffer::query()->create(['order_id' => $expiredOrder->id, 'courier_id' => $courierA->id, 'type' => OrderOffer::TYPE_PRIMARY, 'sequence' => 1, 'status' => OrderOffer::STATUS_PENDING, 'expires_at' => now()->subSecond()]);
+        $equalNowOffer = OrderOffer::query()->create(['order_id' => $expiredOrder->id, 'courier_id' => $courierA->id, 'type' => OrderOffer::TYPE_PRIMARY, 'sequence' => 1, 'status' => OrderOffer::STATUS_PENDING, 'expires_at' => now()]);
 
         $this->actingAs($courierA, 'sanctum')
             ->postJson('/api/orders/offers/' . $expiredOffer->id . '/accept')
+            ->assertStatus(409)
+            ->assertJson(['success' => false]);
+        $this->actingAs($courierA, 'sanctum')
+            ->postJson('/api/orders/offers/' . $equalNowOffer->id . '/accept')
             ->assertStatus(409)
             ->assertJson(['success' => false]);
 
@@ -87,7 +97,7 @@ class OrderAcceptRaceConditionTest extends TestCase
 
         $this->actingAs($courierA, 'sanctum')->postJson('/api/orders/offers/' . $offerA->id . '/accept')->assertOk();
         $this->actingAs($courierB, 'sanctum')->postJson('/api/orders/offers/' . $offerB->id . '/accept')->assertStatus(409)->assertJson(['success' => false]);
-        $this->actingAs($courierA, 'sanctum')->postJson('/api/orders/offers/' . $offerA->id . '/accept')->assertStatus(409)->assertJson(['success' => false]);
+        $this->actingAs($courierA, 'sanctum')->postJson('/api/orders/offers/' . $offerA->id . '/accept')->assertOk()->assertJson(['success' => true, 'idempotent' => true]);
     }
 
     protected function tearDown(): void

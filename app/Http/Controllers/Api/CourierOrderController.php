@@ -57,7 +57,9 @@ class CourierOrderController extends Controller
 
         abort_if(! $courier || ! $courier->isCourier(), 403);
 
-        if (! app(AcceptOrderByCourierAction::class)->handleOffer($offer, $courier)) {
+        $result = app(AcceptOrderByCourierAction::class)->handleOfferWithResult($offer, $courier);
+
+        if ($result === AcceptOrderByCourierAction::OFFER_ACCEPT_REJECTED) {
             return response()->json([
                 'success' => false,
                 'message' => 'Неможливо прийняти замовлення',
@@ -66,6 +68,7 @@ class CourierOrderController extends Controller
 
         return response()->json([
             'success' => true,
+            'idempotent' => $result === AcceptOrderByCourierAction::OFFER_ACCEPT_ALREADY_ASSIGNED_TO_SAME_COURIER,
             'order' => $offer->order->fresh(),
         ]);
     }
