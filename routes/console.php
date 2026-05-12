@@ -4,10 +4,13 @@ use Illuminate\Foundation\Inspiring;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Schedule;
+use Illuminate\Support\Facades\Log;
 use App\Services\Dispatch\OfferDispatcher;
 use App\Services\Dispatch\PendingOfferSweeper;
 use App\Services\Dispatch\DispatchDiagnosticsService;
 use App\Models\Order;
+use App\Models\Courier;
+use App\Models\CourierOrderInterest;
 use App\Models\OrderOffer;
 use App\Models\User;
 use App\Services\Orders\OrderAutoExpireService;
@@ -111,6 +114,113 @@ Schedule::command('courier:monitor-future-deferred-searching-orders')
     ->name('poof-monitor-future-deferred-searching-orders')
     ->description('Detect searching+paid orders silently deferred into future dispatch window')
     ->everyMinute();
+
+Schedule::command('courier:finalize-scheduled-order-matching')
+    ->name('poof-courier-finalize-scheduled-order-matching')
+    ->description('Finalize courier matching for scheduled orders near execution window')
+    ->everyMinute();
+
+Artisan::command('courier:finalize-scheduled-order-matching', function () {
+    $now = now();
+    $leadMinutes = max(1, (int) config('courier_runtime.scheduled_matching.lead_minutes', 30));
+    $offerTtlSeconds = max(1, (int) config('courier_runtime.scheduled_matching.offer_ttl_seconds', 45));
+    $batchSize = max(1, (int) config('courier_runtime.scheduled_matching.batch_size', 1));
+    $lockSeconds = max(1, (int) config('courier_runtime.scheduled_matching.lock_seconds', 60));
+
+    $windowEnd = $now->copy()->addMinutes($leadMinutes);
+    Log::info('scheduled_matching_started', ['lead_minutes' => $leadMinutes, 'batch_size' => $batchSize]);
+
+    $orders = Order::query()
+        ->where('status', Order::STATUS_SEARCHING)
+        ->where('payment_status', Order::PAY_PAID)
+        ->whereNull('courier_id')
+        ->whereNull('expired_at')
+        ->where(function ($q) use ($now, $windowEnd): void {
+            $q->whereBetween('window_from_at', [$now, $windowEnd])
+                ->orWhereBetween('scheduled_time_from', [$now->format('H:i:s'), $windowEnd->format('H:i:s')]);
+        })
+        ->whereDoesntHave('offers', function ($q) use ($now): void {
+            $q->where('status', OrderOffer::STATUS_PENDING)->whereNotNull('expires_at')->where('expires_at', '>', $now);
+        })
+        ->orderBy('window_from_at')
+        ->limit($batchSize)
+        ->get();
+
+    foreach ($orders as $order) {
+        $lockKey = sprintf('scheduled-final-matching:%d', $order->id);
+        $lock = Cache::lock($lockKey, $lockSeconds);
+        if (! $lock->get()) {
+            continue;
+        }
+
+        try {
+            Log::info('scheduled_matching_order_locked', ['order_id' => $order->id]);
+            $freshOrder = Order::query()->find($order->id);
+            if (! $freshOrder || $freshOrder->status !== Order::STATUS_SEARCHING || $freshOrder->courier_id !== null) {
+                continue;
+            }
+
+            $hasBlockingOffer = OrderOffer::query()->where('order_id', $freshOrder->id)
+                ->where(function ($q) use ($now): void {
+                    $q->where('status', OrderOffer::STATUS_ACCEPTED)
+                      ->orWhere(function ($pending) use ($now): void {
+                          $pending->where('status', OrderOffer::STATUS_PENDING)
+                              ->whereNotNull('expires_at')
+                              ->where('expires_at', '>', $now);
+                      });
+                })->exists();
+            if ($hasBlockingOffer) {
+                Log::info('scheduled_matching_skipped_existing_offer', ['order_id' => $freshOrder->id]);
+                continue;
+            }
+
+            $interest = CourierOrderInterest::query()
+                ->where('order_id', $freshOrder->id)
+                ->where('status', CourierOrderInterest::STATUS_INTERESTED)
+                ->orderByRaw('CASE WHEN distance_meters IS NULL THEN 1 ELSE 0 END')
+                ->orderBy('distance_meters')
+                ->orderBy('expressed_at')
+                ->get();
+
+            $selectedCourierId = null;
+            foreach ($interest as $item) {
+                $courier = User::query()->with('courierProfile')->find($item->courier_id);
+                if (! $courier || $courier->role !== User::ROLE_COURIER || ! $courier->is_active || ! $courier->is_verified || ! $courier->is_online || $courier->is_busy) {
+                    continue;
+                }
+                if (optional($courier->courierProfile)->status !== Courier::STATUS_ONLINE || ! optional($courier->courierProfile)->is_verified) {
+                    continue;
+                }
+                $hasActive = Order::query()->where('courier_id', $courier->id)->whereIn('status', [Order::STATUS_ACCEPTED, Order::STATUS_IN_PROGRESS])->exists();
+                if ($hasActive) {
+                    continue;
+                }
+                $selectedCourierId = (int) $courier->id;
+                break;
+            }
+
+            if ($selectedCourierId !== null) {
+                $offer = OrderOffer::query()->create([
+                    'order_id' => $freshOrder->id,
+                    'courier_id' => $selectedCourierId,
+                    'type' => OrderOffer::TYPE_PRIMARY,
+                    'sequence' => 1,
+                    'status' => OrderOffer::STATUS_PENDING,
+                    'expires_at' => now()->addSeconds($offerTtlSeconds),
+                    'last_offered_at' => now(),
+                ]);
+                Log::info('scheduled_matching_offer_created', ['order_id' => $freshOrder->id, 'courier_id' => $selectedCourierId, 'offer_id' => $offer->id]);
+                continue;
+            }
+
+            Log::info('scheduled_matching_no_eligible_interested_courier', ['order_id' => $freshOrder->id]);
+            app(OfferDispatcher::class)->dispatchForOrder($freshOrder, 'scheduled_matching_fallback');
+            Log::info('scheduled_matching_fallback_used', ['order_id' => $freshOrder->id]);
+        } finally {
+            $lock->release();
+        }
+    }
+})->purpose('Finalize matching for scheduled orders with interested couriers first and fallback dispatch');
 Artisan::command('orders:auto-expire {--limit=200}', function () {
     $limit = max(1, (int) $this->option('limit'));
     /** @var OrderAutoExpireService $service */

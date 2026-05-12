@@ -61,4 +61,11 @@ return [
     'my_orders' => [
         'nearby_summary_ttl_seconds' => (int) env('COURIER_MY_ORDERS_NEARBY_SUMMARY_TTL_SECONDS', 45),
     ],
+
+    'scheduled_matching' => [
+        'lead_minutes' => (int) env('COURIER_SCHEDULED_MATCHING_LEAD_MINUTES', 30),
+        'offer_ttl_seconds' => (int) env('COURIER_SCHEDULED_MATCHING_OFFER_TTL_SECONDS', 45),
+        'batch_size' => (int) env('COURIER_SCHEDULED_MATCHING_BATCH_SIZE', 1),
+        'lock_seconds' => (int) env('COURIER_SCHEDULED_MATCHING_LOCK_SECONDS', 60),
+    ],
 ];

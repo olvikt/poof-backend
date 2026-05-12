@@ -1,19 +1,41 @@
-# Scheduled Courier Interest / Soft Reservation (PR1 foundation)
+# Scheduled Courier Interest / Soft Reservation
 
-## Scope in this PR
+## Scope
 - persistence schema `courier_order_interests`;
-- Eloquent model `CourierOrderInterest`;
 - courier API endpoints to express and withdraw interest;
-- basic API contract tests;
-- documentation baseline.
+- final scheduled matching command with idempotent lock;
+- personal offer TTL payload for courier available offers.
 
 ## Semantics
 - "Готовий виконати" stores courier soft-interest only.
 - Soft-interest does **not** hard-assign order.
-- Final matching/dispatch logic is intentionally out of scope for this PR.
+- Final assignment happens only after courier accepts offer.
+
+## Final matching (PR2)
+- Starts `N` minutes before scheduled window (`courier_runtime.scheduled_matching.lead_minutes`, default `30`).
+- Command: `php artisan courier:finalize-scheduled-order-matching`.
+- Scheduler runs command every minute.
+- Selection priority:
+  1. interested couriers (`courier_order_interests.status=interested`), sorted by `distance_meters` then `expressed_at`;
+  2. fallback to regular `OfferDispatcher` candidate pool when no eligible interested courier is found.
+- If interested courier is offline/not eligible at final matching moment, courier is skipped.
+- Structured logs emitted:
+  - `scheduled_matching_started`
+  - `scheduled_matching_order_locked`
+  - `scheduled_matching_offer_created`
+  - `scheduled_matching_no_eligible_interested_courier`
+  - `scheduled_matching_fallback_used`
+  - `scheduled_matching_skipped_existing_offer`
+
+## Offer TTL
+- Personal offer TTL is `45` seconds by default (`courier_runtime.scheduled_matching.offer_ttl_seconds`).
+- Courier offers payload includes:
+  - `offer_expires_at`
+  - `seconds_remaining` (`max(0, expires_at - now)` on server side).
 
 ## Endpoints
 - `POST /api/courier/orders/{order}/interest`
 - `DELETE /api/courier/orders/{order}/interest`
+- `GET /api/orders/available` (now returns offer TTL metadata)
 
-Both endpoints require authenticated courier.
+Both interest endpoints require authenticated courier.
