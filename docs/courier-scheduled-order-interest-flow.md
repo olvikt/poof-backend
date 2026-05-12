@@ -85,3 +85,31 @@ Both interest endpoints require authenticated courier.
 7. Cleanup same-order competing offers/interests.
 8. Commit transaction.
 9. Emit terminal log (`order_offer_accept_succeeded` / `order_offer_accept_rejected` / `order_offer_accept_race_lost`).
+
+## PR4 UX lifecycle additions (2026-05-12)
+
+- Available orders payload now carries reservation UX semantics for scheduled orders: `is_scheduled`, `is_future_visible`, `reservation_stage`, `reservation_stage_label`, scheduled window fields, dispatch timing fields, interest flags, countdown fields and helper copy.
+- `primary_cta` and `primary_cta_label` are derived server-side (`express_interest`, `withdraw_interest`, `accept_offer`, `view_assigned_order`).
+- Countdown is authoritative on backend: `seconds_remaining`, `countdown_active`, `countdown_started_at`, `countdown_expires_at`.
+- Before assignment, exact pickup address is hidden for scheduled reservations in API payload.
+- Reservation semantics include user-facing outcomes: `selected_elsewhere` and `expired`.
+- Notification foundation introduced as `ScheduledCourierNotificationService` with event-ready methods:
+  - `notifyScheduledOrderVisible()`
+  - `notifyFinalOffer()`
+  - `notifyOfferExpiringSoon()`
+  - `notifyReservationLost()`
+- Operational notification preferences are separated from marketing and include `push_notifications_orders_enabled` (nullable, default `true`).
+- UX-level observability events added:
+  - `scheduled_order_interest_expressed`
+  - `scheduled_order_interest_withdrawn`
+  - `scheduled_offer_viewed`
+  - `scheduled_offer_countdown_started`
+  - `scheduled_offer_countdown_expired`
+
+### Why order can be visible before assignment
+
+Scheduled orders are surfaced early to collect courier intent and improve matching quality near dispatch time. Interest is **not** assignment guarantee.
+
+### Selected elsewhere explanation
+
+If another courier accepts the final TTL offer first, non-selected couriers should receive `selected_elsewhere` semantics and explanatory helper copy.
