@@ -10,6 +10,7 @@ use App\Models\Order;
 use App\Models\OrderOffer;
 use App\Services\Courier\CourierPresenceService;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Log;
 
 class CourierOrderController extends Controller
@@ -43,12 +44,15 @@ class CourierOrderController extends Controller
 
         foreach ($orders as $orderPayload) {
             if (($orderPayload['reservation_stage'] ?? null) === 'offered') {
-                Log::info('scheduled_offer_viewed', [
-                    'order_id' => $orderPayload['order_public_id'] ?? null,
-                    'courier_id' => $courier->id,
-                    'seconds_remaining' => $orderPayload['seconds_remaining'] ?? null,
-                    'reservation_stage' => $orderPayload['reservation_stage'] ?? null,
-                ]);
+                $offerId = (int) ($orderPayload['offer_id'] ?? 0);
+                if ($offerId > 0 && Cache::add(sprintf('scheduled_offer_viewed:%d:%d', $courier->id, $offerId), 1, now()->addSeconds(30))) {
+                    Log::info('scheduled_offer_viewed', [
+                        'order_id' => $orderPayload['order_public_id'] ?? null,
+                        'courier_id' => $courier->id,
+                        'seconds_remaining' => $orderPayload['seconds_remaining'] ?? null,
+                        'reservation_stage' => $orderPayload['reservation_stage'] ?? null,
+                    ]);
+                }
             }
         }
 

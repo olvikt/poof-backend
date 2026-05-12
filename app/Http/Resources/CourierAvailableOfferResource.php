@@ -80,6 +80,10 @@ class CourierAvailableOfferResource extends JsonResource
         if ($this->status === OrderOffer::STATUS_EXPIRED || ($this->expires_at && $this->expires_at->lte($now))) return 'expired';
         if ($this->status === OrderOffer::STATUS_PENDING) return 'offered';
         if ($interest && $interest->status === CourierOrderInterest::STATUS_INTERESTED) return 'interested';
+
+        $finalMatchingStartsAt = $order?->window_from_at?->copy()->subMinutes((int) config('courier_runtime.scheduled_matching.lead_minutes', 30));
+        if ($finalMatchingStartsAt && $now->greaterThanOrEqualTo($finalMatchingStartsAt)) return 'final_matching';
+
         return 'visible_for_reservation';
     }
     private function resolvePrimaryCta(string $stage): string { return match($stage){'interested'=>'withdraw_interest','offered'=>'accept_offer','assigned'=>'view_assigned_order',default=>'express_interest'}; }

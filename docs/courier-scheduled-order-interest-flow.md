@@ -113,3 +113,11 @@ Scheduled orders are surfaced early to collect courier intent and improve matchi
 ### Selected elsewhere explanation
 
 If another courier accepts the final TTL offer first, non-selected couriers should receive `selected_elsewhere` semantics and explanatory helper copy.
+
+## Payload backward compatibility guarantees
+
+- Existing top-level response shape of `GET /api/orders/available` is preserved (`orders`, `pagination`).
+- Existing canonical fields are preserved and unchanged in meaning (`offer_id`, `order_public_id`, `pickup`, `delivery`, `price`, `offer_status`, `offer_expires_at`, `seconds_remaining`, `service`).
+- Newly introduced fields are additive and optional for clients to consume.
+- Unknown fields can be safely ignored by legacy courier clients without behavior regression.
+- No new sensitive fields are exposed in this contract (no exact coordinates, no client phone, no internal numeric order id in payload).

@@ -6,6 +6,7 @@ namespace App\Services\Notifications;
 
 use App\Models\Order;
 use App\Models\User;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Log;
 
 class ScheduledCourierNotificationService
@@ -18,6 +19,12 @@ class ScheduledCourierNotificationService
     private function emit(string $event, Order $order, User $courier): void
     {
         if (($courier->telegram_notifications_orders_enabled ?? true) === false || ($courier->push_notifications_orders_enabled ?? true) === false) {
+            return;
+        }
+
+        // TODO(PR4-followup): replace cache-key dedup with durable notification outbox/idempotency table.
+        $dedupKey = sprintf('scheduled_notification:%s:%d:%d', $event, $order->id, $courier->id);
+        if (! Cache::add($dedupKey, 1, now()->addMinutes(10))) {
             return;
         }
 
