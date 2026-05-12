@@ -9,6 +9,7 @@ use App\Models\CourierOrderInterest;
 use App\Models\Order;
 use App\Models\OrderOffer;
 use App\Models\User;
+use App\Http\Resources\CourierAvailableOfferResource;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\Artisan;
 use Tests\TestCase;
@@ -52,5 +53,50 @@ class ScheduledFinalMatchingCommandTest extends TestCase
         Artisan::call('courier:finalize-scheduled-order-matching');
 
         $this->assertSame(1, OrderOffer::query()->where('order_id', $order->id)->count());
+    }
+
+    public function test_expired_offer_is_intentionally_retried_on_next_scheduler_run(): void
+    {
+        CarbonImmutable::setTestNow('2026-05-12 10:00:00');
+        config()->set('courier_runtime.scheduled_matching.offer_ttl_seconds', 45);
+
+        $courier = User::factory()->verifiedCourier()->create(['is_online' => true, 'is_busy' => false]);
+        Courier::query()->create(['user_id' => $courier->id, 'status' => Courier::STATUS_ONLINE, 'is_verified' => true, 'last_location_at' => now()]);
+        $order = Order::createForTesting(['client_id' => User::factory()->create()->id, 'status' => Order::STATUS_SEARCHING, 'payment_status' => Order::PAY_PAID, 'window_from_at' => now()->addMinutes(29)]);
+        CourierOrderInterest::query()->create(['order_id' => $order->id, 'courier_id' => $courier->id, 'status' => CourierOrderInterest::STATUS_INTERESTED, 'expressed_at' => now()]);
+
+        Artisan::call('courier:finalize-scheduled-order-matching');
+        CarbonImmutable::setTestNow(now()->addMinutes(1));
+        Artisan::call('courier:sweep-pending-offers');
+        Artisan::call('courier:finalize-scheduled-order-matching');
+
+        $this->assertSame(2, OrderOffer::query()->where('order_id', $order->id)->count());
+        $this->assertSame(1, OrderOffer::query()->where('order_id', $order->id)->where('status', OrderOffer::STATUS_PENDING)->count());
+    }
+
+    public function test_seconds_remaining_is_never_negative(): void
+    {
+        CarbonImmutable::setTestNow('2026-05-12 10:10:00');
+        $offer = new OrderOffer(['status' => OrderOffer::STATUS_PENDING, 'expires_at' => now()->subSeconds(5)]);
+        $offer->id = 1;
+
+        $payload = (new CourierAvailableOfferResource($offer))->toArray(request());
+        $this->assertSame(0, $payload['seconds_remaining']);
+    }
+
+    public function test_lead_window_uses_app_timezone_consistently(): void
+    {
+        config()->set('app.timezone', 'Europe/Kyiv');
+        date_default_timezone_set('Europe/Kyiv');
+        CarbonImmutable::setTestNow('2026-05-12 10:00:00');
+
+        $courier = User::factory()->verifiedCourier()->create(['is_online' => true, 'is_busy' => false]);
+        Courier::query()->create(['user_id' => $courier->id, 'status' => Courier::STATUS_ONLINE, 'is_verified' => true, 'last_location_at' => now()]);
+        $order = Order::createForTesting(['client_id' => User::factory()->create()->id, 'status' => Order::STATUS_SEARCHING, 'payment_status' => Order::PAY_PAID, 'window_from_at' => now()->addMinutes(30)]);
+        CourierOrderInterest::query()->create(['order_id' => $order->id, 'courier_id' => $courier->id, 'status' => CourierOrderInterest::STATUS_INTERESTED, 'expressed_at' => now()]);
+
+        Artisan::call('courier:finalize-scheduled-order-matching');
+
+        $this->assertDatabaseHas('order_offers', ['order_id' => $order->id, 'courier_id' => $courier->id]);
     }
 }

@@ -5,6 +5,7 @@ use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Schedule;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\DB;
 use App\Services\Dispatch\OfferDispatcher;
 use App\Services\Dispatch\PendingOfferSweeper;
 use App\Services\Dispatch\DispatchDiagnosticsService;
@@ -118,6 +119,7 @@ Schedule::command('courier:monitor-future-deferred-searching-orders')
 Schedule::command('courier:finalize-scheduled-order-matching')
     ->name('poof-courier-finalize-scheduled-order-matching')
     ->description('Finalize courier matching for scheduled orders near execution window')
+    ->withoutOverlapping(2)
     ->everyMinute();
 
 Artisan::command('courier:finalize-scheduled-order-matching', function () {
@@ -128,7 +130,7 @@ Artisan::command('courier:finalize-scheduled-order-matching', function () {
     $lockSeconds = max(1, (int) config('courier_runtime.scheduled_matching.lock_seconds', 60));
 
     $windowEnd = $now->copy()->addMinutes($leadMinutes);
-    Log::info('scheduled_matching_started', ['lead_minutes' => $leadMinutes, 'batch_size' => $batchSize]);
+    Log::info('scheduled_matching_started', ['order_id' => null, 'courier_id' => null, 'lead_minutes' => $leadMinutes, 'offer_ttl_seconds' => $offerTtlSeconds, 'lock_acquired' => null, 'fallback_used' => null, 'batch_size' => $batchSize]);
 
     $orders = Order::query()
         ->where('status', Order::STATUS_SEARCHING)
@@ -149,30 +151,38 @@ Artisan::command('courier:finalize-scheduled-order-matching', function () {
     foreach ($orders as $order) {
         $lockKey = sprintf('scheduled-final-matching:%d', $order->id);
         $lock = Cache::lock($lockKey, $lockSeconds);
-        if (! $lock->get()) {
+        $lockAcquired = $lock->get();
+        if (! $lockAcquired) {
+            Log::info('scheduled_matching_order_locked', ['order_id' => $order->id, 'courier_id' => null, 'lead_minutes' => $leadMinutes, 'offer_ttl_seconds' => $offerTtlSeconds, 'lock_acquired' => false, 'fallback_used' => false]);
             continue;
         }
 
         try {
-            Log::info('scheduled_matching_order_locked', ['order_id' => $order->id]);
+            Log::info('scheduled_matching_order_locked', ['order_id' => $order->id, 'courier_id' => null, 'lead_minutes' => $leadMinutes, 'offer_ttl_seconds' => $offerTtlSeconds, 'lock_acquired' => true, 'fallback_used' => false]);
             $freshOrder = Order::query()->find($order->id);
             if (! $freshOrder || $freshOrder->status !== Order::STATUS_SEARCHING || $freshOrder->courier_id !== null) {
                 continue;
             }
 
-            $hasBlockingOffer = OrderOffer::query()->where('order_id', $freshOrder->id)
-                ->where(function ($q) use ($now): void {
-                    $q->where('status', OrderOffer::STATUS_ACCEPTED)
-                      ->orWhere(function ($pending) use ($now): void {
-                          $pending->where('status', OrderOffer::STATUS_PENDING)
-                              ->whereNotNull('expires_at')
-                              ->where('expires_at', '>', $now);
-                      });
-                })->exists();
-            if ($hasBlockingOffer) {
-                Log::info('scheduled_matching_skipped_existing_offer', ['order_id' => $freshOrder->id]);
-                continue;
-            }
+            $createdOffer = DB::transaction(function () use ($freshOrder, $now, $offerTtlSeconds, $leadMinutes): ?OrderOffer {
+                $lockedOrder = Order::query()->whereKey($freshOrder->id)->lockForUpdate()->first();
+                if (! $lockedOrder || $lockedOrder->status !== Order::STATUS_SEARCHING || $lockedOrder->courier_id !== null) {
+                    return null;
+                }
+
+                $hasBlockingOffer = OrderOffer::query()->where('order_id', $lockedOrder->id)
+                    ->where(function ($q) use ($now): void {
+                        $q->where('status', OrderOffer::STATUS_ACCEPTED)
+                            ->orWhere(function ($pending) use ($now): void {
+                                $pending->where('status', OrderOffer::STATUS_PENDING)
+                                    ->whereNotNull('expires_at')
+                                    ->where('expires_at', '>', $now);
+                            });
+                    })->exists();
+                if ($hasBlockingOffer) {
+                    Log::info('scheduled_matching_skipped_existing_offer', ['order_id' => $lockedOrder->id, 'courier_id' => null, 'lead_minutes' => $leadMinutes, 'offer_ttl_seconds' => $offerTtlSeconds, 'lock_acquired' => true, 'fallback_used' => false]);
+                    return null;
+                }
 
             $interest = CourierOrderInterest::query()
                 ->where('order_id', $freshOrder->id)
@@ -199,23 +209,30 @@ Artisan::command('courier:finalize-scheduled-order-matching', function () {
                 break;
             }
 
-            if ($selectedCourierId !== null) {
-                $offer = OrderOffer::query()->create([
-                    'order_id' => $freshOrder->id,
+                if ($selectedCourierId !== null) {
+                    $offer = OrderOffer::query()->create([
+                    'order_id' => $lockedOrder->id,
                     'courier_id' => $selectedCourierId,
                     'type' => OrderOffer::TYPE_PRIMARY,
                     'sequence' => 1,
                     'status' => OrderOffer::STATUS_PENDING,
                     'expires_at' => now()->addSeconds($offerTtlSeconds),
                     'last_offered_at' => now(),
-                ]);
-                Log::info('scheduled_matching_offer_created', ['order_id' => $freshOrder->id, 'courier_id' => $selectedCourierId, 'offer_id' => $offer->id]);
+                    ]);
+                    Log::info('scheduled_matching_offer_created', ['order_id' => $lockedOrder->id, 'courier_id' => $selectedCourierId, 'lead_minutes' => $leadMinutes, 'offer_ttl_seconds' => $offerTtlSeconds, 'lock_acquired' => true, 'fallback_used' => false, 'offer_id' => $offer->id]);
+                    return $offer;
+                }
+
+                Log::info('scheduled_matching_no_eligible_interested_courier', ['order_id' => $lockedOrder->id, 'courier_id' => null, 'lead_minutes' => $leadMinutes, 'offer_ttl_seconds' => $offerTtlSeconds, 'lock_acquired' => true, 'fallback_used' => false]);
+                return null;
+            });
+
+            if ($createdOffer !== null) {
                 continue;
             }
 
-            Log::info('scheduled_matching_no_eligible_interested_courier', ['order_id' => $freshOrder->id]);
             app(OfferDispatcher::class)->dispatchForOrder($freshOrder, 'scheduled_matching_fallback');
-            Log::info('scheduled_matching_fallback_used', ['order_id' => $freshOrder->id]);
+            Log::info('scheduled_matching_fallback_used', ['order_id' => $freshOrder->id, 'courier_id' => null, 'lead_minutes' => $leadMinutes, 'offer_ttl_seconds' => $offerTtlSeconds, 'lock_acquired' => true, 'fallback_used' => true]);
         } finally {
             $lock->release();
         }

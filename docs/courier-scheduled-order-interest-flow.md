@@ -33,6 +33,17 @@
   - `offer_expires_at`
   - `seconds_remaining` (`max(0, expires_at - now)` on server side).
 
+## Repeated matching behavior after expired offers
+- Current behavior is **intentional retry**.
+- If pending offer expires and order is still `searching` with no assigned courier, next scheduler tick may create a new offer for same interested courier.
+- No explicit cooldown or max-attempts is applied in PR2 for scheduled matching; retry uses existing search constraints and offer-alive guard.
+
+## Scheduler overlap safety
+- Scheduler command is configured with `withoutOverlapping(2)` and per-order cache lock `scheduled-final-matching:{order_id}`.
+- Matching flow also uses DB transaction with `lockForUpdate()` on order row before duplicate checks and offer creation.
+- Duplicate-protection gates are re-checked under lock (`accepted` offer exists OR alive `pending` offer exists) before any new offer is inserted.
+- Result: overlap can delay processing, but should not create duplicate alive offers for same order.
+
 ## Endpoints
 - `POST /api/courier/orders/{order}/interest`
 - `DELETE /api/courier/orders/{order}/interest`
