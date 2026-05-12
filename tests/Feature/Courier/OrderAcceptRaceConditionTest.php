@@ -3,7 +3,9 @@
 namespace Tests\Feature\Courier;
 
 use App\Models\Courier;
+use App\Models\CourierOrderInterest;
 use App\Models\Order;
+use App\Models\OrderOffer;
 use App\Models\User;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\Config;
@@ -37,6 +39,55 @@ class OrderAcceptRaceConditionTest extends TestCase
             '--database' => 'sqlite',
             '--force' => true,
         ]);
+    }
+
+    public function test_api_offer_accept_cleans_competing_offers_and_interests(): void
+    {
+        $client = User::factory()->create(['role' => User::ROLE_CLIENT]);
+        $winner = User::factory()->verifiedCourier()->create(['is_online' => true, 'is_busy' => false]);
+        $loser = User::factory()->verifiedCourier()->create(['is_online' => true, 'is_busy' => false]);
+        Courier::query()->create(['user_id' => $winner->id, 'status' => Courier::STATUS_ONLINE, 'is_verified' => true, 'last_location_at' => now()]);
+        Courier::query()->create(['user_id' => $loser->id, 'status' => Courier::STATUS_ONLINE, 'is_verified' => true, 'last_location_at' => now()]);
+
+        $order = Order::createForTesting(['client_id' => $client->id, 'status' => Order::STATUS_SEARCHING, 'payment_status' => Order::PAY_PAID]);
+        $winnerOffer = OrderOffer::query()->create(['order_id' => $order->id, 'courier_id' => $winner->id, 'type' => OrderOffer::TYPE_PRIMARY, 'sequence' => 1, 'status' => OrderOffer::STATUS_PENDING, 'expires_at' => now()->addMinute()]);
+        $loserOffer = OrderOffer::query()->create(['order_id' => $order->id, 'courier_id' => $loser->id, 'type' => OrderOffer::TYPE_PRIMARY, 'sequence' => 1, 'status' => OrderOffer::STATUS_PENDING, 'expires_at' => now()->addMinute()]);
+        CourierOrderInterest::query()->create(['order_id' => $order->id, 'courier_id' => $winner->id, 'status' => CourierOrderInterest::STATUS_INTERESTED, 'expressed_at' => now()]);
+        CourierOrderInterest::query()->create(['order_id' => $order->id, 'courier_id' => $loser->id, 'status' => CourierOrderInterest::STATUS_INTERESTED, 'expressed_at' => now()]);
+
+        $this->actingAs($winner, 'sanctum')
+            ->postJson('/api/orders/offers/' . $winnerOffer->id . '/accept')
+            ->assertOk();
+
+        $this->assertDatabaseHas('order_offers', ['id' => $winnerOffer->id, 'status' => OrderOffer::STATUS_ACCEPTED]);
+        $this->assertDatabaseHas('order_offers', ['id' => $loserOffer->id, 'status' => OrderOffer::STATUS_EXPIRED]);
+        $this->assertDatabaseHas('courier_order_interests', ['order_id' => $order->id, 'courier_id' => $winner->id, 'status' => CourierOrderInterest::STATUS_SELECTED]);
+        $this->assertDatabaseHas('courier_order_interests', ['order_id' => $order->id, 'courier_id' => $loser->id, 'status' => CourierOrderInterest::STATUS_REJECTED, 'rejected_reason' => 'selected_elsewhere']);
+    }
+
+    public function test_api_offer_accept_rejects_expired_and_taken_offer_with_controlled_409(): void
+    {
+        $client = User::factory()->create(['role' => User::ROLE_CLIENT]);
+        $courierA = User::factory()->verifiedCourier()->create(['is_online' => true, 'is_busy' => false]);
+        $courierB = User::factory()->verifiedCourier()->create(['is_online' => true, 'is_busy' => false]);
+        Courier::query()->create(['user_id' => $courierA->id, 'status' => Courier::STATUS_ONLINE, 'is_verified' => true, 'last_location_at' => now()]);
+        Courier::query()->create(['user_id' => $courierB->id, 'status' => Courier::STATUS_ONLINE, 'is_verified' => true, 'last_location_at' => now()]);
+
+        $expiredOrder = Order::createForTesting(['client_id' => $client->id, 'status' => Order::STATUS_SEARCHING, 'payment_status' => Order::PAY_PAID]);
+        $expiredOffer = OrderOffer::query()->create(['order_id' => $expiredOrder->id, 'courier_id' => $courierA->id, 'type' => OrderOffer::TYPE_PRIMARY, 'sequence' => 1, 'status' => OrderOffer::STATUS_PENDING, 'expires_at' => now()->subSecond()]);
+
+        $this->actingAs($courierA, 'sanctum')
+            ->postJson('/api/orders/offers/' . $expiredOffer->id . '/accept')
+            ->assertStatus(409)
+            ->assertJson(['success' => false]);
+
+        $order = Order::createForTesting(['client_id' => $client->id, 'status' => Order::STATUS_SEARCHING, 'payment_status' => Order::PAY_PAID]);
+        $offerA = OrderOffer::query()->create(['order_id' => $order->id, 'courier_id' => $courierA->id, 'type' => OrderOffer::TYPE_PRIMARY, 'sequence' => 1, 'status' => OrderOffer::STATUS_PENDING, 'expires_at' => now()->addMinute()]);
+        $offerB = OrderOffer::query()->create(['order_id' => $order->id, 'courier_id' => $courierB->id, 'type' => OrderOffer::TYPE_PRIMARY, 'sequence' => 1, 'status' => OrderOffer::STATUS_PENDING, 'expires_at' => now()->addMinute()]);
+
+        $this->actingAs($courierA, 'sanctum')->postJson('/api/orders/offers/' . $offerA->id . '/accept')->assertOk();
+        $this->actingAs($courierB, 'sanctum')->postJson('/api/orders/offers/' . $offerB->id . '/accept')->assertStatus(409)->assertJson(['success' => false]);
+        $this->actingAs($courierA, 'sanctum')->postJson('/api/orders/offers/' . $offerA->id . '/accept')->assertStatus(409)->assertJson(['success' => false]);
     }
 
     protected function tearDown(): void

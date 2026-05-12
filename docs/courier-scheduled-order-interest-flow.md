@@ -48,5 +48,28 @@
 - `POST /api/courier/orders/{order}/interest`
 - `DELETE /api/courier/orders/{order}/interest`
 - `GET /api/orders/available` (now returns offer TTL metadata)
+- `POST /api/orders/offers/{offer}/accept` (canonical hard-assignment endpoint)
 
 Both interest endpoints require authenticated courier.
+
+## Offer accept race handling (PR3)
+- Hard assignment is performed **only** inside offer-accept transaction (`POST /api/orders/offers/{offer}/accept`).
+- Accept flow runs under one DB transaction and uses `lockForUpdate()` for:
+  - courier row;
+  - offer row;
+  - order row.
+- Under lock, accept validates:
+  - `order.status=searching`;
+  - `order.courier_id IS NULL`;
+  - offer belongs to authenticated courier;
+  - offer status is `pending`;
+  - offer TTL is alive (`expires_at > now`).
+- Assignment write uses conditional update (`status=searching` and `courier_id is null`) to guarantee single winner.
+- On successful accept:
+  - order moves to `accepted` and receives `courier_id`;
+  - selected offer becomes `accepted`;
+  - competing pending offers on same order become `expired`;
+  - other couriers' interests become `rejected` with `rejected_reason=selected_elsewhere`;
+  - selected courier interest becomes `selected` with `selected_at`.
+- On race (second courier or stale/expired offer), API returns controlled business JSON (`409`) without fatal exception.
+- UX outcome for non-selected couriers: order disappears from available offers and corresponding interest state is `rejected:selected_elsewhere`.
