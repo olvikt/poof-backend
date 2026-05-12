@@ -17,6 +17,8 @@ class CourierAvailableOfferResource extends JsonResource
     public function toArray(Request $request): array
     {
         $order = $this->order;
+        $now = now();
+        $secondsRemaining = $this->expires_at ? (int) max(0, $now->diffInSeconds($this->expires_at, false)) : null;
 
         return [
             'offer_id' => (int) $this->id,
@@ -31,6 +33,7 @@ class CourierAvailableOfferResource extends JsonResource
             ],
             'offer_status' => (string) $this->status,
             'offer_expires_at' => optional($this->expires_at)?->toISOString(),
+            'seconds_remaining' => $secondsRemaining,
             'service' => [
                 'service_mode' => $order?->service_mode,
                 'window_from_at' => optional($order?->window_from_at)?->toISOString(),
