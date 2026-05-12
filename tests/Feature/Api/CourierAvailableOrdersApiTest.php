@@ -312,8 +312,8 @@ class CourierAvailableOrdersApiTest extends TestCase
         Sanctum::actingAs($courier);
         $this->postJson('/api/courier/orders/'.$order->id.'/interest')->assertOk();
         $payload = $this->getJson('/api/orders/available')->assertOk()->json('orders.0');
-        $this->assertSame('withdraw_interest', $payload['primary_cta']);
-        $this->assertNotEmpty($payload['helper_text']);
+        $this->assertSame('accept_offer', $payload['primary_cta']);
+        $this->assertStringStartsWith('Прийняти за', $payload['primary_cta_label']);
     }
 
     public function test_offered_stage_has_priority_over_interested(): void
@@ -334,7 +334,17 @@ class CourierAvailableOrdersApiTest extends TestCase
     {
         $client = User::factory()->create(['role' => User::ROLE_CLIENT, 'is_active' => true]);
         $courier = $this->createOnlineCourier();
-        $order = $this->createSearchingOrder($client, 'Expired countdown');
+        $order = Order::createForTesting([
+            'client_id' => $client->id,
+            'status' => Order::STATUS_SEARCHING,
+            'payment_status' => Order::PAY_PAID,
+            'address_text' => 'Expired countdown',
+            'price' => 100,
+            'dispatch_available_at' => now()->subMinute(),
+            'lat' => 50.4501,
+            'lng' => 30.5234,
+            'courier_id' => null,
+        ]);
 
         $offer = OrderOffer::query()->create([
             'order_id' => $order->id,
@@ -346,7 +356,11 @@ class CourierAvailableOrdersApiTest extends TestCase
         ]);
 
         Sanctum::actingAs($courier);
-        $payload = (new \App\Http\Resources\CourierAvailableOfferResource($offer->fresh('order')))->toArray(request());
+        $offer = $offer->fresh('order');
+        $this->assertSame(Order::STATUS_SEARCHING, (string) $offer->order->status);
+        $this->assertNull($offer->order->courier_id);
+
+        $payload = (new \App\Http\Resources\CourierAvailableOfferResource($offer))->toArray(request());
         $this->assertSame(0, $payload['seconds_remaining']);
         $this->assertFalse($payload['countdown_active']);
         $this->assertSame('expired', $payload['reservation_stage']);
