@@ -181,7 +181,24 @@ class CourierAvailableOrdersApiTest extends TestCase
             'offer_status',
             'offer_expires_at',
             'seconds_remaining',
+            'countdown_active',
+            'countdown_started_at',
+            'countdown_expires_at',
             'service',
+            'is_scheduled',
+            'is_future_visible',
+            'reservation_stage',
+            'reservation_stage_label',
+            'scheduled_window',
+            'scheduled_window_label',
+            'search_starts_at',
+            'final_matching_starts_at',
+            'dispatch_available_at',
+            'has_expressed_interest',
+            'interest_status',
+            'helper_text',
+            'primary_cta',
+            'primary_cta_label',
         ], array_keys($payload));
         $this->assertIsInt($payload['seconds_remaining']);
         $this->assertGreaterThanOrEqual(0, $payload['seconds_remaining']);
@@ -256,6 +273,135 @@ class CourierAvailableOrdersApiTest extends TestCase
             ->assertJsonPath('pagination.limit', 20);
     }
 
+
+    public function test_scheduled_payload_hides_exact_address_and_exposes_ux_fields(): void
+    {
+        $client = User::factory()->create(['role' => User::ROLE_CLIENT, 'is_active' => true]);
+        $courier = $this->createOnlineCourier();
+
+        $order = Order::createForTesting([
+            'client_id' => $client->id,
+            'status' => Order::STATUS_SEARCHING,
+            'payment_status' => Order::PAY_PAID,
+            'address_text' => 'Exact hidden address',
+            'price' => 100,
+            'service_mode' => Order::SERVICE_MODE_PREFERRED_WINDOW,
+            'dispatch_available_at' => now()->subMinute(),
+            'window_from_at' => now()->addHour(),
+            'window_to_at' => now()->addHours(2),
+            'lat' => 50.4501,
+            'lng' => 30.5234,
+        ]);
+
+        OrderOffer::createPrimaryPending($order->id, $courier->id, 120);
+        Sanctum::actingAs($courier);
+
+        $payload = $this->getJson('/api/orders/available')->assertOk()->json('orders.0');
+        $this->assertTrue($payload['is_scheduled']);
+        $this->assertNull($payload['pickup']['address_text']);
+        $this->assertSame('offered', $payload['reservation_stage']);
+        $this->assertSame('accept_offer', $payload['primary_cta']);
+    }
+
+    public function test_interested_courier_sees_withdraw_cta_and_helper_text(): void
+    {
+        $client = User::factory()->create(['role' => User::ROLE_CLIENT, 'is_active' => true]);
+        $courier = $this->createOnlineCourier();
+        $order = $this->createSearchingOrder($client, 'Interested');
+        OrderOffer::createPrimaryPending($order->id, $courier->id, 120);
+        Sanctum::actingAs($courier);
+        $this->postJson('/api/courier/orders/'.$order->id.'/interest')->assertOk();
+        $payload = $this->getJson('/api/orders/available')->assertOk()->json('orders.0');
+        $this->assertSame('accept_offer', $payload['primary_cta']);
+        $this->assertStringStartsWith('Прийняти за', $payload['primary_cta_label']);
+    }
+
+    public function test_offered_stage_has_priority_over_interested(): void
+    {
+        $client = User::factory()->create(['role' => User::ROLE_CLIENT, 'is_active' => true]);
+        $courier = $this->createOnlineCourier();
+        $order = $this->createSearchingOrder($client, 'Priority');
+
+        OrderOffer::createPrimaryPending($order->id, $courier->id, 120);
+        Sanctum::actingAs($courier);
+        $this->postJson('/api/courier/orders/'.$order->id.'/interest')->assertOk();
+
+        $payload = $this->getJson('/api/orders/available')->assertOk()->json('orders.0');
+        $this->assertSame('offered', $payload['reservation_stage']);
+    }
+
+    public function test_countdown_active_is_false_for_expired_offer_and_non_negative_seconds(): void
+    {
+        $client = User::factory()->create(['role' => User::ROLE_CLIENT, 'is_active' => true]);
+        $courier = $this->createOnlineCourier();
+        $order = Order::createForTesting([
+            'client_id' => $client->id,
+            'status' => Order::STATUS_SEARCHING,
+            'payment_status' => Order::PAY_PAID,
+            'address_text' => 'Expired countdown',
+            'price' => 100,
+            'dispatch_available_at' => now()->subMinute(),
+            'lat' => 50.4501,
+            'lng' => 30.5234,
+            'courier_id' => null,
+        ]);
+
+        $offer = OrderOffer::query()->create([
+            'order_id' => $order->id,
+            'courier_id' => $courier->id,
+            'type' => OrderOffer::TYPE_PRIMARY,
+            'sequence' => 1,
+            'status' => OrderOffer::STATUS_EXPIRED,
+            'expires_at' => now()->subSecond(),
+        ]);
+
+        Sanctum::actingAs($courier);
+        $offer = $offer->fresh('order');
+        $this->assertSame(Order::STATUS_SEARCHING, (string) $offer->order->status);
+        $this->assertNull($offer->order->courier_id);
+
+        $payload = (new \App\Http\Resources\CourierAvailableOfferResource($offer))->toArray(request());
+        $this->assertSame(0, $payload['seconds_remaining']);
+        $this->assertFalse($payload['countdown_active']);
+        $this->assertSame('assigned', $payload['reservation_stage']);
+    }
+
+    public function test_exact_address_hidden_for_scheduled_pre_assignment_stages(): void
+    {
+        $client = User::factory()->create(['role' => User::ROLE_CLIENT, 'is_active' => true]);
+        $courier = $this->createOnlineCourier();
+
+        foreach ([OrderOffer::STATUS_PENDING, OrderOffer::STATUS_EXPIRED] as $offerStatus) {
+            $order = Order::createForTesting([
+                'client_id' => $client->id,
+                'status' => Order::STATUS_SEARCHING,
+                'payment_status' => Order::PAY_PAID,
+                'address_text' => 'Should stay hidden',
+                'price' => 100,
+                'service_mode' => Order::SERVICE_MODE_PREFERRED_WINDOW,
+                'dispatch_available_at' => now()->subMinute(),
+                'window_from_at' => now()->addHour(),
+                'window_to_at' => now()->addHours(2),
+                'lat' => 50.4501,
+                'lng' => 30.5234,
+            ]);
+
+            OrderOffer::query()->create([
+                'order_id' => $order->id,
+                'courier_id' => $courier->id,
+                'type' => OrderOffer::TYPE_PRIMARY,
+                'sequence' => 1,
+                'status' => $offerStatus,
+                'expires_at' => $offerStatus === OrderOffer::STATUS_EXPIRED ? now()->subSecond() : now()->addMinute(),
+            ]);
+        }
+
+        Sanctum::actingAs($courier);
+        $orders = $this->getJson('/api/orders/available')->assertOk()->json('orders');
+        foreach ($orders as $item) {
+            $this->assertNull($item['pickup']['address_text']);
+        }
+    }
     private function createSearchingOrder(User $client, string $addressText): Order
     {
         return Order::createForTesting([

@@ -10,6 +10,8 @@ use App\Models\Order;
 use App\Models\OrderOffer;
 use App\Services\Courier\CourierPresenceService;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\Log;
 
 class CourierOrderController extends Controller
 {
@@ -38,8 +40,24 @@ class CourierOrderController extends Controller
                 ->limit($limit)
                 ->get();
 
+        $orders = CourierAvailableOfferResource::collection($offers)->resolve();
+
+        foreach ($orders as $orderPayload) {
+            if (($orderPayload['reservation_stage'] ?? null) === 'offered') {
+                $offerId = (int) ($orderPayload['offer_id'] ?? 0);
+                if ($offerId > 0 && Cache::add(sprintf('scheduled_offer_viewed:%d:%d', $courier->id, $offerId), 1, now()->addSeconds(30))) {
+                    Log::info('scheduled_offer_viewed', [
+                        'order_id' => $orderPayload['order_public_id'] ?? null,
+                        'courier_id' => $courier->id,
+                        'seconds_remaining' => $orderPayload['seconds_remaining'] ?? null,
+                        'reservation_stage' => $orderPayload['reservation_stage'] ?? null,
+                    ]);
+                }
+            }
+        }
+
         return response()->json([
-            'orders' => CourierAvailableOfferResource::collection($offers)->resolve(),
+            'orders' => $orders,
             'pagination' => [
                 'limit' => $limit,
                 'max_limit' => $maxLimit,
@@ -114,6 +132,8 @@ class CourierOrderController extends Controller
             ]
         );
 
+        Log::info('scheduled_order_interest_expressed', ['order_id' => $order->id, 'courier_id' => $courier->id, 'seconds_remaining' => null, 'reservation_stage' => 'interested']);
+
         return response()->json(['success' => true, 'interest' => $interest]);
     }
 
@@ -129,6 +149,8 @@ class CourierOrderController extends Controller
                 'status' => CourierOrderInterest::STATUS_WITHDRAWN,
                 'rejected_reason' => 'withdrawn_by_courier',
             ]);
+
+        Log::info('scheduled_order_interest_withdrawn', ['order_id' => $order->id, 'courier_id' => $courier->id, 'seconds_remaining' => null, 'reservation_stage' => 'visible_for_reservation']);
 
         return response()->json(['success' => true]);
     }
