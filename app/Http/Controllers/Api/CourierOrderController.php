@@ -10,7 +10,6 @@ use App\Models\Order;
 use App\Models\OrderOffer;
 use App\Services\Courier\CourierPresenceService;
 use Illuminate\Http\JsonResponse;
-use Illuminate\Support\Facades\DB;
 
 class CourierOrderController extends Controller
 {
@@ -128,14 +127,6 @@ class CourierOrderController extends Controller
                 'courier_lng' => $courier->last_lng,
             ]
         );
-
-        if ($interest->status !== CourierOrderInterest::STATUS_INTERESTED) {
-            $interest->forceFill([
-                'status' => CourierOrderInterest::STATUS_INTERESTED,
-                'expressed_at' => now(),
-                'rejected_reason' => null,
-            ])->save();
-        }
 
         return response()->json(['success' => true, 'interest' => $interest]);
     }

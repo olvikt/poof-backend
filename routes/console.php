@@ -111,11 +111,6 @@ Schedule::command('courier:monitor-future-deferred-searching-orders')
     ->name('poof-monitor-future-deferred-searching-orders')
     ->description('Detect searching+paid orders silently deferred into future dispatch window')
     ->everyMinute();
-
-Schedule::command('courier:finalize-scheduled-order-matching')
-    ->name('poof-finalize-scheduled-order-matching')
-    ->description('Finalize scheduled order matching using soft-interest candidates first')
-    ->everyMinute();
 Artisan::command('orders:auto-expire {--limit=200}', function () {
     $limit = max(1, (int) $this->option('limit'));
     /** @var OrderAutoExpireService $service */

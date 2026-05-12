@@ -180,7 +180,6 @@ class CourierAvailableOrdersApiTest extends TestCase
             'price',
             'offer_status',
             'offer_expires_at',
-            'seconds_remaining',
             'service',
         ], array_keys($payload));
         $this->assertArrayNotHasKey('order_id', $payload);

@@ -6,7 +6,6 @@ namespace App\Actions\Orders\Lifecycle;
 
 use App\Models\Order;
 use App\Models\OrderOffer;
-use App\Models\CourierOrderInterest;
 use App\Models\User;
 use App\Support\Orders\OrderLifecycleTransitionPolicy;
 use Illuminate\Support\Facades\DB;
@@ -60,28 +59,6 @@ class AcceptOrderByCourierAction
                 ->where('order_id', '!=', $lockedOrder->id)
                 ->update([
                     'status' => OrderOffer::STATUS_EXPIRED,
-                ]);
-
-            OrderOffer::where('order_id', $lockedOrder->id)
-                ->where('courier_id', '!=', $courier->id)
-                ->where('status', OrderOffer::STATUS_PENDING)
-                ->update(['status' => OrderOffer::STATUS_EXPIRED]);
-
-            CourierOrderInterest::query()
-                ->where('order_id', $lockedOrder->id)
-                ->where('courier_id', '!=', $courier->id)
-                ->where('status', CourierOrderInterest::STATUS_INTERESTED)
-                ->update([
-                    'status' => CourierOrderInterest::STATUS_REJECTED,
-                    'rejected_reason' => 'selected_elsewhere',
-                ]);
-
-            CourierOrderInterest::query()
-                ->where('order_id', $lockedOrder->id)
-                ->where('courier_id', $courier->id)
-                ->update([
-                    'status' => CourierOrderInterest::STATUS_SELECTED,
-                    'selected_at' => now(),
                 ]);
 
             return true;
