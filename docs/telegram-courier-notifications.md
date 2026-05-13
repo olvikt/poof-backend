@@ -50,9 +50,20 @@ Formatting rules:
   - `Telegram бот тимчасово недоступний.`
 
 ## Env/config
+- Canonical config key for runtime token reads: `config('services.telegram.bot_token')` (single source of truth).
 - `TELEGRAM_BOT_TOKEN`
 - `TELEGRAM_BOT_USERNAME`
 - `TELEGRAM_BIND_TOKEN_TTL_MINUTES` (default `15`)
+
+### Troubleshooting Telegram 404
+- Symptom: Telegram send endpoints fail with `404 Not Found` while webhook/binding may still work.
+- Verify canonical config read in runtime code: `config('services.telegram.bot_token')`.
+- Do **not** use legacy/non-canonical keys like `config('telegram.bot_token')`.
+- Check `telegram_error` logs for:
+  - sanitized endpoint (`https://api.telegram.org/bot<redacted>/sendMessage`),
+  - Telegram API `description`,
+  - `response_code`.
+- If token is missing, send is skipped/fails in controlled way and no HTTP request is built with an empty token.
 
 ## Security constraints
 - Token is hashed in DB (`sha256`).

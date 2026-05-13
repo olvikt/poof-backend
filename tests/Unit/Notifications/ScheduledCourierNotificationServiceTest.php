@@ -9,6 +9,7 @@ use App\Models\User;
 use App\Services\Notifications\ScheduledCourierNotificationService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
 use Tests\TestCase;
 
@@ -64,5 +65,22 @@ class ScheduledCourierNotificationServiceTest extends TestCase
         $courier->update(['telegram_notifications_marketing_enabled' => true]);
         $svc->notifyMarketingNews($courier->fresh(), 'Promo');
         Http::assertSentCount(1);
+    }
+
+    public function test_no_request_is_sent_and_warning_logged_when_token_missing(): void
+    {
+        config()->set('services.telegram.bot_token', null);
+        Http::fake();
+        Log::spy();
+
+        $order = Order::factory()->create();
+        $courier = User::factory()->create(['role' => User::ROLE_COURIER, 'telegram_chat_id' => '1', 'telegram_notifications_orders_enabled' => true]);
+
+        app(ScheduledCourierNotificationService::class)->notifyFinalOffer($order, $courier);
+
+        Http::assertNothingSent();
+        Log::shouldHaveReceived('warning')->withArgs(fn (string $message, array $context): bool => $message === 'telegram_error'
+            && ($context['endpoint'] ?? null) === 'https://api.telegram.org/bot<redacted>/sendMessage'
+            && ($context['description'] ?? null) === 'telegram bot token is not configured');
     }
 }

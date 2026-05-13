@@ -10,6 +10,7 @@ use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Lang;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Str;
 
 class ScheduledCourierNotificationService
 {
@@ -24,9 +25,9 @@ class ScheduledCourierNotificationService
             return;
         }
 
-        Http::timeout(5)->post(sprintf('https://api.telegram.org/bot%s/sendMessage', (string) config('services.telegram.bot_token')), [
-            'chat_id' => $courier->telegram_chat_id,
-            'text' => $message,
+        $this->sendTelegramMessage((string) $courier->telegram_chat_id, $message, [
+            'event' => 'marketing_news',
+            'courier_id' => $courier->id,
         ]);
     }
 
@@ -45,9 +46,10 @@ class ScheduledCourierNotificationService
             return;
         }
 
-        Http::timeout(5)->post(sprintf('https://api.telegram.org/bot%s/sendMessage', (string) config('services.telegram.bot_token')), [
-            'chat_id' => $courier->telegram_chat_id,
-            'text' => $this->renderTelegramMessage($event, $order),
+        $this->sendTelegramMessage((string) $courier->telegram_chat_id, $this->renderTelegramMessage($event, $order), [
+            'event' => $event,
+            'order_id' => $order->id,
+            'courier_id' => $courier->id,
         ]);
 
         Log::info('scheduled_courier_notification_dispatch', [
@@ -74,5 +76,34 @@ class ScheduledCourierNotificationService
             'amount' => $amount,
             'ttl' => $ttl,
         ], 'uk');
+    }
+
+    private function sendTelegramMessage(string $chatId, string $text, array $context = []): void
+    {
+        $token = trim((string) config('services.telegram.bot_token'));
+        $endpoint = 'https://api.telegram.org/bot<redacted>/sendMessage';
+
+        if ($token === '') {
+            Log::warning('telegram_error', $context + [
+                'endpoint' => $endpoint,
+                'response_code' => null,
+                'description' => 'telegram bot token is not configured',
+            ]);
+
+            return;
+        }
+
+        $response = Http::timeout(5)->post(sprintf('https://api.telegram.org/bot%s/sendMessage', $token), [
+            'chat_id' => $chatId,
+            'text' => $text,
+        ]);
+
+        if ($response->failed()) {
+            Log::warning('telegram_error', $context + [
+                'endpoint' => $endpoint,
+                'response_code' => $response->status(),
+                'description' => (string) ($response->json('description') ?? Str::limit((string) $response->body(), 300)),
+            ]);
+        }
     }
 }
