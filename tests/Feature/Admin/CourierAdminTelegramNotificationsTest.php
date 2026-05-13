@@ -8,6 +8,7 @@ use App\Models\TelegramAdminNotification;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Log;
 use ReflectionMethod;
 use Tests\TestCase;
 
@@ -54,5 +55,31 @@ class CourierAdminTelegramNotificationsTest extends TestCase
         $this->assertDatabaseHas('telegram_admin_notifications', ['courier_id' => $linked->id, 'status' => TelegramAdminNotification::STATUS_SENT]);
         $this->assertDatabaseHas('telegram_admin_notifications', ['courier_id' => $unlinked->id, 'status' => TelegramAdminNotification::STATUS_SKIPPED, 'telegram_error' => 'not_linked']);
         $this->assertDatabaseHas('telegram_admin_notifications', ['courier_id' => $marketingOff->id, 'status' => TelegramAdminNotification::STATUS_SKIPPED, 'telegram_error' => 'marketing_disabled']);
+    }
+
+    public function test_dispatch_uses_services_telegram_token_and_handles_missing_token(): void
+    {
+        config()->set('services.telegram.bot_token', 'test-token-123');
+        Http::fake(['api.telegram.org/*' => Http::response(['ok' => true], 200)]);
+
+        $admin = User::factory()->create(['role' => User::ROLE_ADMIN]);
+        $linked = User::factory()->create(['role' => User::ROLE_COURIER, 'telegram_chat_id' => '11', 'telegram_notifications_orders_enabled' => true]);
+        $records = collect([Courier::factory()->create(['user_id' => $linked->id])]);
+
+        $method = new ReflectionMethod(CourierResource::class, 'dispatchAdminTelegramNotification');
+        $method->setAccessible(true);
+        $method->invoke(null, $admin->id, $records, ['message' => 'msg', 'notification_type' => 'order_service', 'is_emergency' => false]);
+
+        Http::assertSent(fn ($request) => str_contains($request->url(), '/bottest-token-123/sendMessage'));
+
+        config()->set('services.telegram.bot_token', null);
+        Http::fake();
+        Log::spy();
+
+        $method->invoke(null, $admin->id, $records, ['message' => 'msg2', 'notification_type' => 'order_service', 'is_emergency' => false]);
+
+        Http::assertNothingSent();
+        $this->assertDatabaseHas('telegram_admin_notifications', ['courier_id' => $linked->id, 'status' => TelegramAdminNotification::STATUS_FAILED, 'telegram_error' => 'token_missing']);
+        Log::shouldHaveReceived('warning')->withArgs(fn (string $message, array $context): bool => $message === 'telegram_error' && ($context['response_code'] ?? 'x') === null);
     }
 }

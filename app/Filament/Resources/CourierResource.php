@@ -20,6 +20,8 @@ use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Str;
 
 class CourierResource extends Resource
 {
@@ -109,8 +111,21 @@ class CourierResource extends Resource
             elseif ($type === 'news_marketing' && ! (bool) $user->telegram_notifications_marketing_enabled) { $status = TelegramAdminNotification::STATUS_SKIPPED; $error = 'marketing_disabled'; $skippedPreference++; }
             elseif ($type === 'order_service' && ! $isEmergency && ! (bool) $user->telegram_notifications_orders_enabled) { $status = TelegramAdminNotification::STATUS_SKIPPED; $error = 'orders_disabled'; $skippedPreference++; }
             else {
-                $response = Http::timeout(5)->post(sprintf('https://api.telegram.org/bot%s/sendMessage', (string) config('services.telegram.bot_token')), ['chat_id' => $user->telegram_chat_id, 'text' => $text]);
-                if ($response->failed()) { $status = TelegramAdminNotification::STATUS_FAILED; $error = $response->body(); $failed++; } else { $sent++; }
+                $token = trim((string) config('services.telegram.bot_token'));
+                if ($token === '') {
+                    $status = TelegramAdminNotification::STATUS_FAILED;
+                    $error = 'token_missing';
+                    $failed++;
+                    Log::warning('telegram_error', ['endpoint' => 'https://api.telegram.org/bot<redacted>/sendMessage', 'response_code' => null, 'description' => 'telegram bot token is not configured', 'courier_id' => $user->id, 'notification_type' => $type]);
+                } else {
+                    $response = Http::timeout(5)->post(sprintf('https://api.telegram.org/bot%s/sendMessage', $token), ['chat_id' => $user->telegram_chat_id, 'text' => $text]);
+                    if ($response->failed()) {
+                        $status = TelegramAdminNotification::STATUS_FAILED;
+                        $error = (string) ($response->json('description') ?? Str::limit((string) $response->body(), 300));
+                        $failed++;
+                        Log::warning('telegram_error', ['endpoint' => 'https://api.telegram.org/bot<redacted>/sendMessage', 'response_code' => $response->status(), 'description' => $error, 'courier_id' => $user->id, 'notification_type' => $type]);
+                    } else { $sent++; }
+                }
             }
 
             TelegramAdminNotification::query()->create([
