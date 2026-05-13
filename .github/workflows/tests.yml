@@ -38,7 +38,13 @@ jobs:
           coverage: none
 
       - name: Validate Composer manifest
-        run: composer validate --strict
+        env:
+          COMPOSER_AUTH: '{}'
+          GITHUB_TOKEN: ''
+          GH_TOKEN: ''
+        run: |
+          composer config --global --unset github-oauth.github.com || true
+          composer validate --strict --no-interaction
 
       - name: PHP syntax lint
         run: |
