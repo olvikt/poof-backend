@@ -15,6 +15,8 @@ class OfferCard extends Component
 
     public ?OrderOffer $offer = null;
 
+    public ?string $lastClosedReason = null;
+
     protected $listeners = [
         'courier-online-toggled' => 'loadOffer',
     ];
@@ -33,6 +35,8 @@ class OfferCard extends Component
             return;
         }
 
+        $previousOfferId = $this->offer?->id;
+
         $this->offer = OrderOffer::query()
             ->whereHas('order', function ($query): void {
                 $query->whereNull('expired_at')
@@ -46,6 +50,20 @@ class OfferCard extends Component
             ->where('expires_at', '>', now())
             ->orderBy('created_at')
             ->first();
+
+        if (! $this->offer && $previousOfferId) {
+            $closed = OrderOffer::query()->find($previousOfferId);
+            $reason = $closed?->status === OrderOffer::STATUS_EXPIRED ? "expired" : (($closed?->status === OrderOffer::STATUS_REJECTED && $closed?->rejected_reason === "selected_elsewhere") ? "selected_elsewhere" : "unavailable");
+            $this->lastClosedReason = $reason;
+
+            $message = match ($reason) {
+                "selected_elsewhere" => "Офер обрано іншим курʼєром",
+                "expired" => "Час оферу вичерпано",
+                default => "Офер більше недоступний",
+            };
+
+            $this->dispatch('notify', type: "info", message: $message);
+        }
     }
 
     /* =========================================================
@@ -63,7 +81,7 @@ class OfferCard extends Component
         $offer = OrderOffer::query()->find($this->offer->id);
         $order = $offer?->order;
 
-        if (! $offer || ! $order) {
+        if (! $offer || ! $order || $offer->status !== OrderOffer::STATUS_PENDING || ! $offer->expires_at || now()->greaterThanOrEqualTo($offer->expires_at)) {
             $ok = false;
         } else {
             $ok = $offer->acceptBy($courier);
@@ -82,8 +100,9 @@ class OfferCard extends Component
             $this->dispatch(
                 'notify',
                 type: 'error',
-                message: 'Не вдалося прийняти'
+                message: 'Не вдалося прийняти або офер прострочений'
             );
+            $this->loadOffer();
             return;
         }
 
