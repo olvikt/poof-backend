@@ -181,3 +181,16 @@ Validation and ownership checks are evaluated on `OrderOffer` before lifecycle m
 After offer-level gate passes, acceptance delegates to canonical `AcceptOrderByCourierAction` (single lifecycle source of truth).
 
 Legacy `POST /api/orders/{order}/accept` is transitional/backward-compatible and marked deprecated; external courier API read→accept contract must use `offer_id` only and must not require sequential raw order id.
+
+## Courier personal-offer countdown UX
+
+Courier offer UI is implemented in `resources/views/livewire/courier/offer-card.blade.php` with Livewire host `app/Livewire/Courier/OfferCard.php`.
+The countdown is derived from backend TTL contract (`offer_expires_at` / `expires_at`) and synced each second against server snapshot time (`now()` serialized to ISO); UI recalculates on `visibilitychange` to handle background restore.
+Supported states:
+- `normal` (>=15s),
+- `warning` (<15s),
+- `critical` (<5s),
+- `expired` (CTA disabled + unavailable message),
+- realtime close for `selected_elsewhere` / `expired` / unavailable when poll refresh returns no active pending offer.
+Accept action is backend-guarded against expired/non-pending offers (re-fetch + status/TTL check before accept).
+
