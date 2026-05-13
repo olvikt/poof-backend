@@ -10,6 +10,7 @@ use App\Http\Controllers\Client\Payments\WayForPayReturnController;
 use App\Http\Controllers\Client\Subscriptions\SubscriptionCheckoutController;
 use App\Http\Controllers\Courier\CourierOrderLifecycleController;
 use App\Http\Controllers\Courier\CourierProfileController;
+use App\Http\Controllers\Courier\CourierTelegramController;
 use App\Http\Controllers\Courier\CourierWalletController;
 use App\Http\Controllers\Admin\CourierVerificationDocumentPreviewController;
 use App\Http\Middleware\AdminOnly;
@@ -232,6 +233,9 @@ Route::middleware('auth:web')
         Route::post('/profile/update', [CourierProfileController::class, 'update'])->name('profile.update');
         Route::post('/profile/avatar', [CourierProfileController::class, 'updateAvatar'])->name('profile.avatar.update');
         Route::post('/profile/verification', [CourierProfileController::class, 'submitVerification'])->name('profile.verification.submit');
+        Route::post('/profile/telegram/link', [CourierTelegramController::class, 'generateLink'])->name('profile.telegram.link');
+        Route::post('/profile/telegram/preferences', [CourierTelegramController::class, 'updatePreferences'])->name('profile.telegram.preferences');
+        Route::post('/profile/telegram/unlink', [CourierTelegramController::class, 'unlink'])->name('profile.telegram.unlink');
         Route::post('/orders/{order}/accept', [CourierOrderLifecycleController::class, 'accept'])->name('orders.accept');
         Route::post('/orders/{order}/start', [CourierOrderLifecycleController::class, 'start'])->name('orders.start');
         Route::post('/orders/{order}/complete', [CourierOrderLifecycleController::class, 'complete'])->name('orders.complete');
