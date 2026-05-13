@@ -128,6 +128,9 @@ Artisan::command('courier:finalize-scheduled-order-matching', function () {
     $offerTtlSeconds = max(1, (int) config('courier_runtime.scheduled_matching.offer_ttl_seconds', 45));
     $batchSize = max(1, (int) config('courier_runtime.scheduled_matching.batch_size', 1));
     $lockSeconds = max(1, (int) config('courier_runtime.scheduled_matching.lock_seconds', 60));
+    $reofferCooldownSeconds = max(0, (int) config('courier_runtime.scheduled_matching.courier_reoffer_cooldown_seconds', 120));
+    $maxAttemptsPerCourier = max(1, (int) config('courier_runtime.scheduled_matching.max_attempts_per_courier', 2));
+    $minReliableRating = max(0.0, (float) config('courier_runtime.scheduled_matching.min_reliable_rating', 4.0));
 
     $windowEnd = $now->copy()->addMinutes($leadMinutes);
     Log::info('scheduled_matching_started', ['order_id' => null, 'courier_id' => null, 'lead_minutes' => $leadMinutes, 'offer_ttl_seconds' => $offerTtlSeconds, 'lock_acquired' => null, 'fallback_used' => null, 'batch_size' => $batchSize]);
@@ -164,7 +167,7 @@ Artisan::command('courier:finalize-scheduled-order-matching', function () {
                 continue;
             }
 
-            $createdOffer = DB::transaction(function () use ($freshOrder, $now, $offerTtlSeconds, $leadMinutes): ?OrderOffer {
+            $createdOffer = DB::transaction(function () use ($freshOrder, $now, $offerTtlSeconds, $leadMinutes, $reofferCooldownSeconds, $maxAttemptsPerCourier, $minReliableRating): ?OrderOffer {
                 $lockedOrder = Order::query()->whereKey($freshOrder->id)->lockForUpdate()->first();
                 if (! $lockedOrder || $lockedOrder->status !== Order::STATUS_SEARCHING || $lockedOrder->courier_id !== null) {
                     return null;
@@ -192,22 +195,43 @@ Artisan::command('courier:finalize-scheduled-order-matching', function () {
                 ->orderBy('expressed_at')
                 ->get();
 
-            $selectedCourierId = null;
-            foreach ($interest as $item) {
-                $courier = User::query()->with('courierProfile')->find($item->courier_id);
-                if (! $courier || $courier->role !== User::ROLE_COURIER || ! $courier->is_active || ! $courier->is_verified || ! $courier->is_online || $courier->is_busy) {
-                    continue;
+                $selectedCourierId = null;
+                foreach ($interest as $item) {
+                    $courier = User::query()->with('courierProfile')->find($item->courier_id);
+                    if (! $courier || $courier->role !== User::ROLE_COURIER || ! $courier->is_active || ! $courier->is_verified || ! $courier->is_online || $courier->is_busy) {
+                        continue;
+                    }
+                    if (optional($courier->courierProfile)->status !== Courier::STATUS_ONLINE || ! optional($courier->courierProfile)->is_verified) {
+                        continue;
+                    }
+                    if ((float) (optional($courier->courierProfile)->rating ?? 5.0) < $minReliableRating) {
+                        continue;
+                    }
+                    $hasActive = Order::query()->where('courier_id', $courier->id)->whereIn('status', [Order::STATUS_ACCEPTED, Order::STATUS_IN_PROGRESS])->exists();
+                    if ($hasActive) {
+                        continue;
+                    }
+
+                    $attemptCount = OrderOffer::query()
+                        ->where('order_id', $lockedOrder->id)
+                        ->where('courier_id', $courier->id)
+                        ->count();
+                    if ($attemptCount >= $maxAttemptsPerCourier) {
+                        continue;
+                    }
+
+                    if ($reofferCooldownSeconds > 0) {
+                        $lastOfferedAt = OrderOffer::query()
+                            ->where('order_id', $lockedOrder->id)
+                            ->where('courier_id', $courier->id)
+                            ->max('last_offered_at');
+                        if ($lastOfferedAt !== null && \Illuminate\Support\Carbon::parse((string) $lastOfferedAt)->addSeconds($reofferCooldownSeconds)->isFuture()) {
+                            continue;
+                        }
+                    }
+                    $selectedCourierId = (int) $courier->id;
+                    break;
                 }
-                if (optional($courier->courierProfile)->status !== Courier::STATUS_ONLINE || ! optional($courier->courierProfile)->is_verified) {
-                    continue;
-                }
-                $hasActive = Order::query()->where('courier_id', $courier->id)->whereIn('status', [Order::STATUS_ACCEPTED, Order::STATUS_IN_PROGRESS])->exists();
-                if ($hasActive) {
-                    continue;
-                }
-                $selectedCourierId = (int) $courier->id;
-                break;
-            }
 
                 if ($selectedCourierId !== null) {
                     $offer = OrderOffer::query()->create([

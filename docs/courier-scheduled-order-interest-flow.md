@@ -36,7 +36,10 @@
 ## Repeated matching behavior after expired offers
 - Current behavior is **intentional retry**.
 - If pending offer expires and order is still `searching` with no assigned courier, next scheduler tick may create a new offer for same interested courier.
-- No explicit cooldown or max-attempts is applied in PR2 for scheduled matching; retry uses existing search constraints and offer-alive guard.
+- Scheduled matching applies anti-loop controls:
+  - per-courier re-offer cooldown (`courier_runtime.scheduled_matching.courier_reoffer_cooldown_seconds`, default 120s);
+  - per-courier max attempts per order (`courier_runtime.scheduled_matching.max_attempts_per_courier`, default 2).
+If guard blocks all interested couriers, fallback dispatch is used.
 
 ## Scheduler overlap safety
 - Scheduler command is configured with `withoutOverlapping(2)` and per-order cache lock `scheduled-final-matching:{order_id}`.
@@ -121,3 +124,8 @@ If another courier accepts the final TTL offer first, non-selected couriers shou
 - Newly introduced fields are additive and optional for clients to consume.
 - Unknown fields can be safely ignored by legacy courier clients without behavior regression.
 - No new sensitive fields are exposed in this contract (no exact coordinates, no client phone, no internal numeric order id in payload).
+
+
+## Reliability guard
+- Interested courier eligibility includes reliability fallback guard based on courier rating (`couriers.rating >= courier_runtime.scheduled_matching.min_reliable_rating`, default `4.0`).
+- TODO: replace rating fallback with dedicated runtime reliability KPI once domain metric is persisted for dispatch-grade filtering.
