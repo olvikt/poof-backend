@@ -60,9 +60,9 @@ class TelegramCourierBindingTest extends TestCase
         $response = $this->actingAs($courier, 'web')->get(route('courier.profile'));
 
         $response->assertOk();
-        $response->assertSee('Telegram уведомления');
-        $response->assertSee('Не привязан');
-        $response->assertSee('Привязать Telegram');
+        $response->assertSee('Telegram-сповіщення');
+        $response->assertSee('Не підʼєднано');
+        $response->assertSee('Підʼєднати Telegram');
     }
 
     public function test_link_action_shows_deep_link_in_profile(): void
@@ -88,7 +88,7 @@ class TelegramCourierBindingTest extends TestCase
         ]);
 
         $page = $this->actingAs($courier, 'web')->get(route('courier.profile'));
-        $page->assertOk()->assertSee('Привязан: @nick')->assertSee('Уведомления о заказах')->assertSee('Новости и акции');
+        $page->assertOk()->assertSee('Підʼєднано: @nick')->assertSee('Сповіщення про замовлення')->assertSee('Новини та акції');
 
         $this->actingAs($courier, 'web')->post(route('courier.profile.telegram.preferences'), [
             'telegram_notifications_orders_enabled' => 0,

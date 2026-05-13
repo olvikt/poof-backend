@@ -57,9 +57,9 @@ class OfferCard extends Component
             $this->lastClosedReason = $reason;
 
             $message = match ($reason) {
-                "selected_elsewhere" => "Офер обрано іншим курʼєром",
-                "expired" => "Час оферу вичерпано",
-                default => "Офер більше недоступний",
+                "selected_elsewhere" => __('courier.offer.closed.selected_elsewhere'),
+                "expired" => __('courier.offer.closed.expired'),
+                default => __('courier.offer.closed.unavailable'),
             };
 
             $this->dispatch('notify', type: "info", message: $message);
@@ -100,7 +100,7 @@ class OfferCard extends Component
             $this->dispatch(
                 'notify',
                 type: 'error',
-                message: 'Не вдалося прийняти або офер прострочений'
+                message: __('courier.offer.closed.unavailable')
             );
             $this->loadOffer();
             return;
@@ -126,7 +126,7 @@ class OfferCard extends Component
         $this->dispatch(
             'notify',
             type: 'info',
-            message: 'Пропущено'
+            message: __('courier.offer.rejected')
         );
 
         $this->offer = null;
