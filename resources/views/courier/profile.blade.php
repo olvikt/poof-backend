@@ -6,6 +6,28 @@
 
 @component('layouts.courier', ['headerMeta' => $courierIdentityLabel])
 <div class="min-h-screen bg-[#070a10] px-4 pb-24 pt-4 text-white">
+    <div
+        x-data="{ showSuccess: true, showError: true }"
+        class="space-y-2"
+    >
+        @if(session('success'))
+            <div x-show="showSuccess" class="rounded-xl border border-emerald-500/30 bg-emerald-500/10 px-3 py-2 text-xs text-emerald-200">
+                <div class="flex items-center justify-between gap-3">
+                    <span>{{ session('success') }}</span>
+                    <button type="button" class="text-emerald-100/80" @click="showSuccess = false">×</button>
+                </div>
+            </div>
+        @endif
+        @if($errors->any())
+            <div x-show="showError" class="rounded-xl border border-rose-500/30 bg-rose-500/10 px-3 py-2 text-xs text-rose-100">
+                <div class="flex items-center justify-between gap-3">
+                    <span>{{ $errors->first() }}</span>
+                    <button type="button" class="text-rose-100/80" @click="showError = false">×</button>
+                </div>
+            </div>
+        @endif
+    </div>
+
     <section class="relative rounded-3xl border border-white/10 bg-[#0d1724] p-4 shadow-[0_12px_36px_rgba(0,0,0,0.45)]">
         <button
             type="button"
@@ -109,6 +131,72 @@
                 </button>
             </form>
         </div>
+    </section>
+
+    <section class="mt-4 rounded-2xl border border-white/10 bg-[#0d1724] p-4">
+        <h2 class="text-sm font-semibold">Telegram уведомления</h2>
+        @php
+            $telegram = $profile['telegram'] ?? [];
+            $isTelegramLinked = (bool) ($telegram['telegram_linked'] ?? false);
+            $telegramUsername = $telegram['telegram_username'] ?? null;
+            $telegramBotConfigured = filled(config('services.telegram.bot_username'));
+        @endphp
+        <div class="mt-3 rounded-xl border border-white/10 bg-[#101b2b] p-3" data-e2e="courier-telegram-block">
+            <div class="text-xs uppercase tracking-wide text-slate-400">Статус</div>
+            <p class="mt-1 text-sm font-medium" data-e2e="courier-telegram-status">
+                @if($isTelegramLinked)
+                    Привязан: {{ $telegramUsername ? '@'.$telegramUsername : 'Telegram account' }}
+                @else
+                    Не привязан
+                @endif
+            </p>
+            @if(! $telegramBotConfigured)
+                <p class="mt-2 text-xs text-amber-200">
+                    Telegram бот тимчасово недоступний. Зверніться до підтримки: параметр TELEGRAM_BOT_USERNAME не налаштовано.
+                </p>
+            @endif
+            <div class="mt-3 flex flex-wrap gap-2">
+                @if($telegramBotConfigured)
+                    <form method="POST" action="{{ route('courier.profile.telegram.link') }}">
+                        @csrf
+                        <button type="submit" class="rounded-xl bg-poof px-3 py-2 text-xs font-bold text-[#041015]" data-e2e="courier-telegram-link">
+                            Привязать Telegram
+                        </button>
+                    </form>
+                @endif
+                @if(session('telegram_deep_link'))
+                    <a href="{{ session('telegram_deep_link') }}" target="_blank" rel="noopener noreferrer" class="rounded-xl border border-poof/50 bg-poof/15 px-3 py-2 text-xs font-semibold text-poof" data-e2e="courier-telegram-open-link">
+                        Открыть Telegram
+                    </a>
+                @endif
+                @if($isTelegramLinked)
+                    <form method="POST" action="{{ route('courier.profile.telegram.unlink') }}">
+                        @csrf
+                        <button type="submit" class="rounded-xl border border-rose-500/40 bg-rose-500/10 px-3 py-2 text-xs font-semibold text-rose-100" data-e2e="courier-telegram-unlink">
+                            Отвязать Telegram
+                        </button>
+                    </form>
+                @endif
+            </div>
+
+            <form method="POST" action="{{ route('courier.profile.telegram.preferences') }}" class="mt-4 space-y-2">
+                @csrf
+                <label class="flex items-center justify-between gap-3 rounded-lg border border-white/10 px-2.5 py-2 text-xs {{ $isTelegramLinked ? '' : 'opacity-60' }}">
+                    <span>Уведомления о заказах</span>
+                    <input type="hidden" name="telegram_notifications_orders_enabled" value="0">
+                    <input type="checkbox" name="telegram_notifications_orders_enabled" value="1" @checked((bool) ($telegram['telegram_notifications_orders_enabled'] ?? true)) @disabled(! $isTelegramLinked) class="h-4 w-4 rounded border-white/20 bg-transparent text-poof focus:ring-poof">
+                </label>
+                <label class="flex items-center justify-between gap-3 rounded-lg border border-white/10 px-2.5 py-2 text-xs {{ $isTelegramLinked ? '' : 'opacity-60' }}">
+                    <span>Новости и акции</span>
+                    <input type="hidden" name="telegram_notifications_marketing_enabled" value="0">
+                    <input type="checkbox" name="telegram_notifications_marketing_enabled" value="1" @checked((bool) ($telegram['telegram_notifications_marketing_enabled'] ?? false)) @disabled(! $isTelegramLinked) class="h-4 w-4 rounded border-white/20 bg-transparent text-poof focus:ring-poof">
+                </label>
+                <button type="submit" class="w-full rounded-xl border border-white/15 px-3 py-2 text-xs font-semibold" @disabled(! $isTelegramLinked) data-e2e="courier-telegram-save-preferences">
+                    Зберегти налаштування
+                </button>
+            </form>
+        </div>
+
     </section>
 
     <section class="mt-4 rounded-2xl border border-white/10 bg-[#0d1724] p-4">

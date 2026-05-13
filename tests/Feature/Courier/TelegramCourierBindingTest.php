@@ -52,4 +52,71 @@ class TelegramCourierBindingTest extends TestCase
         $this->assertNull($courier->telegram_chat_id);
         $this->assertNull($courier->telegram_linked_at);
     }
+
+    public function test_courier_profile_renders_telegram_block_and_unlinked_state(): void
+    {
+        $courier = User::factory()->create(['role' => User::ROLE_COURIER]);
+
+        $response = $this->actingAs($courier, 'web')->get(route('courier.profile'));
+
+        $response->assertOk();
+        $response->assertSee('Telegram уведомления');
+        $response->assertSee('Не привязан');
+        $response->assertSee('Привязать Telegram');
+    }
+
+    public function test_link_action_shows_deep_link_in_profile(): void
+    {
+        config()->set('services.telegram.bot_username', 'poof_bot');
+        $courier = User::factory()->create(['role' => User::ROLE_COURIER]);
+
+        $response = $this->actingAs($courier, 'web')->post(route('courier.profile.telegram.link'));
+
+        $response->assertRedirect();
+        $response->assertSessionHas('telegram_deep_link');
+        $this->assertStringContainsString('https://t.me/poof_bot?start=', (string) session('telegram_deep_link'));
+    }
+
+    public function test_linked_courier_sees_username_and_preferences_persist(): void
+    {
+        $courier = User::factory()->create([
+            'role' => User::ROLE_COURIER,
+            'telegram_chat_id' => '777',
+            'telegram_username' => 'nick',
+            'telegram_notifications_orders_enabled' => true,
+            'telegram_notifications_marketing_enabled' => false,
+        ]);
+
+        $page = $this->actingAs($courier, 'web')->get(route('courier.profile'));
+        $page->assertOk()->assertSee('Привязан: @nick')->assertSee('Уведомления о заказах')->assertSee('Новости и акции');
+
+        $this->actingAs($courier, 'web')->post(route('courier.profile.telegram.preferences'), [
+            'telegram_notifications_orders_enabled' => 0,
+            'telegram_notifications_marketing_enabled' => 1,
+        ])->assertRedirect();
+
+        $courier->refresh();
+        $this->assertFalse((bool) $courier->telegram_notifications_orders_enabled);
+        $this->assertTrue((bool) $courier->telegram_notifications_marketing_enabled);
+    }
+
+    public function test_unauthorized_users_cannot_call_courier_telegram_endpoints(): void
+    {
+        $courier = User::factory()->create(['role' => User::ROLE_COURIER]);
+
+        $this->post(route('courier.profile.telegram.link'))->assertRedirect('/login');
+        $this->post(route('courier.profile.telegram.preferences'), [
+            'telegram_notifications_orders_enabled' => 1,
+            'telegram_notifications_marketing_enabled' => 1,
+        ])->assertRedirect('/login');
+        $this->post(route('courier.profile.telegram.unlink'))->assertRedirect('/login');
+
+        $client = User::factory()->create(['role' => User::ROLE_CLIENT]);
+        $this->actingAs($client, 'web')->post(route('courier.profile.telegram.link'))->assertForbidden();
+        $this->actingAs($client, 'web')->post(route('courier.profile.telegram.preferences'), [
+            'telegram_notifications_orders_enabled' => 1,
+            'telegram_notifications_marketing_enabled' => 1,
+        ])->assertForbidden();
+        $this->actingAs($client, 'web')->post(route('courier.profile.telegram.unlink'))->assertForbidden();
+    }
 }
