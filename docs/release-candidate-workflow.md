@@ -221,3 +221,81 @@ bash scripts/check-pwa.sh
 8. If release is bad: use `previous_release_ref` from `show-release.sh` and run `bash scripts/rollback.sh <previous_release_ref>`.
 9. Verify rollback: `bash scripts/show-release.sh` + `bash scripts/check-server.sh`.
 10. If rollback touches PWA-visible behavior: `bash scripts/check-pwa.sh`.
+
+
+## 9. Canonical production command block (copy/paste)
+
+Последний успешный пример: `release-20260513-44`. Для production deploy используйте explicit release tag (например, `release-20260513-44`) и **не деплойте `main` напрямую**.
+
+```bash
+cd /var/www/poof
+
+git fetch --prune --tags origin
+
+BROWSER_SMOKE_EVIDENCE="manual-smoke-<release-tag>" \
+SMOKE_HOME_OK=yes \
+SMOKE_LOGIN_OK=yes \
+SMOKE_ADMIN_OK=yes \
+SMOKE_COURIER_OK=yes \
+SMOKE_CLIENT_OK=yes \
+SMOKE_ORDER_FLOW_OK=yes \
+SMOKE_CLIENT_ORDER_CREATE_OK=yes \
+SMOKE_PROFILE_ADDRESS_AVATAR_EDIT_OK=yes \
+SMOKE_COURIER_AVAILABLE_MY_ORDERS_OK=yes \
+SMOKE_CRITICAL_POPUPS_CAROUSELS_OK=yes \
+SMOKE_BROWSER_CONSOLE_OK=yes \
+bash scripts/prepare-release-gate.sh <release-tag>
+
+bash scripts/deploy.sh <release-tag>
+bash scripts/show-release.sh
+bash scripts/check-server.sh
+```
+
+### Важно про переносы строк (`\`)
+
+- Все строки env-переменных перед `prepare-release-gate.sh` **должны** заканчиваться `\`, кроме последней строки со скриптом.
+- Если пропустить `\`, переменные не попадут в `prepare-release-gate.sh`, и gate завершится с ошибкой.
+
+### Обязательные smoke-флаги
+
+- `BROWSER_SMOKE_EVIDENCE`
+- `SMOKE_HOME_OK`
+- `SMOKE_LOGIN_OK`
+- `SMOKE_ADMIN_OK`
+- `SMOKE_COURIER_OK`
+- `SMOKE_CLIENT_OK`
+- `SMOKE_ORDER_FLOW_OK`
+- `SMOKE_CLIENT_ORDER_CREATE_OK`
+- `SMOKE_PROFILE_ADDRESS_AVATAR_EDIT_OK`
+- `SMOKE_COURIER_AVAILABLE_MY_ORDERS_OK`
+- `SMOKE_CRITICAL_POPUPS_CAROUSELS_OK`
+- `SMOKE_BROWSER_CONSOLE_OK`
+
+### Troubleshooting
+
+- `unknown deploy ref` → release tag не создан или не отправлен в origin (`git push origin <release-tag>`).
+- `missing release summary` → внутри тега отсутствует `docs/release-summaries/<release-tag>.md`.
+- `pre-deploy gate artifact is missing` → сначала выполните `bash scripts/prepare-release-gate.sh <release-tag>`.
+- `BROWSER_SMOKE_EVIDENCE is required` → передайте evidence id/ссылку в `BROWSER_SMOKE_EVIDENCE`.
+- `SMOKE_* must be explicitly confirmed` → добавьте отсутствующий `SMOKE_*` флаг(и).
+- `show-release.sh` всё ещё показывает старый release → production не обновился, deploy не применился на хосте.
+
+### Критерии успешного деплоя
+
+После `deploy + show-release + check-server` оператор должен видеть/подтвердить:
+
+- `Current release ref = <release-tag>`;
+- `Current is known-good = yes`;
+- `Ahead commits = 0`;
+- `scheduler status ok`;
+- `workers running`;
+- `Redis PONG`;
+- `Deploy/runtime evidence contract status ok`.
+
+### Rollback
+
+```bash
+bash scripts/show-release.sh
+bash scripts/rollback.sh <previous_known_good_release_ref>
+bash scripts/check-server.sh
+```

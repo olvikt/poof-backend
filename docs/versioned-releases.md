@@ -279,3 +279,44 @@ ls -1 storage/logs/deploy
 - canary rollout;
 - Docker/Kubernetes migration;
 - полный rewrite CI/CD platform.
+
+
+## 9. Canonical command block (POOF production)
+
+Для production используйте explicit release tag (последний успешный пример: `release-20260513-44`), а не прямой deploy `main`.
+
+```bash
+cd /var/www/poof
+
+git fetch --prune --tags origin
+
+BROWSER_SMOKE_EVIDENCE="manual-smoke-<release-tag>" \
+SMOKE_HOME_OK=yes \
+SMOKE_LOGIN_OK=yes \
+SMOKE_ADMIN_OK=yes \
+SMOKE_COURIER_OK=yes \
+SMOKE_CLIENT_OK=yes \
+SMOKE_ORDER_FLOW_OK=yes \
+SMOKE_CLIENT_ORDER_CREATE_OK=yes \
+SMOKE_PROFILE_ADDRESS_AVATAR_EDIT_OK=yes \
+SMOKE_COURIER_AVAILABLE_MY_ORDERS_OK=yes \
+SMOKE_CRITICAL_POPUPS_CAROUSELS_OK=yes \
+SMOKE_BROWSER_CONSOLE_OK=yes \
+bash scripts/prepare-release-gate.sh <release-tag>
+
+bash scripts/deploy.sh <release-tag>
+bash scripts/show-release.sh
+bash scripts/check-server.sh
+```
+
+Если пропустить `\` в строках env перед `prepare-release-gate.sh`, обязательные smoke-переменные не попадут в процесс gate.
+
+Troubleshooting: `unknown deploy ref`, `missing release summary`, `pre-deploy gate artifact is missing`, `BROWSER_SMOKE_EVIDENCE is required`, `SMOKE_* must be explicitly confirmed`, `show-release.sh` показывает старый release.
+
+Rollback:
+
+```bash
+bash scripts/show-release.sh
+bash scripts/rollback.sh <previous_known_good_release_ref>
+bash scripts/check-server.sh
+```

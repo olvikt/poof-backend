@@ -50,3 +50,19 @@ Interpretation:
 - Tagging `main` directly for production without release branch stabilization.
 - Deploying production candidate without explicit ref.
 - Closing release without post-deploy smoke evidence.
+
+
+## Required smoke flags
+
+- `BROWSER_SMOKE_EVIDENCE`
+- `SMOKE_HOME_OK`
+- `SMOKE_LOGIN_OK`
+- `SMOKE_ADMIN_OK`
+- `SMOKE_COURIER_OK`
+- `SMOKE_CLIENT_OK`
+- `SMOKE_ORDER_FLOW_OK`
+- `SMOKE_CLIENT_ORDER_CREATE_OK`
+- `SMOKE_PROFILE_ADDRESS_AVATAR_EDIT_OK`
+- `SMOKE_COURIER_AVAILABLE_MY_ORDERS_OK`
+- `SMOKE_CRITICAL_POPUPS_CAROUSELS_OK`
+- `SMOKE_BROWSER_CONSOLE_OK`

@@ -338,3 +338,63 @@ bash scripts/show-release.sh
 - previous known-good release summary;
 - последние transition entries из history;
 - явную маркировку `EXPLICIT release ref` vs `FALLBACK legacy path`.
+
+
+## 10) Canonical production deploy flow (POOF)
+
+Используйте explicit release tag (например, `release-20260513-44`), не деплойте `main` напрямую.
+
+```bash
+cd /var/www/poof
+
+git fetch --prune --tags origin
+
+BROWSER_SMOKE_EVIDENCE="manual-smoke-<release-tag>" \
+SMOKE_HOME_OK=yes \
+SMOKE_LOGIN_OK=yes \
+SMOKE_ADMIN_OK=yes \
+SMOKE_COURIER_OK=yes \
+SMOKE_CLIENT_OK=yes \
+SMOKE_ORDER_FLOW_OK=yes \
+SMOKE_CLIENT_ORDER_CREATE_OK=yes \
+SMOKE_PROFILE_ADDRESS_AVATAR_EDIT_OK=yes \
+SMOKE_COURIER_AVAILABLE_MY_ORDERS_OK=yes \
+SMOKE_CRITICAL_POPUPS_CAROUSELS_OK=yes \
+SMOKE_BROWSER_CONSOLE_OK=yes \
+bash scripts/prepare-release-gate.sh <release-tag>
+
+bash scripts/deploy.sh <release-tag>
+bash scripts/show-release.sh
+bash scripts/check-server.sh
+```
+
+Warning: все строки env-переменных перед `prepare-release-gate.sh` должны заканчиваться `\` (кроме последней строки со скриптом), иначе переменные не будут переданы в gate script.
+
+Обязательные smoke-флаги: `BROWSER_SMOKE_EVIDENCE`, `SMOKE_HOME_OK`, `SMOKE_LOGIN_OK`, `SMOKE_ADMIN_OK`, `SMOKE_COURIER_OK`, `SMOKE_CLIENT_OK`, `SMOKE_ORDER_FLOW_OK`, `SMOKE_CLIENT_ORDER_CREATE_OK`, `SMOKE_PROFILE_ADDRESS_AVATAR_EDIT_OK`, `SMOKE_COURIER_AVAILABLE_MY_ORDERS_OK`, `SMOKE_CRITICAL_POPUPS_CAROUSELS_OK`, `SMOKE_BROWSER_CONSOLE_OK`.
+
+Troubleshooting:
+
+- `unknown deploy ref` → tag не создан или не pushed.
+- `missing release summary` → нет `docs/release-summaries/<release-tag>.md` в теге.
+- `pre-deploy gate artifact is missing` → сначала `bash scripts/prepare-release-gate.sh <release-tag>`.
+- `BROWSER_SMOKE_EVIDENCE is required` → передать evidence id/link.
+- `SMOKE_* must be explicitly confirmed` → добавить недостающие smoke flags.
+- `show-release.sh` показывает старый release → production не обновился.
+
+Success criteria:
+
+- `Current release ref = <release-tag>`
+- `Current is known-good = yes`
+- `Ahead commits = 0`
+- `scheduler status ok`
+- `workers running`
+- `Redis PONG`
+- `Deploy/runtime evidence contract status ok`
+
+Rollback:
+
+```bash
+bash scripts/show-release.sh
+bash scripts/rollback.sh <previous_known_good_release_ref>
+bash scripts/check-server.sh
+```
