@@ -67,5 +67,8 @@ return [
         'offer_ttl_seconds' => (int) env('COURIER_SCHEDULED_MATCHING_OFFER_TTL_SECONDS', 45),
         'batch_size' => (int) env('COURIER_SCHEDULED_MATCHING_BATCH_SIZE', 1),
         'lock_seconds' => (int) env('COURIER_SCHEDULED_MATCHING_LOCK_SECONDS', 60),
+        'courier_reoffer_cooldown_seconds' => (int) env('COURIER_SCHEDULED_MATCHING_REOFFER_COOLDOWN_SECONDS', 120),
+        'max_attempts_per_courier' => (int) env('COURIER_SCHEDULED_MATCHING_MAX_ATTEMPTS_PER_COURIER', 2),
+        'min_reliable_rating' => (float) env('COURIER_SCHEDULED_MATCHING_MIN_RELIABLE_RATING', 4.0),
     ],
 ];
