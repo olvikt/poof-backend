@@ -9,6 +9,7 @@ use App\Models\User;
 use App\Services\Notifications\ScheduledCourierNotificationService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Str;
 use Tests\TestCase;
 
 class ScheduledCourierNotificationServiceTest extends TestCase
@@ -28,6 +29,27 @@ class ScheduledCourierNotificationServiceTest extends TestCase
         $courier->update(['telegram_notifications_orders_enabled' => true]);
         $svc->notifyFinalOffer($order, $courier->fresh());
         Http::assertSentCount(1);
+        Http::assertSent(function ($request) {
+            $text = (string) ($request->data()['text'] ?? '');
+            return Str::contains($text, '🚚 Нове замовлення')
+                && Str::contains($text, 'У вас є')
+                && ! Str::contains($text, '[scheduled_final_offer]');
+        });
+    }
+
+    public function test_expiring_and_lost_messages_use_human_ukrainian_templates(): void
+    {
+        Http::fake();
+        $order = Order::factory()->create(['price' => 129, 'address_text' => 'Лесі Українки, 44', 'scheduled_time_from' => '12:00', 'scheduled_time_to' => '14:00']);
+        $courier = User::factory()->create(['role' => User::ROLE_COURIER, 'telegram_chat_id' => '1', 'telegram_notifications_orders_enabled' => true]);
+        $svc = app(ScheduledCourierNotificationService::class);
+
+        $svc->notifyOfferExpiringSoon($order, $courier);
+        $svc->notifyReservationLost($order, $courier);
+
+        Http::assertSentCount(2);
+        Http::assertSent(fn ($request) => Str::contains((string) ($request->data()['text'] ?? ''), '⚠️ Час майже вичерпано'));
+        Http::assertSent(fn ($request) => Str::contains((string) ($request->data()['text'] ?? ''), 'іншому курʼєру'));
     }
 
     public function test_marketing_skipped_unless_enabled(): void
