@@ -13,6 +13,27 @@
 - `telegram_notifications_marketing_enabled` (default `false`): marketing/news messages.
 - `push_notifications_orders_enabled` still respected for operational order notifications.
 
+## Courier profile UI block
+- Location: `resources/views/courier/profile.blade.php` in courier cabinet page (`GET /courier/profile`).
+- Block title: `Telegram уведомления`.
+- Status rendering:
+  - `Не привязан` when `profile.telegram.telegram_linked=false`;
+  - `Привязан: @username` when linked.
+- Actions:
+  - `Привязать Telegram` -> `POST /courier/profile/telegram/link`;
+  - `Открыть Telegram` appears when backend returns `telegram_deep_link` in session;
+  - `Отвязать Telegram` -> `POST /courier/profile/telegram/unlink`.
+- Preferences form:
+  - `Уведомления о заказах`;
+  - `Новости и акции`;
+  - persisted via `POST /courier/profile/telegram/preferences`.
+- If `TELEGRAM_BOT_USERNAME` is missing, profile shows explicit unavailability message and hides bind CTA.
+
+## Production smoke
+- Courier profile shows Telegram binding block on `/courier/profile`.
+- Unlinked courier sees `Привязать Telegram`.
+- Linked courier sees `Привязан: @username` and preferences toggles.
+
 ## Env/config
 - `TELEGRAM_BOT_TOKEN`
 - `TELEGRAM_BOT_USERNAME`
