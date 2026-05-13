@@ -59,3 +59,48 @@ Formatting rules:
 - Token TTL enforced.
 - Token is one-time (re-use rejected).
 - Invalid/expired/reused tokens are rejected with `422`.
+
+## Admin send flow (Filament)
+- Location: `Адмінка -> Courier -> Couriers` (`/admin/couriers`).
+- Added courier table Telegram columns:
+  - linked status (yes/no),
+  - `telegram_username`,
+  - `telegram_linked_at`,
+  - orders preference,
+  - marketing preference.
+- Added filters:
+  - `Telegram прив’язано`,
+  - `Telegram не прив’язано`,
+  - `Увімкнено сповіщення про замовлення`,
+  - `Увімкнено новини та акції`.
+- Added actions:
+  - single row action `Надіслати Telegram сповіщення`,
+  - bulk action `Надіслати Telegram сповіщення` with confirmation.
+
+### Admin notification policy
+- `news_marketing`: sent only to linked couriers with `telegram_notifications_marketing_enabled=true`.
+- `order_service`: sent only to linked couriers.
+- `order_service` + `is_emergency=false`: respects `telegram_notifications_orders_enabled=true`.
+- `order_service` + `is_emergency=true`: allows critical service/emergency bypass.
+
+### Delivery result and audit
+- Admin result toast includes:
+  - sent count,
+  - skipped not linked,
+  - skipped by preferences,
+  - failed count.
+- Every recipient attempt is persisted into `telegram_admin_notifications`:
+  - `admin_id`, `courier_id`, `notification_type`,
+  - `status` (`sent|skipped|failed`),
+  - `telegram_error`,
+  - `title`, `message`, `is_emergency`, timestamps.
+
+## Production smoke checklist
+1. Admin can open `/admin/couriers` and see Telegram columns.
+2. Filters for linked/unlinked and preferences return expected subsets.
+3. Single send to linked courier with enabled preference creates `sent` audit row.
+4. Send to unlinked courier creates `skipped/not_linked` audit row.
+5. Marketing send to disabled courier creates `skipped/marketing_disabled` audit row.
+6. Bulk send shows aggregated counters in admin result toast.
+7. Non-admin user cannot access `/admin/couriers`.
+8. Message validation blocks empty text and enforces max length.
