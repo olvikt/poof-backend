@@ -35,4 +35,9 @@ return [
         ],
     ],
 
+    'telegram' => [
+        'bot_token' => env('TELEGRAM_BOT_TOKEN'),
+        'bot_username' => env('TELEGRAM_BOT_USERNAME'),
+        'bind_token_ttl_minutes' => env('TELEGRAM_BIND_TOKEN_TTL_MINUTES', 15),
+    ],
 ];

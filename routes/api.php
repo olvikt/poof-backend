@@ -18,6 +18,7 @@ use App\Http\Controllers\Api\Payments\WayForPayCallbackController;
 use App\Http\Controllers\Api\Client\OrderCompletionClientController;
 use App\Http\Controllers\Api\Client\PendingConfirmationsController;
 use App\Http\Controllers\Api\Admin\OrderCompletionDisputeAdminController;
+use App\Http\Controllers\Api\TelegramWebhookController;
 
 
 Route::post('/register', [RegisterController::class, 'register'])
@@ -28,6 +29,8 @@ Route::get('/geocode', [GeocodeController::class, 'search'])
 
 Route::post('/payments/wayforpay/callback', WayForPayCallbackController::class)
     ->middleware('throttle:120,1');
+
+Route::post('/telegram/webhook', TelegramWebhookController::class);
 
 Route::middleware('auth:sanctum')->group(function () {
 

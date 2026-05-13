@@ -66,6 +66,15 @@ class CourierProfileReadModelService
             fn (): array => $this->ratingSummaryService->forCourier($courier),
         );
 
+
+        $telegram = [
+            'telegram_linked' => ! empty($courier->telegram_chat_id),
+            'telegram_username' => $courier->telegram_username,
+            'telegram_linked_at' => optional($courier->telegram_linked_at)->toIso8601String(),
+            'telegram_notifications_orders_enabled' => (bool) ($courier->telegram_notifications_orders_enabled ?? true),
+            'telegram_notifications_marketing_enabled' => (bool) ($courier->telegram_notifications_marketing_enabled ?? false),
+        ];
+
         $balanceSummary = $this->resolveCachedBlock(
             $courier,
             CourierProfileWidgetCacheKeys::BALANCE_SUMMARY,
@@ -95,6 +104,7 @@ class CourierProfileReadModelService
             'profile_verification' => $profileVerification,
             'rating_summary' => $ratingSummary,
             'balance_summary' => $balanceSummary,
+            'telegram' => $telegram,
         ];
     }
 
