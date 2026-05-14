@@ -15,6 +15,12 @@ class TelegramBindingService
 {
     public function generateForCourier(User $courier): array
     {
+        TelegramBindToken::query()
+            ->where('user_id', $courier->id)
+            ->whereNull('used_at')
+            ->where('expires_at', '>', now())
+            ->update(['expires_at' => now()]);
+
         $token = Str::random(48);
         $expiresAt = now()->addMinutes((int) config('services.telegram.bind_token_ttl_minutes', 15));
 
@@ -27,12 +33,17 @@ class TelegramBindingService
         $bot = ltrim((string) config('services.telegram.bot_username'), '@');
         $deepLink = sprintf('https://t.me/%s?start=%s', $bot, $token);
 
-        return ['token' => $token, 'deep_link' => $deepLink, 'expires_at' => $expiresAt->toIso8601String()];
+        return [
+            'deep_link' => $deepLink,
+            'start_command' => '/start '.$token,
+            'expires_at' => $expiresAt->toIso8601String(),
+        ];
     }
 
     public function bindByToken(string $token, string $chatId, ?string $userId = null, ?string $username = null): User
     {
-        $hash = hash('sha256', trim($token));
+        $token = trim($token);
+        $hash = hash('sha256', $token);
 
         return DB::transaction(function () use ($hash, $chatId, $userId, $username): User {
             $row = TelegramBindToken::query()->where('token_hash', $hash)->lockForUpdate()->first();
@@ -41,6 +52,16 @@ class TelegramBindingService
             abort_if(Carbon::parse($row->expires_at)->isPast(), 422, 'Token expired');
 
             $courier = User::query()->findOrFail($row->user_id);
+
+            if ($chatId !== '') {
+                $chatOwner = User::query()->where('telegram_chat_id', $chatId)->first();
+                abort_if($chatOwner && $chatOwner->id !== $courier->id, 422, 'Telegram chat already linked to another courier');
+            }
+
+            if ($userId !== null && $userId !== '') {
+                $userOwner = User::query()->where('telegram_user_id', $userId)->first();
+                abort_if($userOwner && $userOwner->id !== $courier->id, 422, 'Telegram user already linked to another courier');
+            }
             $courier->forceFill([
                 'telegram_chat_id' => $chatId,
                 'telegram_user_id' => $userId,
@@ -58,6 +79,12 @@ class TelegramBindingService
 
     public function unlink(User $courier): void
     {
+        TelegramBindToken::query()
+            ->where('user_id', $courier->id)
+            ->whereNull('used_at')
+            ->where('expires_at', '>', now())
+            ->update(['expires_at' => now()]);
+
         $courier->forceFill([
             'telegram_chat_id' => null,
             'telegram_user_id' => null,

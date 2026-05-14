@@ -19,7 +19,8 @@ class CourierTelegramController extends Controller
         $link = $bindingService->generateForCourier($courier);
 
         return redirect()->to(route('courier.profile').'#courier-telegram-block')
-            ->with('telegram_deep_link', $link['deep_link']);
+            ->with('telegram_deep_link', $link['deep_link'])
+            ->with('telegram_start_command', $link['start_command']);
     }
 
     public function updatePreferences(Request $request): RedirectResponse
