@@ -14,6 +14,7 @@ use App\Models\Courier;
 use App\Models\CourierOrderInterest;
 use App\Models\OrderOffer;
 use App\Models\User;
+use App\Services\Notifications\ScheduledCourierNotificationService;
 use App\Services\Orders\OrderAutoExpireService;
 use App\Jobs\MarkInactiveCouriers;
 use Symfony\Component\Process\Process;
@@ -142,7 +143,10 @@ Artisan::command('courier:finalize-scheduled-order-matching', function () {
         ->whereNull('expired_at')
         ->where(function ($q) use ($now, $windowEnd): void {
             $q->whereBetween('window_from_at', [$now, $windowEnd])
-                ->orWhereBetween('scheduled_time_from', [$now->format('H:i:s'), $windowEnd->format('H:i:s')]);
+                ->orWhere(function ($legacy) use ($now, $windowEnd): void {
+                    $legacy->whereDate('scheduled_date', $now->toDateString())
+                        ->whereBetween('scheduled_time_from', [$now->format('H:i:s'), $windowEnd->format('H:i:s')]);
+                });
         })
         ->whereDoesntHave('offers', function ($q) use ($now): void {
             $q->where('status', OrderOffer::STATUS_PENDING)->whereNotNull('expires_at')->where('expires_at', '>', $now);
@@ -152,6 +156,20 @@ Artisan::command('courier:finalize-scheduled-order-matching', function () {
         ->get();
 
     foreach ($orders as $order) {
+        User::query()
+            ->where('role', User::ROLE_COURIER)
+            ->where('is_active', true)
+            ->where('is_verified', true)
+            ->whereNotNull('telegram_chat_id')
+            ->where('telegram_notifications_orders_enabled', true)
+            ->orderBy('id')
+            ->chunkById(200, function ($couriers) use ($order): void {
+                $service = app(ScheduledCourierNotificationService::class);
+                foreach ($couriers as $courier) {
+                    $service->notifyScheduledOrderVisible($order, $courier);
+                }
+            });
+
         $lockKey = sprintf('scheduled-final-matching:%d', $order->id);
         $lock = Cache::lock($lockKey, $lockSeconds);
         $lockAcquired = $lock->get();
