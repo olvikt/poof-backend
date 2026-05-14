@@ -169,6 +169,11 @@
                         {{ __('courier.telegram.open') }}
                     </a>
                 @endif
+                @if(session('telegram_native_deep_link'))
+                    <a href="{{ session('telegram_native_deep_link') }}" class="rounded-xl border border-cyan-400/50 bg-cyan-400/10 px-3 py-2 text-xs font-semibold text-cyan-200" data-e2e="courier-telegram-open-native-link">
+                        Відкрити в застосунку Telegram
+                    </a>
+                @endif
                 @if($isTelegramLinked)
                     <form method="POST" action="{{ route('courier.profile.telegram.unlink') }}">
                         @csrf
@@ -181,8 +186,8 @@
 
             @if(session('telegram_start_command'))
                 <div class="mt-3 rounded-xl border border-white/10 bg-[#0b1522] p-3" data-e2e="courier-telegram-start-command">
-                    <p class="text-xs text-slate-300">Якщо Telegram просто відкрив чат, надішліть цю команду боту:</p>
-                    <code class="mt-2 block select-all rounded-lg border border-poof/30 bg-black/20 px-2.5 py-2 text-xs text-poof">{{ session('telegram_start_command') }}</code>
+                    <p class="text-xs text-slate-300">Якщо Telegram відкрився без токена, скопіюйте та надішліть цю команду одним повідомленням.</p>
+                    <code class="mt-2 block select-all rounded-lg border border-poof/30 bg-black/20 px-2.5 py-2 text-xs text-poof whitespace-nowrap overflow-x-auto">{{ session('telegram_start_command') }}</code>
                 </div>
             @endif
 

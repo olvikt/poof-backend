@@ -8,6 +8,7 @@ use App\Models\TelegramBindToken;
 use App\Models\User;
 use App\Services\Notifications\TelegramBindingService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Log;
 use Tests\TestCase;
 
 class TelegramCourierBindingTest extends TestCase
@@ -22,6 +23,8 @@ class TelegramCourierBindingTest extends TestCase
         $payload = app(TelegramBindingService::class)->generateForCourier($courier);
 
         $this->assertStringContainsString('https://t.me/poof_bot?start=', $payload['deep_link']);
+        $token = substr($payload['start_command'], 7);
+        $this->assertMatchesRegularExpression('/^[A-Za-z0-9_-]+$/', $token);
         $this->assertStringStartsWith('/start ', $payload['start_command']);
         $this->assertDatabaseCount('telegram_bind_tokens', 1);
         $this->assertSame(1, TelegramBindToken::query()->where('user_id', $courier->id)->whereNull('used_at')->where('expires_at', '>', now())->count());
@@ -36,6 +39,10 @@ class TelegramCourierBindingTest extends TestCase
         $this->postJson('/api/telegram/webhook', ['message' => ['text' => '/start '.$token, 'chat' => ['id' => '777'], 'from' => ['id' => 45, 'username' => 'nick']]])->assertOk();
         $courier->refresh();
         $this->assertSame('777', $courier->telegram_chat_id);
+
+        $next = app(TelegramBindingService::class)->generateForCourier($courier);
+        $nextToken = substr($next['start_command'], 7);
+        $this->postJson('/api/telegram/webhook', ['message' => ['text' => "/start\n".$nextToken, 'chat' => ['id' => '778'], 'from' => ['id' => 46]]])->assertOk();
 
         $this->postJson('/api/telegram/webhook', ['message' => ['text' => '/start '.$token, 'chat' => ['id' => '777'], 'from' => ['id' => 45]]])->assertStatus(422);
 
@@ -77,7 +84,9 @@ class TelegramCourierBindingTest extends TestCase
 
         $response->assertRedirect();
         $response->assertSessionHas('telegram_deep_link');
+        $response->assertSessionHas('telegram_native_deep_link');
         $this->assertStringContainsString('https://t.me/poof_bot?start=', (string) session('telegram_deep_link'));
+        $this->assertStringContainsString('tg://resolve?domain=poof_bot&start=', (string) session('telegram_native_deep_link'));
     }
 
     public function test_linked_courier_sees_username_and_preferences_persist(): void
@@ -179,13 +188,26 @@ class TelegramCourierBindingTest extends TestCase
 
         $response = $this->actingAs($courier, 'web')->post(route('courier.profile.telegram.link'));
         $response->assertSessionHas('telegram_start_command');
+        $response->assertSessionHas('telegram_native_deep_link');
 
         $command = (string) session('telegram_start_command');
         $this->assertStringStartsWith('/start ', $command);
 
         $page = $this->actingAs($courier, 'web')->get(route('courier.profile'));
-        $page->assertSee('Якщо Telegram просто відкрив чат, надішліть цю команду боту:');
+        $page->assertSee('Якщо Telegram відкрився без токена, скопіюйте та надішліть цю команду одним повідомленням.');
+        $page->assertSee('Відкрити в застосунку Telegram');
         $page->assertSee($command);
+    }
+
+    public function test_plain_start_without_payload_is_logged_and_ignored(): void
+    {
+        Log::spy();
+
+        $this->postJson('/api/telegram/webhook', ['message' => ['text' => '/start', 'chat' => ['id' => '777'], 'from' => ['id' => 45]]])->assertOk();
+
+        Log::shouldHaveReceived('info')->withArgs(fn (string $message, array $context): bool => $message === 'plain_start_missing_payload'
+            && ($context['chat_id'] ?? null) === '777'
+            && ($context['from_id'] ?? null) === '45');
     }
 
     public function test_unauthorized_users_cannot_call_courier_telegram_endpoints(): void
