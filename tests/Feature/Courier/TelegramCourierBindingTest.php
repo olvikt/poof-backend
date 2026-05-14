@@ -181,6 +181,55 @@ class TelegramCourierBindingTest extends TestCase
         $this->assertSame('45', $courier->telegram_user_id);
     }
 
+
+    public function test_profile_renders_reconnect_ctas_and_manual_fallback_with_expected_hierarchy(): void
+    {
+        $courier = User::factory()->create(['role' => User::ROLE_COURIER]);
+
+        $page = $this->actingAs($courier, 'web')
+            ->withSession([
+                'telegram_native_deep_link' => 'tg://resolve?domain=poof_bot&start=abc',
+                'telegram_deep_link' => 'https://t.me/poof_bot?start=abc',
+                'telegram_start_command' => '/start abc',
+            ])
+            ->get(route('courier.profile'));
+
+        $page->assertOk();
+        $page->assertSee('Відкрити в застосунку Telegram');
+        $page->assertSee('Відкрити в Telegram (у браузері)');
+        $page->assertSee('data-e2e="telegram-native-open"', false);
+        $page->assertSee('data-e2e="telegram-browser-open"', false);
+        $page->assertSee('data-e2e="telegram-start-command"', false);
+        $page->assertSee('data-e2e="telegram-copy-command"', false);
+        $page->assertSee('whitespace-nowrap');
+        $page->assertSee('/start abc');
+    }
+
+    public function test_profile_hides_unavailable_reconnect_ctas_and_manual_fallback_blocks(): void
+    {
+        $courier = User::factory()->create(['role' => User::ROLE_COURIER]);
+
+        $empty = $this->actingAs($courier, 'web')->get(route('courier.profile'));
+        $empty->assertOk();
+        $empty->assertDontSee('data-e2e="telegram-native-open"', false);
+        $empty->assertDontSee('data-e2e="telegram-browser-open"', false);
+        $empty->assertDontSee('data-e2e="telegram-start-command"', false);
+        $empty->assertDontSee('data-e2e="telegram-copy-command"', false);
+
+        $onlyNative = $this->actingAs($courier, 'web')
+            ->withSession(['telegram_native_deep_link' => 'tg://resolve?domain=poof_bot&start=abc'])
+            ->get(route('courier.profile'));
+        $onlyNative->assertOk();
+        $onlyNative->assertSee('data-e2e="telegram-native-open"', false);
+        $onlyNative->assertDontSee('data-e2e="telegram-browser-open"', false);
+
+        $onlyBrowser = $this->actingAs($courier, 'web')
+            ->withSession(['telegram_deep_link' => 'https://t.me/poof_bot?start=abc'])
+            ->get(route('courier.profile'));
+        $onlyBrowser->assertOk();
+        $onlyBrowser->assertSee('data-e2e="telegram-browser-open"', false);
+        $onlyBrowser->assertDontSee('data-e2e="telegram-native-open"', false);
+    }
     public function test_link_action_flashes_manual_start_command_and_profile_renders_it(): void
     {
         config()->set('services.telegram.bot_username', 'poof_bot');
