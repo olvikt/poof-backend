@@ -9,7 +9,9 @@ use App\Http\Resources\CourierScheduledReservationResource;
 use App\Models\CourierOrderInterest;
 use App\Models\Order;
 use App\Models\OrderOffer;
+use App\Models\User;
 use App\Services\Courier\CourierPresenceService;
+use App\Services\Dispatch\OfferDispatcher;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Log;
@@ -43,7 +45,7 @@ class CourierOrderController extends Controller
 
         $orders = CourierAvailableOfferResource::collection($offers)->resolve();
 
-        $scheduledReservations = $hasActiveOrder
+        $scheduledReservations = $hasActiveOrder || ! $this->isCourierEligibleForScheduledVisibility($courier)
             ? collect()
             : Order::query()
                 ->where('status', Order::STATUS_SEARCHING)
@@ -59,14 +61,27 @@ class CourierOrderController extends Controller
                         ->whereNotNull('expires_at')
                         ->where('expires_at', '>', now());
                 })
+                ->when($courier->last_lat && $courier->last_lng, function ($q) use ($courier): void {
+                    $radiusKm = app(OfferDispatcher::class)->primaryRadiusKm;
+                    $lat = (float) $courier->last_lat;
+                    $lng = (float) $courier->last_lng;
+                    $latDelta = $radiusKm / 111.0;
+                    $lngDelta = $radiusKm / max(cos(deg2rad($lat)), 0.01);
+                    $q->whereBetween('lat', [$lat - $latDelta, $lat + $latDelta])
+                        ->whereBetween('lng', [$lng - $lngDelta, $lng + $lngDelta]);
+                })
                 ->orderBy('window_from_at')
                 ->limit($limit)
                 ->get();
 
-        $orders = array_values(array_merge(
+        $orders = collect(array_merge(
             $orders,
             CourierScheduledReservationResource::collection($scheduledReservations)->resolve()
-        ));
+        ))
+            ->sortBy(fn (array $item) => $item['service']['window_from_at'] ?? $item['scheduled_window']['from'] ?? now()->toISOString())
+            ->take($limit)
+            ->values()
+            ->all();
 
         foreach ($orders as $orderPayload) {
             if (($orderPayload['reservation_stage'] ?? null) === 'offered') {
@@ -90,6 +105,15 @@ class CourierOrderController extends Controller
                 'count' => $offers->count(),
             ],
         ]);
+    }
+
+    private function isCourierEligibleForScheduledVisibility(User $courier): bool
+    {
+        if (! $courier->is_active || ! $courier->is_verified || ! $courier->is_online || $courier->is_busy) {
+            return false;
+        }
+
+        return $courier->last_lat !== null && $courier->last_lng !== null;
     }
 
     /**

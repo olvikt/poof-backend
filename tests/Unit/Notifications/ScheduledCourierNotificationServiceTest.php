@@ -83,4 +83,17 @@ class ScheduledCourierNotificationServiceTest extends TestCase
             && ($context['endpoint'] ?? null) === 'https://api.telegram.org/bot<redacted>/sendMessage'
             && ($context['description'] ?? null) === 'telegram bot token is not configured');
     }
+
+    public function test_deduplicates_same_event_order_and_courier(): void
+    {
+        Http::fake();
+        $order = Order::factory()->create();
+        $courier = User::factory()->create(['role' => User::ROLE_COURIER, 'telegram_chat_id' => '1', 'telegram_notifications_orders_enabled' => true]);
+        $service = app(ScheduledCourierNotificationService::class);
+
+        $service->notifyScheduledOrderVisible($order, $courier);
+        $service->notifyScheduledOrderVisible($order, $courier);
+
+        Http::assertSentCount(1);
+    }
 }

@@ -21,8 +21,8 @@ class CourierScheduledReservationResource extends JsonResource
             ? CourierOrderInterest::query()->where('order_id', $this->id)->where('courier_id', $courierId)->latest('id')->first()
             : null;
 
-        $windowFromAt = $this->asDateTime($this->window_from_at);
-        $windowToAt = $this->asDateTime($this->window_to_at);
+        $windowFromAt = $this->asDateTime($this->window_from_at) ?? $this->legacyWindowAt($this->scheduled_date, $this->scheduled_time_from);
+        $windowToAt = $this->asDateTime($this->window_to_at) ?? $this->legacyWindowAt($this->scheduled_date, $this->scheduled_time_to);
         $dispatchAvailableAt = $this->asDateTime($this->dispatch_available_at);
         $finalMatchingStartsAt = $windowFromAt?->subMinutes((int) config('courier_runtime.scheduled_matching.lead_minutes', 30));
 
@@ -66,6 +66,15 @@ class CourierScheduledReservationResource extends JsonResource
             'primary_cta' => $hasInterest ? 'withdraw_interest' : 'express_interest',
             'primary_cta_label' => $hasInterest ? 'Скасувати готовність' : 'Готовий виконати',
         ];
+    }
+
+    private function legacyWindowAt(mixed $date, mixed $time): ?CarbonImmutable
+    {
+        if (empty($date) || empty($time)) {
+            return null;
+        }
+
+        return CarbonImmutable::parse(sprintf('%s %s', (string) $date, substr((string) $time, 0, 8)));
     }
 
     private function asDateTime(mixed $value): ?CarbonImmutable
