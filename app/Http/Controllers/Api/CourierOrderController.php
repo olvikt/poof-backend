@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api;
 use App\Actions\Orders\Lifecycle\AcceptOrderByCourierAction;
 use App\Http\Controllers\Controller;
 use App\Http\Resources\CourierAvailableOfferResource;
+use App\Http\Resources\CourierScheduledReservationResource;
 use App\Models\CourierOrderInterest;
 use App\Models\Order;
 use App\Models\OrderOffer;
@@ -41,6 +42,31 @@ class CourierOrderController extends Controller
                 ->get();
 
         $orders = CourierAvailableOfferResource::collection($offers)->resolve();
+
+        $scheduledReservations = $hasActiveOrder
+            ? collect()
+            : Order::query()
+                ->where('status', Order::STATUS_SEARCHING)
+                ->where('payment_status', Order::PAY_PAID)
+                ->whereNull('courier_id')
+                ->where(function ($q): void {
+                    $q->whereNotNull('window_from_at')
+                        ->orWhereNotNull('scheduled_date');
+                })
+                ->whereDoesntHave('offers', function ($q) use ($courier): void {
+                    $q->where('courier_id', (int) $courier->id)
+                        ->where('status', OrderOffer::STATUS_PENDING)
+                        ->whereNotNull('expires_at')
+                        ->where('expires_at', '>', now());
+                })
+                ->orderBy('window_from_at')
+                ->limit($limit)
+                ->get();
+
+        $orders = array_values(array_merge(
+            $orders,
+            CourierScheduledReservationResource::collection($scheduledReservations)->resolve()
+        ));
 
         foreach ($orders as $orderPayload) {
             if (($orderPayload['reservation_stage'] ?? null) === 'offered') {
