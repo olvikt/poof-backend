@@ -6,8 +6,8 @@ return [
     'telegram' => [
         'title' => 'Telegram-сповіщення',
         'status_label' => 'Статус',
-        'status_linked' => 'Підʼєднано: :account',
-        'status_unlinked' => 'Не підʼєднано',
+        'status_linked' => 'Під'єднано: :account',
+        'status_unlinked' => 'Не під'єднано',
         'account_fallback' => 'Telegram-акаунт',
         'bot_unavailable' => 'Telegram бот тимчасово недоступний.',
         'link' => 'Під'єднати Telegram',
