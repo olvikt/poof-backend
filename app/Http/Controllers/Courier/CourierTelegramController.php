@@ -18,7 +18,8 @@ class CourierTelegramController extends Controller
         abort_if(! $courier instanceof User || ! $courier->isCourier(), 403);
         $link = $bindingService->generateForCourier($courier);
 
-        return back()->with('telegram_deep_link', $link['deep_link']);
+        return redirect()->to(route('courier.profile').'#courier-telegram-block')
+            ->with('telegram_deep_link', $link['deep_link']);
     }
 
     public function updatePreferences(Request $request): RedirectResponse
@@ -33,7 +34,8 @@ class CourierTelegramController extends Controller
 
         $courier->forceFill($data)->save();
 
-        return back()->with('success', 'Telegram settings updated.');
+        return redirect()->to(route('courier.profile').'#courier-telegram-block')
+            ->with('success', 'Telegram settings updated.');
     }
 
     public function unlink(TelegramBindingService $bindingService): RedirectResponse
@@ -42,6 +44,7 @@ class CourierTelegramController extends Controller
         abort_if(! $courier instanceof User || ! $courier->isCourier(), 403);
         $bindingService->unlink($courier);
 
-        return back()->with('success', 'Telegram unlinked.');
+        return redirect()->to(route('courier.profile').'#courier-telegram-block')
+            ->with('success', 'Telegram unlinked.');
     }
 }
