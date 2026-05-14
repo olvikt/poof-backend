@@ -22,19 +22,22 @@ class TelegramCourierBindingTest extends TestCase
         $payload = app(TelegramBindingService::class)->generateForCourier($courier);
 
         $this->assertStringContainsString('https://t.me/poof_bot?start=', $payload['deep_link']);
+        $this->assertStringStartsWith('/start ', $payload['start_command']);
         $this->assertDatabaseCount('telegram_bind_tokens', 1);
+        $this->assertSame(1, TelegramBindToken::query()->where('user_id', $courier->id)->whereNull('used_at')->where('expires_at', '>', now())->count());
     }
 
     public function test_webhook_binds_success_and_reuse_expired_invalid_rejected(): void
     {
         $courier = User::factory()->create(['role' => User::ROLE_COURIER]);
         $binding = app(TelegramBindingService::class)->generateForCourier($courier);
+        $token = substr($binding['start_command'], 7);
 
-        $this->postJson('/api/telegram/webhook', ['message' => ['text' => '/start '.$binding['token'], 'chat' => ['id' => '777'], 'from' => ['id' => 45, 'username' => 'nick']]])->assertOk();
+        $this->postJson('/api/telegram/webhook', ['message' => ['text' => '/start '.$token, 'chat' => ['id' => '777'], 'from' => ['id' => 45, 'username' => 'nick']]])->assertOk();
         $courier->refresh();
         $this->assertSame('777', $courier->telegram_chat_id);
 
-        $this->postJson('/api/telegram/webhook', ['message' => ['text' => '/start '.$binding['token'], 'chat' => ['id' => '777'], 'from' => ['id' => 45]]])->assertStatus(422);
+        $this->postJson('/api/telegram/webhook', ['message' => ['text' => '/start '.$token, 'chat' => ['id' => '777'], 'from' => ['id' => 45]]])->assertStatus(422);
 
         $this->postJson('/api/telegram/webhook', ['message' => ['text' => '/start invalid', 'chat' => ['id' => '777']]])->assertStatus(422);
 
@@ -125,6 +128,66 @@ class TelegramCourierBindingTest extends TestCase
         $this->assertStringContainsString('https://t.me/poof_bot?start=', $secondDeepLink);
         $this->assertNotSame($firstDeepLink, $secondDeepLink);
     }
+
+
+    public function test_repeated_connect_invalidates_previous_active_tokens(): void
+    {
+        config()->set('services.telegram.bot_username', 'poof_bot');
+        $courier = User::factory()->create(['role' => User::ROLE_COURIER]);
+
+        app(TelegramBindingService::class)->generateForCourier($courier);
+        app(TelegramBindingService::class)->generateForCourier($courier);
+
+        $this->assertSame(1, TelegramBindToken::query()->where('user_id', $courier->id)->whereNull('used_at')->where('expires_at', '>', now())->count());
+    }
+
+    public function test_unlink_invalidates_active_tokens(): void
+    {
+        $courier = User::factory()->create(['role' => User::ROLE_COURIER]);
+        app(TelegramBindingService::class)->generateForCourier($courier);
+
+        app(TelegramBindingService::class)->unlink($courier);
+
+        $this->assertSame(0, TelegramBindToken::query()->where('user_id', $courier->id)->whereNull('used_at')->where('expires_at', '>', now())->count());
+    }
+
+    public function test_rebind_after_unlink_with_fresh_token_succeeds_and_old_token_fails(): void
+    {
+        $courier = User::factory()->create(['role' => User::ROLE_COURIER]);
+        $service = app(TelegramBindingService::class);
+
+        $first = $service->generateForCourier($courier);
+        $firstToken = substr($first['start_command'], 7);
+        $this->postJson('/api/telegram/webhook', ['message' => ['text' => '/start '.$firstToken, 'chat' => ['id' => '777'], 'from' => ['id' => 45]]])->assertOk();
+
+        $service->unlink($courier);
+        $this->postJson('/api/telegram/webhook', ['message' => ['text' => '/start '.$firstToken, 'chat' => ['id' => '777'], 'from' => ['id' => 45]]])->assertStatus(422);
+
+        $second = $service->generateForCourier($courier);
+        $secondToken = substr($second['start_command'], 7);
+        $this->postJson('/api/telegram/webhook', ['message' => ['text' => '/start '.$secondToken, 'chat' => ['id' => '777'], 'from' => ['id' => 45, 'username' => 'nick2']]])->assertOk();
+
+        $courier->refresh();
+        $this->assertSame('777', $courier->telegram_chat_id);
+        $this->assertSame('45', $courier->telegram_user_id);
+    }
+
+    public function test_link_action_flashes_manual_start_command_and_profile_renders_it(): void
+    {
+        config()->set('services.telegram.bot_username', 'poof_bot');
+        $courier = User::factory()->create(['role' => User::ROLE_COURIER]);
+
+        $response = $this->actingAs($courier, 'web')->post(route('courier.profile.telegram.link'));
+        $response->assertSessionHas('telegram_start_command');
+
+        $command = (string) session('telegram_start_command');
+        $this->assertStringStartsWith('/start ', $command);
+
+        $page = $this->actingAs($courier, 'web')->get(route('courier.profile'));
+        $page->assertSee('Якщо Telegram просто відкрив чат, надішліть цю команду боту:');
+        $page->assertSee($command);
+    }
+
     public function test_unauthorized_users_cannot_call_courier_telegram_endpoints(): void
     {
         $courier = User::factory()->create(['role' => User::ROLE_COURIER]);
