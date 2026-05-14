@@ -31,10 +31,12 @@ class TelegramBindingService
         ]);
 
         $bot = ltrim((string) config('services.telegram.bot_username'), '@');
-        $deepLink = sprintf('https://t.me/%s?start=%s', $bot, $token);
+        $deepLink = 'https://t.me/'.rawurlencode($bot).'?start='.rawurlencode($token);
+        $tgLink = 'tg://resolve?domain='.rawurlencode($bot).'&start='.rawurlencode($token);
 
         return [
             'deep_link' => $deepLink,
+            'tg_deep_link' => $tgLink,
             'start_command' => '/start '.$token,
             'expires_at' => $expiresAt->toIso8601String(),
         ];

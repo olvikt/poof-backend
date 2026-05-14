@@ -26,7 +26,15 @@ class TelegramWebhookController extends Controller
             return response()->json(['ok' => true]);
         }
 
-        if (! preg_match('/^\/start\s+([^\s]+)$/', $text, $matches)) {
+        $normalizedText = preg_replace('/\s+/', ' ', trim($text)) ?? '';
+
+        if ($normalizedText === '/start') {
+            Log::info('plain_start_missing_payload', ['chat_id' => $chatId, 'from_id' => $fromId]);
+
+            return response()->json(['ok' => true]);
+        }
+
+        if (! preg_match('/^\/start\s+([A-Za-z0-9_-]+)$/', $normalizedText, $matches)) {
             Log::info('telegram_webhook_ignored', ['reason' => 'unsupported_command', 'chat_id' => $chatId, 'from_id' => $fromId, 'has_text' => true]);
 
             return response()->json(['ok' => true]);
