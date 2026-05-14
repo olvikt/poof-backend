@@ -141,7 +141,7 @@
             $telegramUsername = $telegram['telegram_username'] ?? null;
             $telegramBotConfigured = filled(config('services.telegram.bot_username'));
         @endphp
-        <div class="mt-3 rounded-xl border border-white/10 bg-[#101b2b] p-3" data-e2e="courier-telegram-block">
+        <div id="courier-telegram-block" class="mt-3 rounded-xl border border-white/10 bg-[#101b2b] p-3" data-e2e="courier-telegram-block">
             <div class="text-xs uppercase tracking-wide text-slate-400">{{ __('courier.telegram.status_label') }}</div>
             <p class="mt-1 text-sm font-medium" data-e2e="courier-telegram-status">
                 @if($isTelegramLinked)

@@ -61,8 +61,8 @@ class TelegramCourierBindingTest extends TestCase
 
         $response->assertOk();
         $response->assertSee('Telegram-сповіщення');
-        $response->assertSee('Не підʼєднано');
-        $response->assertSee('Підʼєднати Telegram');
+        $response->assertSee("Не під'єднано");
+        $response->assertSee("Під'єднати Telegram");
     }
 
     public function test_link_action_shows_deep_link_in_profile(): void
@@ -88,7 +88,7 @@ class TelegramCourierBindingTest extends TestCase
         ]);
 
         $page = $this->actingAs($courier, 'web')->get(route('courier.profile'));
-        $page->assertOk()->assertSee('Підʼєднано: @nick')->assertSee('Сповіщення про замовлення')->assertSee('Новини та акції');
+        $page->assertOk()->assertSee("Під'єднано: @nick")->assertSee('Сповіщення про замовлення')->assertSee('Новини та акції');
 
         $this->actingAs($courier, 'web')->post(route('courier.profile.telegram.preferences'), [
             'telegram_notifications_orders_enabled' => 0,
@@ -100,6 +100,31 @@ class TelegramCourierBindingTest extends TestCase
         $this->assertTrue((bool) $courier->telegram_notifications_marketing_enabled);
     }
 
+
+    public function test_reconnect_flow_keeps_telegram_anchor_and_generates_new_link_after_unlink(): void
+    {
+        config()->set('services.telegram.bot_username', 'poof_bot');
+        $courier = User::factory()->create(['role' => User::ROLE_COURIER, 'telegram_chat_id' => '100', 'telegram_username' => 'old', 'telegram_linked_at' => now()]);
+
+        $linkResponse = $this->actingAs($courier, 'web')->post(route('courier.profile.telegram.link'));
+        $linkResponse->assertRedirect(route('courier.profile').'#courier-telegram-block');
+        $firstDeepLink = (string) session('telegram_deep_link');
+        $this->assertStringContainsString('https://t.me/poof_bot?start=', $firstDeepLink);
+
+        $unlinkResponse = $this->actingAs($courier, 'web')->post(route('courier.profile.telegram.unlink'));
+        $unlinkResponse->assertRedirect(route('courier.profile').'#courier-telegram-block');
+        $courier->refresh();
+        $this->assertNull($courier->telegram_chat_id);
+        $this->assertNull($courier->telegram_user_id);
+        $this->assertNull($courier->telegram_username);
+        $this->assertNull($courier->telegram_linked_at);
+
+        $relinkResponse = $this->actingAs($courier, 'web')->post(route('courier.profile.telegram.link'));
+        $relinkResponse->assertRedirect(route('courier.profile').'#courier-telegram-block');
+        $secondDeepLink = (string) session('telegram_deep_link');
+        $this->assertStringContainsString('https://t.me/poof_bot?start=', $secondDeepLink);
+        $this->assertNotSame($firstDeepLink, $secondDeepLink);
+    }
     public function test_unauthorized_users_cannot_call_courier_telegram_endpoints(): void
     {
         $courier = User::factory()->create(['role' => User::ROLE_COURIER]);

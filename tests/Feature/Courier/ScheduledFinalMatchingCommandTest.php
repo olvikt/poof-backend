@@ -137,4 +137,34 @@ class ScheduledFinalMatchingCommandTest extends TestCase
 
         $this->assertDatabaseMissing('order_offers', ['order_id' => $order->id, 'courier_id' => $courier->id]);
     }
+
+    public function test_subscription_execution_order_uses_same_final_matching_with_fallback_when_interested_not_eligible(): void
+    {
+        CarbonImmutable::setTestNow('2026-05-12 10:00:00');
+        config()->set('courier_runtime.scheduled_matching.min_reliable_rating', 4.5);
+
+        $interested = User::factory()->verifiedCourier()->create(['is_online' => true, 'is_busy' => false]);
+        $fallback = User::factory()->verifiedCourier()->create(['is_online' => true, 'is_busy' => false]);
+
+        Courier::query()->create(['user_id' => $interested->id, 'status' => Courier::STATUS_ONLINE, 'is_verified' => true, 'last_location_at' => now(), 'rating' => 3.5]);
+        Courier::query()->create(['user_id' => $fallback->id, 'status' => Courier::STATUS_ONLINE, 'is_verified' => true, 'last_location_at' => now(), 'rating' => 4.9]);
+
+        $order = Order::createForTesting([
+            'client_id' => User::factory()->create()->id,
+            'status' => Order::STATUS_SEARCHING,
+            'payment_status' => Order::PAY_PAID,
+            'origin' => Order::ORIGIN_SUBSCRIPTION,
+            'subscription_id' => 123,
+            'window_from_at' => now()->addMinutes(30),
+            'window_to_at' => now()->addHours(2),
+        ]);
+
+        CourierOrderInterest::query()->create(['order_id' => $order->id, 'courier_id' => $interested->id, 'status' => CourierOrderInterest::STATUS_INTERESTED, 'expressed_at' => now()]);
+
+        Artisan::call('courier:finalize-scheduled-order-matching');
+
+        $this->assertDatabaseMissing('order_offers', ['order_id' => $order->id, 'courier_id' => $interested->id, 'status' => OrderOffer::STATUS_PENDING]);
+        $this->assertDatabaseHas('order_offers', ['order_id' => $order->id, 'courier_id' => $fallback->id, 'status' => OrderOffer::STATUS_PENDING]);
+        $this->assertNull($order->fresh()->courier_id);
+    }
 }
