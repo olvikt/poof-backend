@@ -84,7 +84,9 @@ class TelegramCourierBindingTest extends TestCase
 
         $response->assertRedirect();
         $response->assertSessionHas('telegram_deep_link');
+        $response->assertSessionHas('telegram_native_deep_link');
         $this->assertStringContainsString('https://t.me/poof_bot?start=', (string) session('telegram_deep_link'));
+        $this->assertStringContainsString('tg://resolve?domain=poof_bot&start=', (string) session('telegram_native_deep_link'));
     }
 
     public function test_linked_courier_sees_username_and_preferences_persist(): void
@@ -186,12 +188,14 @@ class TelegramCourierBindingTest extends TestCase
 
         $response = $this->actingAs($courier, 'web')->post(route('courier.profile.telegram.link'));
         $response->assertSessionHas('telegram_start_command');
+        $response->assertSessionHas('telegram_native_deep_link');
 
         $command = (string) session('telegram_start_command');
         $this->assertStringStartsWith('/start ', $command);
 
         $page = $this->actingAs($courier, 'web')->get(route('courier.profile'));
         $page->assertSee('Якщо Telegram відкрився без токена, скопіюйте та надішліть цю команду одним повідомленням.');
+        $page->assertSee('Відкрити в застосунку Telegram');
         $page->assertSee($command);
     }
 

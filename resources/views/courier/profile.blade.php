@@ -169,6 +169,11 @@
                         {{ __('courier.telegram.open') }}
                     </a>
                 @endif
+                @if(session('telegram_native_deep_link'))
+                    <a href="{{ session('telegram_native_deep_link') }}" class="rounded-xl border border-cyan-400/50 bg-cyan-400/10 px-3 py-2 text-xs font-semibold text-cyan-200" data-e2e="courier-telegram-open-native-link">
+                        Відкрити в застосунку Telegram
+                    </a>
+                @endif
                 @if($isTelegramLinked)
                     <form method="POST" action="{{ route('courier.profile.telegram.unlink') }}">
                         @csrf

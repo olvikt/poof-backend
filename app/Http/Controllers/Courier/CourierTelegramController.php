@@ -20,6 +20,7 @@ class CourierTelegramController extends Controller
 
         return redirect()->to(route('courier.profile').'#courier-telegram-block')
             ->with('telegram_deep_link', $link['deep_link'])
+            ->with('telegram_native_deep_link', $link['tg_deep_link'] ?? null)
             ->with('telegram_start_command', $link['start_command']);
     }
 
