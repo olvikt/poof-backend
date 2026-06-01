@@ -26,12 +26,19 @@ source_path="${artifacts_dir}/${candidate_name}"
 sha_file="${source_path}.sha256"
 
 if [[ ! -f "$source_path" ]]; then
-  echo 'result=error'
-  echo 'reason=artifact_not_found_in_shared_dir'
-  echo "artifacts_dir=$artifacts_dir"
-  echo "expected_artifact=$candidate_name"
-  echo 'artifact_delivered=false'
-  exit 3
+  local_fallback="./${candidate_name}"
+  if [[ -f "$local_fallback" ]]; then
+    source_path="$local_fallback"
+    sha_file="${source_path}.sha256"
+  else
+    echo 'result=error'
+    echo 'reason=artifact_not_found_in_shared_dir'
+    echo "artifacts_dir=$artifacts_dir"
+    echo "expected_artifact=$candidate_name"
+    echo "local_fallback_checked=$local_fallback"
+    echo 'artifact_delivered=false'
+    exit 3
+  fi
 fi
 
 cp "$source_path" "$dest_file"
@@ -55,5 +62,9 @@ fi
 echo "artifact_path=$dest_file"
 echo "artifact_sha256=$actual_sha"
 echo 'result=ok'
-echo 'reason=artifact_delivered_from_shared_dir'
+if [[ "$source_path" == "${artifacts_dir}/"* ]]; then
+  echo 'reason=artifact_delivered_from_shared_dir'
+else
+  echo 'reason=artifact_delivered_from_local_fallback'
+fi
 echo 'artifact_delivered=true'
