@@ -1,5 +1,6 @@
 @props([
     'maxWidth' => 'max-w-sm',
+    'overlayPaddingClass' => 'px-4',
     'overlayClass' => '',
     'panelClass' => '',
     'overlayPaddingClass' => 'px-4',
